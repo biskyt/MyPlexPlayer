@@ -334,7 +334,8 @@ interface EpgDao {
     fun observeMatchCounts(pid: Long): Flow<MatchCounts>
 }
 
-const val MAX_PROGRAMME_MS = 12 * 3_600_000L
+/** Longest programme the time-range queries allow for; IPTV guides often use 24-hour placeholder entries. */
+const val MAX_PROGRAMME_MS = 26 * 3_600_000L
 
 data class MatchRow(
     @androidx.room.Embedded val channel: ChannelEntity,

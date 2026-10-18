@@ -72,13 +72,15 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
     var windowStart by remember { mutableLongStateOf(System.currentTimeMillis() / HALF_HOUR * HALF_HOUR) }
     val guideVersion by epg.changes.collectAsState()
     val now by rememberMinuteClock()
-    // A fresh loader per time window (and guide update): rows on screen fetch just that window's programmes in batches.
-    val loader = remember(windowStart, guideVersion) {
+    // A fresh loader per time window: rows on screen fetch just that window's programmes in batches.
+    val loader = remember(windowStart) {
         val start = windowStart
         BatchLoader(scope) { ids ->
             epg.programmes(vm.playlistId.value, ids, start, start + WINDOW_MS).let { r -> ids.associateWith { r[it].orEmpty() } }
         }
     }
+    // After a guide update, reload the rows already shown (keeping them on screen meanwhile).
+    LaunchedEffect(guideVersion) { loader.refreshAll() }
     // Read only inside FocusedInfo, so moving focus around the grid doesn't recompose the grid itself.
     val focused = remember { mutableStateOf<Pair<ChannelEntity, ChannelProgramme?>?>(null) }
 

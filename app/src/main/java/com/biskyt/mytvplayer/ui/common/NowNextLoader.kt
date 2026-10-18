@@ -109,7 +109,7 @@ class NowNextLoader(
     }
 
     private companion object {
-        const val LOOKAHEAD_MS = 4 * 3_600_000L
+        const val LOOKAHEAD_MS = 8 * 3_600_000L
 
         fun pick(list: List<ChannelProgramme>, now: Long): NowNext {
             val current = list.firstOrNull { it.startMs <= now && it.stopMs > now }

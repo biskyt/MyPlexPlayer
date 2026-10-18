@@ -23,7 +23,6 @@ import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -178,18 +177,23 @@ class EpgRepository(
     }
 
     private val pendingImports = HashMap<Long, MutableSet<String>>()
-    private var pendingJob: Job? = null
+    private var importScheduled = false
 
     /**
      * Reading a guide file takes seconds on a slow box, so channels re-mapped in quick succession are collected and
-     * their programmes loaded in one pass per guide shortly after the last change.
+     * their programmes loaded in one pass per guide. A running import is never cancelled; changes made while it runs
+     * are picked up by the next one.
      */
     private fun queueProgrammeImport(sourceId: Long, xmlId: String) = synchronized(pendingImports) {
         pendingImports.getOrPut(sourceId) { HashSet() } += xmlId
-        pendingJob?.cancel()
-        pendingJob = scope.launch(Dispatchers.IO) {
+        if (importScheduled) return@synchronized
+        importScheduled = true
+        scope.launch(Dispatchers.IO) {
             delay(REMAP_DEBOUNCE_MS)
-            val work = synchronized(pendingImports) { pendingImports.toMap().also { pendingImports.clear() } }
+            val work = synchronized(pendingImports) {
+                importScheduled = false
+                pendingImports.toMap().also { pendingImports.clear() }
+            }
             work.forEach { (source, ids) -> runCatching { importProgrammes(source, ids, onlyThese = true) } }
             changed()
         }

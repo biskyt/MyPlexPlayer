@@ -37,7 +37,7 @@ class NavigationAndLoaderTest {
         assertEquals(20L, ids.cycle(10L))
         assertEquals(10L, ids.cycle(30L))
         assertEquals(30L, ids.cycle(10L, -1))
-        assertEquals(20L, ids.cycle(99L)) // unknown → treated as the first
+        assertEquals(10L, ids.cycle(99L)) // unknown → the first option
     }
 
     private fun prog(id: Long, start: Long, stop: Long, title: String) = ChannelProgramme(id, start, stop, title, null, null)
