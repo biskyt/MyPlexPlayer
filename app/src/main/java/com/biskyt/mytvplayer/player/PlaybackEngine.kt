@@ -1,0 +1,155 @@
+package com.biskyt.mytvplayer.player
+
+import android.content.Context
+import androidx.annotation.OptIn
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
+import androidx.media3.common.Format
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioCapabilities
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
+import com.biskyt.mytvplayer.core.player.SubtitlePolicy
+import com.biskyt.mytvplayer.core.player.TextTrack
+import com.biskyt.mytvplayer.data.BufferSize
+import com.biskyt.mytvplayer.data.Settings
+
+/**
+ * Builds and drives one ExoPlayer for a playback session.
+ *
+ * Audio passthrough (default on): the stock audio sink sends Dolby/DTS bitstreams to the TV or soundbar when the
+ * HDMI device says it can decode them. When the user turns it off, the sink is limited to PCM so everything is
+ * decoded on the box (hardware decoders first, then the FFmpeg extension).
+ */
+@OptIn(UnstableApi::class)
+class PlaybackEngine(private val context: Context, private val settings: Settings) {
+
+    val player: ExoPlayer = ExoPlayer.Builder(context, renderersFactory())
+        .setLoadControl(loadControl(settings.bufferSize))
+        .setMediaSourceFactory(
+            DefaultMediaSourceFactory(
+                DefaultHttpDataSource.Factory()
+                    .setUserAgent("MyTVPlayer")
+                    .setAllowCrossProtocolRedirects(true)
+                    .setConnectTimeoutMs(10_000)
+                    .setReadTimeoutMs(15_000),
+                DefaultExtractorsFactory()
+                    // Start live MPEG-TS faster and cope with streams that don't flag keyframes.
+                    .setTsExtractorFlags(DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS),
+            ),
+        )
+        .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
+        .setHandleAudioBecomingNoisy(true)
+        .build()
+
+    /** True once the default subtitle choice has been applied to the current stream (the user may change it after). */
+    private var subtitlesApplied = false
+
+    fun play(url: String, hls: Boolean) {
+        subtitlesApplied = false
+        val item = MediaItem.Builder().setUri(url).apply { if (hls) setMimeType(MimeTypes.APPLICATION_M3U8) }.build()
+        player.setMediaItem(item)
+        player.prepare()
+        player.playWhenReady = true
+    }
+
+    /** Applies the user's default subtitle setting the first time tracks are known for a stream. */
+    fun applyDefaultSubtitles(tracks: Tracks) {
+        if (subtitlesApplied) return
+        val text = tracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }
+        if (text.isEmpty() && tracks.groups.isEmpty()) return
+        subtitlesApplied = true
+        val candidates = text.flatMapIndexed { gi, g ->
+            (0 until g.length).map { ti ->
+                val f = g.getTrackFormat(ti)
+                TextTrack("$gi:$ti", f.language, (f.selectionFlags and C.SELECTION_FLAG_FORCED) != 0)
+            }
+        }
+        val choice = SubtitlePolicy.choose(candidates, settings.subtitleMode, settings.effectiveSubtitleLanguage)
+        val params = player.trackSelectionParameters.buildUpon()
+        if (choice == null) {
+            params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+        } else {
+            val (gi, ti) = choice.id.split(':').map(String::toInt)
+            params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).setOverrideForType(TrackSelectionOverride(text[gi].mediaTrackGroup, ti))
+        }
+        player.trackSelectionParameters = params.build()
+    }
+
+    /** Selects a track of [type] (audio or text); null turns that type off. */
+    fun selectTrack(type: Int, group: Tracks.Group?, index: Int) {
+        val params = player.trackSelectionParameters.buildUpon()
+        if (group == null) {
+            params.setTrackTypeDisabled(type, true)
+        } else {
+            params.setTrackTypeDisabled(type, false).setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, index))
+        }
+        player.trackSelectionParameters = params.build()
+    }
+
+    /** Human-readable description of how the current audio is being output, e.g. "Passthrough · Dolby Atmos". */
+    fun audioOutputLabel(): String {
+        val f = player.audioFormat ?: return "No audio"
+        val name = encodedName(f.sampleMimeType)
+        if (name != null && settings.audioPassthrough) {
+            val caps = AudioCapabilities.getCapabilities(context, AudioAttributes.DEFAULT, null)
+            if (caps.isPassthroughPlaybackSupported(f, AudioAttributes.DEFAULT)) return "Passthrough · $name"
+        }
+        val channels = f.channelCount.takeIf { it != Format.NO_VALUE } ?: 2
+        val decoded = if (name != null) "$name decoded" else "Audio"
+        return if (channels > 2) "$decoded · ${channels}ch" else "$decoded · Stereo"
+    }
+
+    fun release() = player.release()
+
+    private fun renderersFactory() = object : DefaultRenderersFactory(context) {
+        override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink? =
+            if (settings.audioPassthrough) {
+                super.buildAudioSink(context, enableFloatOutput, enableAudioTrackPlaybackParams)
+            } else {
+                @Suppress("DEPRECATION")
+                DefaultAudioSink.Builder(context).setAudioCapabilities(AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES).build()
+            }
+    }.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON).setEnableDecoderFallback(true)
+
+    private fun loadControl(size: BufferSize): DefaultLoadControl {
+        // Byte caps matter on low-RAM boxes: high-bitrate streams would otherwise fill memory before the time limit.
+        val (minMs, maxMs, bytes) = when (size) {
+            BufferSize.SMALL -> Triple(8_000, 20_000, 8 * MB)
+            BufferSize.NORMAL -> Triple(15_000, 30_000, 16 * MB)
+            BufferSize.LARGE -> Triple(30_000, 60_000, 32 * MB)
+        }
+        return DefaultLoadControl.Builder()
+            .setBufferDurationsMs(minMs, maxMs, 1_500, 3_000)
+            .setTargetBufferBytes(bytes)
+            .setPrioritizeTimeOverSizeThresholds(false)
+            .build()
+    }
+
+    private companion object {
+        const val MB = 1024 * 1024
+
+        fun encodedName(mime: String?): String? = when (mime) {
+            MimeTypes.AUDIO_AC3 -> "Dolby Digital"
+            MimeTypes.AUDIO_E_AC3 -> "Dolby Digital Plus"
+            MimeTypes.AUDIO_E_AC3_JOC -> "Dolby Atmos"
+            MimeTypes.AUDIO_AC4 -> "Dolby AC-4"
+            MimeTypes.AUDIO_TRUEHD -> "Dolby TrueHD"
+            MimeTypes.AUDIO_DTS -> "DTS"
+            MimeTypes.AUDIO_DTS_HD -> "DTS-HD"
+            MimeTypes.AUDIO_DTS_X -> "DTS:X"
+            else -> null
+        }
+    }
+}
