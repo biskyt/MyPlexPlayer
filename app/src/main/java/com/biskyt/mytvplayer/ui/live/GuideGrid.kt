@@ -57,6 +57,7 @@ import com.biskyt.mytvplayer.ui.common.numberLabel
 import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
+import kotlinx.coroutines.delay
 
 private const val HALF_HOUR = 30 * 60_000L
 private const val HOUR = 2 * HALF_HOUR
@@ -89,7 +90,8 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
     val chunkStart = windowStart / CHUNK_STEP * CHUNK_STEP
     val loader = remember(chunkStart) {
         BatchLoader(scope) { ids ->
-            epg.programmes(vm.playlistId.value, ids, chunkStart, chunkStart + CHUNK_MS).let { r -> ids.associateWith { r[it].orEmpty() } }
+            epg.programmes(vm.playlistId.value, ids, chunkStart, chunkStart + CHUNK_MS, details = false)
+                .let { r -> ids.associateWith { r[it].orEmpty() } }
         }
     }
     // After a guide update, reload the rows already shown (keeping them on screen meanwhile).
@@ -127,7 +129,12 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        FocusedInfo(focused)
+        FocusedInfo(focused) { ch, p ->
+            // Descriptions aren't kept for the whole grid (they're large); the focused one is fetched when focus rests.
+            delay(300)
+            epg.programmes(vm.playlistId.value, listOf(ch.streamId), p.startMs, p.stopMs)[ch.streamId]
+                ?.firstOrNull { it.startMs == p.startMs }?.description
+        }
         TimeHeader(windowStart)
         val nowLine = (now - windowStart) / 60_000f
         Box(Modifier.fillMaxSize()) {
@@ -140,19 +147,24 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
                     val ch = items[index] ?: return@items
                     LaunchedEffect(ch.streamId, loader) { loader.request(ch.streamId) }
                     // Derived per row, so a new target only recomposes the row it concerns.
-                    val target by remember(ch.streamId, index) {
-                        derivedStateOf { focusTarget.value?.takeIf { it.streamId == ch.streamId || (it.streamId == null && index == 0) } }
+                    val focusTime by remember(ch.streamId, index) {
+                        derivedStateOf {
+                            focusTarget.value?.takeIf { it.streamId == ch.streamId || (it.streamId == null && index == 0) }?.time
+                        }
                     }
+                    val programmes = loader.entries[ch.streamId]
                     GuideRow(
                         ch = ch,
-                        programmes = loader.entries[ch.streamId],
+                        programmes = programmes,
                         windowStart = windowStart,
                         now = now,
-                        focusTime = target?.time,
-                        onFocusTaken = { loaded -> if (loaded && focusTarget.value === target) focusTarget.value = null },
-                        onFocus = { p ->
+                        focusTime = focusTime,
+                        onFocus = { p, isTarget ->
                             focused.value = ch to p
                             vm.focusMoved(ch.streamId, index)
+                            // The target is done once its cell has focus with the programmes loaded (until then the
+                            // placeholder holds focus, and the real cell takes it when they arrive).
+                            if (isTarget && programmes != null) focusTarget.value = null
                         },
                         onPlay = { play(ch) },
                         onOptions = { vm.optionsFor = ch },
@@ -172,12 +184,17 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
 }
 
 @Composable
-private fun FocusedInfo(focused: State<Pair<ChannelEntity, ChannelProgramme?>?>) {
+private fun FocusedInfo(
+    focused: State<Pair<ChannelEntity, ChannelProgramme?>?>,
+    description: suspend (ChannelEntity, ChannelProgramme) -> String?
+) {
     Column(Modifier.fillMaxWidth().height(64.dp)) {
         val (ch, p) = focused.value ?: return@Column
         if (p != null) {
+            var about by remember(ch.streamId, p.startMs) { mutableStateOf<String?>(null) }
+            LaunchedEffect(ch.streamId, p.startMs) { about = description(ch, p) }
             Text(p.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Muted("${ch.name} · ${formatRange(p.startMs, p.stopMs)}" + (p.description?.let { " · $it" } ?: ""))
+            Muted("${ch.name} · ${formatRange(p.startMs, p.stopMs)}" + (about?.let { " · $it" } ?: ""))
         } else {
             Text(ch.name, style = MaterialTheme.typography.titleMedium)
             Muted("No guide information")
@@ -209,8 +226,7 @@ private fun GuideRow(
     windowStart: Long,
     now: Long,
     focusTime: Long?,
-    onFocusTaken: (loaded: Boolean) -> Unit,
-    onFocus: (ChannelProgramme?) -> Unit,
+    onFocus: (ChannelProgramme?, isTarget: Boolean) -> Unit,
     onPlay: () -> Unit,
     onOptions: () -> Unit,
     onEdge: (Int, ChannelProgramme?) -> Boolean
@@ -235,8 +251,7 @@ private fun GuideRow(
             // a pending target, which then moves to the real programme once it arrives.
             Cell(
                 null, DpPerMinute * (WINDOW_MS / 60_000f), live = true, first = true, last = true,
-                focusKey = focusTime?.let { it to programmes }, onFocusTaken = { onFocusTaken(programmes != null) },
-                onFocus, onPlay, onOptions, onEdge,
+                focusKey = focusTime?.let { it to programmes }, onFocus, onPlay, onOptions, onEdge,
                 if (programmes == null) "" else "No guide information"
             )
         } else {
@@ -250,8 +265,7 @@ private fun GuideRow(
                 val width = DpPerMinute * ((end - start) / 60_000f)
                 Cell(
                     p, width, p.isLive(now), i == 0, i == visible.lastIndex,
-                    focusKey = if (i == focusIndex) focusTime else null, onFocusTaken = { onFocusTaken(true) },
-                    onFocus, onPlay, onOptions, onEdge, p.title
+                    focusKey = if (i == focusIndex) focusTime else null, onFocus, onPlay, onOptions, onEdge, p.title
                 )
                 cursor = end
             }
@@ -266,27 +280,31 @@ private fun Cell(
     live: Boolean,
     first: Boolean,
     last: Boolean,
+    /** Non-null when this cell should take focus; a new value asks again. */
     focusKey: Any?,
-    onFocusTaken: () -> Unit,
-    onFocus: (ChannelProgramme?) -> Unit,
+    onFocus: (ChannelProgramme?, isTarget: Boolean) -> Unit,
     onPlay: () -> Unit,
     onOptions: () -> Unit,
     onEdge: (Int, ChannelProgramme?) -> Boolean,
     title: String
 ) {
-    val requester = if (focusKey != null) remember { FocusRequester() } else null
-    if (requester != null) LaunchedEffect(focusKey) { runCatching { requester.requestFocus() } }
+    val requester = remember { FocusRequester() }
+    val hasFocus = remember { booleanArrayOf(false) }
+    if (focusKey != null) {
+        LaunchedEffect(focusKey) {
+            // Already focused: requesting again wouldn't report anything, so report it directly.
+            if (hasFocus[0]) onFocus(p, true) else runCatching { requester.requestFocus() }
+        }
+    }
     TvCard(
         onClick = onPlay,
         onLongClick = onOptions,
         color = if (live) Palette.surface else Palette.surfaceLow,
         modifier = Modifier.width(width).fillMaxHeight().padding(horizontal = 2.dp)
-            .then(if (requester != null) Modifier.focusRequester(requester) else Modifier)
+            .focusRequester(requester)
             .onFocusChanged {
-                if (it.isFocused) {
-                    onFocus(p)
-                    if (focusKey != null) onFocusTaken() // the target is only done once focus has really arrived
-                }
+                hasFocus[0] = it.isFocused
+                if (it.isFocused) onFocus(p, focusKey != null)
             }
             .onPreviewKeyEvent { e ->
                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
