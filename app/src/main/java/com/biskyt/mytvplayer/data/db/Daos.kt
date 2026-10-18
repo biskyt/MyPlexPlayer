@@ -89,8 +89,14 @@ interface CategoryDao {
     suspend fun deleteOthers(pid: Long, type: String, keep: List<String>)
 }
 
+/** A channel number starting with the typed digits (channels without a number are stored as 0 and never match). */
+private const val NUMBER_MATCH = "(number > 0 AND CAST(number AS TEXT) LIKE :q || '%')"
+
+/** Contains the typed text, taken literally: callers escape it with likeArg (so "%" and "_" aren't wildcards). */
+private const val LIKE_Q = "LIKE '%' || :q || '%' ESCAPE '\\'"
+
 /** A channel matches a typed filter by name, or by the start of its number. Shared by the lists and search. */
-private const val CHANNEL_MATCH = "(name LIKE '%' || :q || '%' OR CAST(number AS TEXT) LIKE :q || '%')"
+private const val CHANNEL_MATCH = "(name $LIKE_Q OR $NUMBER_MATCH)"
 
 /** Lightweight row used to restore user preferences across syncs. */
 data class ChannelPrefs(val streamId: Long, val hidden: Boolean, val sortOrder: Int?)
@@ -116,14 +122,14 @@ interface ChannelDao {
 
     @Query(
         """SELECT c.* FROM channel c JOIN favourite f ON f.playlistId = c.playlistId AND f.streamId = c.streamId
-           WHERE c.playlistId = :pid AND (:q = '' OR c.name LIKE '%' || :q || '%' OR CAST(c.number AS TEXT) LIKE :q || '%')
+           WHERE c.playlistId = :pid AND (:q = '' OR c.name $LIKE_Q OR CAST(c.number AS TEXT) LIKE :q || '%')
            ORDER BY c.position, c.name"""
     )
     fun pageFavourites(pid: Long, q: String): PagingSource<Int, ChannelEntity>
 
     @Query(
         """SELECT c.* FROM channel c JOIN recent r ON r.playlistId = c.playlistId AND r.streamId = c.streamId
-           WHERE c.playlistId = :pid AND (:q = '' OR c.name LIKE '%' || :q || '%' OR CAST(c.number AS TEXT) LIKE :q || '%')
+           WHERE c.playlistId = :pid AND (:q = '' OR c.name $LIKE_Q OR CAST(c.number AS TEXT) LIKE :q || '%')
            ORDER BY r.watchedAt DESC"""
     )
     fun pageRecent(pid: Long, q: String): PagingSource<Int, ChannelEntity>
@@ -137,6 +143,9 @@ interface ChannelDao {
            AND $CHANNEL_MATCH ORDER BY position, name LIMIT :limit"""
     )
     suspend fun search(pid: Long, q: String, limit: Int): List<ChannelEntity>
+
+    @Query("SELECT * FROM channel WHERE playlistId = :pid AND hidden = 0 AND $NUMBER_MATCH ORDER BY number LIMIT :limit")
+    suspend fun searchNumber(pid: Long, q: String, limit: Int): List<ChannelEntity>
 
     @Query("SELECT streamId FROM channel WHERE playlistId = :pid AND hidden = 0 AND categoryId = :cat ORDER BY position, name")
     suspend fun idsCategory(pid: Long, cat: String): List<Long>
@@ -288,7 +297,7 @@ interface EpgDao {
     suspend fun allChannels(): List<EpgChannelEntity>
 
     @Query(
-        """SELECT * FROM epg_channel WHERE (:q = '' OR displayName LIKE '%' || :q || '%' OR xmlId LIKE '%' || :q || '%')
+        """SELECT * FROM epg_channel WHERE (:q = '' OR displayName $LIKE_Q OR xmlId $LIKE_Q)
            ORDER BY displayName LIMIT :limit"""
     )
     suspend fun searchChannels(q: String, limit: Int): List<EpgChannelEntity>
@@ -317,8 +326,10 @@ interface EpgDao {
                   p.stopMs + m.offsetMinutes * 60000 AS stopMs, p.title, p.subtitle
            FROM programme p JOIN channel_epg_mapping m ON m.sourceId = p.sourceId AND m.xmlId = p.xmlId
            JOIN channel c ON c.playlistId = m.playlistId AND c.streamId = m.streamId
-           WHERE m.playlistId = :pid AND c.hidden = 0 AND p.stopMs > :from - m.offsetMinutes * 60000
-             AND p.title LIKE '%' || :q || '%'
+           WHERE m.playlistId = :pid AND c.hidden = 0
+             AND p.startMs > :from - m.offsetMinutes * 60000 - $MAX_PROGRAMME_MS
+             AND p.stopMs > :from - m.offsetMinutes * 60000
+             AND p.title $LIKE_Q
            ORDER BY startMs, c.position LIMIT :limit"""
     )
     suspend fun searchProgrammes(pid: Long, q: String, from: Long, limit: Int): List<ProgrammeHit>
@@ -371,7 +382,7 @@ interface EpgDao {
            LEFT JOIN channel_epg_mapping m ON m.playlistId = c.playlistId AND m.streamId = c.streamId
            LEFT JOIN epg_channel e ON e.sourceId = m.sourceId AND e.xmlId = m.xmlId
            LEFT JOIN epg_source s ON s.id = m.sourceId
-           WHERE c.playlistId = :pid AND c.hidden = 0 AND (:q = '' OR c.name LIKE '%' || :q || '%')
+           WHERE c.playlistId = :pid AND c.hidden = 0 AND (:q = '' OR c.name $LIKE_Q)
              AND CASE :status WHEN 1 THEN m.sourceId IS NULL WHEN 2 THEN m.manual = 0 WHEN 3 THEN m.manual = 1 ELSE 1 END
            ORDER BY c.position, c.name"""
     )
@@ -414,39 +425,39 @@ private const val SERIES_CARD = "SELECT seriesId AS id, title, year, coverUrl AS
 interface VodDao {
     // Lists filter by title as the user types; provider order unless sorted by date.
 
-    @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid AND (:q = '' OR title LIKE '%' || :q || '%') ORDER BY position, title")
+    @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid AND (:q = '' OR title $LIKE_Q) ORDER BY position, title")
     fun pageMovies(pid: Long, q: String): PagingSource<Int, VodCard>
 
     @Query(
-        "$MOVIE_CARD FROM movie WHERE playlistId = :pid AND categoryId = :cat AND (:q = '' OR title LIKE '%' || :q || '%') ORDER BY position, title"
+        "$MOVIE_CARD FROM movie WHERE playlistId = :pid AND categoryId = :cat AND (:q = '' OR title $LIKE_Q) ORDER BY position, title"
     )
     fun pageMovieCategory(pid: Long, cat: String, q: String): PagingSource<Int, VodCard>
 
-    @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid AND (:q = '' OR title LIKE '%' || :q || '%') ORDER BY added DESC")
+    @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid AND (:q = '' OR title $LIKE_Q) ORDER BY added DESC")
     fun pageMoviesByAdded(pid: Long, q: String): PagingSource<Int, VodCard>
 
     @Query(
         """SELECT m.streamId AS id, m.title, m.year, m.posterUrl AS imageUrl FROM movie m
            JOIN vod_favourite f ON f.playlistId = m.playlistId AND f.kind = 'movie' AND f.itemId = m.streamId
-           WHERE m.playlistId = :pid AND (:q = '' OR m.title LIKE '%' || :q || '%') ORDER BY f.addedAt DESC"""
+           WHERE m.playlistId = :pid AND (:q = '' OR m.title $LIKE_Q) ORDER BY f.addedAt DESC"""
     )
     fun pageMovieFavourites(pid: Long, q: String): PagingSource<Int, VodCard>
 
-    @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND (:q = '' OR title LIKE '%' || :q || '%') ORDER BY position, title")
+    @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND (:q = '' OR title $LIKE_Q) ORDER BY position, title")
     fun pageSeries(pid: Long, q: String): PagingSource<Int, VodCard>
 
     @Query(
-        "$SERIES_CARD FROM series WHERE playlistId = :pid AND categoryId = :cat AND (:q = '' OR title LIKE '%' || :q || '%') ORDER BY position, title"
+        "$SERIES_CARD FROM series WHERE playlistId = :pid AND categoryId = :cat AND (:q = '' OR title $LIKE_Q) ORDER BY position, title"
     )
     fun pageSeriesCategory(pid: Long, cat: String, q: String): PagingSource<Int, VodCard>
 
-    @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND (:q = '' OR title LIKE '%' || :q || '%') ORDER BY lastModified DESC")
+    @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND (:q = '' OR title $LIKE_Q) ORDER BY lastModified DESC")
     fun pageSeriesByUpdated(pid: Long, q: String): PagingSource<Int, VodCard>
 
     @Query(
         """SELECT s.seriesId AS id, s.title, s.year, s.coverUrl AS imageUrl FROM series s
            JOIN vod_favourite f ON f.playlistId = s.playlistId AND f.kind = 'series' AND f.itemId = s.seriesId
-           WHERE s.playlistId = :pid AND (:q = '' OR s.title LIKE '%' || :q || '%') ORDER BY f.addedAt DESC"""
+           WHERE s.playlistId = :pid AND (:q = '' OR s.title $LIKE_Q) ORDER BY f.addedAt DESC"""
     )
     fun pageSeriesFavourites(pid: Long, q: String): PagingSource<Int, VodCard>
 
@@ -456,10 +467,10 @@ interface VodDao {
     @Query("SELECT COUNT(*) FROM series WHERE playlistId = :pid")
     fun observeSeriesCount(pid: Long): Flow<Int>
 
-    @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid AND title LIKE '%' || :q || '%' ORDER BY position, title LIMIT :limit")
+    @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid AND title $LIKE_Q ORDER BY position, title LIMIT :limit")
     suspend fun searchMovies(pid: Long, q: String, limit: Int): List<VodCard>
 
-    @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND title LIKE '%' || :q || '%' ORDER BY position, title LIMIT :limit")
+    @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND title $LIKE_Q ORDER BY position, title LIMIT :limit")
     suspend fun searchSeries(pid: Long, q: String, limit: Int): List<VodCard>
 
     // Whole lists, used by tests (screens page).

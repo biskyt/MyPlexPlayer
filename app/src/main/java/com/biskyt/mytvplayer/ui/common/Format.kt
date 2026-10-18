@@ -19,16 +19,19 @@ fun formatRange(startMs: Long, stopMs: Long) = "${formatTime(startMs)} – ${for
 
 fun formatDateTime(epochMs: Long): String = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(epochMs))
 
-private val dayFormat = DateTimeFormatter.ofPattern("EEE", Locale.getDefault())
+// The app's words are English, so day names are too.
+private val dayFormat = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)
+private val dateFormat = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
 
-/** When something starts, relative to [now]: "Today 20:00", "Tomorrow 06:30" or "Wed 21:00". */
+/** When something starts, relative to [now]: "Today 20:00", "Tomorrow 06:30", "Wed 21:00" or "Wed 3 Dec 21:00". */
 fun formatDayTime(epochMs: Long, now: Long = System.currentTimeMillis()): String {
     val zone = ZoneId.systemDefault()
     val date = Instant.ofEpochMilli(epochMs).atZone(zone).toLocalDate()
     val day = when (ChronoUnit.DAYS.between(Instant.ofEpochMilli(now).atZone(zone).toLocalDate(), date)) {
         0L -> "Today"
         1L -> "Tomorrow"
-        else -> dayFormat.format(date)
+        in 2L..6L -> dayFormat.format(date)
+        else -> dateFormat.format(date)
     }
     return "$day ${formatTime(epochMs)}"
 }

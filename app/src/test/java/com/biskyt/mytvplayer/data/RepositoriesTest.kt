@@ -300,15 +300,19 @@ class RepositoriesTest {
         epg.importAll(listOf(id))
         vod.sync(playlists.get(id)!!)
         val search = SearchRepository(db)
+        suspend fun find(q: String) = search.search(id, q)!!
 
-        assertTrue(search.search(id, "a").isEmpty) // one letter: too broad
-        assertEquals(listOf(102L), search.search(id, "2").channels.map { it.streamId }) // one digit: channel number
-        assertEquals(listOf("UK: KITE KIDZ"), search.search(id, "kite").channels.map { it.name })
-        val news = search.search(id, "on one.uk")
+        assertNull(search.search(id, "a")) // one letter: too broad to search
+        assertEquals(listOf(102L), find("2").channels.map { it.streamId }) // one digit: channel number only
+        assertEquals(listOf("UK: KITE KIDZ"), find("kite").channels.map { it.name })
+        val news = find("on one.uk")
         assertEquals(listOf("Now on one.uk", "Next on one.uk"), news.programmes.map { it.title })
         assertEquals("UK: CHANNEL ONE HD", news.programmes.first().channelName)
-        assertEquals(listOf("Paddington 2"), search.search(id, "padd").movies.map { it.title })
-        assertEquals(listOf("Line of Duty"), search.search(id, "duty").series.map { it.title })
-        assertTrue(search.search(id, "zzz").isEmpty)
+        assertTrue(find("on").programmes.isEmpty()) // the guide needs 3+ letters
+        assertEquals(listOf("Paddington 2"), find("padd").movies.map { it.title })
+        assertEquals(listOf("Line of Duty"), find("duty").series.map { it.title })
+        assertTrue(find("zzz").isEmpty)
+        assertTrue(find("%%").isEmpty) // typed literally, not as wildcards
+        assertTrue(find("__").isEmpty)
     }
 }
