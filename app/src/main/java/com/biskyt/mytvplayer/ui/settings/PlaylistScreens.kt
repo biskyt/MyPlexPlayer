@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -206,9 +207,21 @@ fun PlaylistEditScreen(id: Long?, firstRun: Boolean) {
                 PillButton("M3U playlist URL", { vm.m3u = true }, primary = vm.m3u)
             }
         }
+        // The keyboard's Next key moves straight on to the next box, ready for typing.
+        val nameEdit = rememberSaveable { mutableStateOf(false) }
+        val serverEdit = rememberSaveable { mutableStateOf(false) }
+        val userEdit = rememberSaveable { mutableStateOf(false) }
+        val passwordEdit = rememberSaveable { mutableStateOf(false) }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Field("Name", Modifier.weight(1f)) {
-                TvTextField(vm.name, { vm.name = it }, "e.g. Home TV", rememberFirstFocus().fillMaxWidth())
+                TvTextField(
+                    vm.name,
+                    { vm.name = it },
+                    "e.g. Home TV",
+                    rememberFirstFocus().fillMaxWidth(),
+                    editing = nameEdit,
+                    onNext = { serverEdit.value = true }
+                )
             }
             Field(if (vm.m3u) "Playlist address" else "Server address", Modifier.weight(1f)) {
                 TvTextField(
@@ -216,17 +229,34 @@ fun PlaylistEditScreen(id: Long?, firstRun: Boolean) {
                     { vm.server = it },
                     if (vm.m3u) "https://example.com/playlist.m3u" else "http://example.com:8080",
                     Modifier.fillMaxWidth(),
-                    keyboardType = KeyboardType.Uri
+                    keyboardType = KeyboardType.Uri,
+                    editing = serverEdit,
+                    onNext = if (vm.m3u) null else ({ userEdit.value = true })
                 )
             }
         }
         if (!vm.m3u) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Field("Username", Modifier.weight(1f)) {
-                    TvTextField(vm.username, { vm.username = it }, "Username", Modifier.fillMaxWidth())
+                    TvTextField(
+                        vm.username,
+                        { vm.username = it },
+                        "Username",
+                        Modifier.fillMaxWidth(),
+                        autoCorrect = false,
+                        editing = userEdit,
+                        onNext = { passwordEdit.value = true }
+                    )
                 }
                 Field("Password", Modifier.weight(1f)) {
-                    TvTextField(vm.password, { vm.password = it }, "Password", Modifier.fillMaxWidth(), password = true)
+                    TvTextField(
+                        vm.password,
+                        { vm.password = it },
+                        "Password",
+                        Modifier.fillMaxWidth(),
+                        autoCorrect = false,
+                        editing = passwordEdit
+                    )
                 }
             }
         }
