@@ -44,7 +44,7 @@ class RepositoriesTest {
         val http = OkHttpClient()
         settings = SettingsRepository(context)
         epg = EpgRepository(db, http, context.cacheDir.resolve("test-epg"), scope)
-        playlists = PlaylistRepository(db, http, settings, epg) { Locale.UK }
+        playlists = PlaylistRepository(db, http, settings, epg, context.cacheDir.resolve("test-playlists")) { Locale.UK }
         channels = ChannelRepository(db)
     }
 
@@ -81,10 +81,45 @@ class RepositoriesTest {
 
     @Test
     fun `a TV whose country the provider lacks falls back to its language`() = runBlocking {
-        val us = PlaylistRepository(db, OkHttpClient(), settings, epg) { Locale.US }
+        val us = PlaylistRepository(db, OkHttpClient(), settings, epg, context.cacheDir.resolve("test-playlists")) { Locale.US }
         val id = us.add("Home", provider.url, "me", "secret")
         val included = db.categories().all(id).filter { it.included }.map { it.categoryId }
         assertEquals(listOf("1", "2"), included)
+    }
+
+    @Test
+    fun `m3u playlist loads the TV's country and keeps ids stable across refreshes`() = runBlocking {
+        val id = playlists.addM3u("Free", provider.url + "free.m3u")
+        val cats = db.categories().all(id).associateBy { it.categoryId }
+        assertTrue(cats.getValue("United Kingdom").included)
+        assertFalse(cats.getValue("France").included)
+        assertEquals("UK", cats.getValue("United Kingdom").lang)
+
+        playlists.syncChannels(id)
+        val ids = channels.ids(id, ChannelFilter.All)
+        assertEquals(2, ids.size)
+        val kite = channels.get(id, ids[1])!!
+        assertEquals("Kite Kids (720p)", kite.name)
+        assertEquals("http://stream.example/kite.m3u8", kite.streamUrl)
+        assertEquals("Agent/2", kite.userAgent)
+        assertEquals("KiteKids.uk", kite.providerEpgId)
+
+        // The provider changes a stream URL; the channel keeps its id (and so its favourite).
+        channels.setFavourite(id, kite.streamId, true)
+        provider.m3u = provider.m3u.replace("kite.m3u8", "kite-new.m3u8")
+        playlists.syncChannels(id)
+        assertEquals("http://stream.example/kite-new.m3u8", channels.get(id, kite.streamId)!!.streamUrl)
+        assertEquals(listOf(kite.streamId), channels.ids(id, ChannelFilter.Favourites))
+    }
+
+    @Test
+    fun `an address that isn't a playlist is rejected`() = runBlocking {
+        try {
+            playlists.addM3u("Bad", provider.url + "not-a-playlist")
+            fail("expected rejection")
+        } catch (_: XtreamException) {
+        }
+        assertTrue(playlists.allIds().isEmpty())
     }
 
     @Test

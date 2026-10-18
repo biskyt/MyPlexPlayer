@@ -5,10 +5,18 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
+const val KIND_XTREAM = "xtream"
+const val KIND_M3U = "m3u"
+
+/**
+ * An IPTV source. [kind] is [KIND_XTREAM] (server + login) or [KIND_M3U] ([server] holds the playlist URL and the
+ * login fields are empty).
+ */
 @Entity(tableName = "playlist")
 data class PlaylistEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
+    @ColumnInfo(defaultValue = KIND_XTREAM) val kind: String = KIND_XTREAM,
     val server: String,
     val username: String,
     val password: String,
@@ -16,6 +24,8 @@ data class PlaylistEntity(
     val expiresAt: Long? = null,
     val maxConnections: Int? = null
 ) {
+    val isM3u: Boolean get() = kind == KIND_M3U
+
     /** Channels are refreshed in the background when the last download is older than this. */
     fun isStale(now: Long = System.currentTimeMillis()) = now - lastSyncAt > 12 * 3_600_000L
 }
@@ -60,7 +70,11 @@ data class ChannelEntity(
     val hidden: Boolean = false,
     val sortOrder: Int? = null,
     val position: Int = sortOrder ?: number,
-    @ColumnInfo(defaultValue = "0") val syncStamp: Long = 0
+    @ColumnInfo(defaultValue = "0") val syncStamp: Long = 0,
+    /** M3U channels carry their own URL (and sometimes required HTTP headers); Xtream URLs are built from the login. */
+    val streamUrl: String? = null,
+    val userAgent: String? = null,
+    val referrer: String? = null
 )
 
 @Entity(tableName = "favourite", primaryKeys = ["playlistId", "streamId"])

@@ -39,7 +39,6 @@ class SyncManager(
     suspend fun refreshNow(playlistId: Long, includeGuide: Boolean = true) = guarded("Couldn't refresh") {
         _state.value = SyncState.Channels(0)
         playlists.syncChannels(playlistId) { _state.value = SyncState.Channels(it) }
-        playlists.get(playlistId)?.let { epg.ensureProviderSource(it, playlists.client(it).xmltvUrl()) }
         if (includeGuide) importGuide()
     }
 

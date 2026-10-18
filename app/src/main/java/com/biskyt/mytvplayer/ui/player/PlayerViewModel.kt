@@ -77,6 +77,7 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
     private var sleepJob: Job? = null
     private var tuneJob: Job? = null
     private var retries = 0
+    private var triedHls = false
 
     /** The channel being tuned to; updated immediately so rapid zapping steps through channels one by one. */
     private var targetStreamId: Long = screen.streamId
@@ -109,6 +110,13 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
                 player.prepare()
                 return
             }
+            // M3U links don't always say what they are: a URL with no .m3u8 that turns out to be HLS gets one HLS try.
+            val ch = channel
+            if (e.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED && ch?.streamUrl != null && !triedHls) {
+                triedHls = true
+                engine?.play(ch.streamUrl, hls = true, userAgent = ch.userAgent, referrer = ch.referrer)
+                return
+            }
             // Live streams drop out now and then; retry a few times before showing an error.
             if (retries < MAX_RETRIES) {
                 retries++
@@ -126,7 +134,7 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
         viewModelScope.launch {
             settings = c.settings.current()
             mapper = KeyActionMapper(settings.skipBackSec * 1_000L, settings.skipForwardSec * 1_000L)
-            client = c.playlists.get(screen.playlistId)?.let(c.playlists::client)
+            client = c.playlists.get(screen.playlistId)?.takeUnless { it.isM3u }?.let(c.playlists::client)
             ids = c.channels.ids(screen.playlistId, screen.filter)
             engine = PlaybackEngine(appContext, settings).also { it.player.addListener(listener) }
             tuneTo(screen.streamId)
@@ -149,13 +157,19 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
 
     private suspend fun tune(streamId: Long) {
         val ch = c.channels.get(screen.playlistId, streamId) ?: return
-        val client = client ?: return
+        val client = client
         channel = ch
         guideChannel = ch
         error = null
         retries = 0
-        val hls = settings.streamFormat == StreamFormat.HLS
-        engine?.play(client.liveStreamUrl(ch.streamId, if (hls) "m3u8" else "ts"), hls)
+        triedHls = false
+        if (ch.streamUrl != null) {
+            // M3U channel: its own URL; the format is worked out from the stream itself.
+            engine?.play(ch.streamUrl, hls = false, userAgent = ch.userAgent, referrer = ch.referrer)
+        } else {
+            val hls = settings.streamFormat == StreamFormat.HLS
+            engine?.play(client?.liveStreamUrl(ch.streamId, if (hls) "m3u8" else "ts") ?: return, hls)
+        }
         nowNext.refresh(ch.streamId)
         showControls()
         // Only remember channels actually watched: zapping past one shouldn't write to storage.

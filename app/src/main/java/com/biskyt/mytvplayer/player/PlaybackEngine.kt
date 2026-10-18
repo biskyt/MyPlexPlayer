@@ -35,15 +35,17 @@ import com.biskyt.mytvplayer.data.Settings
 @OptIn(UnstableApi::class)
 class PlaybackEngine(private val context: Context, private val settings: Settings) {
 
+    private val http = DefaultHttpDataSource.Factory()
+        .setUserAgent(DEFAULT_USER_AGENT)
+        .setAllowCrossProtocolRedirects(true)
+        .setConnectTimeoutMs(10_000)
+        .setReadTimeoutMs(15_000)
+
     val player: ExoPlayer = ExoPlayer.Builder(context, renderersFactory())
         .setLoadControl(loadControl(settings.bufferSize))
         .setMediaSourceFactory(
             DefaultMediaSourceFactory(
-                DefaultHttpDataSource.Factory()
-                    .setUserAgent("MyTVPlayer")
-                    .setAllowCrossProtocolRedirects(true)
-                    .setConnectTimeoutMs(10_000)
-                    .setReadTimeoutMs(15_000),
+                http,
                 DefaultExtractorsFactory()
                     // Start live MPEG-TS faster and cope with streams that don't flag keyframes.
                     .setTsExtractorFlags(
@@ -58,8 +60,11 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
     /** True once the default subtitle choice has been applied to the current stream (the user may change it after). */
     private var subtitlesApplied = false
 
-    fun play(url: String, hls: Boolean) {
+    /** [userAgent] / [referrer]: some M3U streams only play when these headers are sent. */
+    fun play(url: String, hls: Boolean, userAgent: String? = null, referrer: String? = null) {
         subtitlesApplied = false
+        http.setUserAgent(userAgent ?: DEFAULT_USER_AGENT)
+        http.setDefaultRequestProperties(if (referrer != null) mapOf("Referer" to referrer) else emptyMap())
         val item = MediaItem.Builder().setUri(url).apply { if (hls) setMimeType(MimeTypes.APPLICATION_M3U8) }.build()
         player.setMediaItem(item)
         player.prepare()
@@ -133,6 +138,7 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
 
     private companion object {
         const val MB = 1024 * 1024
+        const val DEFAULT_USER_AGENT = "MyTVPlayer"
 
         fun encodedName(mime: String?): String? = when (mime) {
             MimeTypes.AUDIO_AC3 -> "Dolby Digital"
