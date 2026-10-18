@@ -4,8 +4,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
@@ -18,6 +21,7 @@ import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.testutil.FakeProvider
 import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.guide.GuideMatchingScreen
 import com.biskyt.mytvplayer.ui.home.HomeScreen
 import com.biskyt.mytvplayer.ui.live.LiveScreen
@@ -28,6 +32,7 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -115,6 +120,36 @@ class AppUiTest {
         compose.onNode(hasText("Change guide source…")).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
         assertEquals(Screen.GuideMatching(playlistId, 101), navigator.current.screen)
+    }
+
+    private fun focusedText(): String = compose.onAllNodes(isFocused()).fetchSemanticsNodes().joinToString(" | ") { node ->
+        node.config.getOrNull(SemanticsProperties.Text)?.joinToString().orEmpty()
+    }
+
+    private fun press(key: Key) {
+        compose.onRoot().performKeyInput { pressKey(key) }
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun `guide scrolls to later times keeping focus, and the Guide button switches view on the same channel`() {
+        show(Screen.Live(guide = true))
+        waitFor("Next on one.uk")
+        val start = System.currentTimeMillis() / (30 * 60_000L) * (30 * 60_000L)
+        compose.waitUntil(5_000) { focusedText().contains("Now on one.uk") }
+
+        press(Key.DirectionRight) // now → next programme
+        assertTrue(focusedText(), focusedText().contains("Next on one.uk"))
+        press(Key.DirectionRight) // past the window edge: the guide moves on an hour
+        waitFor(formatTime(start + 60 * 60_000L))
+        assertTrue(focusedText(), focusedText().contains("Next on one.uk"))
+        press(Key.DirectionRight) // and again, into empty time: focus stays in the same row
+        waitFor(formatTime(start + 2 * 60 * 60_000L))
+        assertTrue(focusedText(), focusedText().contains("No guide information"))
+
+        press(Key.Guide)
+        waitFor("Now on one.uk")
+        compose.waitUntil(5_000) { focusedText().contains("UK: CHANNEL ONE HD") }
     }
 
     @Test

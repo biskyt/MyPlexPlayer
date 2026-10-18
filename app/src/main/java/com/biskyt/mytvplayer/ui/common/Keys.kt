@@ -23,6 +23,9 @@ private val selectKeys = setOf(Key.DirectionCenter, Key.Enter, Key.NumPadEnter)
 
 fun Key.isOptions(): Boolean = this in optionsKeys
 
+/** The remote's Guide/EPG button. */
+fun Key.isGuide(): Boolean = this == Key.Guide
+
 /**
  * Opens [onOptions] from the remote's Info/Options/Menu button, as an alternative to holding OK.
  */

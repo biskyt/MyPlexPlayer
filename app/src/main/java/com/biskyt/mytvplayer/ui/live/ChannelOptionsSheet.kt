@@ -57,6 +57,13 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                 }
                 Option(if (ch.streamId in favs) "Remove from favourites" else "Add to favourites") { vm.toggleFavourite(ch) }
                 Option("Show TV guide for this channel", "Upcoming programmes") { showGuide = true }
+                Option(
+                    if (vm.guideMode) "Switch to channel list" else "Switch to TV guide grid",
+                    "Or press the Guide button on the remote"
+                ) {
+                    close()
+                    vm.showGuide(!vm.guideMode)
+                }
                 Option("Change guide source…", "Pick which guide data this channel uses") {
                     close()
                     nav.push(Screen.GuideMatching(ch.playlistId, ch.streamId))
