@@ -42,6 +42,7 @@ import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.allowRgb565
+import com.biskyt.mytvplayer.data.db.VodCard
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 
@@ -153,6 +154,26 @@ fun Poster(url: String?, title: String, width: Dp, modifier: Modifier = Modifier
     url, title, width, width * 3 / 2, RoundedCornerShape(10.dp), ContentScale.Crop, 0.dp, MaterialTheme.typography.titleMedium, modifier,
     opaque = true
 )
+
+/** Poster width in grids and rows of movies and series. */
+val POSTER_WIDTH = 124.dp
+
+/** A movie or series poster with its title and year, as in grids and search. */
+@Composable
+fun PosterCard(card: VodCard, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    TvCard(onClick = onClick, color = Palette.background, modifier = modifier) {
+        Column(Modifier.padding(6.dp).width(POSTER_WIDTH), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Poster(card.imageUrl, card.title, POSTER_WIDTH)
+            Text(
+                card.title,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Muted(card.year?.toString() ?: " ")
+        }
+    }
+}
 
 /** An image downsampled to its size on screen, with the name's initials until (or unless) it loads. */
 @Composable
