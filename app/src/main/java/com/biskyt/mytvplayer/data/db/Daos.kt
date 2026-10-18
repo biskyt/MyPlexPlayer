@@ -481,7 +481,7 @@ interface VodDao {
     fun observeCarryOn(pid: Long, limit: Int, finished: Double): Flow<List<WatchProgressEntity>>
 
     @Query(
-        "DELETE FROM watch_progress WHERE playlistId = :pid AND updatedAt < (SELECT updatedAt FROM watch_progress WHERE playlistId = :pid ORDER BY updatedAt DESC LIMIT 1 OFFSET :keep)"
+        "DELETE FROM watch_progress WHERE playlistId = :pid AND rowid NOT IN (SELECT rowid FROM watch_progress WHERE playlistId = :pid ORDER BY updatedAt DESC LIMIT :keep)"
     )
     suspend fun trimProgress(pid: Long, keep: Int)
 }

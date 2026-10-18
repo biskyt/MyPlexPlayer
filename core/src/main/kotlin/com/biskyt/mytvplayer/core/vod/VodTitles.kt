@@ -20,9 +20,14 @@ object VodTitles {
     /** [t] without its leading language or quality tag, or null if it has none. */
     private fun withoutTag(t: String): String? {
         val m = tag.find(t) ?: return null
+        val bracketed = m.groupValues[1].isNotEmpty()
         val code = (m.groupValues[1].ifEmpty { m.groupValues[2] }).uppercase()
-        return if (code in qualityTags || CategoryLanguageDetector.isLanguageCode(code)) t.substring(m.range.last + 1) else null
+        // Unbracketed codes that are also words ("IT: Chapter Two") are left alone.
+        val known = code in qualityTags || (CategoryLanguageDetector.isLanguageCode(code) && (bracketed || code !in wordCodes))
+        return if (known) t.substring(m.range.last + 1) else null
     }
+
+    private val wordCodes = setOf("IT", "IN", "NO", "AL", "AR", "AF", "US")
 
     fun clean(name: String): CleanTitle {
         // A few providers stack tags ("|EN| [4K] Title"); up to two are removed.

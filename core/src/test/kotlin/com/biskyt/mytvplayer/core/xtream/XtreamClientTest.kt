@@ -167,7 +167,7 @@ class XtreamClientTest {
         server.enqueue(
             MockResponse().setBody(
                 """{"seasons":[],"info":{"plot":"Corruption.","episode_run_time":"60"},
-                   "episodes":{"2":[{"id":"9002","episode_num":"1","title":"S2 E1","container_extension":"mp4","season":2}],
+                   "episodes":{"2":[{"id":"9002","episode_num":"1","title":"S2 E1","container_extension":"mp4"}],
                                "1":[{"id":"9001","episode_num":1,"title":"S1 E1","container_extension":"mkv","season":1,
                                      "info":{"plot":"Pilot","duration_secs":3600}}]}}"""
             )

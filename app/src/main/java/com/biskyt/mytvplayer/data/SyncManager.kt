@@ -42,13 +42,19 @@ class SyncManager(
         _state.value = SyncState.Channels(0)
         playlists.syncChannels(playlistId) { _state.value = SyncState.Channels(it) }
         if (includeGuide) importGuide()
-        playlists.get(playlistId)?.let { p ->
-            _state.value = SyncState.Vod(0)
-            vod.sync(p) { _state.value = SyncState.Vod(it) }
-        }
+        syncVod(playlistId)
     }
 
     suspend fun refreshGuideNow() = guarded("Couldn't update the TV guide") { importGuide() }
+
+    /** Only movies and series (after their categories change). */
+    fun refreshVod(playlistId: Long): Job = scope.launch { guarded("Couldn't load movies and series") { syncVod(playlistId) } }
+
+    private suspend fun syncVod(playlistId: Long) {
+        val p = playlists.get(playlistId)?.takeUnless { it.isM3u } ?: return
+        _state.value = SyncState.Vod(0)
+        vod.sync(p) { _state.value = SyncState.Vod(it) }
+    }
 
     /** Runs one refresh at a time; any failure (network, bad data, full storage) is shown, never allowed to crash the app. */
     @Suppress("TooGenericExceptionCaught")

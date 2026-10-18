@@ -54,6 +54,8 @@ class SeriesDetailsViewModel(private val c: AppContainer, private val playlistId
         private set
     var error by mutableStateOf<String?>(null)
         private set
+
+    /** The season the user picked (until then, the one with the episode to carry on with). */
     var season by mutableStateOf<Int?>(null)
 
     /** Progress per episode id. */
@@ -72,7 +74,6 @@ class SeriesDetailsViewModel(private val c: AppContainer, private val playlistId
         try {
             val d = c.vod.seriesDetails(p, seriesId)
             details = d
-            if (season == null) season = continueEpisode(d.episodes, progress.value)?.season ?: d.seasons.firstOrNull()?.number
         } catch (e: java.io.IOException) {
             error = e.message ?: "Couldn't load the episodes"
         }
@@ -126,14 +127,19 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
             }
             d == null -> Muted("Loading episodes…")
             d.episodes.isEmpty() -> Muted("No episodes are available for this series.")
-            else -> Episodes(vm, d, progress, play)
+            else -> Episodes(vm, d, vm.season ?: next?.season ?: d.seasons.firstOrNull()?.number, progress, play)
         }
     }
 }
 
 @Composable
-private fun Episodes(vm: SeriesDetailsViewModel, d: SeriesDetails, progress: Map<Long, WatchProgressEntity>, play: (EpisodeInfo) -> Unit) {
-    val season = vm.season
+private fun Episodes(
+    vm: SeriesDetailsViewModel,
+    d: SeriesDetails,
+    season: Int?,
+    progress: Map<Long, WatchProgressEntity>,
+    play: (EpisodeInfo) -> Unit
+) {
     if (d.seasons.size > 1) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(d.seasons, key = { it.number }) { s ->

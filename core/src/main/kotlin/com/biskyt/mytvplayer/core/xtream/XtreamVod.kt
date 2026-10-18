@@ -129,20 +129,23 @@ internal fun JsonElement.toSeriesDetails(): SeriesDetails? {
         val n = s.int("season_number") ?: return@mapNotNull null
         SeasonInfo(n, s.str("name") ?: "Season $n")
     }
-    // Episodes come grouped by season, as an object keyed by season number or (on some panels) an array of arrays.
-    val groups: List<JsonElement> = when (val e = o["episodes"]) {
-        is JsonObject -> e.values.toList()
-        is JsonArray -> e.toList()
+    // Episodes come grouped by season, as an object keyed by season number or (on some panels) an array of arrays;
+    // the group's season counts when an episode doesn't say.
+    val groups: List<Pair<Int?, JsonElement>> = when (val e = o["episodes"]) {
+        is JsonObject -> e.entries.map { (key, value) -> key.toIntOrNull() to value }
+        is JsonArray -> e.map { null to it }
         else -> emptyList()
     }
-    val episodes = groups.flatMap { (it as? JsonArray).orEmpty() }.mapNotNull { el ->
+    val episodes = groups.flatMap { (season, list) ->
+        (list as? JsonArray).orEmpty().map { season to it }
+    }.mapNotNull { (groupSeason, el) ->
         val e = el as? JsonObject ?: return@mapNotNull null
         val id = e.long("id") ?: return@mapNotNull null
         val info = e.obj("info")
         val number = e.int("episode_num") ?: 0
         EpisodeInfo(
             id = id,
-            season = e.int("season") ?: 1,
+            season = e.int("season") ?: groupSeason ?: 1,
             number = number,
             title = e.str("title")?.trim() ?: "Episode $number",
             extension = e.str("container_extension") ?: "mp4",

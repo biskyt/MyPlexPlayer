@@ -7,6 +7,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 /** The handful of icons the app needs, drawn as vectors (a full icon library would bloat the APK). */
 object AppIcons {
@@ -101,25 +104,24 @@ object AppIcons {
             moveTo(10f, 18f)
             horizontalLineTo(14f)
         }
+
+    /** A cog: eight teeth around a ring, with a hole in the middle. */
     val Settings = icon("settings", false) {
+        val teeth = 8
+        val step = 2 * PI / teeth
+        fun point(angle: Double, r: Float) = (12 + r * cos(angle)).toFloat() to (12 + r * sin(angle)).toFloat()
+        for (i in 0 until teeth) {
+            val a = i * step
+            // Root, up the tooth's side, across its top, down the other side.
+            val corners = listOf(a - step * 0.32 to 7.2f, a - step * 0.18 to 9.6f, a + step * 0.18 to 9.6f, a + step * 0.32 to 7.2f)
+            corners.forEachIndexed { k, (angle, r) ->
+                val (x, y) = point(angle, r)
+                if (i == 0 && k == 0) moveTo(x, y) else lineTo(x, y)
+            }
+        }
+        close()
         moveTo(15f, 12f)
         arcTo(3f, 3f, 0f, true, true, 9f, 12f)
         arcTo(3f, 3f, 0f, true, true, 15f, 12f)
-        moveTo(12f, 2.5f)
-        verticalLineTo(5f)
-        moveTo(12f, 19f)
-        verticalLineTo(21.5f)
-        moveTo(2.5f, 12f)
-        horizontalLineTo(5f)
-        moveTo(19f, 12f)
-        horizontalLineTo(21.5f)
-        moveTo(5.3f, 5.3f)
-        lineTo(7f, 7f)
-        moveTo(17f, 17f)
-        lineTo(18.7f, 18.7f)
-        moveTo(5.3f, 18.7f)
-        lineTo(7f, 17f)
-        moveTo(17f, 7f)
-        lineTo(18.7f, 5.3f)
     }
 }

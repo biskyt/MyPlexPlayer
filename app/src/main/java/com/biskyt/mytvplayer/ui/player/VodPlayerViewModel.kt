@@ -137,9 +137,9 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         }
     }
 
-    /** Pausing, leaving the app and stopping all end here. */
+    /** Pausing (or buffering, or leaving the app) saves where playback got to. */
     override fun onPlayingChanged(playing: Boolean) {
-        if (!playing) save(trim = true)
+        if (!playing) save()
     }
 
     /** Where playback is now, as a progress row (null before the duration is known). */
