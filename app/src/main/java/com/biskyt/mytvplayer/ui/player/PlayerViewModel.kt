@@ -22,6 +22,8 @@ import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.player.PlaybackEngine
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.common.NowNextLoader
+import com.biskyt.mytvplayer.ui.common.NumberEntry
+import com.biskyt.mytvplayer.ui.common.cycle
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -40,8 +42,6 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
     var error by mutableStateOf<String?>(null)
         private set
     var message by mutableStateOf<String?>(null)
-        private set
-    var typedNumber by mutableStateOf("")
         private set
     var tracks by mutableStateOf(Tracks.EMPTY)
         private set
@@ -62,14 +62,17 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
     var exit by mutableStateOf(false)
         private set
 
-    val nowNext = NowNextLoader(viewModelScope, c.epg.changes) { ids, from, to -> c.epg.programmes(screen.playlistId, ids, from, to) }
+    val nowNext =
+        NowNextLoader(viewModelScope, c.epg.changes) { ids, from, to ->
+            c.epg.programmes(screen.playlistId, ids, from, to, details = false)
+        }
 
     private lateinit var settings: Settings
     private lateinit var mapper: KeyActionMapper
     private var client: XtreamClient? = null
     private var ids: List<Long> = emptyList()
     private var hideJob: Job? = null
-    private var numberJob: Job? = null
+    private var retryJob: Job? = null
     private var messageJob: Job? = null
     private var sleepJob: Job? = null
     private var tuneJob: Job? = null
@@ -109,7 +112,7 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
             // Live streams drop out now and then; retry a few times before showing an error.
             if (retries < MAX_RETRIES) {
                 retries++
-                viewModelScope.launch {
+                retryJob = viewModelScope.launch {
                     delay(1_000L * retries)
                     player.prepare()
                 }
@@ -130,9 +133,16 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
         }
     }
 
+    /** Typed digits switch to that channel number. */
+    val numberEntry = NumberEntry(viewModelScope) { n ->
+        val ch = c.channels.byNumber(screen.playlistId, n)
+        if (ch != null) tuneTo(ch.streamId) else flash("No channel $n")
+    }
+
     /** Starts tuning to [streamId], cancelling any tune still in progress so the last request always wins. */
     private fun tuneTo(streamId: Long) {
         targetStreamId = streamId
+        retryJob?.cancel()
         tuneJob?.cancel()
         tuneJob = viewModelScope.launch { tune(streamId) }
     }
@@ -148,6 +158,8 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
         engine?.play(client.liveStreamUrl(ch.streamId, if (hls) "m3u8" else "ts"), hls)
         nowNext.refresh(ch.streamId)
         showControls()
+        // Only remember channels actually watched: zapping past one shouldn't write to storage.
+        delay(WATCHED_AFTER_MS)
         c.channels.markWatched(ch.playlistId, ch.streamId)
         c.settings.update { it.copy(lastChannelId = ch.streamId) }
     }
@@ -164,7 +176,7 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
         when (action) {
             is PlayerAction.SeekBy -> seekBy(action.ms)
             is PlayerAction.Zap -> zap(action.step)
-            is PlayerAction.Digit -> typeDigit(action.value)
+            is PlayerAction.Digit -> numberEntry.type(action.value)
             PlayerAction.ToggleOverlay -> if (overlay == OverlayState.NONE) showControls() else hideOverlay()
             PlayerAction.HideOverlay -> hideOverlay()
             PlayerAction.TogglePlayPause -> player?.let { if (it.isPlaying) it.pause() else it.play() }
@@ -216,22 +228,7 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
     }
 
     fun zap(step: Int) {
-        if (ids.isEmpty()) return
-        val i = ids.indexOf(targetStreamId).let { if (it < 0) 0 else it }
-        tuneTo(ids[(i + step).mod(ids.size)])
-    }
-
-    private fun typeDigit(d: Int) {
-        if (typedNumber.length >= 5) return
-        typedNumber += d
-        numberJob?.cancel()
-        numberJob = viewModelScope.launch {
-            delay(1_500)
-            val n = typedNumber.toIntOrNull()
-            typedNumber = ""
-            val ch = n?.let { c.channels.byNumber(screen.playlistId, it) }
-            if (ch != null) tuneTo(ch.streamId) else flash("No channel $n")
-        }
+        if (ids.isNotEmpty()) tuneTo(ids.cycle(targetStreamId, step))
     }
 
     fun showControls(keepOverlay: Boolean = false) {
@@ -262,9 +259,7 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
     fun previewGuide(step: Int) {
         val current = guideChannel?.streamId ?: return
         if (ids.isEmpty()) return
-        val i = ids.indexOf(current).let { if (it < 0) 0 else it }
-        val next = ids[(i + step).mod(ids.size)]
-        viewModelScope.launch { guideChannel = c.channels.get(screen.playlistId, next) }
+        viewModelScope.launch { guideChannel = c.channels.get(screen.playlistId, ids.cycle(current, step)) }
     }
 
     fun watchGuideChannel() {
@@ -308,5 +303,6 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
     private companion object {
         const val MAX_RETRIES = 3
         const val OVERLAY_TIMEOUT_MS = 5_000L
+        const val WATCHED_AFTER_MS = 3_000L
     }
 }

@@ -1,7 +1,25 @@
 package com.biskyt.mytvplayer.core.player
 
 /** Remote control buttons the player reacts to (mapped from Android key codes by the app). */
-enum class RemoteKey { LEFT, RIGHT, UP, DOWN, OK, BACK, PLAY_PAUSE, PLAY, PAUSE, STOP, REWIND, FAST_FORWARD, GUIDE, MENU, CHANNEL_UP, CHANNEL_DOWN, DIGIT }
+enum class RemoteKey {
+    LEFT,
+    RIGHT,
+    UP,
+    DOWN,
+    OK,
+    BACK,
+    PLAY_PAUSE,
+    PLAY,
+    PAUSE,
+    STOP,
+    REWIND,
+    FAST_FORWARD,
+    GUIDE,
+    MENU,
+    CHANNEL_UP,
+    CHANNEL_DOWN,
+    DIGIT,
+}
 
 sealed interface PlayerAction {
     data class SeekBy(val ms: Long) : PlayerAction

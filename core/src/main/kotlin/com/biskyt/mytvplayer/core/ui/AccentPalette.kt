@@ -14,8 +14,14 @@ data class AccentPalette(val accent: Int, val tint: Int, val soft: Int, val onAc
         private const val DARK_TEXT_LUMINANCE = 0.0056
 
         val presets: List<Pair<String, Int>> = listOf(
-            "Mint" to DEFAULT, "Amber" to 0xFFF2A93B.toInt(), "Violet" to 0xFFA78BFA.toInt(), "Sky" to 0xFF5AA9F2.toInt(),
-            "Coral" to 0xFFF2766B.toInt(), "Lime" to 0xFFA3D44A.toInt(), "Pink" to 0xFFF27BB8.toInt(), "Silver" to 0xFFC7CCD4.toInt(),
+            "Mint" to DEFAULT,
+            "Amber" to 0xFFF2A93B.toInt(),
+            "Violet" to 0xFFA78BFA.toInt(),
+            "Sky" to 0xFF5AA9F2.toInt(),
+            "Coral" to 0xFFF2766B.toInt(),
+            "Lime" to 0xFFA3D44A.toInt(),
+            "Pink" to 0xFFF27BB8.toInt(),
+            "Silver" to 0xFFC7CCD4.toInt()
         )
 
         fun from(argb: Int): AccentPalette {

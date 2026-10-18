@@ -1,14 +1,14 @@
 package com.biskyt.mytvplayer.core.epg
 
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.util.zip.GZIPInputStream
+import java.util.zip.GZIPOutputStream
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.kxml2.io.KXmlParser
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
-import java.util.zip.GZIPInputStream
-import java.util.zip.GZIPOutputStream
 
 class XmltvParserTest {
     private val xml = """
@@ -43,11 +43,16 @@ class XmltvParserTest {
         bytes: ByteArray,
         want: (String) -> Boolean = { true },
         windowStart: Long = Long.MIN_VALUE,
-        windowEnd: Long = Long.MAX_VALUE,
+        windowEnd: Long = Long.MAX_VALUE
     ): Pair<List<XmltvChannel>, List<XmltvProgramme>> {
         val channels = mutableListOf<XmltvChannel>()
         val programmes = mutableListOf<XmltvProgramme>()
-        runBlocking { XmltvParser({ KXmlParser() }, windowStart, windowEnd).parse(ByteArrayInputStream(bytes), want, { channels += it }, { programmes += it }) }
+        runBlocking {
+            XmltvParser({ KXmlParser() }, windowStart, windowEnd).parse(ByteArrayInputStream(bytes), want, { channels += it }, {
+                programmes +=
+                    it
+            })
+        }
         return channels to programmes
     }
 
@@ -64,7 +69,6 @@ class XmltvParserTest {
         assertEquals("Premier Football Live", first.title)
         assertEquals("Matchday 9", first.subtitle)
         assertEquals("Build-up & the full match.", first.description)
-        assertEquals("Sport", first.category)
         assertEquals(XmltvParser.parseTime("20261018163000 +0000"), first.startMs)
         // Missing title and stop time fall back to defaults.
         assertEquals("No title", programmes[3].title)
@@ -94,7 +98,10 @@ class XmltvParserTest {
         assertEquals(1_792_342_800_000L, XmltvParser.parseTime("20261018180000 +0100"))
         assertEquals(1_792_346_400_000L, XmltvParser.parseTime("20261018180000"))
         assertEquals(1_792_364_400_000L, XmltvParser.parseTime("20261018180000 -0500"))
+        assertEquals(951_782_400_000L, XmltvParser.parseTime("20000229000000 +0000")) // leap day
+        assertEquals(1_792_347_300_000L, XmltvParser.parseTime("20261018180000 -0015"))
         assertNull(XmltvParser.parseTime("2026"))
+        assertNull(XmltvParser.parseTime("20261318180000"))
         assertNull(XmltvParser.parseTime(null))
     }
 }

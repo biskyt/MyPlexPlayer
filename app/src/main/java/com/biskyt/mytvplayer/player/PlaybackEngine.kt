@@ -46,8 +46,10 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
                     .setReadTimeoutMs(15_000),
                 DefaultExtractorsFactory()
                     // Start live MPEG-TS faster and cope with streams that don't flag keyframes.
-                    .setTsExtractorFlags(DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS),
-            ),
+                    .setTsExtractorFlags(
+                        DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS
+                    )
+            )
         )
         .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
         .setHandleAudioBecomingNoisy(true)
@@ -67,24 +69,16 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
     /** Applies the user's default subtitle setting the first time tracks are known for a stream. */
     fun applyDefaultSubtitles(tracks: Tracks) {
         if (subtitlesApplied) return
-        val text = tracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }
-        if (text.isEmpty() && tracks.groups.isEmpty()) return
+        if (tracks.groups.isEmpty()) return
         subtitlesApplied = true
-        val candidates = text.flatMapIndexed { gi, g ->
-            (0 until g.length).map { ti ->
-                val f = g.getTrackFormat(ti)
-                TextTrack("$gi:$ti", f.language, (f.selectionFlags and C.SELECTION_FLAG_FORCED) != 0)
-            }
+        val options = tracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }.flatMap { g -> (0 until g.length).map { g to it } }
+        val candidates = options.mapIndexed { i, (g, ti) ->
+            val f = g.getTrackFormat(ti)
+            TextTrack(i.toString(), f.language, (f.selectionFlags and C.SELECTION_FLAG_FORCED) != 0)
         }
         val choice = SubtitlePolicy.choose(candidates, settings.subtitleMode, settings.effectiveSubtitleLanguage)
-        val params = player.trackSelectionParameters.buildUpon()
-        if (choice == null) {
-            params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-        } else {
-            val (gi, ti) = choice.id.split(':').map(String::toInt)
-            params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).setOverrideForType(TrackSelectionOverride(text[gi].mediaTrackGroup, ti))
-        }
-        player.trackSelectionParameters = params.build()
+        val (group, index) = choice?.let { options[it.id.toInt()] } ?: (null to 0)
+        selectTrack(C.TRACK_TYPE_TEXT, group, index)
     }
 
     /** Selects a track of [type] (audio or text); null turns that type off. */

@@ -13,11 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -40,26 +37,29 @@ import com.biskyt.mytvplayer.ui.common.Tab
 import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.formatTime
+import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
+import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 class HomeViewModel(private val c: AppContainer) : ViewModel() {
-    val playlistId = c.settings.settings.map { it.activePlaylistId }.filter { it != 0L }.distinctUntilChanged()
-        .stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
-    private val activePlaylist = playlistId.filter { it != 0L }
+    private val activePlaylist = c.settings.activePlaylistId
+    val playlistId = activePlaylist.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val favourites = activePlaylist.flatMapLatest { c.channels.observeFavourites(it, 12) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val favourites = activePlaylist.flatMapLatest {
+        c.channels.observeFavourites(it, 12)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val recent = activePlaylist.flatMapLatest { c.channels.observeRecent(it, 12) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val recent = activePlaylist.flatMapLatest {
+        c.channels.observeRecent(it, 12)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val nowNext = NowNextLoader(viewModelScope, c.epg.changes) { ids, from, to -> c.epg.programmes(playlistId.value, ids, from, to) }
+    val nowNext =
+        NowNextLoader(viewModelScope, c.epg.changes) { ids, from, to -> c.epg.programmes(playlistId.value, ids, from, to, details = false) }
 }
 
 @Composable
@@ -68,19 +68,24 @@ fun HomeScreen() {
     val nav = LocalNavigator.current
     val favourites by vm.favourites.collectAsState()
     val recent by vm.recent.collectAsState()
-    val first = remember { FocusRequester() }
     val pid = vm.playlistId.collectAsState().value
+    val first = rememberFirstFocus(favourites != null)
 
     TabScaffold(Tab.HOME) {
-        LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 56.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
+        LazyColumn(
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 56.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(28.dp)
+        ) {
             item {
                 Column {
                     SectionTitle("Your channels, on now")
                     val favs = favourites
                     when {
                         favs == null -> Unit
-                        favs.isEmpty() -> EmptyFavourites(Modifier.focusRequester(first)) { nav.reset(Screen.Live()) }
-                        else -> ChannelCardRow(favs, vm.nowNext, Modifier.focusRequester(first)) { nav.push(Screen.Player(pid, it.streamId, ChannelFilter.Favourites)) }
+                        favs.isEmpty() -> EmptyFavourites(first) { nav.reset(Screen.Live()) }
+                        else -> ChannelCardRow(favs, vm.nowNext, first) {
+                            nav.push(Screen.Player(pid, it.streamId, ChannelFilter.Favourites))
+                        }
                     }
                 }
             }
@@ -94,7 +99,6 @@ fun HomeScreen() {
             }
         }
     }
-    LaunchedEffect(favourites != null) { if (favourites != null) runCatching { first.requestFocus() } }
 }
 
 @Composable
@@ -106,7 +110,13 @@ private fun EmptyFavourites(modifier: Modifier, onBrowse: () -> Unit) {
 }
 
 @Composable
-private fun ChannelCardRow(channels: List<ChannelEntity>, loader: NowNextLoader, modifier: Modifier = Modifier, onPlay: (ChannelEntity) -> Unit) {
+private fun ChannelCardRow(
+    channels: List<ChannelEntity>,
+    loader: NowNextLoader,
+    modifier: Modifier = Modifier,
+    onPlay: (ChannelEntity) -> Unit
+) {
+    val now by rememberMinuteClock()
     LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         items(channels, key = { it.streamId }) { c ->
             LaunchedEffect(c.streamId) { loader.request(c.streamId) }
@@ -117,9 +127,17 @@ private fun ChannelCardRow(channels: List<ChannelEntity>, loader: NowNextLoader,
                         ChannelLogo(c.logoUrl, c.name, 64.dp, 38.dp)
                         Muted(c.name, Modifier.padding(start = 10.dp))
                     }
-                    Text(nn?.now?.title ?: " ", style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Muted(nn?.now?.let { "until ${formatTime(it.stopMs)}" + (nn.next?.let { n -> " · then ${n.title}" } ?: "") } ?: "No guide information")
-                    ProgressLine(nn?.progress(System.currentTimeMillis()) ?: 0f, Modifier.fillMaxWidth())
+                    Text(
+                        nn?.now?.title ?: " ",
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Muted(
+                        nn?.now?.let { "until ${formatTime(it.stopMs)}" + (nn.next?.let { n -> " · then ${n.title}" } ?: "") }
+                            ?: "No guide information"
+                    )
+                    ProgressLine(nn?.progress(now) ?: 0f, Modifier.fillMaxWidth())
                 }
             }
         }

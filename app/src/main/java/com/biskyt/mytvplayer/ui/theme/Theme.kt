@@ -40,11 +40,13 @@ data class Accent(val color: Color, val tint: Color, val soft: Color, val onAcce
 val LocalAccent = staticCompositionLocalOf { Accent(Color(AccentPalette.DEFAULT), Color.Transparent, Color.White, Color.Black) }
 
 @OptIn(ExperimentalTextApi::class)
-private fun nunito(weight: Int) = Font(R.font.nunito, FontWeight(weight), variationSettings = FontVariation.Settings(FontVariation.weight(weight)))
+private fun nunito(weight: Int) =
+    Font(R.font.nunito, FontWeight(weight), variationSettings = FontVariation.Settings(FontVariation.weight(weight)))
 
 val Nunito = FontFamily(nunito(500), nunito(600), nunito(700), nunito(800))
 
-private fun style(size: Int, weight: Int = 700) = TextStyle(fontFamily = Nunito, fontSize = size.sp, fontWeight = FontWeight(weight), color = Palette.text)
+private fun style(size: Int, weight: Int = 700) =
+    TextStyle(fontFamily = Nunito, fontSize = size.sp, fontWeight = FontWeight(weight), color = Palette.text)
 
 /** Text sizes for the 10-foot UI; [large] bumps everything up a step for easier reading from the sofa. */
 private fun typography(large: Boolean): Typography {
@@ -62,7 +64,7 @@ private fun typography(large: Boolean): Typography {
         bodySmall = style(13 + b, 600),
         labelLarge = style(16 + b, 800),
         labelMedium = style(14 + b, 700),
-        labelSmall = style(12 + b, 700),
+        labelSmall = style(12 + b, 700)
     )
 }
 
@@ -82,7 +84,7 @@ fun MyTvTheme(accentArgb: Int = AccentPalette.DEFAULT, largeText: Boolean = true
             onSurface = Palette.text,
             surfaceVariant = Palette.surfaceHigh,
             onSurfaceVariant = Palette.textMuted,
-            border = accent.color,
+            border = accent.color
         )
     }
     val type = remember(largeText) { typography(largeText) }

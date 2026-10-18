@@ -14,11 +14,6 @@ import com.biskyt.mytvplayer.data.db.EpgChannelEntity
 import com.biskyt.mytvplayer.data.db.EpgSourceEntity
 import com.biskyt.mytvplayer.data.db.PlaylistEntity
 import com.biskyt.mytvplayer.data.db.ProgrammeEntity
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.IOException
@@ -26,6 +21,17 @@ import java.io.InputStream
 import java.util.zip.Deflater
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 
 /**
  * TV guide data: XMLTV sources, which guide channel each playlist channel uses, and programme lookups.
@@ -38,22 +44,27 @@ class EpgRepository(
     private val db: AppDatabase,
     private val http: OkHttpClient,
     private val cacheDir: File,
-    private val clock: () -> Long = System::currentTimeMillis,
+    /** Runs the debounced re-imports after manual guide changes. */
+    private val scope: CoroutineScope,
+    private val clock: () -> Long = System::currentTimeMillis
 ) {
     private val epg = db.epg()
 
-    private val _changes = kotlinx.coroutines.flow.MutableStateFlow(0)
+    private val _changes = MutableStateFlow(0)
 
     /** Ticks whenever programme data or a channel's guide choice changes, so screens can reload now/next. */
-    val changes: kotlinx.coroutines.flow.StateFlow<Int> = _changes
+    val changes: StateFlow<Int> = _changes
 
     private fun changed() = _changes.update { it + 1 }
 
-    /** Built from every guide channel; reused until a guide is imported or removed (building it is the slow part). */
+    /**
+     * Built from every guide channel and reused while matching (building it is the slow part). Dropped after each
+     * import's matching step and when the matching screen closes, so it doesn't hold memory while watching TV.
+     */
     @Volatile private var matcherCache: ChannelMatcher? = null
 
     private suspend fun matcher(): ChannelMatcher = matcherCache ?: ChannelMatcher(
-        epg.allChannels().map { EpgCandidate(it.sourceId, it.xmlId, it.displayName, it.nameNorm) },
+        epg.allChannels().map { EpgCandidate(it.sourceId, it.xmlId, it.displayName, it.nameNorm) }
     ).also { matcherCache = it }
 
     fun observeSources() = epg.observeSources()
@@ -73,7 +84,14 @@ class EpgRepository(
         }
     }
 
-    suspend fun addSource(name: String, url: String): Long = epg.insertSource(EpgSourceEntity(name = name.ifBlank { url }, url = url.trim()))
+    suspend fun addSource(name: String, url: String): Long = epg.insertSource(
+        EpgSourceEntity(
+            name = name.ifBlank {
+                url
+            },
+            url = url.trim()
+        )
+    )
 
     suspend fun setSourceEnabled(source: EpgSourceEntity, enabled: Boolean) = epg.upsertSource(source.copy(enabled = enabled))
 
@@ -86,6 +104,7 @@ class EpgRepository(
         }
         sourceFile(id).delete()
         matcherCache = null
+        changed()
     }
 
     /** Downloads and imports every enabled source, then re-runs automatic matching for [playlistIds]. */
@@ -102,12 +121,13 @@ class EpgRepository(
                 s.copy(
                     lastImportAt = if (result.isSuccess) clock() else s.lastImportAt,
                     channelCount = result.getOrNull() ?: s.channelCount,
-                    lastError = result.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName },
-                ),
+                    lastError = result.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName }
+                )
             )
         }
         onProgress("Matching channels…")
         playlistIds.forEach { autoMatch(it) }
+        releaseMatcher()
         for (s in sources) {
             if (!sourceFile(s.id).exists()) continue
             onProgress("Loading programmes from ${s.name}…")
@@ -120,13 +140,12 @@ class EpgRepository(
     /** Re-matches every channel of a playlist that doesn't have a manual choice. */
     suspend fun autoMatch(playlistId: Long) = withContext(Dispatchers.Default) {
         val matcher = matcher()
-        val manual = epg.mappings(playlistId).filter { it.manual }.map { it.streamId }.toHashSet()
+        val manual = epg.manualStreamIds(playlistId).toHashSet()
         val channels = db.channels().names(playlistId)
-        val updates = ArrayList<ChannelEpgMappingEntity>()
-        for (c in channels) {
-            if (c.streamId in manual) continue
-            val m = matcher.autoMatch(c.name, c.providerEpgId) ?: continue
-            updates += ChannelEpgMappingEntity(playlistId, c.streamId, m.candidate.sourceId, m.candidate.xmlId, manual = false, score = m.score)
+        val updates = channels.filter { it.streamId !in manual }.mapNotNull { c ->
+            matcher.autoMatch(c.name, c.providerEpgId)?.let { m ->
+                ChannelEpgMappingEntity(playlistId, c.streamId, m.candidate.sourceId, m.candidate.xmlId, manual = false, score = m.score)
+            }
         }
         db.withTransaction {
             epg.clearAutoMappings(playlistId)
@@ -134,21 +153,46 @@ class EpgRepository(
         }
     }
 
-    suspend fun suggestions(channelName: String, providerEpgId: String?, limit: Int = 8): List<EpgMatch> = withContext(Dispatchers.Default) {
-        matcher().suggestions(channelName, providerEpgId, limit)
+    fun releaseMatcher() {
+        matcherCache = null
     }
 
-    suspend fun searchGuideChannels(query: String) = epg.searchChannels(query.trim(), 50)
+    suspend fun suggestions(channelName: String, providerEpgId: String?, limit: Int = 8): List<EpgMatch> =
+        withContext(Dispatchers.Default) {
+            matcher().suggestions(channelName, providerEpgId, limit)
+        }
 
-    suspend fun mapping(playlistId: Long, streamId: Long) = epg.mapping(playlistId, streamId)
+    suspend fun searchGuideChannels(query: String) = epg.searchChannels(query.trim(), 50)
 
     suspend fun mappingInfo(playlistId: Long, ids: List<Long>) = if (ids.isEmpty()) emptyList() else epg.mappingInfo(playlistId, ids)
 
     /** The user's choice for a channel. Programmes for the chosen guide channel are loaded from the cached file. */
-    suspend fun setManual(playlistId: Long, streamId: Long, sourceId: Long, xmlId: String, offsetMinutes: Int = 0) {
-        epg.upsertMappings(listOf(ChannelEpgMappingEntity(playlistId, streamId, sourceId, xmlId, manual = true, score = 1.0, offsetMinutes = offsetMinutes)))
-        withContext(Dispatchers.IO) { runCatching { importProgrammes(sourceId, setOf(xmlId), onlyThese = true) } }
+    suspend fun setManual(playlistId: Long, streamId: Long, sourceId: Long, xmlId: String, offsetMinutes: Int = 0) = applyMapping(
+        ChannelEpgMappingEntity(playlistId, streamId, sourceId, xmlId, manual = true, score = 1.0, offsetMinutes = offsetMinutes)
+    )
+
+    private suspend fun applyMapping(m: ChannelEpgMappingEntity) {
+        epg.upsertMappings(listOf(m))
+        if (m.sourceId != null && m.xmlId != null) queueProgrammeImport(m.sourceId, m.xmlId)
         changed()
+    }
+
+    private val pendingImports = HashMap<Long, MutableSet<String>>()
+    private var pendingJob: Job? = null
+
+    /**
+     * Reading a guide file takes seconds on a slow box, so channels re-mapped in quick succession are collected and
+     * their programmes loaded in one pass per guide shortly after the last change.
+     */
+    private fun queueProgrammeImport(sourceId: Long, xmlId: String) = synchronized(pendingImports) {
+        pendingImports.getOrPut(sourceId) { HashSet() } += xmlId
+        pendingJob?.cancel()
+        pendingJob = scope.launch(Dispatchers.IO) {
+            delay(REMAP_DEBOUNCE_MS)
+            val work = synchronized(pendingImports) { pendingImports.toMap().also { pendingImports.clear() } }
+            work.forEach { (source, ids) -> runCatching { importProgrammes(source, ids, onlyThese = true) } }
+            changed()
+        }
     }
 
     suspend fun setNoGuide(playlistId: Long, streamId: Long) {
@@ -164,18 +208,29 @@ class EpgRepository(
 
     suspend fun resetToAutomatic(playlistId: Long, streamId: Long, channelName: String, providerEpgId: String?) {
         epg.deleteMapping(playlistId, streamId)
-        val m = suggestions(channelName, providerEpgId, 1).firstOrNull()?.takeIf { it.score >= ChannelMatcher.AUTO_THRESHOLD }
-        if (m != null) {
-            epg.upsertMappings(listOf(ChannelEpgMappingEntity(playlistId, streamId, m.candidate.sourceId, m.candidate.xmlId, manual = false, score = m.score)))
-            withContext(Dispatchers.IO) { runCatching { importProgrammes(m.candidate.sourceId, setOf(m.candidate.xmlId), onlyThese = true) } }
+        val m = withContext(Dispatchers.Default) { matcher().autoMatch(channelName, providerEpgId) }
+        if (m == null) {
+            changed()
+        } else {
+            applyMapping(
+                ChannelEpgMappingEntity(playlistId, streamId, m.candidate.sourceId, m.candidate.xmlId, manual = false, score = m.score)
+            )
         }
-        changed()
     }
 
-    /** Programmes overlapping [from]..[to] for the given channels, grouped by stream id and sorted by start. */
-    suspend fun programmes(playlistId: Long, streamIds: Collection<Long>, from: Long, to: Long): Map<Long, List<ChannelProgramme>> {
+    /**
+     * Programmes overlapping [from]..[to] for the given channels, grouped by stream id and sorted by start.
+     * Lists that only show titles pass [details] = false to skip loading descriptions.
+     */
+    suspend fun programmes(
+        playlistId: Long,
+        streamIds: Collection<Long>,
+        from: Long,
+        to: Long,
+        details: Boolean = true
+    ): Map<Long, List<ChannelProgramme>> {
         if (streamIds.isEmpty()) return emptyMap()
-        return streamIds.chunked(MAX_SQL_ARGS).flatMap { epg.programmes(playlistId, it, from, to) }.groupBy { it.streamId }
+        return streamIds.chunked(MAX_SQL_ARGS).flatMap { epg.programmes(playlistId, it, from, to, details) }.groupBy { it.streamId }
     }
 
     /** Deletes cached guide files whose source no longer exists. */
@@ -203,7 +258,11 @@ class EpgRepository(
                 if (gz) {
                     body.copyTo(out)
                 } else {
-                    object : GZIPOutputStream(out, 64 * 1024) { init { def.setLevel(Deflater.BEST_SPEED) } }.use { body.copyTo(it) }
+                    object : GZIPOutputStream(out, 64 * 1024) {
+                        init {
+                            def.setLevel(Deflater.BEST_SPEED)
+                        }
+                    }.use { body.copyTo(it) }
                 }
             }
         }
@@ -220,7 +279,7 @@ class EpgRepository(
         open(s.id).use { input ->
             parser().parse(input, wantProgrammes = { false }, onChannel = { c ->
                 val name = c.names.firstOrNull() ?: c.id
-                rows += EpgChannelEntity(s.id, c.id, name, ChannelNames.normalize(name), c.iconUrl)
+                rows += EpgChannelEntity(s.id, c.id, name, ChannelNames.normalize(name))
             }, onProgramme = {})
         }
         db.withTransaction {
@@ -246,8 +305,10 @@ class EpgRepository(
         val stamp = now
         val batch = ArrayList<ProgrammeEntity>(BATCH)
         open(sourceId).use { input ->
-            parser(now - KEEP_PAST_MS, now + KEEP_FUTURE_MS).parse(input, wantProgrammes = { it in xmlIds }, onChannel = {}, onProgramme = { p ->
-                batch += ProgrammeEntity(sourceId, p.channelId, p.startMs, p.stopMs, p.title, p.subtitle, p.description, p.category, stamp)
+            parser(now - KEEP_PAST_MS, now + KEEP_FUTURE_MS).parse(input, wantProgrammes = {
+                it in xmlIds
+            }, onChannel = {}, onProgramme = { p ->
+                batch += ProgrammeEntity(sourceId, p.channelId, p.startMs, p.stopMs, p.title, p.subtitle, p.description, stamp)
                 if (batch.size >= BATCH) {
                     epg.insertProgrammes(batch.toList())
                     batch.clear()
@@ -267,5 +328,6 @@ class EpgRepository(
         const val MAX_SQL_ARGS = 900
         const val KEEP_PAST_MS = 2 * 3_600_000L
         const val KEEP_FUTURE_MS = 3 * 24 * 3_600_000L
+        const val REMAP_DEBOUNCE_MS = 1_500L
     }
 }

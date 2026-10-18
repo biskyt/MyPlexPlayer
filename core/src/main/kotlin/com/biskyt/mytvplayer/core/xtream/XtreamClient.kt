@@ -1,5 +1,7 @@
 package com.biskyt.mytvplayer.core.xtream
 
+import java.io.IOException
+import java.io.InputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -12,8 +14,6 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import java.io.IOException
-import java.io.InputStream
 
 class XtreamException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
@@ -23,7 +23,10 @@ class XtreamException(message: String, cause: Throwable? = null) : IOException(m
  */
 class XtreamClient(private val http: OkHttpClient, private val credentials: XtreamCredentials) {
 
-    private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+    }
 
     suspend fun account(): XtreamAccount = withContext(Dispatchers.IO) {
         get(apiUrl()) { json.decodeFromStream(it).toAccount() }
@@ -42,7 +45,12 @@ class XtreamClient(private val http: OkHttpClient, private val credentials: Xtre
         val url = apiUrl("get_live_streams") { if (categoryId != null) addQueryParameter("category_id", categoryId) }
         get(url) { input ->
             var count = 0
-            json.decodeArray(input).forEach { el -> el.toLiveStream()?.let { onStream(it); count++ } }
+            json.decodeArray(input).forEach { el ->
+                el.toLiveStream()?.let {
+                    onStream(it)
+                    count++
+                }
+            }
             count
         }
     }
@@ -66,6 +74,7 @@ class XtreamClient(private val http: OkHttpClient, private val credentials: Xtre
     }
 
     // Inline so suspending callbacks can run while the response streams.
+    @Suppress("ThrowsCount") // each failure gets its own readable message
     private inline fun <T> get(url: HttpUrl, read: (InputStream) -> T): T {
         val response = try {
             http.newCall(Request.Builder().url(url).build()).execute()

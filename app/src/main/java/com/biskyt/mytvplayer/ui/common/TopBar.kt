@@ -47,9 +47,6 @@ import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 import kotlinx.coroutines.delay
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 enum class Tab(val label: String) { HOME("Home"), LIVE("Live TV"), MOVIES("Movies"), SERIES("Series"), FAVOURITES("Favourites") }
 
@@ -59,13 +56,14 @@ fun TopBar(selected: Tab?) {
     val nav = LocalNavigator.current
     val accent = LocalAccent.current
     val container = LocalContext.current.container
-    val settings by container.settings.settings.collectAsState(initial = null)
-    val playlists by container.playlists.observePlaylists().collectAsState(initial = emptyList())
+    // remember: a new Room flow on each recomposition would re-run the query and briefly show nothing.
+    val settings by remember { container.settings.settings }.collectAsState(initial = null)
+    val playlists by remember { container.playlists.observePlaylists() }.collectAsState(initial = emptyList())
     val active = playlists.firstOrNull { it.id == settings?.activePlaylistId } ?: playlists.firstOrNull()
     Row(
         Modifier.padding(start = 56.dp, end = 56.dp, top = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(Modifier.padding(end = 28.dp)) {
             Text("My", style = MaterialTheme.typography.titleLarge)
@@ -84,9 +82,9 @@ fun TopBar(selected: Tab?) {
                             Tab.MOVIES -> Screen.Movies
                             Tab.SERIES -> Screen.Series
                             Tab.FAVOURITES -> Screen.Live(ChannelFilter.Favourites)
-                        },
+                        }
                     )
-                },
+                }
             )
         }
         Box(Modifier.weight(1f))
@@ -96,7 +94,10 @@ fun TopBar(selected: Tab?) {
         IconPill(AppIcons.Settings, "Settings") { nav.push(Screen.Settings) }
         if (active != null) {
             TvCard(onClick = { nav.push(Screen.Playlists) }, shape = RoundedCornerShape(50)) {
-                Row(Modifier.padding(start = 6.dp, end = 16.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.padding(start = 6.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Box(Modifier.size(28.dp).clip(CircleShape).background(accent.color), contentAlignment = Alignment.Center) {
                         Text(active.name.take(1).uppercase(), style = MaterialTheme.typography.labelMedium, color = accent.onAccent)
                     }
@@ -116,23 +117,21 @@ private fun IconPill(icon: androidx.compose.ui.graphics.vector.ImageVector, labe
 
 @Composable
 private fun Clock() {
-    val time by produceState(initialValue = now()) {
+    val time by produceState(initialValue = formatTime(System.currentTimeMillis())) {
         while (true) {
             delay(60_000 - System.currentTimeMillis() % 60_000)
-            value = now()
+            value = formatTime(System.currentTimeMillis())
         }
     }
     Text(time, style = MaterialTheme.typography.titleSmall, color = Palette.textMuted, modifier = Modifier.padding(horizontal = 8.dp))
 }
-
-private fun now(): String = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
 
 @Composable
 private fun SyncStatus() {
     val state by LocalContext.current.container.sync.state.collectAsState()
     val text = when (val s = state) {
         SyncState.Idle -> null
-        is SyncState.Channels -> if (s.loaded == 0) "Updating channels…" else "Loading channels… ${"%,d".format(s.loaded)}"
+        is SyncState.Channels -> if (s.loaded == 0) "Updating channels…" else "Loading channels… ${formatCount(s.loaded)}"
         is SyncState.Guide -> s.message
         is SyncState.Failed -> s.message
     }
@@ -161,7 +160,7 @@ fun TvTextField(
     password: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text,
     leading: (@Composable () -> Unit)? = null,
-    onDone: () -> Unit = {},
+    onDone: () -> Unit = {}
 ) {
     var editing by rememberSaveable { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
@@ -181,11 +180,18 @@ fun TvTextField(
                     cursorBrush = SolidColor(LocalAccent.current.color),
                     visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
                     keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { editing = false; onDone() }),
+                    keyboardActions = KeyboardActions(onDone = {
+                        editing = false
+                        onDone()
+                    }),
                     modifier = Modifier.weight(1f).focusRequester(focus).onFocusChanged {
                         // Leaving the field (e.g. pressing Back or moving away) ends editing.
-                        if (it.isFocused) hadFocus = true else if (hadFocus) editing = false
-                    },
+                        if (it.isFocused) {
+                            hadFocus = true
+                        } else if (hadFocus) {
+                            editing = false
+                        }
+                    }
                 )
                 LaunchedEffect(Unit) { focus.requestFocus() }
             } else {
@@ -194,7 +200,12 @@ fun TvTextField(
                     password -> "•".repeat(value.length.coerceAtMost(12))
                     else -> value
                 }
-                Text(shown, style = MaterialTheme.typography.bodyLarge, color = if (value.isEmpty()) Palette.textDim else Palette.text, maxLines = 1)
+                Text(
+                    shown,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (value.isEmpty()) Palette.textDim else Palette.text,
+                    maxLines = 1
+                )
             }
         }
     }

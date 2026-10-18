@@ -1,7 +1,10 @@
 package com.biskyt.mytvplayer.ui.common
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.produceState
 import com.biskyt.mytvplayer.data.db.ChannelProgramme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -17,16 +20,24 @@ import kotlinx.coroutines.launch
  * [scope] must run on the main thread.
  */
 open class BatchLoader<V : Any>(
-    protected val scope: CoroutineScope,
-    private val load: suspend (ids: List<Long>) -> Map<Long, V>,
+    private val scope: CoroutineScope,
+    private val load: suspend (ids: List<Long>) -> Map<Long, V>
 ) {
     val entries = mutableStateMapOf<Long, V>()
-    private val requested = HashSet<Long>()
+
+    /** Recently shown rows, oldest first; capped so scrolling through thousands of channels doesn't fill memory. */
+    private val requested = object : LinkedHashMap<Long, Unit>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, Unit>?): Boolean {
+            val evict = size > MAX_ROWS
+            if (evict && eldest != null) this@BatchLoader.entries.remove(eldest.key)
+            return evict
+        }
+    }
     private val pending = LinkedHashSet<Long>()
     private var batchJob: Job? = null
 
     fun request(id: Long) {
-        if (!requested.add(id)) return
+        if (requested.put(id, Unit) != null) return // already loaded or loading; put() also marks it recently used
         pending += id
         if (batchJob != null) return
         batchJob = scope.launch {
@@ -40,13 +51,13 @@ open class BatchLoader<V : Any>(
 
     /** Reloads every row loaded so far (e.g. the guide changed), keeping old values on screen until new ones arrive. */
     fun refreshAll() {
-        val ids = requested.toList()
+        val ids = requested.keys.toList()
         if (ids.isNotEmpty()) scope.launch { ids.chunked(REFRESH_CHUNK).forEach { fetch(it) } }
     }
 
     /** Reloads one row, e.g. after its guide channel was changed. */
     fun refresh(id: Long) {
-        requested += id
+        requested[id] = Unit
         scope.launch { fetch(listOf(id)) }
     }
 
@@ -58,6 +69,7 @@ open class BatchLoader<V : Any>(
     private companion object {
         const val BATCH_DELAY_MS = 120L
         const val REFRESH_CHUNK = 500
+        const val MAX_ROWS = 300
     }
 }
 
@@ -77,7 +89,8 @@ class NowNextLoader(
     scope: CoroutineScope,
     guideChanges: Flow<Any>? = null,
     private val clock: () -> Long = System::currentTimeMillis,
-    load: suspend (ids: List<Long>, from: Long, to: Long) -> Map<Long, List<ChannelProgramme>>,
+    /** Loads programmes overlapping from..to; titles are enough here, so callers can skip descriptions. */
+    load: suspend (ids: List<Long>, from: Long, to: Long) -> Map<Long, List<ChannelProgramme>>
 ) : BatchLoader<NowNext>(scope, { ids ->
     val now = clock()
     val result = load(ids, now, now + LOOKAHEAD_MS)
@@ -96,12 +109,21 @@ class NowNextLoader(
     }
 
     private companion object {
-        const val LOOKAHEAD_MS = 8 * 3_600_000L
+        const val LOOKAHEAD_MS = 4 * 3_600_000L
 
         fun pick(list: List<ChannelProgramme>, now: Long): NowNext {
             val current = list.firstOrNull { it.startMs <= now && it.stopMs > now }
             val next = list.firstOrNull { it.startMs >= (current?.stopMs ?: now) && it !== current }
             return NowNext(current, next)
         }
+    }
+}
+
+/** The current time, updated on each minute boundary: progress bars and "on now" labels advance without per-frame work. */
+@Composable
+fun rememberMinuteClock(): State<Long> = produceState(System.currentTimeMillis()) {
+    while (true) {
+        delay(60_000 - System.currentTimeMillis() % 60_000)
+        value = System.currentTimeMillis()
     }
 }

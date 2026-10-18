@@ -10,11 +10,12 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.biskyt.mytvplayer.core.player.SubtitleMode
 import com.biskyt.mytvplayer.core.ui.AccentPalette
+import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import java.util.Locale
 
 enum class BufferSize { SMALL, NORMAL, LARGE }
 
@@ -33,7 +34,7 @@ data class Settings(
     val startOnLastChannel: Boolean = false,
     val lastChannelId: Long = 0,
     val accent: Int = AccentPalette.DEFAULT,
-    val largeText: Boolean = true,
+    val largeText: Boolean = true
 ) {
     val effectiveSubtitleLanguage: String get() = subtitleLanguage.ifEmpty { Locale.getDefault().language }
 }
@@ -60,6 +61,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun current(): Settings = settings.first()
 
+    /** The playlist in use; 0 (none yet) is skipped so screens never query for it. */
+    val activePlaylistId: Flow<Long> = settings.map { it.activePlaylistId }.filter { it != 0L }.distinctUntilChanged()
+
     private fun Preferences.toSettings(): Settings {
         val d = Settings()
         return Settings(
@@ -74,7 +78,7 @@ class SettingsRepository(private val context: Context) {
             startOnLastChannel = this[K.startLast] ?: d.startOnLastChannel,
             lastChannelId = this[K.lastChannel] ?: d.lastChannelId,
             accent = this[K.accent] ?: d.accent,
-            largeText = this[K.largeText] ?: d.largeText,
+            largeText = this[K.largeText] ?: d.largeText
         )
     }
 

@@ -47,7 +47,7 @@ class PlayerLogicTest {
         TextTrack("full-en", "en", forced = false),
         TextTrack("forced-en", "eng", forced = true),
         TextTrack("full-fr", "fr-FR", forced = false),
-        TextTrack("forced-fr", "fra", forced = true),
+        TextTrack("forced-fr", "fra", forced = true)
     )
 
     @Test

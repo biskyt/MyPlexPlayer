@@ -14,12 +14,12 @@ data class TextTrack(val id: String, val language: String?, val forced: Boolean)
  */
 object SubtitlePolicy {
     fun choose(tracks: List<TextTrack>, mode: SubtitleMode, language: String): TextTrack? {
-        if (mode == SubtitleMode.OFF) return null
-        val inLanguage = tracks.filter { sameLanguage(it.language, language) }
+        fun inLanguage(t: TextTrack) = sameLanguage(t.language, language)
         return when (mode) {
-            SubtitleMode.FORCED_ONLY -> inLanguage.firstOrNull { it.forced } ?: tracks.firstOrNull { it.forced && it.language.isNullOrBlank() }
-            SubtitleMode.ALWAYS -> inLanguage.firstOrNull { !it.forced } ?: inLanguage.firstOrNull()
             SubtitleMode.OFF -> null
+            SubtitleMode.FORCED_ONLY -> tracks.firstOrNull { it.forced && inLanguage(it) }
+                ?: tracks.firstOrNull { it.forced && it.language.isNullOrBlank() }
+            SubtitleMode.ALWAYS -> tracks.firstOrNull { !it.forced && inLanguage(it) } ?: tracks.firstOrNull { inLanguage(it) }
         }
     }
 
@@ -38,6 +38,6 @@ object SubtitlePolicy {
         "eng" to "en", "fra" to "fr", "fre" to "fr", "deu" to "de", "ger" to "de", "spa" to "es", "ita" to "it",
         "por" to "pt", "nld" to "nl", "dut" to "nl", "pol" to "pl", "tur" to "tr", "ara" to "ar", "hin" to "hi",
         "ell" to "el", "gre" to "el", "ron" to "ro", "rum" to "ro", "swe" to "sv", "nor" to "no", "dan" to "da",
-        "fin" to "fi", "rus" to "ru", "zho" to "zh", "chi" to "zh", "kor" to "ko", "jpn" to "ja",
+        "fin" to "fi", "rus" to "ru", "zho" to "zh", "chi" to "zh", "kor" to "ko", "jpn" to "ja"
     )
 }

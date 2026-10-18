@@ -12,6 +12,7 @@ import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.ui.common.NowNextLoader
+import com.biskyt.mytvplayer.ui.common.NumberEntry
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -31,10 +32,8 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter, initialGuide: Boolean) : ViewModel() {
-    // 0 is only the placeholder before settings load; never query for it.
-    val playlistId: StateFlow<Long> = c.settings.settings.map { it.activePlaylistId }.filter { it != 0L }.distinctUntilChanged()
-        .stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
-    private val activePlaylist = playlistId.filter { it != 0L }
+    private val activePlaylist = c.settings.activePlaylistId
+    val playlistId: StateFlow<Long> = activePlaylist.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
 
     val filter = MutableStateFlow(initialFilter)
     val query = MutableStateFlow("")
@@ -55,7 +54,8 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter, i
             .flatMapLatest { (pid, f, q) -> c.channels.page(pid, f, q) }
             .cachedIn(viewModelScope)
 
-    val nowNext = NowNextLoader(viewModelScope, c.epg.changes) { ids, from, to -> c.epg.programmes(playlistId.value, ids, from, to) }
+    val nowNext =
+        NowNextLoader(viewModelScope, c.epg.changes) { ids, from, to -> c.epg.programmes(playlistId.value, ids, from, to, details = false) }
 
     /** Channel whose options sheet is open. */
     var optionsFor by mutableStateOf<ChannelEntity?>(null)
@@ -64,12 +64,13 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter, i
     var focusStreamId by mutableStateOf<Long?>(null)
     var restoreFocusPending by mutableStateOf(true)
 
-    /** Digits typed on the remote, shown while waiting to jump to that channel number. */
-    var typedNumber by mutableStateOf("")
-        private set
+    /** Set by the screen: what to do with the channel picked by number. */
+    var playNumber: (ChannelEntity) -> Unit = {}
+
+    /** Digits typed on the remote jump straight to that channel number. */
+    val numberEntry = NumberEntry(viewModelScope) { n -> c.channels.byNumber(playlistId.value, n)?.let { playNumber(it) } }
 
     private var filterJob: Job? = null
-    private var numberJob: Job? = null
 
     /** Category focus changes the list after a short pause, so moving through categories stays smooth. */
     fun focusFilter(f: ChannelFilter) {
@@ -84,18 +85,6 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter, i
     fun selectFilter(f: ChannelFilter) {
         filterJob?.cancel()
         filter.value = f
-    }
-
-    fun typeDigit(d: Int, onChannel: (ChannelEntity) -> Unit) {
-        if (typedNumber.length >= 5) return
-        typedNumber += d
-        numberJob?.cancel()
-        numberJob = viewModelScope.launch {
-            delay(1_500)
-            val n = typedNumber.toIntOrNull()
-            typedNumber = ""
-            if (n != null) c.channels.byNumber(playlistId.value, n)?.let(onChannel)
-        }
     }
 
     fun toggleFavourite(ch: ChannelEntity) = viewModelScope.launch {

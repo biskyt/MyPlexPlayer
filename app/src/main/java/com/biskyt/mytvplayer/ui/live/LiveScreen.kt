@@ -27,7 +27,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -47,6 +46,7 @@ import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.AppIcons
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
+import com.biskyt.mytvplayer.ui.common.FlashLabel
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.NowNext
 import com.biskyt.mytvplayer.ui.common.PillButton
@@ -58,6 +58,8 @@ import com.biskyt.mytvplayer.ui.common.TvTextField
 import com.biskyt.mytvplayer.ui.common.digit
 import com.biskyt.mytvplayer.ui.common.formatCount
 import com.biskyt.mytvplayer.ui.common.formatTime
+import com.biskyt.mytvplayer.ui.common.numberLabel
+import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 
@@ -80,13 +82,14 @@ fun LiveScreen(initialFilter: ChannelFilter, initialGuide: Boolean) {
                 // 0–9 on the remote jumps straight to that channel number.
                 val digit = e.key.digit()
                 if (digit != null && e.type == KeyEventType.KeyDown) {
-                    vm.typeDigit(digit, play)
+                    vm.playNumber = play
+                    vm.numberEntry.type(digit)
                     true
                 } else {
                     false
                 }
             },
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             CategoryColumn(vm, filter)
             Column(Modifier.weight(1f)) {
@@ -96,9 +99,10 @@ fun LiveScreen(initialFilter: ChannelFilter, initialGuide: Boolean) {
         }
     }
     vm.optionsFor?.let { ch -> ChannelOptionsSheet(ch, vm, play) }
-    if (vm.typedNumber.isNotEmpty()) NumberEntry(vm.typedNumber)
+    if (vm.numberEntry.typed.isNotEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopEnd) { FlashLabel(vm.numberEntry.typed) }
+    }
 }
-
 
 @Composable
 private fun CategoryColumn(vm: LiveViewModel, selected: ChannelFilter) {
@@ -107,7 +111,7 @@ private fun CategoryColumn(vm: LiveViewModel, selected: ChannelFilter) {
         listOf(
             Triple<ChannelFilter, String, Int?>(ChannelFilter.Favourites, "Favourites", null),
             Triple(ChannelFilter.Recent, "Recently watched", null),
-            Triple(ChannelFilter.All, "All channels", null),
+            Triple(ChannelFilter.All, "All channels", null)
         ) + categories.map { Triple(ChannelFilter.Category(it.categoryId), it.name, it.channelCount) }
     }
     LazyColumn(Modifier.width(250.dp), verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -117,7 +121,7 @@ private fun CategoryColumn(vm: LiveViewModel, selected: ChannelFilter) {
                 onClick = { vm.selectFilter(f) },
                 selected = isSelected,
                 color = Palette.background,
-                modifier = Modifier.fillMaxWidth().onFocusChanged { if (it.isFocused) vm.focusFilter(f) },
+                modifier = Modifier.fillMaxWidth().onFocusChanged { if (it.isFocused) vm.focusFilter(f) }
             ) {
                 Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -126,7 +130,7 @@ private fun CategoryColumn(vm: LiveViewModel, selected: ChannelFilter) {
                         color = if (isSelected) LocalAccent.current.color else Palette.text,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f)
                     )
                     if (count != null) Text(formatCount(count), style = MaterialTheme.typography.bodySmall, color = Palette.textDim)
                 }
@@ -145,17 +149,30 @@ private fun ListHeader(vm: LiveViewModel, filter: ChannelFilter) {
         ChannelFilter.All -> "All channels" to total
         ChannelFilter.Favourites -> "Favourites" to favs.size
         ChannelFilter.Recent -> "Recently watched" to null
-        is ChannelFilter.Category -> categories.firstOrNull { it.categoryId == filter.id }.let { (it?.name ?: "Channels") to it?.channelCount }
+        is ChannelFilter.Category -> categories.firstOrNull { it.categoryId == filter.id }.let {
+            (it?.name ?: "Channels") to
+                it?.channelCount
+        }
     }
-    Row(Modifier.padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text(title, style = MaterialTheme.typography.headlineSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(0.45f, fill = false))
+    Row(
+        Modifier.padding(bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.headlineSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(0.45f, fill = false)
+        )
         if (count != null) Muted("· ${formatCount(count)}")
         TvTextField(
             value = query,
             onValueChange = { vm.query.value = it },
             placeholder = "Filter by name or number",
             modifier = Modifier.weight(0.55f),
-            leading = { Icon(AppIcons.Filter, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) },
+            leading = { Icon(AppIcons.Filter, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) }
         )
         Row(Modifier.clip(RoundedCornerShape(12.dp)).background(Palette.surface).padding(4.dp)) {
             PillButton("List", { vm.guideMode = false }, primary = !vm.guideMode)
@@ -170,7 +187,7 @@ private fun ChannelList(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
     val favs by vm.favouriteIds.collectAsState()
     val listState = rememberLazyListState()
     val restore = remember { FocusRequester() }
-    val now = System.currentTimeMillis()
+    val now by rememberMinuteClock()
 
     LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
         items(count = items.itemCount, key = items.itemKey { it.streamId }) { index ->
@@ -188,7 +205,7 @@ private fun ChannelList(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
                     nowMs = now,
                     onClick = { play(ch) },
                     onLongClick = { vm.optionsFor = ch },
-                    modifier = if (wantsFocus) Modifier.focusRequester(restore) else Modifier,
+                    modifier = if (wantsFocus) Modifier.focusRequester(restore) else Modifier
                 )
                 if (wantsFocus) {
                     LaunchedEffect(Unit) {
@@ -211,15 +228,38 @@ fun ChannelRow(
     nowMs: Long,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     TvCard(onClick = onClick, onLongClick = onLongClick, modifier = modifier.fillMaxWidth().height(64.dp), color = Palette.surfaceLow) {
-        Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text(ch.number.takeIf { it > 0 }?.toString() ?: "", style = MaterialTheme.typography.titleSmall, color = Palette.textDim, textAlign = TextAlign.End, modifier = Modifier.width(48.dp))
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                ch.numberLabel,
+                style = MaterialTheme.typography.titleSmall,
+                color = Palette.textDim,
+                textAlign = TextAlign.End,
+                modifier = Modifier.width(48.dp)
+            )
             ChannelLogo(ch.logoUrl, ch.name)
             Row(Modifier.width(220.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(ch.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                if (favourite) Icon(AppIcons.Heart, "Favourite", tint = LocalAccent.current.color, modifier = Modifier.padding(start = 6.dp).size(16.dp))
+                Text(
+                    ch.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (favourite) {
+                    Icon(
+                        AppIcons.Heart,
+                        "Favourite",
+                        tint = LocalAccent.current.color,
+                        modifier = Modifier.padding(start = 6.dp).size(16.dp)
+                    )
+                }
             }
             Column(Modifier.weight(1f)) {
                 when {
@@ -232,7 +272,7 @@ fun ChannelRow(
                             style = MaterialTheme.typography.bodySmall,
                             color = Palette.textDim,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -253,15 +293,4 @@ private fun SkeletonLines() {
 @Composable
 private fun PlaceholderRow() {
     Box(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(14.dp)).background(Palette.surfaceLow))
-}
-
-@Composable
-private fun NumberEntry(number: String) {
-    Box(Modifier.fillMaxSize().padding(48.dp), contentAlignment = Alignment.TopEnd) {
-        Text(
-            number,
-            style = MaterialTheme.typography.displaySmall,
-            modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(Palette.surfaceHigh).padding(horizontal = 28.dp, vertical = 12.dp),
-        )
-    }
 }

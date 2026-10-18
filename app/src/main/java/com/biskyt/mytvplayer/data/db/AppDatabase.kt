@@ -10,8 +10,8 @@ import androidx.room.RoomDatabase
     exportSchema = true,
     entities = [
         PlaylistEntity::class, CategoryEntity::class, ChannelEntity::class, FavouriteEntity::class, RecentEntity::class,
-        EpgSourceEntity::class, EpgChannelEntity::class, ProgrammeEntity::class, ChannelEpgMappingEntity::class,
-    ],
+        EpgSourceEntity::class, EpgChannelEntity::class, ProgrammeEntity::class, ChannelEpgMappingEntity::class
+    ]
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun playlists(): PlaylistDao

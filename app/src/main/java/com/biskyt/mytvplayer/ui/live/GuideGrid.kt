@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +49,9 @@ import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.formatRange
 import com.biskyt.mytvplayer.ui.common.formatTime
+import com.biskyt.mytvplayer.ui.common.isLive
+import com.biskyt.mytvplayer.ui.common.numberLabel
+import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 
@@ -65,12 +70,17 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
     val epg = LocalContext.current.container.epg
     val scope = rememberCoroutineScope()
     var windowStart by remember { mutableLongStateOf(System.currentTimeMillis() / HALF_HOUR * HALF_HOUR) }
-    // A fresh loader per time window: rows on screen fetch just that window's programmes in batches.
-    val loader = remember(windowStart) {
+    val guideVersion by epg.changes.collectAsState()
+    val now by rememberMinuteClock()
+    // A fresh loader per time window (and guide update): rows on screen fetch just that window's programmes in batches.
+    val loader = remember(windowStart, guideVersion) {
         val start = windowStart
-        BatchLoader(scope) { ids -> epg.programmes(vm.playlistId.value, ids, start, start + WINDOW_MS).let { r -> ids.associateWith { r[it].orEmpty() } } }
+        BatchLoader(scope) { ids ->
+            epg.programmes(vm.playlistId.value, ids, start, start + WINDOW_MS).let { r -> ids.associateWith { r[it].orEmpty() } }
+        }
     }
-    var focused by remember { mutableStateOf<Pair<ChannelEntity, ChannelProgramme?>?>(null) }
+    // Read only inside FocusedInfo, so moving focus around the grid doesn't recompose the grid itself.
+    val focused = remember { mutableStateOf<Pair<ChannelEntity, ChannelProgramme?>?>(null) }
 
     /** Moves the window; returns false at the limits so the key can move focus normally (e.g. to the categories). */
     fun shift(by: Long): Boolean {
@@ -82,19 +92,9 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        // Details of the focused programme.
-        Column(Modifier.fillMaxWidth().height(64.dp)) {
-            val f = focused
-            if (f?.second != null) {
-                Text(f.second!!.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Muted("${f.first.name} · ${formatRange(f.second!!.startMs, f.second!!.stopMs)}" + (f.second!!.description?.let { " · $it" } ?: ""))
-            } else if (f != null) {
-                Text(f.first.name, style = MaterialTheme.typography.titleMedium)
-                Muted("No guide information")
-            }
-        }
+        FocusedInfo(focused)
         TimeHeader(windowStart)
-        val nowLine = (System.currentTimeMillis() - windowStart) / 60_000f
+        val nowLine = (now - windowStart) / 60_000f
         Box(Modifier.fillMaxSize()) {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
                 items(count = items.itemCount, key = items.itemKey { it.streamId }) { index ->
@@ -104,16 +104,35 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
                         ch = ch,
                         programmes = loader.entries[ch.streamId],
                         windowStart = windowStart,
-                        onFocus = { p -> focused = ch to p },
+                        now = now,
+                        onFocus = { p -> focused.value = ch to p },
                         onPlay = { play(ch) },
                         onOptions = { vm.optionsFor = ch },
-                        onEdge = { dir -> shift(dir * 2 * HALF_HOUR) },
+                        onEdge = { dir -> shift(dir * 2 * HALF_HOUR) }
                     )
                 }
             }
             if (nowLine in 0f..(WINDOW_MS / 60_000f)) {
-                Box(Modifier.offset(x = ChannelColumn + DpPerMinute * nowLine).width(2.dp).fillMaxHeight().background(LocalAccent.current.color))
+                Box(
+                    Modifier.offset(
+                        x = ChannelColumn + DpPerMinute * nowLine
+                    ).width(2.dp).fillMaxHeight().background(LocalAccent.current.color)
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun FocusedInfo(focused: State<Pair<ChannelEntity, ChannelProgramme?>?>) {
+    Column(Modifier.fillMaxWidth().height(64.dp)) {
+        val (ch, p) = focused.value ?: return@Column
+        if (p != null) {
+            Text(p.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Muted("${ch.name} · ${formatRange(p.startMs, p.stopMs)}" + (p.description?.let { " · $it" } ?: ""))
+        } else {
+            Text(ch.name, style = MaterialTheme.typography.titleMedium)
+            Muted("No guide information")
         }
     }
 }
@@ -123,7 +142,14 @@ private fun TimeHeader(windowStart: Long) {
     Row(Modifier.fillMaxWidth().height(30.dp)) {
         Spacer(Modifier.width(ChannelColumn))
         for (i in 0 until 5) {
-            Text(formatTime(windowStart + i * HALF_HOUR), style = MaterialTheme.typography.bodyMedium, color = Palette.textMuted, modifier = Modifier.width(DpPerMinute * 30).padding(start = 8.dp))
+            Text(
+                formatTime(windowStart + i * HALF_HOUR),
+                style = MaterialTheme.typography.bodyMedium,
+                color = Palette.textMuted,
+                modifier = Modifier.width(
+                    DpPerMinute * 30
+                ).padding(start = 8.dp)
+            )
         }
     }
 }
@@ -133,31 +159,47 @@ private fun GuideRow(
     ch: ChannelEntity,
     programmes: List<ChannelProgramme>?,
     windowStart: Long,
+    now: Long,
     onFocus: (ChannelProgramme?) -> Unit,
     onPlay: () -> Unit,
     onOptions: () -> Unit,
-    onEdge: (Int) -> Boolean,
+    onEdge: (Int) -> Boolean
 ) {
     val windowEnd = windowStart + WINDOW_MS
-    val now = System.currentTimeMillis()
     Row(Modifier.fillMaxWidth().height(60.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.width(ChannelColumn).padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(ch.number.takeIf { it > 0 }?.toString() ?: "", style = MaterialTheme.typography.bodyMedium, color = Palette.textDim, modifier = Modifier.width(44.dp))
+            Text(ch.numberLabel, style = MaterialTheme.typography.bodyMedium, color = Palette.textDim, modifier = Modifier.width(44.dp))
             ChannelLogo(ch.logoUrl, ch.name, 56.dp, 34.dp)
-            Text(ch.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp))
+            Text(
+                ch.name,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = 10.dp)
+            )
         }
-        val visible = programmes.orEmpty().filter { it.stopMs > windowStart && it.startMs < windowEnd }
+        val visible =
+            remember(programmes, windowStart) { programmes.orEmpty().filter { it.stopMs > windowStart && it.startMs < windowEnd } }
         if (visible.isEmpty()) {
             // One cell for the whole window so the row stays focusable and playable.
-            Cell(null, DpPerMinute * (WINDOW_MS / 60_000f), live = true, first = true, last = true, onFocus, onPlay, onOptions, onEdge, if (programmes == null) "" else "No guide information")
+            Cell(
+                null, DpPerMinute * (WINDOW_MS / 60_000f), live = true, first = true, last = true, onFocus, onPlay, onOptions, onEdge,
+                if (programmes ==
+                    null
+                ) {
+                    ""
+                } else {
+                    "No guide information"
+                }
+            )
         } else {
             var cursor = windowStart
             visible.forEachIndexed { i, p ->
                 val start = maxOf(p.startMs, windowStart)
                 if (start > cursor) Spacer(Modifier.width(DpPerMinute * ((start - cursor) / 60_000f)))
                 val end = minOf(p.stopMs, windowEnd)
-                val live = p.startMs <= now && p.stopMs > now
-                Cell(p, DpPerMinute * ((end - start) / 60_000f), live, i == 0, i == visible.lastIndex, onFocus, onPlay, onOptions, onEdge, p.title)
+                val width = DpPerMinute * ((end - start) / 60_000f)
+                Cell(p, width, p.isLive(now), i == 0, i == visible.lastIndex, onFocus, onPlay, onOptions, onEdge, p.title)
                 cursor = end
             }
         }
@@ -175,7 +217,7 @@ private fun Cell(
     onPlay: () -> Unit,
     onOptions: () -> Unit,
     onEdge: (Int) -> Boolean,
-    title: String,
+    title: String
 ) {
     TvCard(
         onClick = onPlay,
@@ -190,8 +232,14 @@ private fun Cell(
                     e.key == Key.DirectionRight && last -> onEdge(1)
                     else -> false
                 }
-            },
+            }
     ) {
-        Text(title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 10.dp, vertical = 18.dp))
+        Text(
+            title,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 18.dp)
+        )
     }
 }

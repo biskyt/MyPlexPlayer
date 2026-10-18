@@ -62,10 +62,9 @@ interface CategoryDao {
     @Query("UPDATE category SET included = :included WHERE playlistId = :pid AND categoryId IN (:ids)")
     suspend fun setIncluded(pid: Long, ids: List<String>, included: Boolean)
 
-    @Query("UPDATE category SET sortOrder = :order WHERE playlistId = :pid AND categoryId = :id")
-    suspend fun setOrder(pid: Long, id: String, order: Int)
-
-    @Query("UPDATE category SET channelCount = (SELECT COUNT(*) FROM channel c WHERE c.playlistId = :pid AND c.categoryId = category.categoryId AND c.hidden = 0) WHERE playlistId = :pid")
+    @Query(
+        "UPDATE category SET channelCount = (SELECT COUNT(*) FROM channel c WHERE c.playlistId = :pid AND c.categoryId = category.categoryId AND c.hidden = 0) WHERE playlistId = :pid"
+    )
     suspend fun refreshCounts(pid: Long)
 
     @Query("DELETE FROM category WHERE playlistId = :pid AND categoryId NOT IN (:keep)")
@@ -83,53 +82,57 @@ interface ChannelDao {
     @Query(
         """SELECT * FROM channel WHERE playlistId = :pid AND hidden = 0
            AND (:q = '' OR name LIKE '%' || :q || '%' OR CAST(number AS TEXT) LIKE :q || '%')
-           ORDER BY COALESCE(sortOrder, number), name""",
+           ORDER BY position, name"""
     )
     fun pageAll(pid: Long, q: String): PagingSource<Int, ChannelEntity>
 
     @Query(
         """SELECT * FROM channel WHERE playlistId = :pid AND hidden = 0 AND categoryId = :cat
            AND (:q = '' OR name LIKE '%' || :q || '%' OR CAST(number AS TEXT) LIKE :q || '%')
-           ORDER BY COALESCE(sortOrder, number), name""",
+           ORDER BY position, name"""
     )
     fun pageCategory(pid: Long, cat: String, q: String): PagingSource<Int, ChannelEntity>
 
     @Query(
         """SELECT c.* FROM channel c JOIN favourite f ON f.playlistId = c.playlistId AND f.streamId = c.streamId
            WHERE c.playlistId = :pid AND (:q = '' OR c.name LIKE '%' || :q || '%' OR CAST(c.number AS TEXT) LIKE :q || '%')
-           ORDER BY COALESCE(c.sortOrder, c.number), c.name""",
+           ORDER BY c.position, c.name"""
     )
     fun pageFavourites(pid: Long, q: String): PagingSource<Int, ChannelEntity>
 
     @Query(
         """SELECT c.* FROM channel c JOIN recent r ON r.playlistId = c.playlistId AND r.streamId = c.streamId
            WHERE c.playlistId = :pid AND (:q = '' OR c.name LIKE '%' || :q || '%' OR CAST(c.number AS TEXT) LIKE :q || '%')
-           ORDER BY r.watchedAt DESC""",
+           ORDER BY r.watchedAt DESC"""
     )
     fun pageRecent(pid: Long, q: String): PagingSource<Int, ChannelEntity>
 
-    @Query("SELECT streamId FROM channel WHERE playlistId = :pid AND hidden = 0 ORDER BY COALESCE(sortOrder, number), name")
+    @Query("SELECT streamId FROM channel WHERE playlistId = :pid AND hidden = 0 ORDER BY position, name")
     suspend fun idsAll(pid: Long): List<Long>
 
-    @Query("SELECT streamId FROM channel WHERE playlistId = :pid AND hidden = 0 AND categoryId = :cat ORDER BY COALESCE(sortOrder, number), name")
+    @Query("SELECT streamId FROM channel WHERE playlistId = :pid AND hidden = 0 AND categoryId = :cat ORDER BY position, name")
     suspend fun idsCategory(pid: Long, cat: String): List<Long>
 
     @Query(
         """SELECT c.streamId FROM channel c JOIN favourite f ON f.playlistId = c.playlistId AND f.streamId = c.streamId
-           WHERE c.playlistId = :pid ORDER BY COALESCE(c.sortOrder, c.number), c.name""",
+           WHERE c.playlistId = :pid ORDER BY c.position, c.name"""
     )
     suspend fun idsFavourites(pid: Long): List<Long>
 
-    @Query("SELECT c.streamId FROM channel c JOIN recent r ON r.playlistId = c.playlistId AND r.streamId = c.streamId WHERE c.playlistId = :pid ORDER BY r.watchedAt DESC")
+    @Query(
+        "SELECT c.streamId FROM channel c JOIN recent r ON r.playlistId = c.playlistId AND r.streamId = c.streamId WHERE c.playlistId = :pid ORDER BY r.watchedAt DESC"
+    )
     suspend fun idsRecent(pid: Long): List<Long>
 
     @Query(
         """SELECT c.* FROM channel c JOIN favourite f ON f.playlistId = c.playlistId AND f.streamId = c.streamId
-           WHERE c.playlistId = :pid ORDER BY COALESCE(c.sortOrder, c.number), c.name LIMIT :limit""",
+           WHERE c.playlistId = :pid ORDER BY c.position, c.name LIMIT :limit"""
     )
     fun observeFavourites(pid: Long, limit: Int): Flow<List<ChannelEntity>>
 
-    @Query("SELECT c.* FROM channel c JOIN recent r ON r.playlistId = c.playlistId AND r.streamId = c.streamId WHERE c.playlistId = :pid ORDER BY r.watchedAt DESC LIMIT :limit")
+    @Query(
+        "SELECT c.* FROM channel c JOIN recent r ON r.playlistId = c.playlistId AND r.streamId = c.streamId WHERE c.playlistId = :pid ORDER BY r.watchedAt DESC LIMIT :limit"
+    )
     fun observeRecent(pid: Long, limit: Int): Flow<List<ChannelEntity>>
 
     @Query("SELECT * FROM channel WHERE playlistId = :pid AND streamId = :id")
@@ -156,7 +159,7 @@ interface ChannelDao {
     @Query("UPDATE channel SET hidden = :hidden WHERE playlistId = :pid AND streamId = :id")
     suspend fun setHidden(pid: Long, id: Long, hidden: Boolean)
 
-    @Query("UPDATE channel SET sortOrder = :order WHERE playlistId = :pid AND streamId = :id")
+    @Query("UPDATE channel SET sortOrder = :order, position = COALESCE(:order, number) WHERE playlistId = :pid AND streamId = :id")
     suspend fun setSortOrder(pid: Long, id: Long, order: Int?)
 
     @Query("SELECT * FROM channel WHERE playlistId = :pid AND hidden = 1 ORDER BY name")
@@ -182,7 +185,9 @@ interface FavouriteDao {
     @Upsert
     suspend fun touchRecent(r: RecentEntity)
 
-    @Query("DELETE FROM recent WHERE playlistId = :pid AND streamId NOT IN (SELECT streamId FROM recent WHERE playlistId = :pid ORDER BY watchedAt DESC LIMIT :keep)")
+    @Query(
+        "DELETE FROM recent WHERE playlistId = :pid AND streamId NOT IN (SELECT streamId FROM recent WHERE playlistId = :pid ORDER BY watchedAt DESC LIMIT :keep)"
+    )
     suspend fun trimRecent(pid: Long, keep: Int)
 }
 
@@ -193,7 +198,7 @@ data class ChannelProgramme(
     val stopMs: Long,
     val title: String,
     val subtitle: String?,
-    val description: String?,
+    val description: String?
 )
 
 /** Mapping row joined with its guide channel name, for the matching screen. */
@@ -205,7 +210,7 @@ data class MappingInfo(
     val score: Double,
     val offsetMinutes: Int,
     val displayName: String?,
-    val sourceName: String?,
+    val sourceName: String?
 )
 
 @Dao
@@ -245,7 +250,7 @@ interface EpgDao {
 
     @Query(
         """SELECT * FROM epg_channel WHERE (:q = '' OR displayName LIKE '%' || :q || '%' OR xmlId LIKE '%' || :q || '%')
-           ORDER BY displayName LIMIT :limit""",
+           ORDER BY displayName LIMIT :limit"""
     )
     suspend fun searchChannels(q: String, limit: Int): List<EpgChannelEntity>
 
@@ -267,24 +272,28 @@ interface EpgDao {
     @Query("SELECT DISTINCT xmlId FROM channel_epg_mapping WHERE sourceId = :sourceId")
     suspend fun mappedXmlIds(sourceId: Long): List<String>
 
+    // Time bounds are applied to the bare startMs column (offset moved to the other side) so SQLite can range-scan the
+    // (sourceId, xmlId, startMs) primary key; programmes are assumed to last at most MAX_PROGRAMME_MS.
     @Query(
         """SELECT m.streamId, p.startMs + m.offsetMinutes * 60000 AS startMs, p.stopMs + m.offsetMinutes * 60000 AS stopMs,
-                  p.title, p.subtitle, p.description
+                  p.title, p.subtitle, CASE WHEN :details THEN p.description END AS description
            FROM channel_epg_mapping m JOIN programme p ON p.sourceId = m.sourceId AND p.xmlId = m.xmlId
            WHERE m.playlistId = :pid AND m.streamId IN (:ids)
-             AND p.stopMs + m.offsetMinutes * 60000 > :from AND p.startMs + m.offsetMinutes * 60000 < :to
-           ORDER BY m.streamId, p.startMs""",
+             AND p.startMs > :from - m.offsetMinutes * 60000 - $MAX_PROGRAMME_MS
+             AND p.startMs < :to - m.offsetMinutes * 60000
+             AND p.stopMs > :from - m.offsetMinutes * 60000
+           ORDER BY m.streamId, p.startMs"""
     )
-    suspend fun programmes(pid: Long, ids: List<Long>, from: Long, to: Long): List<ChannelProgramme>
+    suspend fun programmes(pid: Long, ids: List<Long>, from: Long, to: Long, details: Boolean): List<ChannelProgramme>
 
-    @Query("SELECT * FROM channel_epg_mapping WHERE playlistId = :pid")
-    suspend fun mappings(pid: Long): List<ChannelEpgMappingEntity>
+    @Query("SELECT streamId FROM channel_epg_mapping WHERE playlistId = :pid AND manual = 1")
+    suspend fun manualStreamIds(pid: Long): List<Long>
 
     @Query(
         """SELECT m.streamId, m.sourceId, m.xmlId, m.manual, m.score, m.offsetMinutes, e.displayName, s.name AS sourceName
            FROM channel_epg_mapping m LEFT JOIN epg_channel e ON e.sourceId = m.sourceId AND e.xmlId = m.xmlId
            LEFT JOIN epg_source s ON s.id = m.sourceId
-           WHERE m.playlistId = :pid AND m.streamId IN (:ids)""",
+           WHERE m.playlistId = :pid AND m.streamId IN (:ids)"""
     )
     suspend fun mappingInfo(pid: Long, ids: List<Long>): List<MappingInfo>
 
@@ -300,17 +309,19 @@ interface EpgDao {
     @Query("DELETE FROM channel_epg_mapping WHERE manual = 0 AND playlistId = :pid")
     suspend fun clearAutoMappings(pid: Long)
 
+    /** Channels with their current guide choice joined in, so rows update by themselves when a mapping changes. */
     @Query(
-        """SELECT * FROM channel WHERE playlistId = :pid AND hidden = 0
-           AND (:q = '' OR name LIKE '%' || :q || '%')
-           AND CASE :status
-               WHEN 1 THEN NOT EXISTS (SELECT 1 FROM channel_epg_mapping m WHERE m.playlistId = channel.playlistId AND m.streamId = channel.streamId AND m.sourceId IS NOT NULL)
-               WHEN 2 THEN EXISTS (SELECT 1 FROM channel_epg_mapping m WHERE m.playlistId = channel.playlistId AND m.streamId = channel.streamId AND m.manual = 0)
-               WHEN 3 THEN EXISTS (SELECT 1 FROM channel_epg_mapping m WHERE m.playlistId = channel.playlistId AND m.streamId = channel.streamId AND m.manual = 1)
-               ELSE 1 END
-           ORDER BY COALESCE(sortOrder, number), name""",
+        """SELECT c.*, m.sourceId AS mapSourceId, m.manual AS mapManual, m.score AS mapScore, m.offsetMinutes AS mapOffset,
+                  e.displayName AS guideName, s.name AS sourceName
+           FROM channel c
+           LEFT JOIN channel_epg_mapping m ON m.playlistId = c.playlistId AND m.streamId = c.streamId
+           LEFT JOIN epg_channel e ON e.sourceId = m.sourceId AND e.xmlId = m.xmlId
+           LEFT JOIN epg_source s ON s.id = m.sourceId
+           WHERE c.playlistId = :pid AND c.hidden = 0 AND (:q = '' OR c.name LIKE '%' || :q || '%')
+             AND CASE :status WHEN 1 THEN m.sourceId IS NULL WHEN 2 THEN m.manual = 0 WHEN 3 THEN m.manual = 1 ELSE 1 END
+           ORDER BY c.position, c.name"""
     )
-    fun pageForMatching(pid: Long, q: String, status: Int): PagingSource<Int, ChannelEntity>
+    fun pageForMatching(pid: Long, q: String, status: Int): PagingSource<Int, MatchRow>
 
     @Query(
         """SELECT
@@ -318,9 +329,21 @@ interface EpgDao {
              (SELECT COUNT(*) FROM channel c WHERE c.playlistId = :pid AND c.hidden = 0 AND NOT EXISTS
                 (SELECT 1 FROM channel_epg_mapping m WHERE m.playlistId = c.playlistId AND m.streamId = c.streamId AND m.sourceId IS NOT NULL)) AS unmatched,
              (SELECT COUNT(*) FROM channel_epg_mapping m WHERE m.playlistId = :pid AND m.manual = 0) AS auto,
-             (SELECT COUNT(*) FROM channel_epg_mapping m WHERE m.playlistId = :pid AND m.manual = 1) AS manual""",
+             (SELECT COUNT(*) FROM channel_epg_mapping m WHERE m.playlistId = :pid AND m.manual = 1) AS manual"""
     )
     fun observeMatchCounts(pid: Long): Flow<MatchCounts>
 }
+
+const val MAX_PROGRAMME_MS = 12 * 3_600_000L
+
+data class MatchRow(
+    @androidx.room.Embedded val channel: ChannelEntity,
+    val mapSourceId: Long?,
+    val mapManual: Boolean?,
+    val mapScore: Double?,
+    val mapOffset: Int?,
+    val guideName: String?,
+    val sourceName: String?
+)
 
 data class MatchCounts(val total: Int, val unmatched: Int, val auto: Int, val manual: Int)
