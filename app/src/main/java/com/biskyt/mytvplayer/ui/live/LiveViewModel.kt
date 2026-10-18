@@ -11,6 +11,7 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.data.ChannelFilter
+import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.ui.common.NowNextLoader
@@ -45,7 +46,7 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter, i
     /** Shared by the list and the guide grid, so switching between them keeps the same channels on screen. */
     val listState = LazyListState()
 
-    val categories: StateFlow<List<CategoryEntity>> = activePlaylist.flatMapLatest { c.db.categories().observeIncluded(it) }
+    val categories: StateFlow<List<CategoryEntity>> = activePlaylist.flatMapLatest { c.db.categories().observeIncluded(it, CAT_LIVE) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val totalCount: StateFlow<Int> = activePlaylist.flatMapLatest { c.channels.observeCount(it) }

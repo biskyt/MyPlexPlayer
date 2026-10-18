@@ -40,4 +40,24 @@ class MigrationTest {
             }
         }
     }
+
+    @Test
+    fun `version 2 to 3 keeps categories as live ones and adds the movie tables`() {
+        helper.createDatabase("migration-test-3", 2).use { db ->
+            db.execSQL(
+                "INSERT INTO category (playlistId, categoryId, name, lang, included, sortOrder, channelCount) VALUES (1, '5', 'UK | NEWS', 'UK', 1, 0, 3)"
+            )
+        }
+        helper.runMigrationsAndValidate("migration-test-3", 3, true).use { db ->
+            db.query("SELECT type, included FROM category WHERE categoryId = '5'").use {
+                it.moveToFirst()
+                assertEquals("live", it.getString(0))
+                assertEquals(1, it.getInt(1))
+            }
+            db.query("SELECT COUNT(*) FROM movie").use {
+                it.moveToFirst()
+                assertEquals(0, it.getInt(0))
+            }
+        }
+    }
 }

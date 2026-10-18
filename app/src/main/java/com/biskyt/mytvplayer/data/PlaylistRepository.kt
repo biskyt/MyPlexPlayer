@@ -9,6 +9,7 @@ import com.biskyt.mytvplayer.core.xtream.XtreamCredentials
 import com.biskyt.mytvplayer.core.xtream.XtreamException
 import com.biskyt.mytvplayer.core.xtream.XtreamLiveStream
 import com.biskyt.mytvplayer.data.db.AppDatabase
+import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.ChannelPrefs
@@ -107,6 +108,10 @@ class PlaylistRepository(
             playlists.deleteFavourites(id)
             playlists.deleteRecents(id)
             playlists.deleteMappings(id)
+            playlists.deleteMovies(id)
+            playlists.deleteSeries(id)
+            playlists.deleteProgress(id)
+            playlists.deleteVodFavourites(id)
             playlists.delete(id)
         }
         db.epg().providerSource(id)?.let { epg.removeSource(it.id) }
@@ -132,8 +137,9 @@ class PlaylistRepository(
         // Two-letter names ("TV", "SD") would read as country codes, so those go under "Other".
         CategoryLanguageDetector.detect(name) ?: name.takeIf { groupByName && it.length > 2 }
 
-    private suspend fun storeCategories(playlistId: Long, remote: List<XtreamCategory>, groupByName: Boolean) {
-        val existing = categories.all(playlistId).associateBy { it.categoryId }
+    /** Saves the provider's categories of one [type]; for movies and series the ids already carry their type prefix. */
+    internal suspend fun storeCategories(playlistId: Long, remote: List<XtreamCategory>, groupByName: Boolean, type: String = CAT_LIVE) {
+        val existing = categories.all(playlistId, type).associateBy { it.categoryId }
         val langs = remote.map { langOf(it.name, groupByName) }
         val wanted = if (existing.isEmpty()) {
             defaultGroups(
@@ -151,12 +157,13 @@ class PlaylistRepository(
                 lang = langs[i],
                 included = old?.included ?: (langs[i] in wanted),
                 sortOrder = old?.sortOrder ?: (existing.size + i),
-                channelCount = old?.channelCount ?: 0
+                channelCount = old?.channelCount ?: 0,
+                type = type
             )
         }
         db.withTransaction {
             categories.upsert(items)
-            if (items.isNotEmpty()) categories.deleteOthers(playlistId, items.map { it.categoryId })
+            if (items.isNotEmpty()) categories.deleteOthers(playlistId, type, items.map { it.categoryId })
         }
     }
 
@@ -190,7 +197,7 @@ class PlaylistRepository(
             playlists.upsert(p.copy(expiresAt = it.expiresAtEpochSec, maxConnections = it.maxConnections))
         }
         refreshCategories(playlistId)
-        val all = categories.all(playlistId)
+        val all = categories.all(playlistId, CAT_LIVE)
         val included = all.filter { it.included }.map { it.categoryId }.toSet()
         val out = ChannelWriter(playlistId, onProgress)
         val collect: suspend (XtreamLiveStream) -> Unit = { s ->
@@ -220,11 +227,11 @@ class PlaylistRepository(
      * favourites and the user's choices survive providers rewriting stream URLs.
      */
     private suspend fun syncM3u(p: PlaylistEntity, onProgress: (Int) -> Unit): Int = withM3u(p.server, reuse = p.lastSyncAt == 0L) { file ->
-        var known = categories.all(p.id)
+        var known = categories.all(p.id, CAT_LIVE)
         if (known.isEmpty()) {
             // Not normally reached (adding a playlist stores its groups), but the defaults need every group up front.
             storeCategories(p.id, m3uGroups(file), groupByName = true)
-            known = categories.all(p.id)
+            known = categories.all(p.id, CAT_LIVE)
         }
         // Included: existing groups as the user chose; new groups when their language is one already included
         // (the same rule storeCategories applies when it records them below).
@@ -292,7 +299,7 @@ class PlaylistRepository(
             flush()
             db.withTransaction {
                 channels.deleteStale(playlistId, stamp)
-                categories.refreshCounts(playlistId)
+                categories.refreshCounts(playlistId, CAT_LIVE)
             }
             playlists.get(playlistId)?.let { playlists.upsert(it.copy(lastSyncAt = stamp)) }
             return count

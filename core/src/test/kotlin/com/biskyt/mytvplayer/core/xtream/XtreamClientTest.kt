@@ -117,4 +117,72 @@ class XtreamClientTest {
         } catch (_: XtreamException) {
         }
     }
+
+    @Test
+    fun `movies and series lists stream with tolerant types`() = runTest {
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"num":1,"name":"EN - Dune (2021)","stream_id":"501","stream_icon":"http://p/d.jpg","rating":"8.1",
+                   "added":"1700000000","category_id":"10","container_extension":"mkv"},
+                   {"name":"broken, no id"},
+                   {"num":2,"name":"Up","stream_id":502,"rating":"","added":null,"category_id":10}]"""
+            )
+        )
+        val movies = mutableListOf<XtreamMovie>()
+        assertEquals(2, client.movies("10") { movies += it })
+        assertEquals("get_vod_streams", server.takeRequest().requestUrl!!.queryParameter("action"))
+        assertEquals(XtreamMovie(501, 1, "EN - Dune (2021)", "10", "http://p/d.jpg", 8.1, 1_700_000_000, "mkv"), movies[0])
+        assertNull(movies[1].rating)
+        assertEquals("mp4", movies[1].extension)
+
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"num":"3","name":"Line of Duty","series_id":"77","cover":"http://p/l.jpg","rating":"8.7",
+                   "releaseDate":"2012-06-26","last_modified":"1690000000","category_id":"20"}]"""
+            )
+        )
+        val series = mutableListOf<XtreamSeries>()
+        client.series { series += it }
+        assertEquals(XtreamSeries(77, 3, "Line of Duty", "20", "http://p/l.jpg", 8.7, 2012, 1_690_000_000), series.single())
+    }
+
+    @Test
+    fun `movie and series details, including empty info and episodes grouped by season`() = runTest {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"info":{"plot":"Spice.","cast":"Timothée","releasedate":"2021-09-15","duration_secs":9300,
+                   "backdrop_path":["http://p/b.jpg"],"movie_image":"http://p/m.jpg","rating":"8"},
+                   "movie_data":{"stream_id":501,"container_extension":"mkv"}}"""
+            )
+        )
+        val movie = client.movieDetails(501)
+        assertEquals("501", server.takeRequest().requestUrl!!.queryParameter("vod_id"))
+        assertEquals(2021, movie.year)
+        assertEquals(9300, movie.durationSec)
+        assertEquals("http://p/b.jpg", movie.backdropUrl)
+        assertEquals("mkv", movie.extension)
+
+        server.enqueue(MockResponse().setBody("""{"info":[],"movie_data":{}}"""))
+        assertNull(client.movieDetails(502).plot)
+
+        server.enqueue(
+            MockResponse().setBody(
+                """{"seasons":[],"info":{"plot":"Corruption.","episode_run_time":"60"},
+                   "episodes":{"2":[{"id":"9002","episode_num":"1","title":"S2 E1","container_extension":"mp4","season":2}],
+                               "1":[{"id":"9001","episode_num":1,"title":"S1 E1","container_extension":"mkv","season":1,
+                                     "info":{"plot":"Pilot","duration_secs":3600}}]}}"""
+            )
+        )
+        val s = client.seriesDetails(77)
+        assertEquals(3600, s.info.durationSec)
+        assertEquals(listOf(1, 2), s.seasons.map { it.number })
+        assertEquals(listOf(9001L, 9002L), s.episodes.map { it.id })
+        assertEquals("Pilot", s.episodes[0].plot)
+    }
+
+    @Test
+    fun `stream urls for each kind`() {
+        assertTrue(client.movieUrl(5, "mkv").endsWith("/movie/user%20one/p%40ss/5.mkv"))
+        assertTrue(client.episodeUrl(6, "mp4").endsWith("/series/user%20one/p%40ss/6.mp4"))
+    }
 }

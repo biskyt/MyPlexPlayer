@@ -7,13 +7,15 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    version = 2,
+    version = 3,
     exportSchema = true,
     // 2: M3U playlists (playlist.kind; channel.streamUrl/userAgent/referrer).
-    autoMigrations = [AutoMigration(from = 1, to = 2)],
+    // 3: movies and series (category.type; movie, series, watch_progress, vod_favourite).
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
     entities = [
         PlaylistEntity::class, CategoryEntity::class, ChannelEntity::class, FavouriteEntity::class, RecentEntity::class,
-        EpgSourceEntity::class, EpgChannelEntity::class, ProgrammeEntity::class, ChannelEpgMappingEntity::class
+        EpgSourceEntity::class, EpgChannelEntity::class, ProgrammeEntity::class, ChannelEpgMappingEntity::class,
+        MovieEntity::class, SeriesEntity::class, WatchProgressEntity::class, VodFavouriteEntity::class
     ]
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -22,6 +24,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun channels(): ChannelDao
     abstract fun favourites(): FavouriteDao
     abstract fun epg(): EpgDao
+    abstract fun vod(): VodDao
 
     /**
      * Gives space back to the system after large deletes (old programmes, removed playlists). SQLite never shrinks the

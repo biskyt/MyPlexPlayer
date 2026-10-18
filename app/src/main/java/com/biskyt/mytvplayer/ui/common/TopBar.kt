@@ -132,6 +132,7 @@ private fun SyncStatus() {
     val text = when (val s = state) {
         SyncState.Idle -> null
         is SyncState.Channels -> if (s.loaded == 0) "Updating channels…" else "Loading channels… ${formatCount(s.loaded)}"
+        is SyncState.Vod -> if (s.loaded == 0) "Updating movies and series…" else "Loading movies and series… ${formatCount(s.loaded)}"
         is SyncState.Guide -> s.message
         is SyncState.Failed -> s.message
     }

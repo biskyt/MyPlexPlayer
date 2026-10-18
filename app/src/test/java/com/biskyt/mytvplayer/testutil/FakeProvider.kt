@@ -29,6 +29,19 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
 
     data class Stream(val id: Long, val num: Int, val name: String, val cat: String, val epgId: String?)
 
+    var movieCategories = listOf("10" to "UK | MOVIES", "11" to "FR | FILMS")
+
+    /** Movies: id to (raw name, category id, added epoch seconds). */
+    var movies = listOf(
+        Triple(501L, "EN - Dune (2021)", "10"),
+        Triple(502L, "|UK| Paddington 2 (2017)", "10"),
+        Triple(601L, "FR - Amélie (2001)", "11"),
+    )
+
+    var seriesCategories = listOf("20" to "UK | DRAMA", "21" to "FR | SERIES")
+
+    var series = listOf(Triple(77L, "UK - Line of Duty", "20"), Triple(78L, "FR - Lupin", "21"))
+
     val requests = mutableListOf<String>()
 
     /** An iptv-org style playlist, grouped by country. */
@@ -71,9 +84,50 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
                     },
                 )
             }
-            else -> MockResponse().setResponseCode(404)
+            else -> vodResponse(url) ?: MockResponse().setResponseCode(404)
         }
     }
+
+    /** Movie and series endpoints. */
+    private fun vodResponse(url: okhttp3.HttpUrl): MockResponse? = when (url.queryParameter("action")) {
+        "get_vod_categories" -> categoryList(movieCategories)
+        "get_series_categories" -> categoryList(seriesCategories)
+        "get_vod_streams" -> {
+            val cat = url.queryParameter("category_id")
+            MockResponse().setBody(
+                movies.filter { cat == null || it.third == cat }.withIndex().joinToString(",", "[", "]") { (i, m) ->
+                    """{"num":${i + 1},"name":"${m.second}","stream_id":${m.first},"category_id":"${m.third}",""" +
+                        """"stream_icon":"http://img/${m.first}.jpg","rating":"7.5","added":"${1_700_000_000 + m.first}","container_extension":"mkv"}"""
+                }
+            )
+        }
+        "get_series" -> {
+            val cat = url.queryParameter("category_id")
+            MockResponse().setBody(
+                series.filter { cat == null || it.third == cat }.withIndex().joinToString(",", "[", "]") { (i, s) ->
+                    """{"num":${i + 1},"name":"${s.second}","series_id":${s.first},"category_id":"${s.third}",""" +
+                        """"cover":"http://img/s${s.first}.jpg","releaseDate":"2012-06-26","last_modified":"${1_690_000_000 + s.first}"}"""
+                }
+            )
+        }
+        "get_vod_info" -> MockResponse().setBody(
+            """{"info":{"plot":"A story.","cast":"Someone","genre":"Drama","releasedate":"2021-09-15","duration_secs":6000,""" +
+                """"backdrop_path":["http://img/back.jpg"]},"movie_data":{"stream_id":${url.queryParameter(
+                    "vod_id"
+                )},"container_extension":"mkv"}}"""
+        )
+        "get_series_info" -> MockResponse().setBody(
+            """{"seasons":[{"season_number":1,"name":"Series 1"},{"season_number":2,"name":"Series 2"}],
+               "info":{"plot":"Anti-corruption.","genre":"Crime","episode_run_time":"60"},
+               "episodes":{"1":[{"id":"9001","episode_num":1,"title":"Episode 1","container_extension":"mkv","season":1,"info":{"plot":"First.","duration_secs":3600}},
+                                {"id":"9002","episode_num":2,"title":"Episode 2","container_extension":"mkv","season":1,"info":{"duration_secs":3500}}],
+                           "2":[{"id":"9003","episode_num":1,"title":"Episode 1","container_extension":"mp4","season":2}]}}"""
+        )
+        else -> null
+    }
+
+    private fun categoryList(list: List<Pair<String, String>>) =
+        MockResponse().setBody(list.joinToString(",", "[", "]") { (id, name) -> """{"category_id":"$id","category_name":"$name"}""" })
 
     private val fmt = SimpleDateFormat("yyyyMMddHHmmss Z", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
     private fun t(offsetMin: Int) = fmt.format(Date(now + offsetMin * 60_000L))
