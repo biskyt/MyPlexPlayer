@@ -6,12 +6,15 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Typography
@@ -68,6 +71,8 @@ private fun typography(large: Boolean): Typography {
     )
 }
 
+private const val DESIGN_WIDTH = 1280f
+
 @Composable
 fun MyTvTheme(accentArgb: Int = AccentPalette.DEFAULT, largeText: Boolean = true, content: @Composable () -> Unit) {
     // Derived once per accent change; nothing is recomputed while drawing.
@@ -88,7 +93,14 @@ fun MyTvTheme(accentArgb: Int = AccentPalette.DEFAULT, largeText: Boolean = true
         )
     }
     val type = remember(largeText) { typography(largeText) }
-    CompositionLocalProvider(LocalAccent provides accent) {
+    // Layouts are designed on a 1280-unit-wide canvas (like the mockups). TVs report ~960 dp (1080p at xhdpi, 720p at
+    // tvdpi), so scale density to make 1280 units span the screen: identical look on every TV, no per-size layouts.
+    val density = LocalDensity.current
+    val widthPx = LocalWindowInfo.current.containerSize.width
+    val scaled = remember(density, widthPx) {
+        if (widthPx > 0) Density(widthPx / DESIGN_WIDTH, density.fontScale) else density
+    }
+    CompositionLocalProvider(LocalAccent provides accent, LocalDensity provides scaled) {
         MaterialTheme(colorScheme = colors, typography = type, content = content)
     }
 }

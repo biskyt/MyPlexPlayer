@@ -19,13 +19,34 @@ android {
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
     }
 
+    signingConfigs {
+        // A shared, public debug key so builds from any machine (or CI) install over each other when sideloading.
+        // For distribution, set MYTV_KEYSTORE / MYTV_KEYSTORE_PASSWORD / MYTV_KEY_ALIAS / MYTV_KEY_PASSWORD.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+        create("release") {
+            val store = System.getenv("MYTV_KEYSTORE")
+            if (store != null) {
+                storeFile = file(store)
+                storePassword = System.getenv("MYTV_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("MYTV_KEY_ALIAS")
+                keyPassword = System.getenv("MYTV_KEY_PASSWORD")
+            } else {
+                initWith(getByName("debug"))
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Signed with the debug key so the release build can be sideloaded for testing.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

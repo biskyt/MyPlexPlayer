@@ -1,7 +1,7 @@
 package com.biskyt.mytvplayer.ui
 
-import android.app.Activity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -69,7 +69,7 @@ fun AppRoot() {
             Box(Modifier.fillMaxSize().background(Palette.background))
             return@MyTvTheme
         }
-        val activity = LocalContext.current as? Activity
+        val activity = LocalActivity.current
         BackHandler {
             when {
                 nav.pop() -> Unit
