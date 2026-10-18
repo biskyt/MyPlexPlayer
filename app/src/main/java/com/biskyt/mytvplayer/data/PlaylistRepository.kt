@@ -18,6 +18,7 @@ class PlaylistRepository(
     private val db: AppDatabase,
     private val http: OkHttpClient,
     private val settings: SettingsRepository,
+    private val epg: EpgRepository,
     private val locale: () -> Locale = Locale::getDefault,
 ) {
     private val playlists = db.playlists()
@@ -42,7 +43,12 @@ class PlaylistRepository(
     suspend fun add(name: String, server: String, username: String, password: String): Long {
         testLogin(server, username, password)
         val id = playlists.insert(PlaylistEntity(name = name.ifBlank { "My TV" }, server = server.trim(), username = username.trim(), password = password))
-        refreshCategories(id)
+        try {
+            refreshCategories(id)
+        } catch (e: java.io.IOException) {
+            playlists.delete(id) // don't leave a half-added playlist behind; the user can simply try again
+            throw e
+        }
         settings.update { it.copy(activePlaylistId = id) }
         return id
     }
@@ -62,13 +68,9 @@ class PlaylistRepository(
             playlists.deleteFavourites(id)
             playlists.deleteRecents(id)
             playlists.deleteMappings(id)
-            db.epg().providerSource(id)?.let { source ->
-                db.epg().clearProgrammes(source.id)
-                db.epg().clearChannels(source.id)
-                db.epg().deleteSource(source.id)
-            }
             playlists.delete(id)
         }
+        db.epg().providerSource(id)?.let { epg.removeSource(it.id) }
         val next = playlists.all().firstOrNull()?.id ?: 0
         if (settings.current().activePlaylistId == id) settings.update { it.copy(activePlaylistId = next) }
     }

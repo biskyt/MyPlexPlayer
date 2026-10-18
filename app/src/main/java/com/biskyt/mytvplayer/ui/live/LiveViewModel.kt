@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -30,29 +31,31 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter, initialGuide: Boolean) : ViewModel() {
-    val playlistId: StateFlow<Long> = c.settings.settings.map { it.activePlaylistId }.distinctUntilChanged()
+    // 0 is only the placeholder before settings load; never query for it.
+    val playlistId: StateFlow<Long> = c.settings.settings.map { it.activePlaylistId }.filter { it != 0L }.distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
+    private val activePlaylist = playlistId.filter { it != 0L }
 
     val filter = MutableStateFlow(initialFilter)
     val query = MutableStateFlow("")
     var guideMode by mutableStateOf(initialGuide)
 
-    val categories: StateFlow<List<CategoryEntity>> = playlistId.flatMapLatest { c.db.categories().observeIncluded(it) }
+    val categories: StateFlow<List<CategoryEntity>> = activePlaylist.flatMapLatest { c.db.categories().observeIncluded(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val totalCount: StateFlow<Int> = playlistId.flatMapLatest { c.channels.observeCount(it) }
+    val totalCount: StateFlow<Int> = activePlaylist.flatMapLatest { c.channels.observeCount(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
-    val favouriteIds: StateFlow<Set<Long>> = playlistId.flatMapLatest { c.channels.observeFavouriteIds(it) }.map { it.toSet() }
+    val favouriteIds: StateFlow<Set<Long>> = activePlaylist.flatMapLatest { c.channels.observeFavouriteIds(it) }.map { it.toSet() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     val channels: Flow<PagingData<ChannelEntity>> =
-        combine(playlistId, filter, query.debounce(250)) { pid, f, q -> Triple(pid, f, q) }
+        combine(activePlaylist, filter, query.debounce(250)) { pid, f, q -> Triple(pid, f, q) }
             .distinctUntilChanged()
             .flatMapLatest { (pid, f, q) -> c.channels.page(pid, f, q) }
             .cachedIn(viewModelScope)
 
-    val nowNext = NowNextLoader(viewModelScope) { ids, from, to -> c.epg.programmes(playlistId.value, ids, from, to) }
+    val nowNext = NowNextLoader(viewModelScope, c.epg.changes) { ids, from, to -> c.epg.programmes(playlistId.value, ids, from, to) }
 
     /** Channel whose options sheet is open. */
     var optionsFor by mutableStateOf<ChannelEntity?>(null)
@@ -103,6 +106,9 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter, i
         c.channels.setHidden(ch.playlistId, ch.streamId, true)
         optionsFor = null
     }
+
+    /** Reordering only makes sense in lists sorted by position (not Favourites by name or Recent by time). */
+    val canMove: Boolean get() = filter.value == ChannelFilter.All || filter.value is ChannelFilter.Category
 
     fun move(ch: ChannelEntity, delta: Int) = viewModelScope.launch {
         c.channels.move(ch.playlistId, filter.value, ch.streamId, delta)

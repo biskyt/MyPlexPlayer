@@ -6,46 +6,29 @@ import com.biskyt.mytvplayer.data.db.ChannelProgramme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-@Immutable
-data class NowNext(val now: ChannelProgramme?, val next: ChannelProgramme?) {
-    fun progress(nowMs: Long): Float = now?.let { (nowMs - it.startMs).toFloat() / (it.stopMs - it.startMs).coerceAtLeast(1) } ?: 0f
-
-    companion object {
-        val Empty = NowNext(null, null)
-    }
-}
-
 /**
- * Loads now/next only for channels that are actually on screen. Rows call [request] when shown; requests are
- * collected for a moment and fetched in one query. Results live in a snapshot map so only the affected row redraws.
- * Every minute, rows whose programme has ended are refreshed. [scope] must run on the main thread.
+ * Loads per-channel values only for rows that are on screen. Rows call [request] when shown; requests are collected
+ * for a moment and fetched in one query. Results live in a snapshot map so only the affected row redraws.
+ * [scope] must run on the main thread.
  */
-class NowNextLoader(
-    private val scope: CoroutineScope,
-    private val clock: () -> Long = System::currentTimeMillis,
-    private val load: suspend (ids: List<Long>, from: Long, to: Long) -> Map<Long, List<ChannelProgramme>>,
+open class BatchLoader<V : Any>(
+    protected val scope: CoroutineScope,
+    private val load: suspend (ids: List<Long>) -> Map<Long, V>,
 ) {
-    val entries = mutableStateMapOf<Long, NowNext>()
+    val entries = mutableStateMapOf<Long, V>()
+    private val requested = HashSet<Long>()
     private val pending = LinkedHashSet<Long>()
     private var batchJob: Job? = null
 
-    init {
-        scope.launch {
-            while (isActive) {
-                delay(60_000 - clock() % 60_000)
-                val now = clock()
-                val stale = entries.filterValues { v -> v.now != null && v.now.stopMs <= now }.keys
-                if (stale.isNotEmpty()) fetch(stale.toList())
-            }
-        }
-    }
-
-    fun request(streamId: Long) {
-        if (streamId in entries || !pending.add(streamId)) return
-        if (batchJob?.isActive == true) return
+    fun request(id: Long) {
+        if (!requested.add(id)) return
+        pending += id
+        if (batchJob != null) return
         batchJob = scope.launch {
             delay(BATCH_DELAY_MS)
             val ids = pending.toList()
@@ -55,24 +38,70 @@ class NowNextLoader(
         }
     }
 
-    /** Clears cached values, e.g. after the guide was updated or a channel's guide source changed. */
-    fun invalidate(streamId: Long? = null) {
-        if (streamId == null) entries.clear() else entries.remove(streamId)
+    /** Reloads every row loaded so far (e.g. the guide changed), keeping old values on screen until new ones arrive. */
+    fun refreshAll() {
+        val ids = requested.toList()
+        if (ids.isNotEmpty()) scope.launch { ids.chunked(REFRESH_CHUNK).forEach { fetch(it) } }
     }
 
-    private suspend fun fetch(ids: List<Long>) {
-        val now = clock()
-        val result = load(ids, now, now + LOOKAHEAD_MS)
-        for (id in ids) {
-            val list = result[id].orEmpty()
-            val current = list.firstOrNull { it.startMs <= now && it.stopMs > now }
-            val next = list.firstOrNull { it.startMs >= (current?.stopMs ?: now) && it !== current }
-            entries[id] = NowNext(current, next)
-        }
+    /** Reloads one row, e.g. after its guide channel was changed. */
+    fun refresh(id: Long) {
+        requested += id
+        scope.launch { fetch(listOf(id)) }
+    }
+
+    protected suspend fun fetch(ids: List<Long>) {
+        val result = load(ids)
+        ids.forEach { id -> result[id]?.let { entries[id] = it } }
     }
 
     private companion object {
         const val BATCH_DELAY_MS = 120L
+        const val REFRESH_CHUNK = 500
+    }
+}
+
+@Immutable
+data class NowNext(val now: ChannelProgramme?, val next: ChannelProgramme?) {
+    fun progress(nowMs: Long): Float = now?.let { (nowMs - it.startMs).toFloat() / (it.stopMs - it.startMs).coerceAtLeast(1) } ?: 0f
+
+    /** True once the shown programme has ended or a gap before the next one has passed. */
+    fun isStale(nowMs: Long) = (now != null && now.stopMs <= nowMs) || (now == null && next != null && next.startMs <= nowMs)
+}
+
+/**
+ * Now/next for visible channels. Every minute, rows whose programme has ended are refreshed, and everything is
+ * reloaded when [guideChanges] emits (a guide import finished or a channel's guide was changed).
+ */
+class NowNextLoader(
+    scope: CoroutineScope,
+    guideChanges: Flow<Any>? = null,
+    private val clock: () -> Long = System::currentTimeMillis,
+    load: suspend (ids: List<Long>, from: Long, to: Long) -> Map<Long, List<ChannelProgramme>>,
+) : BatchLoader<NowNext>(scope, { ids ->
+    val now = clock()
+    val result = load(ids, now, now + LOOKAHEAD_MS)
+    ids.associateWith { id -> pick(result[id].orEmpty(), now) }
+}) {
+    init {
+        scope.launch {
+            while (isActive) {
+                delay(60_000 - clock() % 60_000)
+                val t = clock()
+                val stale = entries.filterValues { it.isStale(t) }.keys.toList()
+                if (stale.isNotEmpty()) fetch(stale)
+            }
+        }
+        guideChanges?.let { flow -> scope.launch { flow.drop(1).collect { refreshAll() } } }
+    }
+
+    private companion object {
         const val LOOKAHEAD_MS = 8 * 3_600_000L
+
+        fun pick(list: List<ChannelProgramme>, now: Long): NowNext {
+            val current = list.firstOrNull { it.startMs <= now && it.stopMs > now }
+            val next = list.firstOrNull { it.startMs >= (current?.stopMs ?: now) && it !== current }
+            return NowNext(current, next)
+        }
     }
 }

@@ -45,7 +45,7 @@ class KeyActionMapper(private val skipBackMs: Long, private val skipForwardMs: L
             RemoteKey.DOWN -> if (isLive && overlay == OverlayState.NONE) PlayerAction.Zap(1) else PlayerAction.None
             RemoteKey.CHANNEL_UP -> if (isLive) PlayerAction.Zap(-1) else PlayerAction.None
             RemoteKey.CHANNEL_DOWN -> if (isLive) PlayerAction.Zap(1) else PlayerAction.None
-            RemoteKey.OK -> if (overlay == OverlayState.NONE) PlayerAction.ToggleOverlay else PlayerAction.TogglePlayPause
+            RemoteKey.OK -> PlayerAction.ToggleOverlay
             RemoteKey.BACK -> if (overlay == OverlayState.CONTROLS) PlayerAction.HideOverlay else PlayerAction.StopAndExit
             RemoteKey.STOP -> PlayerAction.StopAndExit
             RemoteKey.PLAY_PAUSE -> PlayerAction.TogglePlayPause

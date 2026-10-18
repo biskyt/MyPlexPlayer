@@ -62,7 +62,7 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
     var exit by mutableStateOf(false)
         private set
 
-    val nowNext = NowNextLoader(viewModelScope) { ids, from, to -> c.epg.programmes(screen.playlistId, ids, from, to) }
+    val nowNext = NowNextLoader(viewModelScope, c.epg.changes) { ids, from, to -> c.epg.programmes(screen.playlistId, ids, from, to) }
 
     private lateinit var settings: Settings
     private lateinit var mapper: KeyActionMapper
@@ -72,7 +72,11 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
     private var numberJob: Job? = null
     private var messageJob: Job? = null
     private var sleepJob: Job? = null
+    private var tuneJob: Job? = null
     private var retries = 0
+
+    /** The channel being tuned to; updated immediately so rapid zapping steps through channels one by one. */
+    private var targetStreamId: Long = screen.streamId
 
     enum class Sheet { AUDIO, SUBTITLES, MORE }
 
@@ -122,8 +126,15 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
             client = c.playlists.get(screen.playlistId)?.let(c.playlists::client)
             ids = c.channels.ids(screen.playlistId, screen.filter)
             engine = PlaybackEngine(appContext, settings).also { it.player.addListener(listener) }
-            tune(screen.streamId)
+            tuneTo(screen.streamId)
         }
+    }
+
+    /** Starts tuning to [streamId], cancelling any tune still in progress so the last request always wins. */
+    private fun tuneTo(streamId: Long) {
+        targetStreamId = streamId
+        tuneJob?.cancel()
+        tuneJob = viewModelScope.launch { tune(streamId) }
     }
 
     private suspend fun tune(streamId: Long) {
@@ -135,8 +146,7 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
         retries = 0
         val hls = settings.streamFormat == StreamFormat.HLS
         engine?.play(client.liveStreamUrl(ch.streamId, if (hls) "m3u8" else "ts"), hls)
-        nowNext.invalidate(ch.streamId)
-        nowNext.request(ch.streamId)
+        nowNext.refresh(ch.streamId)
         showControls()
         c.channels.markWatched(ch.playlistId, ch.streamId)
         c.settings.update { it.copy(lastChannelId = ch.streamId) }
@@ -169,7 +179,24 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
         return true
     }
 
-    fun back() = perform(mapper.map(RemoteKey.BACK, overlay, isLive = true))
+    /** Back closes the topmost overlay, otherwise stops playback (also safe while the player is still starting). */
+    fun back() {
+        if (!::mapper.isInitialized) stop() else perform(mapper.map(RemoteKey.BACK, overlay, isLive = true))
+    }
+
+    /** Called when the app goes to the background / comes back: live TV is stopped rather than left streaming. */
+    fun onAppHidden() {
+        engine?.player?.stop()
+    }
+
+    fun onAppShown() {
+        engine?.player?.let {
+            if (it.playbackState == Player.STATE_IDLE && !exit) {
+                it.prepare()
+                it.play()
+            }
+        }
+    }
 
     fun stop() {
         engine?.player?.stop()
@@ -189,11 +216,9 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
     }
 
     fun zap(step: Int) {
-        val current = channel?.streamId ?: return
         if (ids.isEmpty()) return
-        val i = ids.indexOf(current).let { if (it < 0) 0 else it }
-        val next = ids[(i + step).mod(ids.size)]
-        viewModelScope.launch { tune(next) }
+        val i = ids.indexOf(targetStreamId).let { if (it < 0) 0 else it }
+        tuneTo(ids[(i + step).mod(ids.size)])
     }
 
     private fun typeDigit(d: Int) {
@@ -205,7 +230,7 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
             val n = typedNumber.toIntOrNull()
             typedNumber = ""
             val ch = n?.let { c.channels.byNumber(screen.playlistId, it) }
-            if (ch != null) tune(ch.streamId) else flash("No channel $n")
+            if (ch != null) tuneTo(ch.streamId) else flash("No channel $n")
         }
     }
 
@@ -245,7 +270,7 @@ class PlayerViewModel(private val c: AppContainer, appContext: Context, private 
     fun watchGuideChannel() {
         val target = guideChannel ?: return
         closeGuide()
-        if (target.streamId != channel?.streamId) viewModelScope.launch { tune(target.streamId) }
+        if (target.streamId != targetStreamId) tuneTo(target.streamId)
     }
 
     fun retry() {

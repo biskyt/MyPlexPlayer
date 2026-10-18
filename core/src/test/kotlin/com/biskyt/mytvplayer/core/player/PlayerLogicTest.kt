@@ -39,7 +39,7 @@ class PlayerLogicTest {
         assertEquals(PlayerAction.None, mapper.map(RemoteKey.GUIDE, NONE, isLive = false))
         assertEquals(PlayerAction.None, mapper.map(RemoteKey.LEFT, GUIDE, isLive = true))
         assertEquals(PlayerAction.ToggleOverlay, mapper.map(RemoteKey.OK, NONE, isLive = true))
-        assertEquals(PlayerAction.TogglePlayPause, mapper.map(RemoteKey.OK, CONTROLS, isLive = true))
+        assertEquals(PlayerAction.ToggleOverlay, mapper.map(RemoteKey.OK, CONTROLS, isLive = true))
         assertEquals(PlayerAction.Digit(7), mapper.map(RemoteKey.DIGIT, NONE, isLive = true, digit = 7))
     }
 

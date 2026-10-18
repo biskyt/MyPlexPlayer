@@ -42,20 +42,24 @@ import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.formatTime
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 class HomeViewModel(private val c: AppContainer) : ViewModel() {
-    val playlistId = c.settings.settings.map { it.activePlaylistId }.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
+    val playlistId = c.settings.settings.map { it.activePlaylistId }.filter { it != 0L }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
+    private val activePlaylist = playlistId.filter { it != 0L }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val favourites = playlistId.flatMapLatest { c.channels.observeFavourites(it, 12) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val favourites = activePlaylist.flatMapLatest { c.channels.observeFavourites(it, 12) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val recent = playlistId.flatMapLatest { c.channels.observeRecent(it, 12) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val recent = activePlaylist.flatMapLatest { c.channels.observeRecent(it, 12) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val nowNext = NowNextLoader(viewModelScope) { ids, from, to -> c.epg.programmes(playlistId.value, ids, from, to) }
+    val nowNext = NowNextLoader(viewModelScope, c.epg.changes) { ids, from, to -> c.epg.programmes(playlistId.value, ids, from, to) }
 }
 
 @Composable

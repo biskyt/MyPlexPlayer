@@ -18,12 +18,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -38,6 +42,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
@@ -57,6 +64,7 @@ import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.PillButton
 import com.biskyt.mytvplayer.ui.common.ProgressLine
 import com.biskyt.mytvplayer.ui.common.TvCard
+import com.biskyt.mytvplayer.ui.common.digit
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
@@ -69,6 +77,7 @@ fun PlayerScreen(screen: Screen.Player) {
     val nav = LocalNavigator.current
     val root = remember { FocusRequester() }
     val buttons = remember { FocusRequester() }
+    var buttonsFocused by remember { mutableStateOf(false) }
 
     if (vm.exit) {
         LaunchedEffect(Unit) { nav.pop() }
@@ -76,15 +85,28 @@ fun PlayerScreen(screen: Screen.Player) {
     }
     BackHandler { vm.back() }
     val view = LocalView.current
-    DisposableEffect(Unit) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
         view.keepScreenOn = true
-        onDispose { view.keepScreenOn = false }
+        // Leaving the app (Home button) stops live TV instead of streaming in the background.
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> vm.onAppHidden()
+                Lifecycle.Event.ON_START -> vm.onAppShown()
+                else -> Unit
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose {
+            lifecycle.removeObserver(observer)
+            view.keepScreenOn = false
+        }
     }
 
     Box(
         Modifier.fillMaxSize().background(Color.Black)
             .focusRequester(root)
-            .onKeyEvent { e -> if (e.type == KeyEventType.KeyDown) handleKey(e, vm, buttons) else false }
+            .onKeyEvent { e -> if (e.type == KeyEventType.KeyDown) handleKey(e, vm, buttons, buttonsFocused) else false }
             .focusable(),
     ) {
         vm.engine?.let { engine ->
@@ -99,7 +121,7 @@ fun PlayerScreen(screen: Screen.Player) {
             Text("Loading…", style = MaterialTheme.typography.titleLarge, modifier = Modifier.align(Alignment.Center))
         }
         vm.error?.let { ErrorBox(it, vm) }
-        if (vm.overlay == OverlayState.CONTROLS) ControlsOverlay(vm, buttons, root)
+        if (vm.overlay == OverlayState.CONTROLS) ControlsOverlay(vm, buttons, root) { buttonsFocused = it }
         vm.message?.let { Flash(it, Modifier.align(Alignment.TopCenter)) }
         if (vm.typedNumber.isNotEmpty()) Flash(vm.typedNumber, Modifier.align(Alignment.TopEnd))
     }
@@ -108,8 +130,12 @@ fun PlayerScreen(screen: Screen.Player) {
     LaunchedEffect(vm.overlay, vm.sheet) { if (vm.sheet == null && vm.overlay != OverlayState.GUIDE) runCatching { root.requestFocus() } }
 }
 
-/** Remote keys at the top level; left/right skip, up/down zap, down with controls showing moves into the buttons. */
-private fun handleKey(e: KeyEvent, vm: PlayerViewModel, buttons: FocusRequester): Boolean {
+/**
+ * Remote keys at the top level; left/right skip, up/down zap, down with controls showing moves into the buttons.
+ * While a button has focus, arrows and OK are left to the buttons so the row can be navigated.
+ */
+private fun handleKey(e: KeyEvent, vm: PlayerViewModel, buttons: FocusRequester, buttonsFocused: Boolean): Boolean {
+    if (buttonsFocused && e.key in navigationKeys) return false
     if (vm.overlay == OverlayState.CONTROLS && e.key == Key.DirectionDown) {
         return runCatching { buttons.requestFocus() }.isSuccess
     }
@@ -132,17 +158,13 @@ private fun handleKey(e: KeyEvent, vm: PlayerViewModel, buttons: FocusRequester)
         else -> null
     }
     if (key != null) return vm.onKey(key)
-    val digit = digitOf(e.key) ?: return false
+    val digit = e.key.digit() ?: return false
     return vm.onKey(RemoteKey.DIGIT, digit)
 }
 
-private fun digitOf(k: Key): Int? = listOf(Key.Zero, Key.One, Key.Two, Key.Three, Key.Four, Key.Five, Key.Six, Key.Seven, Key.Eight, Key.Nine)
-    .indexOf(k).takeIf { it >= 0 }
-    ?: listOf(Key.NumPad0, Key.NumPad1, Key.NumPad2, Key.NumPad3, Key.NumPad4, Key.NumPad5, Key.NumPad6, Key.NumPad7, Key.NumPad8, Key.NumPad9)
-        .indexOf(k).takeIf { it >= 0 }
 
 @Composable
-private fun ControlsOverlay(vm: PlayerViewModel, buttons: FocusRequester, root: FocusRequester) {
+private fun ControlsOverlay(vm: PlayerViewModel, buttons: FocusRequester, root: FocusRequester, onButtonsFocus: (Boolean) -> Unit) {
     val ch = vm.channel ?: return
     LaunchedEffect(ch.streamId) { vm.nowNext.request(ch.streamId) }
     val nn = vm.nowNext.entries[ch.streamId]
@@ -175,7 +197,7 @@ private fun ControlsOverlay(vm: PlayerViewModel, buttons: FocusRequester, root: 
                     }
                 }
                 Row(
-                    Modifier.onPreviewKeyEvent { e ->
+                    Modifier.onFocusChanged { onButtonsFocus(it.hasFocus) }.onPreviewKeyEvent { e ->
                         // Up from the buttons returns to the video, where left/right skip again.
                         if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionUp) runCatching { root.requestFocus() }.isSuccess else false
                     },
@@ -230,3 +252,5 @@ private fun ErrorBox(text: String, vm: PlayerViewModel) {
         }
     }
 }
+
+private val navigationKeys = setOf(Key.DirectionLeft, Key.DirectionRight, Key.DirectionUp, Key.DirectionDown, Key.DirectionCenter, Key.Enter, Key.NumPadEnter)

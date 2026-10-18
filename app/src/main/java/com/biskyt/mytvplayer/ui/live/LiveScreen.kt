@@ -55,6 +55,7 @@ import com.biskyt.mytvplayer.ui.common.Tab
 import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.TvTextField
+import com.biskyt.mytvplayer.ui.common.digit
 import com.biskyt.mytvplayer.ui.common.formatCount
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
@@ -77,7 +78,7 @@ fun LiveScreen(initialFilter: ChannelFilter, initialGuide: Boolean) {
         Row(
             Modifier.fillMaxSize().padding(horizontal = 56.dp).onPreviewKeyEvent { e ->
                 // 0–9 on the remote jumps straight to that channel number.
-                val digit = e.digit()
+                val digit = e.key.digit()
                 if (digit != null && e.type == KeyEventType.KeyDown) {
                     vm.typeDigit(digit, play)
                     true
@@ -98,19 +99,6 @@ fun LiveScreen(initialFilter: ChannelFilter, initialGuide: Boolean) {
     if (vm.typedNumber.isNotEmpty()) NumberEntry(vm.typedNumber)
 }
 
-private fun androidx.compose.ui.input.key.KeyEvent.digit(): Int? = when (key) {
-    Key.Zero, Key.NumPad0 -> 0
-    Key.One, Key.NumPad1 -> 1
-    Key.Two, Key.NumPad2 -> 2
-    Key.Three, Key.NumPad3 -> 3
-    Key.Four, Key.NumPad4 -> 4
-    Key.Five, Key.NumPad5 -> 5
-    Key.Six, Key.NumPad6 -> 6
-    Key.Seven, Key.NumPad7 -> 7
-    Key.Eight, Key.NumPad8 -> 8
-    Key.Nine, Key.NumPad9 -> 9
-    else -> null
-}
 
 @Composable
 private fun CategoryColumn(vm: LiveViewModel, selected: ChannelFilter) {

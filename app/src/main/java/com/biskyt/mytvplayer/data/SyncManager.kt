@@ -1,5 +1,6 @@
 package com.biskyt.mytvplayer.data
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,7 +44,10 @@ class SyncManager(
                 playlists.get(playlistId)?.let { epg.ensureProviderSource(it, playlists.client(it).xmltvUrl()) }
                 if (includeGuide) importGuide()
                 _state.value = SyncState.Idle
-            } catch (e: java.io.IOException) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Any failure (network, bad data, full storage) is shown, never allowed to crash the app.
                 _state.value = SyncState.Failed(e.message ?: "Couldn't refresh")
             }
         }
@@ -54,7 +58,9 @@ class SyncManager(
             try {
                 importGuide()
                 _state.value = SyncState.Idle
-            } catch (e: java.io.IOException) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 _state.value = SyncState.Failed(e.message ?: "Couldn't update the TV guide")
             }
         }

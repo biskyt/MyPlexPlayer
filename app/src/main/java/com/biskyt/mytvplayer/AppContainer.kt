@@ -39,9 +39,9 @@ class AppContainer(context: Context) {
         .retryOnConnectionFailure(true)
         .build()
     val settings = SettingsRepository(context)
-    val playlists = PlaylistRepository(db, http, settings)
-    val channels = ChannelRepository(db)
     val epg = EpgRepository(db, http, context.filesDir)
+    val playlists = PlaylistRepository(db, http, settings, epg)
+    val channels = ChannelRepository(db)
     val sync = SyncManager(appScope, playlists, epg)
 }
 

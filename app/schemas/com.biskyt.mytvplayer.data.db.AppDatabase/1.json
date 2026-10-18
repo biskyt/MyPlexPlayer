@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "88772cd722a6635a109f82795aac37c7",
+    "identityHash": "d33f42cce73591f5b06960b6941d365f",
     "entities": [
       {
         "tableName": "playlist",
@@ -403,7 +403,7 @@
       },
       {
         "tableName": "programme",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sourceId` INTEGER NOT NULL, `xmlId` TEXT NOT NULL, `startMs` INTEGER NOT NULL, `stopMs` INTEGER NOT NULL, `title` TEXT NOT NULL, `subtitle` TEXT, `description` TEXT, `category` TEXT, PRIMARY KEY(`sourceId`, `xmlId`, `startMs`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sourceId` INTEGER NOT NULL, `xmlId` TEXT NOT NULL, `startMs` INTEGER NOT NULL, `stopMs` INTEGER NOT NULL, `title` TEXT NOT NULL, `subtitle` TEXT, `description` TEXT, `category` TEXT, `stamp` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`sourceId`, `xmlId`, `startMs`))",
         "fields": [
           {
             "fieldPath": "sourceId",
@@ -449,6 +449,13 @@
             "fieldPath": "category",
             "columnName": "category",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "stamp",
+            "columnName": "stamp",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           }
         ],
         "primaryKey": {
@@ -539,7 +546,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '88772cd722a6635a109f82795aac37c7')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd33f42cce73591f5b06960b6941d365f')"
     ]
   }
 }

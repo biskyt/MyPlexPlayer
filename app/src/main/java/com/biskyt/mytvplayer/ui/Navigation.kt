@@ -74,6 +74,11 @@ class Navigator(start: Screen) {
         push(screen)
     }
 
+    /** Releases every screen's ViewModels (and so the player) when the activity is finishing. */
+    fun clear() {
+        stack.forEach { it.viewModelStore.clear() }
+    }
+
     private fun drop(entry: NavEntry) {
         entry.viewModelStore.clear()
         dropped += entry.id

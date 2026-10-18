@@ -19,7 +19,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -42,6 +41,7 @@ import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.ChannelProgramme
+import com.biskyt.mytvplayer.ui.common.BatchLoader
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.TvCard
@@ -49,9 +49,6 @@ import com.biskyt.mytvplayer.ui.common.formatRange
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 private const val HALF_HOUR = 30 * 60_000L
 private const val WINDOW_MS = 5 * HALF_HOUR // 2.5 hours on screen
@@ -68,23 +65,12 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
     val epg = LocalContext.current.container.epg
     val scope = rememberCoroutineScope()
     var windowStart by remember { mutableLongStateOf(System.currentTimeMillis() / HALF_HOUR * HALF_HOUR) }
-    val cache = remember(windowStart) { mutableStateMapOf<Long, List<ChannelProgramme>>() }
-    val pending = remember(windowStart) { LinkedHashSet<Long>() }
-    var batch by remember { mutableStateOf<Job?>(null) }
-    var focused by remember { mutableStateOf<Pair<ChannelEntity, ChannelProgramme?>?>(null) }
-
-    fun request(id: Long) {
-        if (id in cache || !pending.add(id) || batch?.isActive == true) return
+    // A fresh loader per time window: rows on screen fetch just that window's programmes in batches.
+    val loader = remember(windowStart) {
         val start = windowStart
-        batch = scope.launch {
-            delay(120)
-            val ids = pending.toList()
-            pending.clear()
-            batch = null
-            val result = epg.programmes(vm.playlistId.value, ids, start, start + WINDOW_MS)
-            ids.forEach { cache[it] = result[it].orEmpty() }
-        }
+        BatchLoader(scope) { ids -> epg.programmes(vm.playlistId.value, ids, start, start + WINDOW_MS).let { r -> ids.associateWith { r[it].orEmpty() } } }
     }
+    var focused by remember { mutableStateOf<Pair<ChannelEntity, ChannelProgramme?>?>(null) }
 
     /** Moves the window; returns false at the limits so the key can move focus normally (e.g. to the categories). */
     fun shift(by: Long): Boolean {
@@ -113,10 +99,10 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
                 items(count = items.itemCount, key = items.itemKey { it.streamId }) { index ->
                     val ch = items[index] ?: return@items
-                    LaunchedEffect(ch.streamId, windowStart) { request(ch.streamId) }
+                    LaunchedEffect(ch.streamId, loader) { loader.request(ch.streamId) }
                     GuideRow(
                         ch = ch,
-                        programmes = cache[ch.streamId],
+                        programmes = loader.entries[ch.streamId],
                         windowStart = windowStart,
                         onFocus = { p -> focused = ch to p },
                         onPlay = { play(ch) },

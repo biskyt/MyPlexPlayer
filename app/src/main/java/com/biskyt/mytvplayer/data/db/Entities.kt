@@ -91,6 +91,8 @@ data class ProgrammeEntity(
     val subtitle: String?,
     val description: String?,
     val category: String?,
+    /** Import run that last wrote this row; rows from older runs are deleted once an import finishes. */
+    @ColumnInfo(defaultValue = "0") val stamp: Long = 0,
 )
 
 /**
