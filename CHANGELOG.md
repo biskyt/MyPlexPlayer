@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.3.2
+- Movies and series appear after updating: they load on the next start, and untagged categories ("Action",
+  "Netflix Movies") are included by default.
+- "Update now" for each playlist in Settings › Playlists, and "Load now" when the Movies or Series list is empty.
+
 ## 0.3.1
 - Settings › Playlists has an "Add free channels (iptv-org)" button, shown until the free channels are added.
 

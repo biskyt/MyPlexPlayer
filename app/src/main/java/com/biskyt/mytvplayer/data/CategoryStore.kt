@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.biskyt.mytvplayer.core.epg.CategoryLanguageDetector
 import com.biskyt.mytvplayer.core.xtream.XtreamCategory
 import com.biskyt.mytvplayer.data.db.AppDatabase
+import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CategoryEntity
 import java.util.Locale
 
@@ -23,9 +24,17 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
         // Two-letter names ("TV", "SD") would read as country codes, so those go under "Other".
         CategoryLanguageDetector.detect(name) ?: name.takeIf { groupByName && it.length > 2 }
 
-    /** Saves the provider's categories of one [type], keeping the user's choices for ones already known. */
+    /**
+     * Saves the provider's categories of one [type], keeping the user's choices for ones already known.
+     *
+     * Movie and series categories are often named without a language ("Action", "Netflix Movies"); those are taken to
+     * be in the provider's main language and included too. If none of a movie or series list is included yet (as
+     * after updating from a version that didn't do this), its defaults are applied again.
+     */
     suspend fun store(playlistId: Long, type: String, remote: List<XtreamCategory>, groupByName: Boolean = false) {
-        val existing = categories.all(playlistId, type).associateBy { it.categoryId }
+        val vod = type != CAT_LIVE
+        val known = categories.all(playlistId, type).associateBy { it.categoryId }
+        val existing = if (vod && known.values.none { it.included }) emptyMap() else known
         val langs = remote.map { langOf(it.name, groupByName) }
         val wanted = if (existing.isEmpty()) {
             defaultGroups(
@@ -41,7 +50,7 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
                 categoryId = c.id,
                 name = c.name,
                 lang = langs[i],
-                included = old?.included ?: (langs[i] in wanted),
+                included = old?.included ?: (langs[i] in wanted || (vod && langs[i] == null)),
                 sortOrder = old?.sortOrder ?: (existing.size + i),
                 channelCount = old?.channelCount ?: 0,
                 type = type

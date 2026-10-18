@@ -40,6 +40,7 @@ import com.biskyt.mytvplayer.ui.theme.Palette
 import com.biskyt.mytvplayer.ui.vod.MovieDetailsScreen
 import com.biskyt.mytvplayer.ui.vod.SeriesDetailsScreen
 import com.biskyt.mytvplayer.ui.vod.VodBrowseScreen
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun AppRoot() {
@@ -65,7 +66,13 @@ fun AppRoot() {
                 playlist == null -> Navigator(Screen.Welcome())
                 else -> Navigator(Screen.Home).also { nav ->
                     if (playlist.id != s.activePlaylistId) container.settings.update { it.copy(activePlaylistId = playlist.id) }
-                    if (playlist.isStale()) container.sync.refresh(playlist.id)
+                    when {
+                        playlist.isStale() -> container.sync.refresh(playlist.id)
+                        // Movies and series not loaded yet (e.g. just updated from a version without them).
+                        !playlist.isM3u &&
+                            container.vod.observeCount(CAT_MOVIE, playlist.id).first() == 0 &&
+                            container.vod.observeCount(CAT_SERIES, playlist.id).first() == 0 -> container.sync.refreshVod(playlist.id)
+                    }
                     if (s.startOnLastChannel && s.lastChannelId != 0L && container.channels.get(playlist.id, s.lastChannelId) != null) {
                         nav.push(Screen.Player(playlist.id, s.lastChannelId, ChannelFilter.All))
                     }
