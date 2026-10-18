@@ -30,11 +30,12 @@ class XmltvParser(
     private val windowStartMs: Long = Long.MIN_VALUE,
     private val windowEndMs: Long = Long.MAX_VALUE,
 ) {
-    fun parse(
+    /** Blocking read; call from an IO dispatcher. Callbacks may suspend (e.g. to write a batch to the database). */
+    suspend fun parse(
         input: InputStream,
         wantProgrammes: (channelId: String) -> Boolean,
-        onChannel: (XmltvChannel) -> Unit,
-        onProgramme: (XmltvProgramme) -> Unit,
+        onChannel: suspend (XmltvChannel) -> Unit,
+        onProgramme: suspend (XmltvProgramme) -> Unit,
     ) {
         val p = newParser()
         p.setInput(input, null)
@@ -42,7 +43,7 @@ class XmltvParser(
             when (p.next()) {
                 XmlPullParser.END_DOCUMENT -> return
                 XmlPullParser.START_TAG -> when (p.name) {
-                    "channel" -> readChannel(p)?.let(onChannel)
+                    "channel" -> readChannel(p)?.let { onChannel(it) }
                     "programme" -> {
                         val id = p.getAttributeValue(null, "channel")
                         val start = parseTime(p.getAttributeValue(null, "start"))

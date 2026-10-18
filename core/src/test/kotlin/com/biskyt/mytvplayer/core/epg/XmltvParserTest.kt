@@ -1,5 +1,6 @@
 package com.biskyt.mytvplayer.core.epg
 
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -46,7 +47,7 @@ class XmltvParserTest {
     ): Pair<List<XmltvChannel>, List<XmltvProgramme>> {
         val channels = mutableListOf<XmltvChannel>()
         val programmes = mutableListOf<XmltvProgramme>()
-        XmltvParser({ KXmlParser() }, windowStart, windowEnd).parse(ByteArrayInputStream(bytes), want, { channels += it }, { programmes += it })
+        runBlocking { XmltvParser({ KXmlParser() }, windowStart, windowEnd).parse(ByteArrayInputStream(bytes), want, { channels += it }, { programmes += it }) }
         return channels to programmes
     }
 
@@ -84,7 +85,7 @@ class XmltvParserTest {
     fun `reads gzip input`() {
         val gz = ByteArrayOutputStream().also { out -> GZIPOutputStream(out).use { it.write(xml.toByteArray()) } }.toByteArray()
         val channels = mutableListOf<XmltvChannel>()
-        XmltvParser({ KXmlParser() }).parse(GZIPInputStream(ByteArrayInputStream(gz)), { false }, { channels += it }, { })
+        runBlocking { XmltvParser({ KXmlParser() }).parse(GZIPInputStream(ByteArrayInputStream(gz)), { false }, { channels += it }, { }) }
         assertEquals(2, channels.size)
     }
 

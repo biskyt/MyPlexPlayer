@@ -1,0 +1,102 @@
+package com.biskyt.mytvplayer.ui
+
+import android.app.Activity
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import com.biskyt.mytvplayer.container
+import com.biskyt.mytvplayer.data.ChannelFilter
+import com.biskyt.mytvplayer.ui.guide.GuideMatchingScreen
+import com.biskyt.mytvplayer.ui.guide.GuideSourcesScreen
+import com.biskyt.mytvplayer.ui.home.HomeScreen
+import com.biskyt.mytvplayer.ui.home.PlaceholderScreen
+import com.biskyt.mytvplayer.ui.live.LiveScreen
+import com.biskyt.mytvplayer.ui.player.PlayerScreen
+import com.biskyt.mytvplayer.ui.settings.AboutScreen
+import com.biskyt.mytvplayer.ui.settings.AppearanceScreen
+import com.biskyt.mytvplayer.ui.settings.CategoriesScreen
+import com.biskyt.mytvplayer.ui.settings.PlaybackSettingsScreen
+import com.biskyt.mytvplayer.ui.settings.PlaylistEditScreen
+import com.biskyt.mytvplayer.ui.settings.PlaylistsScreen
+import com.biskyt.mytvplayer.ui.settings.SettingsScreen
+import com.biskyt.mytvplayer.ui.theme.MyTvTheme
+import com.biskyt.mytvplayer.ui.theme.Palette
+
+@Composable
+fun AppRoot() {
+    val container = LocalContext.current.container
+    val settings by container.settings.settings.collectAsState(initial = null)
+    val s = settings
+    if (s == null) {
+        Box(Modifier.fillMaxSize().background(Palette.background))
+        return
+    }
+    // Only the first settings value decides the start screen; later changes (e.g. last channel) mustn't recompose the app.
+    val initial = remember { s }
+    MyTvTheme(accentArgb = s.accent, largeText = s.largeText) {
+        var navigator by remember { mutableStateOf<Navigator?>(null) }
+        LaunchedEffect(Unit) {
+            // Decide the first screen once: set-up if there is no playlist yet, else Home (or the last channel).
+            val s = initial
+            val playlist = container.playlists.get(s.activePlaylistId) ?: container.playlists.allIds().firstOrNull()?.let { container.playlists.get(it) }
+            navigator = when {
+                playlist == null -> Navigator(Screen.PlaylistEdit(null, firstRun = true))
+                else -> Navigator(Screen.Home).also { nav ->
+                    if (playlist.id != s.activePlaylistId) container.settings.update { it.copy(activePlaylistId = playlist.id) }
+                    if (System.currentTimeMillis() - playlist.lastSyncAt > STALE_MS) container.sync.refresh(playlist.id)
+                    if (s.startOnLastChannel && s.lastChannelId != 0L && container.channels.get(playlist.id, s.lastChannelId) != null) {
+                        nav.push(Screen.Player(playlist.id, s.lastChannelId, ChannelFilter.All))
+                    }
+                }
+            }
+        }
+        val nav = navigator ?: run {
+            Box(Modifier.fillMaxSize().background(Palette.background))
+            return@MyTvTheme
+        }
+        val activity = LocalContext.current as? Activity
+        BackHandler {
+            when {
+                nav.pop() -> Unit
+                nav.current.screen != Screen.Home && nav.current.screen !is Screen.PlaylistEdit -> nav.reset(Screen.Home)
+                else -> activity?.finish()
+            }
+        }
+        Box(Modifier.fillMaxSize().background(Palette.background)) {
+            NavHost(nav) { screen -> ScreenContent(screen) }
+        }
+    }
+}
+
+@Composable
+private fun ScreenContent(screen: Screen) {
+    when (screen) {
+        Screen.Home -> HomeScreen()
+        is Screen.Live -> LiveScreen(screen.filter, screen.guide)
+        Screen.Movies -> PlaceholderScreen(com.biskyt.mytvplayer.ui.common.Tab.MOVIES, "Movies are coming in the next update.")
+        Screen.Series -> PlaceholderScreen(com.biskyt.mytvplayer.ui.common.Tab.SERIES, "Series are coming in the next update.")
+        Screen.Search -> PlaceholderScreen(null, "Search is coming in the next update. On Live TV, use the filter box to find a channel.")
+        is Screen.Player -> PlayerScreen(screen)
+        Screen.Settings -> SettingsScreen()
+        Screen.Playlists -> PlaylistsScreen()
+        is Screen.PlaylistEdit -> PlaylistEditScreen(screen.playlistId, screen.firstRun)
+        is Screen.Categories -> CategoriesScreen(screen.playlistId, screen.firstRun)
+        Screen.PlaybackSettings -> PlaybackSettingsScreen()
+        Screen.Appearance -> AppearanceScreen()
+        Screen.GuideSources -> GuideSourcesScreen()
+        is Screen.GuideMatching -> GuideMatchingScreen(screen.playlistId, screen.streamId)
+        Screen.About -> AboutScreen()
+    }
+}
+
+private const val STALE_MS = 12 * 3_600_000L

@@ -38,7 +38,7 @@ class XtreamClient(private val http: OkHttpClient, private val credentials: Xtre
      * Streams live channels to [onStream]. Pass [categoryId] to fetch a single category.
      * Returns the number of channels read.
      */
-    suspend fun liveStreams(categoryId: String? = null, onStream: (XtreamLiveStream) -> Unit): Int = withContext(Dispatchers.IO) {
+    suspend fun liveStreams(categoryId: String? = null, onStream: suspend (XtreamLiveStream) -> Unit): Int = withContext(Dispatchers.IO) {
         val url = apiUrl("get_live_streams") { if (categoryId != null) addQueryParameter("category_id", categoryId) }
         get(url) { input ->
             var count = 0
@@ -65,7 +65,8 @@ class XtreamClient(private val http: OkHttpClient, private val credentials: Xtre
             .build()
     }
 
-    private fun <T> get(url: HttpUrl, read: (InputStream) -> T): T {
+    // Inline so suspending callbacks can run while the response streams.
+    private inline fun <T> get(url: HttpUrl, read: (InputStream) -> T): T {
         val response = try {
             http.newCall(Request.Builder().url(url).build()).execute()
         } catch (e: IOException) {
