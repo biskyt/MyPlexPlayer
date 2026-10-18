@@ -16,23 +16,34 @@ data class SearchResults(
     val isEmpty: Boolean get() = channels.isEmpty() && programmes.isEmpty() && movies.isEmpty() && series.isEmpty()
 }
 
-/** One search across channels, upcoming TV programmes, movies and series of a playlist. [query] is already trimmed. */
+/** Typed text for a LIKE match, taken literally ("%" and "_" aren't wildcards); the queries say ESCAPE '\'. */
+fun likeArg(query: String): String = query.trim().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+/** One search across channels, upcoming TV programmes, movies and series of a playlist. */
 class SearchRepository(private val db: AppDatabase, private val clock: () -> Long = System::currentTimeMillis) {
-    suspend fun search(playlistId: Long, query: String): SearchResults = coroutineScope {
-        // A single digit is a channel number; otherwise single letters would match nearly everything.
-        if (query.length < MIN_LENGTH) {
-            val number = query.singleOrNull()?.isDigit() == true
-            return@coroutineScope if (number) SearchResults(channels = db.channels().search(playlistId, query, LIMIT)) else SearchResults()
+    /** Null when [query] is too short to search (a single letter would match nearly everything). */
+    suspend fun search(playlistId: Long, query: String): SearchResults? = coroutineScope {
+        val q = likeArg(query)
+        when {
+            // Digits alone are a channel number.
+            q.isNotEmpty() &&
+                q.all(
+                    Char::isDigit
+                ) &&
+                q.length < MIN_LENGTH -> SearchResults(channels = db.channels().searchNumber(playlistId, q, LIMIT))
+            q.length < MIN_LENGTH -> null
+            else -> {
+                // The lists are independent; the database reads them side by side.
+                val channels = async { db.channels().search(playlistId, q, LIMIT) }
+                val movies = async { db.vod().searchMovies(playlistId, q, LIMIT) }
+                val series = async { db.vod().searchSeries(playlistId, q, LIMIT) }
+                // The guide is the slowest to scan, so it waits for a more specific query.
+                val programmes = async {
+                    if (q.length >= PROGRAMME_MIN_LENGTH) db.epg().searchProgrammes(playlistId, q, clock(), LIMIT) else emptyList()
+                }
+                SearchResults(channels.await(), programmes.await(), movies.await(), series.await())
+            }
         }
-        // The lists are independent; the database reads them side by side.
-        val channels = async { db.channels().search(playlistId, query, LIMIT) }
-        val movies = async { db.vod().searchMovies(playlistId, query, LIMIT) }
-        val series = async { db.vod().searchSeries(playlistId, query, LIMIT) }
-        // The guide is the slowest to scan (every stored programme), so it waits for a more specific query.
-        val programmes = async {
-            if (query.length >= PROGRAMME_MIN_LENGTH) db.epg().searchProgrammes(playlistId, query, clock(), LIMIT) else emptyList()
-        }
-        SearchResults(channels.await(), programmes.await(), movies.await(), series.await())
     }
 
     private companion object {

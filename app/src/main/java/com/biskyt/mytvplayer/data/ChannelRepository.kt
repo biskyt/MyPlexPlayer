@@ -25,7 +25,7 @@ class ChannelRepository(private val db: AppDatabase) {
 
     /** Paged so thousands of channels cost only the rows on screen. */
     fun page(playlistId: Long, filter: ChannelFilter, query: String): Flow<PagingData<ChannelEntity>> {
-        val q = query.trim()
+        val q = likeArg(query)
         return Pager(PagingConfig(pageSize = 40, prefetchDistance = 20, initialLoadSize = 60, enablePlaceholders = true)) {
             when (filter) {
                 ChannelFilter.All -> channels.pageAll(playlistId, q)

@@ -45,7 +45,7 @@ class VodRepository(private val db: AppDatabase, private val playlists: Playlist
     private val paging = PagingConfig(pageSize = 48, prefetchDistance = 24, initialLoadSize = 72, enablePlaceholders = true, maxSize = 300)
 
     fun pageCards(type: String, playlistId: Long, filter: VodFilter, query: String): Flow<PagingData<VodCard>> {
-        val q = query.trim()
+        val q = likeArg(query)
         val movies = type == CAT_MOVIE
         return Pager(paging) {
             when (filter) {

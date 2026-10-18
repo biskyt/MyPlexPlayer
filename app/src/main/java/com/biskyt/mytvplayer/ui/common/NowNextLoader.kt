@@ -112,7 +112,7 @@ class NowNextLoader(
         const val LOOKAHEAD_MS = 8 * 3_600_000L
 
         fun pick(list: List<ChannelProgramme>, now: Long): NowNext {
-            val current = list.firstOrNull { it.startMs <= now && it.stopMs > now }
+            val current = list.firstOrNull { it.isLive(now) }
             val next = list.firstOrNull { it.startMs >= (current?.stopMs ?: now) && it !== current }
             return NowNext(current, next)
         }

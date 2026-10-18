@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.4.0
+- **Search**: one box for channels (by name or number), what's on TV now and later, movies and series.
+- Menus and side panels (channel options, audio, subtitles, guide) are the same size as the rest of the app.
+
 ## 0.3.3
 - TV guide sources: free guides for 75 countries from iptv-epg.org, added with one press (your country first).
 - The sources screen shows what an update is doing ("Downloading…", "Reading…", "Matching channels…").

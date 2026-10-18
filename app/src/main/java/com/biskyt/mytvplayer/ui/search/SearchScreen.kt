@@ -1,5 +1,6 @@
 package com.biskyt.mytvplayer.ui.search
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -48,6 +49,7 @@ import com.biskyt.mytvplayer.ui.common.isLive
 import com.biskyt.mytvplayer.ui.common.numberLabel
 import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
 import com.biskyt.mytvplayer.ui.theme.Palette
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,13 +66,23 @@ import kotlinx.coroutines.flow.stateIn
 class SearchViewModel(private val c: AppContainer) : ViewModel() {
     val query = MutableStateFlow("")
 
-    /** What was searched, in which playlist, and what was found. */
-    data class Found(val playlistId: Long = 0, val query: String = "", val results: SearchResults = SearchResults())
+    /** What was searched, in which playlist, and what was found (null: too short to search; see [failed]). */
+    data class Found(val playlistId: Long = 0, val query: String = "", val results: SearchResults? = null, val failed: Boolean = false)
 
     /** Results for the query once typing pauses; the previous results stay up meanwhile. */
     val found: StateFlow<Found> =
         combine(c.settings.activePlaylistId, query.debounce(300).map { it.trim() }.distinctUntilChanged()) { pid, q -> pid to q }
-            .mapLatest { (pid, q) -> Found(pid, q, c.search.search(pid, q)) }
+            .mapLatest { (pid, q) ->
+                // A failed search (e.g. the database busy rebuilding) is shown, never allowed to end searching.
+                try {
+                    Found(pid, q, c.search.search(pid, q))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                    Log.w("Search", "Search failed", e)
+                    Found(pid, q, failed = true)
+                }
+            }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Found())
 }
 
@@ -80,7 +92,10 @@ fun SearchScreen() {
     val vm = appViewModel { SearchViewModel(it) }
     val nav = LocalNavigator.current
     val query by vm.query.collectAsState()
-    val (pid, searched, results) = vm.found.collectAsState().value
+    val found = vm.found.collectAsState().value
+    val pid = found.playlistId
+    val searched = found.query
+    val results = found.results
     val now by rememberMinuteClock()
     // The keyboard is up on arrival, ready to type.
     val editing = rememberSaveable { mutableStateOf(true) }
@@ -101,6 +116,8 @@ fun SearchScreen() {
             }
             when {
                 searched.isEmpty() -> Unit
+                found.failed -> item { Muted("Search isn't working right now. Try again in a moment.") }
+                results == null -> item { Muted("Keep typing: at least 2 letters, or a channel number.") }
                 results.isEmpty -> item { Muted("Nothing found for “$searched”.") }
                 else -> {
                     section("Channels", results.channels, { it.streamId }) {
