@@ -18,12 +18,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.ChannelFilter
+import com.biskyt.mytvplayer.data.db.CAT_MOVIE
+import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.ui.guide.GuideMatchingScreen
 import com.biskyt.mytvplayer.ui.guide.GuideSourcesScreen
 import com.biskyt.mytvplayer.ui.home.HomeScreen
 import com.biskyt.mytvplayer.ui.home.PlaceholderScreen
 import com.biskyt.mytvplayer.ui.live.LiveScreen
 import com.biskyt.mytvplayer.ui.player.PlayerScreen
+import com.biskyt.mytvplayer.ui.player.VodPlayerScreen
 import com.biskyt.mytvplayer.ui.settings.AboutScreen
 import com.biskyt.mytvplayer.ui.settings.AppearanceScreen
 import com.biskyt.mytvplayer.ui.settings.CategoriesScreen
@@ -34,6 +37,9 @@ import com.biskyt.mytvplayer.ui.settings.SettingsScreen
 import com.biskyt.mytvplayer.ui.settings.WelcomeScreen
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import com.biskyt.mytvplayer.ui.theme.Palette
+import com.biskyt.mytvplayer.ui.vod.MovieDetailsScreen
+import com.biskyt.mytvplayer.ui.vod.SeriesDetailsScreen
+import com.biskyt.mytvplayer.ui.vod.VodBrowseScreen
 
 @Composable
 fun AppRoot() {
@@ -91,8 +97,11 @@ private fun ScreenContent(screen: Screen) {
         is Screen.Welcome -> WelcomeScreen(screen.auto)
         Screen.Home -> HomeScreen()
         is Screen.Live -> LiveScreen(screen.filter, screen.guide)
-        Screen.Movies -> PlaceholderScreen(com.biskyt.mytvplayer.ui.common.Tab.MOVIES, "Movies are coming in the next update.")
-        Screen.Series -> PlaceholderScreen(com.biskyt.mytvplayer.ui.common.Tab.SERIES, "Series are coming in the next update.")
+        is Screen.Movies -> VodBrowseScreen(CAT_MOVIE, screen.filter)
+        is Screen.Series -> VodBrowseScreen(CAT_SERIES, screen.filter)
+        is Screen.MovieDetails -> MovieDetailsScreen(screen)
+        is Screen.SeriesDetails -> SeriesDetailsScreen(screen)
+        is Screen.VodPlayer -> VodPlayerScreen(screen)
         Screen.Search -> PlaceholderScreen(null, "Search is coming in the next update. On Live TV, use the filter box to find a channel.")
         is Screen.Player -> PlayerScreen(screen)
         Screen.Settings -> SettingsScreen()

@@ -24,6 +24,7 @@ import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.db.ChannelEntity
+import com.biskyt.mytvplayer.data.db.WatchProgressEntity
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
@@ -31,11 +32,13 @@ import com.biskyt.mytvplayer.ui.common.ChannelLogo
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.NowNextLoader
 import com.biskyt.mytvplayer.ui.common.PillButton
+import com.biskyt.mytvplayer.ui.common.Poster
 import com.biskyt.mytvplayer.ui.common.ProgressLine
 import com.biskyt.mytvplayer.ui.common.SectionTitle
 import com.biskyt.mytvplayer.ui.common.Tab
 import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.TvCard
+import com.biskyt.mytvplayer.ui.common.formatDuration
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
@@ -58,6 +61,10 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
         c.channels.observeRecent(it, 12)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val carryOn = activePlaylist.flatMapLatest { c.vod.observeCarryOn(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val nowNext =
         NowNextLoader(viewModelScope, c.epg.changes) { ids, from, to -> c.epg.programmes(playlistId.value, ids, from, to, details = false) }
 }
@@ -68,6 +75,7 @@ fun HomeScreen() {
     val nav = LocalNavigator.current
     val favourites by vm.favourites.collectAsState()
     val recent by vm.recent.collectAsState()
+    val carryOn by vm.carryOn.collectAsState()
     val pid = vm.playlistId.collectAsState().value
     val first = rememberFirstFocus(favourites != null)
 
@@ -76,6 +84,14 @@ fun HomeScreen() {
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 56.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(28.dp)
         ) {
+            if (carryOn.isNotEmpty()) {
+                item {
+                    Column {
+                        SectionTitle("Carry on watching")
+                        CarryOnRow(carryOn) { nav.push(Screen.VodPlayer(pid, it.itemId, it.seriesId)) }
+                    }
+                }
+            }
             item {
                 Column {
                     SectionTitle("Your channels, on now")
@@ -138,6 +154,34 @@ private fun ChannelCardRow(
                             ?: "No guide information"
                     )
                     ProgressLine(nn?.progress(now) ?: 0f, Modifier.fillMaxWidth())
+                }
+            }
+        }
+    }
+}
+
+/** Movies and episodes part-watched (or the next episode up): a poster-sized card each, with how much is left. */
+@Composable
+private fun CarryOnRow(items: List<WatchProgressEntity>, onPlay: (WatchProgressEntity) -> Unit) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        items(items, key = { "${it.kind}${it.itemId}" }) { p ->
+            TvCard(onClick = { onPlay(p) }, modifier = Modifier.width(272.dp)) {
+                Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Poster(p.imageUrl, p.title, 64.dp)
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(p.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        if (p.season != null) Muted("S${p.season} E${p.episode}" + (p.episodeTitle?.let { " · $it" } ?: ""))
+                        Muted(
+                            if (p.positionMs > 0 &&
+                                p.durationMs > 0
+                            ) {
+                                "${formatDuration(p.durationMs - p.positionMs)} left"
+                            } else {
+                                "Up next"
+                            }
+                        )
+                        ProgressLine(if (p.durationMs > 0) p.positionMs.toFloat() / p.durationMs else 0f, Modifier.fillMaxWidth())
+                    }
                 }
             }
         }

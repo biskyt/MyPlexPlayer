@@ -163,6 +163,31 @@ fun ChannelLogo(url: String?, name: String, width: Dp = 72.dp, height: Dp = 40.d
     }
 }
 
+/** A movie or series poster (2:3), downsampled to its size on screen; the title's initials show until it loads. */
+@Composable
+fun Poster(url: String?, title: String, width: Dp, modifier: Modifier = Modifier) {
+    val height = width * 3 / 2
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val request = remember(url) {
+        url?.let { with(density) { ImageRequest.Builder(context).data(it).size(width.roundToPx(), height.roundToPx()).build() } }
+    }
+    Box(
+        modifier.size(width, height).clip(RoundedCornerShape(10.dp)).background(Palette.surfaceHigh),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(remember(title) { initials(title) }, style = MaterialTheme.typography.titleMedium, color = Palette.textDim, maxLines = 1)
+        if (request != null) {
+            AsyncImage(
+                model = request,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(width, height)
+            )
+        }
+    }
+}
+
 private val countryPrefix = Regex("^\\W*[A-Za-z]{2,3}\\s*[|:\\-]\\s*")
 
 fun initials(name: String): String {

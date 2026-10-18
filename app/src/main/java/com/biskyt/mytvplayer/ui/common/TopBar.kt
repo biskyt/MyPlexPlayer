@@ -79,8 +79,8 @@ fun TopBar(selected: Tab?) {
                         when (tab) {
                             Tab.HOME -> Screen.Home
                             Tab.LIVE -> Screen.Live()
-                            Tab.MOVIES -> Screen.Movies
-                            Tab.SERIES -> Screen.Series
+                            Tab.MOVIES -> Screen.Movies()
+                            Tab.SERIES -> Screen.Series()
                             Tab.FAVOURITES -> Screen.Live(ChannelFilter.Favourites)
                         }
                     )
