@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -38,6 +39,9 @@ import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.core.epg.EpgCandidate
 import com.biskyt.mytvplayer.core.epg.EpgMatch
+import com.biskyt.mytvplayer.data.FreeGuide
+import com.biskyt.mytvplayer.data.FreeGuides
+import com.biskyt.mytvplayer.data.SyncState
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.EpgSourceEntity
 import com.biskyt.mytvplayer.data.db.MappingInfo
@@ -54,6 +58,7 @@ import com.biskyt.mytvplayer.ui.common.TvTextField
 import com.biskyt.mytvplayer.ui.common.formatCount
 import com.biskyt.mytvplayer.ui.common.formatDateTime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
+import com.biskyt.mytvplayer.ui.common.syncLabel
 import com.biskyt.mytvplayer.ui.settings.SettingsPage
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
@@ -88,15 +93,41 @@ class GuideSourcesViewModel(private val c: AppContainer) : ViewModel() {
     fun toggle(s: EpgSourceEntity) = viewModelScope.launch { c.epg.setSourceEnabled(s, !s.enabled) }
     fun remove(s: EpgSourceEntity) = viewModelScope.launch { c.epg.removeSource(s.id) }
     fun refresh() = c.sync.refreshGuide()
+
+    val freeGuides = FreeGuides.all()
+    var showAllFree by mutableStateOf(false)
+
+    /** Adds a free country guide (and loads it), or removes it if it's already there. */
+    fun toggleFree(g: FreeGuide) = viewModelScope.launch {
+        val existing = sources.value.firstOrNull { it.url == g.url }
+        if (existing != null) {
+            c.epg.removeSource(existing.id)
+        } else {
+            c.epg.addSource(g.sourceName, g.url)
+            c.sync.refreshGuide()
+        }
+    }
 }
 
 @Composable
 fun GuideSourcesScreen() {
     val vm = appViewModel { GuideSourcesViewModel(it) }
     val sources by vm.sources.collectAsState()
+    val sync by vm.sync.collectAsState()
+    val busy = sync !is SyncState.Idle && sync !is SyncState.Failed
     SettingsPage("TV guide sources") {
         item {
             Muted("Guides are updated every day. Programmes are only stored for channels that use them, for the next 3 days.", maxLines = 2)
+        }
+        // Updates run in the background and can take minutes for large guides: say what's happening.
+        syncLabel(sync)?.let { label ->
+            item {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (sync is SyncState.Failed) Palette.warning else LocalAccent.current.color
+                )
+            }
         }
         items(sources, key = { it.id }) { s ->
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -150,7 +181,31 @@ fun GuideSourcesScreen() {
                 }
             }
         }
-        item { PillButton("Update guide now", vm::refresh, Modifier.padding(top = 12.dp)) }
+        item { PillButton(if (busy) "Updating…" else "Update guide now", { if (!busy) vm.refresh() }, Modifier.padding(top = 12.dp)) }
+        freeGuides(vm, sources)
+    }
+}
+
+/** One-press free guides by country (the TV's own country first; the rest on request). */
+private fun LazyListScope.freeGuides(vm: GuideSourcesViewModel, sources: List<EpgSourceEntity>) {
+    val added = sources.mapTo(HashSet()) { it.url }
+    item {
+        Column(Modifier.padding(top = 20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Free guides by country", style = MaterialTheme.typography.titleMedium)
+            Muted("From iptv-epg.org. Large countries can take a few minutes to load on a TV box.", maxLines = 2)
+        }
+    }
+    val shown = if (vm.showAllFree) vm.freeGuides else vm.freeGuides.take(1)
+    items(shown, key = { "free-${it.code}" }) { g ->
+        TvCard(onClick = { vm.toggleFree(g) }, color = Palette.surfaceLow, modifier = Modifier.fillMaxWidth()) {
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(g.country, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                Toggle(g.url in added)
+            }
+        }
+    }
+    if (!vm.showAllFree) {
+        item { PillButton("Show all ${vm.freeGuides.size} countries", { vm.showAllFree = true }) }
     }
 }
 

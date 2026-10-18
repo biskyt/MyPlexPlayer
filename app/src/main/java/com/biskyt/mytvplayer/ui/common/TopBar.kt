@@ -129,14 +129,16 @@ private fun Clock() {
 @Composable
 private fun SyncStatus() {
     val state by LocalContext.current.container.sync.state.collectAsState()
-    val text = when (val s = state) {
-        SyncState.Idle -> null
-        is SyncState.Channels -> if (s.loaded == 0) "Updating channels…" else "Loading channels… ${formatCount(s.loaded)}"
-        is SyncState.Vod -> if (s.loaded == 0) "Updating movies and series…" else "Loading movies and series… ${formatCount(s.loaded)}"
-        is SyncState.Guide -> s.message
-        is SyncState.Failed -> s.message
-    }
-    if (text != null) Muted(text, Modifier.padding(end = 8.dp))
+    syncLabel(state)?.let { Muted(it, Modifier.padding(end = 8.dp)) }
+}
+
+/** What a background update is doing, in words (null when idle). */
+fun syncLabel(state: SyncState): String? = when (state) {
+    SyncState.Idle -> null
+    is SyncState.Channels -> if (state.loaded == 0) "Updating channels…" else "Loading channels… ${formatCount(state.loaded)}"
+    is SyncState.Vod -> if (state.loaded == 0) "Updating movies and series…" else "Loading movies and series… ${formatCount(state.loaded)}"
+    is SyncState.Guide -> state.message
+    is SyncState.Failed -> state.message
 }
 
 /** Screen with the top bar above [content]. */
