@@ -42,6 +42,7 @@ import com.biskyt.mytvplayer.ui.common.formatDuration
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
+import com.biskyt.mytvplayer.ui.player.shortEpisodeLabel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flatMapLatest
@@ -88,7 +89,7 @@ fun HomeScreen() {
                 item {
                     Column {
                         SectionTitle("Carry on watching")
-                        CarryOnRow(carryOn) { nav.push(Screen.VodPlayer(pid, it.itemId, it.seriesId)) }
+                        CarryOnRow(carryOn) { nav.push(Screen.VodPlayer(pid, it.itemId, it.seriesId, continueSeries = true)) }
                     }
                 }
             }
@@ -170,17 +171,14 @@ private fun CarryOnRow(items: List<WatchProgressEntity>, onPlay: (WatchProgressE
                     Poster(p.imageUrl, p.title, 64.dp)
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(p.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        if (p.season != null) Muted("S${p.season} E${p.episode}" + (p.episodeTitle?.let { " · $it" } ?: ""))
-                        Muted(
-                            if (p.positionMs > 0 &&
-                                p.durationMs > 0
-                            ) {
-                                "${formatDuration(p.durationMs - p.positionMs)} left"
-                            } else {
-                                "Up next"
-                            }
-                        )
-                        ProgressLine(if (p.durationMs > 0) p.positionMs.toFloat() / p.durationMs else 0f, Modifier.fillMaxWidth())
+                        if (p.finished) {
+                            // A finished episode with another after it: the card leads on to that one.
+                            Muted("Up next after ${shortEpisodeLabel(p.season, p.episode)}")
+                        } else {
+                            if (p.season != null) Muted(shortEpisodeLabel(p.season, p.episode) + (p.episodeTitle?.let { " · $it" } ?: ""))
+                            Muted("${formatDuration(p.remainingMs)} left")
+                            ProgressLine(p.fraction, Modifier.fillMaxWidth())
+                        }
                     }
                 }
             }

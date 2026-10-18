@@ -14,10 +14,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -25,10 +27,12 @@ import androidx.lifecycle.viewModelScope
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.allowRgb565
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.core.xtream.VodDetails
+import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.MovieEntity
-import com.biskyt.mytvplayer.data.db.VOD_MOVIE
 import com.biskyt.mytvplayer.data.db.WatchProgressEntity
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
@@ -42,7 +46,6 @@ import com.biskyt.mytvplayer.ui.common.formatRuntime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.theme.Palette
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -53,8 +56,7 @@ class MovieDetailsViewModel(private val c: AppContainer, private val playlistId:
         private set
 
     val progress = c.vod.observeMovieProgress(playlistId, streamId).stateIn(viewModelScope, SharingStarted.Eagerly, null)
-    val favourite = c.vod.observeFavouriteIds(playlistId, VOD_MOVIE).map { streamId in it }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val favourite = c.vod.observeFavourite(playlistId, CAT_MOVIE, streamId).stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     init {
         viewModelScope.launch {
@@ -65,7 +67,7 @@ class MovieDetailsViewModel(private val c: AppContainer, private val playlistId:
         }
     }
 
-    fun toggleFavourite() = viewModelScope.launch { c.vod.setFavourite(playlistId, VOD_MOVIE, streamId, !favourite.value) }
+    fun toggleFavourite() = viewModelScope.launch { c.vod.setFavourite(playlistId, CAT_MOVIE, streamId, !favourite.value) }
 }
 
 @Composable
@@ -111,8 +113,8 @@ fun metaLine(year: Int?, durationSec: Int?, genre: String?, rating: Double?): St
 internal fun ResumeBar(progress: WatchProgressEntity?) {
     if (progress == null || progress.finished || progress.durationMs <= 0) return
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.widthIn(max = 520.dp)) {
-        ProgressLine(progress.positionMs.toFloat() / progress.durationMs, Modifier.weight(1f).padding(top = 8.dp))
-        Muted("${formatDuration(progress.durationMs - progress.positionMs)} left")
+        ProgressLine(progress.fraction, Modifier.weight(1f).padding(top = 8.dp))
+        Muted("${formatDuration(progress.remainingMs)} left")
     }
 }
 
@@ -121,7 +123,12 @@ internal fun ResumeBar(progress: WatchProgressEntity?) {
 internal fun DetailsLayout(backdropUrl: String?, posterUrl: String?, title: String, content: @Composable ColumnScope.() -> Unit) {
     Box(Modifier.fillMaxSize().background(Palette.background)) {
         if (backdropUrl != null) {
-            AsyncImage(backdropUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.35f)
+            // Faded behind a gradient, so a third of the screen's resolution is plenty (and a ninth of the memory).
+            val context = LocalContext.current
+            val request = remember(backdropUrl) {
+                ImageRequest.Builder(context).data(backdropUrl).size(BACKDROP_WIDTH, BACKDROP_WIDTH * 9 / 16).allowRgb565(true).build()
+            }
+            AsyncImage(request, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.35f)
             Box(
                 Modifier.fillMaxSize()
                     .background(Brush.horizontalGradient(listOf(Palette.background, Palette.background.copy(alpha = 0.6f))))
@@ -135,3 +142,5 @@ internal fun DetailsLayout(backdropUrl: String?, posterUrl: String?, title: Stri
         }
     }
 }
+
+private const val BACKDROP_WIDTH = 640

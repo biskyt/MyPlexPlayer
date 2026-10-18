@@ -17,6 +17,7 @@ import coil3.disk.directory
 import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
+import com.biskyt.mytvplayer.data.CategoryStore
 import com.biskyt.mytvplayer.data.ChannelRepository
 import com.biskyt.mytvplayer.data.EpgRepository
 import com.biskyt.mytvplayer.data.PlaylistRepository
@@ -41,9 +42,10 @@ class AppContainer(context: Context) {
         .build()
     val settings = SettingsRepository(context)
     val epg = EpgRepository(db, http, context.filesDir, appScope)
-    val playlists = PlaylistRepository(db, http, settings, epg, context.cacheDir.resolve("playlists"))
+    private val categoryStore = CategoryStore(db)
+    val playlists = PlaylistRepository(db, http, settings, epg, context.cacheDir.resolve("playlists"), categoryStore)
     val channels = ChannelRepository(db)
-    val vod = VodRepository(db, playlists)
+    val vod = VodRepository(db, playlists, categoryStore)
     val sync = SyncManager(appScope, playlists, vod, epg)
 }
 

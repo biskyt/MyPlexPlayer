@@ -39,12 +39,10 @@ data class VodDetails(
     val durationSec: Int?,
     val backdropUrl: String?,
     val posterUrl: String?,
-    val rating: Double?,
-    /** File type of a movie's stream (mkv, mp4…), when the details know it. */
-    val extension: String?
+    val rating: Double?
 )
 
-data class SeasonInfo(val number: Int, val name: String, val coverUrl: String?)
+data class SeasonInfo(val number: Int, val name: String)
 
 data class EpisodeInfo(
     val id: Long,
@@ -104,7 +102,7 @@ internal fun JsonElement.toSeries(): XtreamSeries? {
 }
 
 /** The `info` block of get_vod_info / get_series_info (an empty array when the panel has nothing). */
-private fun JsonObject?.toDetails(extension: String? = null): VodDetails {
+private fun JsonObject?.toDetails(): VodDetails {
     val o = this ?: JsonObject(emptyMap())
     return VodDetails(
         plot = o.str("plot") ?: o.str("description"),
@@ -115,14 +113,13 @@ private fun JsonObject?.toDetails(extension: String? = null): VodDetails {
         durationSec = o.int("duration_secs") ?: o.int("episode_run_time")?.times(60),
         backdropUrl = o.firstUrl("backdrop_path"),
         posterUrl = o.str("movie_image") ?: o.str("cover"),
-        rating = o.double("rating"),
-        extension = extension
+        rating = o.double("rating")
     )
 }
 
 internal fun JsonElement.toMovieDetails(): VodDetails? {
     val o = this as? JsonObject ?: return null
-    return o.obj("info").toDetails(o.obj("movie_data")?.str("container_extension"))
+    return o.obj("info").toDetails()
 }
 
 internal fun JsonElement.toSeriesDetails(): SeriesDetails? {
@@ -130,7 +127,7 @@ internal fun JsonElement.toSeriesDetails(): SeriesDetails? {
     val seasons = (o["seasons"] as? JsonArray).orEmpty().mapNotNull { el ->
         val s = el as? JsonObject ?: return@mapNotNull null
         val n = s.int("season_number") ?: return@mapNotNull null
-        SeasonInfo(n, s.str("name") ?: "Season $n", s.str("cover"))
+        SeasonInfo(n, s.str("name") ?: "Season $n")
     }
     // Episodes come grouped by season, as an object keyed by season number or (on some panels) an array of arrays.
     val groups: List<JsonElement> = when (val e = o["episodes"]) {
@@ -155,7 +152,7 @@ internal fun JsonElement.toSeriesDetails(): SeriesDetails? {
         )
     }.sortedWith(compareBy({ it.season }, { it.number }))
     // Some panels list no seasons, only episodes: derive them.
-    val allSeasons = seasons.ifEmpty { episodes.map { it.season }.distinct().map { SeasonInfo(it, "Season $it", null) } }
+    val allSeasons = seasons.ifEmpty { episodes.map { it.season }.distinct().map { SeasonInfo(it, "Season $it") } }
         .filter { s -> episodes.any { it.season == s.number } }
         .sortedBy { it.number }
     return SeriesDetails(o.obj("info").toDetails(), allSeasons, episodes)

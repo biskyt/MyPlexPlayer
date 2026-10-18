@@ -8,22 +8,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -33,7 +28,6 @@ import androidx.paging.cachedIn
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import androidx.paging.map
-import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
@@ -41,24 +35,23 @@ import com.biskyt.mytvplayer.data.VodFilter
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.db.PlaylistEntity
+import com.biskyt.mytvplayer.data.db.VodCard
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
-import com.biskyt.mytvplayer.ui.common.AppIcons
 import com.biskyt.mytvplayer.ui.common.CategoryColumn
 import com.biskyt.mytvplayer.ui.common.CategoryEntry
+import com.biskyt.mytvplayer.ui.common.CategoryFilter
+import com.biskyt.mytvplayer.ui.common.ListHeader
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.Poster
 import com.biskyt.mytvplayer.ui.common.Tab
 import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.TvCard
-import com.biskyt.mytvplayer.ui.common.TvTextField
-import com.biskyt.mytvplayer.ui.common.formatCount
+import com.biskyt.mytvplayer.ui.common.restoreFocusIf
 import com.biskyt.mytvplayer.ui.theme.Palette
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -69,10 +62,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
-
-/** What a poster in the grid shows: the same for movies and series. */
-data class VodCard(val id: Long, val title: String, val year: Int?, val imageUrl: String?)
 
 /** Movies or series ([type] is CAT_MOVIE or CAT_SERIES): categories on the left, a grid of posters on the right. */
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
@@ -82,50 +71,24 @@ class VodBrowseViewModel(private val c: AppContainer, val type: String, initialF
 
     val playlist: StateFlow<PlaylistEntity?> = activePlaylist.map { c.playlists.get(it) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
-    val filter = MutableStateFlow(initialFilter)
+    val filters = CategoryFilter(viewModelScope, initialFilter)
     val query = MutableStateFlow("")
 
     val categories: StateFlow<List<CategoryEntity>> = activePlaylist.flatMapLatest { c.vod.observeCategories(it, type) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val total: StateFlow<Int?> = activePlaylist.flatMapLatest {
-        if (isMovies) c.vod.observeMovieCount(it) else c.vod.observeSeriesCount(it)
-    }
+    val total: StateFlow<Int?> = activePlaylist.flatMapLatest { c.vod.observeCount(type, it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val items: Flow<PagingData<VodCard>> =
-        combine(activePlaylist, filter, query.debounce(250)) { pid, f, q -> Triple(pid, f, q) }
+        combine(activePlaylist, filters.value, query.debounce(250)) { pid, f, q -> Triple(pid, f, q) }
             .distinctUntilChanged()
-            .flatMapLatest { (pid, f, q) ->
-                if (isMovies) {
-                    c.vod.pageMovies(pid, f, q).map { page -> page.map { VodCard(it.streamId, it.title, it.year, it.posterUrl) } }
-                } else {
-                    c.vod.pageSeries(pid, f, q).map { page -> page.map { VodCard(it.seriesId, it.title, it.year, it.coverUrl) } }
-                }
-            }
+            .flatMapLatest { (pid, f, q) -> c.vod.pageCards(type, pid, f, q) }
             .cachedIn(viewModelScope)
 
-    /** Kept here so coming back from a title returns to the same place in the grid. */
-    val gridState = LazyGridState()
+    /** The title last opened, to return focus to it when coming back. */
     var focusId: Long? = null
     var restoreFocusPending by mutableStateOf(false)
-
-    private var filterJob: Job? = null
-
-    /** Category focus changes the grid after a short pause, so moving through categories stays smooth. */
-    fun focusFilter(f: VodFilter) {
-        filterJob?.cancel()
-        if (f == filter.value) return
-        filterJob = viewModelScope.launch {
-            delay(300)
-            filter.value = f
-        }
-    }
-
-    fun selectFilter(f: VodFilter) {
-        filterJob?.cancel()
-        filter.value = f
-    }
 
     fun open(card: VodCard, pid: Long): Screen {
         focusId = card.id
@@ -137,7 +100,7 @@ class VodBrowseViewModel(private val c: AppContainer, val type: String, initialF
 @Composable
 fun VodBrowseScreen(type: String, initialFilter: VodFilter) {
     val vm = appViewModel(key = "vod-$type") { VodBrowseViewModel(it, type, initialFilter) }
-    val filter by vm.filter.collectAsState()
+    val filter by vm.filters.value.collectAsState()
     val categories by vm.categories.collectAsState()
     val playlist by vm.playlist.collectAsState()
     val entries = remember(categories) {
@@ -149,7 +112,7 @@ fun VodBrowseScreen(type: String, initialFilter: VodFilter) {
     }
     TabScaffold(if (vm.isMovies) Tab.MOVIES else Tab.SERIES) {
         Row(Modifier.fillMaxSize().padding(horizontal = 56.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            CategoryColumn(entries, filter, vm::focusFilter, vm::selectFilter)
+            CategoryColumn(entries, filter, vm.filters::focus, vm.filters::select)
             Column(Modifier.weight(1f)) {
                 Header(vm, entries.firstOrNull { it.filter == filter })
                 val p = playlist
@@ -170,38 +133,17 @@ fun VodBrowseScreen(type: String, initialFilter: VodFilter) {
 private fun Header(vm: VodBrowseViewModel, entry: CategoryEntry<VodFilter>?) {
     val total by vm.total.collectAsState()
     val query by vm.query.collectAsState()
-    Row(
-        Modifier.padding(bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Text(
-            entry?.label ?: "",
-            style = MaterialTheme.typography.headlineSmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(0.45f, fill = false)
-        )
-        val count = entry?.count ?: total.takeIf { entry?.filter == VodFilter.All }
-        if (count != null) Muted("· ${formatCount(count)}")
-        TvTextField(
-            value = query,
-            onValueChange = { vm.query.value = it },
-            placeholder = "Filter by title",
-            modifier = Modifier.weight(0.55f),
-            leading = { Icon(AppIcons.Filter, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) }
-        )
-    }
+    val count = entry?.count ?: total.takeIf { entry?.filter == VodFilter.All }
+    ListHeader(entry?.label.orEmpty(), count, query, { vm.query.value = it }, "Filter by title")
 }
 
 @Composable
 private fun PosterGrid(vm: VodBrowseViewModel, pid: Long) {
     val nav = LocalNavigator.current
     val items = vm.items.collectAsLazyPagingItems()
-    val restore = remember { FocusRequester() }
     if (items.itemCount == 0) {
         Muted(
-            if (vm.filter.collectAsState().value == VodFilter.Favourites) {
+            if (vm.filters.value.collectAsState().value == VodFilter.Favourites) {
                 "No favourites yet. Open a title and choose “Add to favourites”."
             } else {
                 "Nothing here yet. Movies and series load after channels; choose which categories to load in Settings › Languages & categories."
@@ -213,7 +155,7 @@ private fun PosterGrid(vm: VodBrowseViewModel, pid: Long) {
     }
     LazyVerticalGrid(
         columns = GridCells.Fixed(COLUMNS),
-        state = vm.gridState,
+        state = rememberLazyGridState(),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(bottom = 40.dp)
@@ -227,10 +169,7 @@ private fun PosterGrid(vm: VodBrowseViewModel, pid: Long) {
                 }
             } else {
                 val wantsFocus = vm.restoreFocusPending && card.id == vm.focusId
-                PosterCard(card, if (wantsFocus) Modifier.focusRequester(restore) else Modifier) { nav.push(vm.open(card, pid)) }
-                if (wantsFocus) {
-                    LaunchedEffect(Unit) { if (runCatching { restore.requestFocus() }.isSuccess) vm.restoreFocusPending = false }
-                }
+                PosterCard(card, Modifier.restoreFocusIf(wantsFocus) { vm.restoreFocusPending = false }) { nav.push(vm.open(card, pid)) }
             }
         }
     }

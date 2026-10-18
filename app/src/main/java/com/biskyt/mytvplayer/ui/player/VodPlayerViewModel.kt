@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewModelScope
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.core.player.OverlayState
 import com.biskyt.mytvplayer.core.xtream.EpisodeInfo
 import com.biskyt.mytvplayer.data.db.PlaylistEntity
 import com.biskyt.mytvplayer.data.db.VOD_EPISODE
@@ -31,9 +32,10 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     var subtitle by mutableStateOf("")
         private set
 
-    var positionMs by mutableLongStateOf(0)
+    /** Whole seconds, so the time shown changes once a second (and only while the controls are up). */
+    var positionSec by mutableLongStateOf(0)
         private set
-    var durationMs by mutableLongStateOf(0)
+    var durationSec by mutableLongStateOf(0)
         private set
 
     /** The episode after this one, if any. */
@@ -45,16 +47,14 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
 
     private var playlist: PlaylistEntity? = null
     private var current: Playing? = null
-    private var episodes: List<EpisodeInfo> = emptyList()
     private var tickJob: Job? = null
 
-    /** What is playing, with what progress rows need. */
+    /** What is playing, with what its progress row needs. */
     private data class Playing(
         val kind: String,
         val itemId: Long,
         val title: String,
         val imageUrl: String?,
-        val extension: String,
         val episode: EpisodeInfo? = null
     )
 
@@ -64,7 +64,8 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
             val p = c.playlists.get(screen.playlistId) ?: return@launch stop()
             playlist = p
             try {
-                if (screen.seriesId == null) startMovie(p) else startEpisode(p, screen.seriesId, screen.itemId, screen.fromStart)
+                val seriesId = screen.seriesId
+                if (seriesId == null) startMovie(p) else startEpisode(p, seriesId, screen.itemId, screen.fromStart, screen.continueSeries)
             } catch (e: java.io.IOException) {
                 error = e.message ?: failureMessage
             }
@@ -75,24 +76,26 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         val m = c.vod.movie(p.id, screen.itemId) ?: return stop()
         title = m.title
         subtitle = m.year?.toString().orEmpty()
-        play(
-            p,
-            Playing(VOD_MOVIE, m.streamId, m.title, m.posterUrl, m.extension),
-            c.vod.movieUrl(p, m.streamId, m.extension),
-            screen.fromStart
-        )
+        play(p, Playing(VOD_MOVIE, m.streamId, m.title, m.posterUrl), c.vod.movieUrl(p, m.streamId, m.extension), screen.fromStart)
     }
 
-    private suspend fun startEpisode(p: PlaylistEntity, seriesId: Long, episodeId: Long, fromStart: Boolean) {
+    /** [continueSeries]: coming from "Carry on watching", where [episodeId] may be one already finished: play the next. */
+    private suspend fun startEpisode(
+        p: PlaylistEntity,
+        seriesId: Long,
+        episodeId: Long,
+        fromStart: Boolean,
+        continueSeries: Boolean = false
+    ) {
         val show = c.vod.series(p.id, seriesId)
-        val details = c.vod.seriesDetails(p, seriesId)
-        episodes = details.episodes
-        val e = episodes.firstOrNull { it.id == episodeId } ?: return stop()
-        val showTitle = show?.title ?: e.title
-        title = showTitle
+        val episodes = c.vod.seriesDetails(p, seriesId).episodes
+        var index = episodes.indexOfFirst { it.id == episodeId }.takeIf { it >= 0 } ?: return stop()
+        if (continueSeries && c.vod.progress(p.id, VOD_EPISODE, episodeId)?.finished == true && index < episodes.lastIndex) index++
+        val e = episodes[index]
+        title = show?.title ?: e.title
         subtitle = episodeLabel(e)
-        nextEpisode = episodes.getOrNull(episodes.indexOf(e) + 1)
-        val playing = Playing(VOD_EPISODE, e.id, showTitle, show?.coverUrl ?: e.imageUrl, e.extension, e)
+        nextEpisode = episodes.getOrNull(index + 1)
+        val playing = Playing(VOD_EPISODE, e.id, title, show?.coverUrl ?: e.imageUrl, e)
         play(p, playing, c.vod.episodeUrl(p, e.id, e.extension), fromStart)
     }
 
@@ -111,20 +114,22 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         startTicking()
     }
 
-    /** Updates the progress bar while visible and saves progress every so often while playing. */
+    /** Updates the time shown while the controls are up, and saves progress every so often while playing. */
     private fun startTicking() {
         tickJob?.cancel()
         tickJob = viewModelScope.launch {
             var sinceSave = 0L
             while (isActive) {
                 val player = engine?.player ?: break
-                positionMs = player.currentPosition
-                durationMs = player.duration.coerceAtLeast(0)
+                if (overlay == OverlayState.CONTROLS) {
+                    positionSec = player.currentPosition / 1000
+                    durationSec = player.duration.coerceAtLeast(0) / 1000
+                }
                 if (player.isPlaying) {
                     sinceSave += TICK_MS
                     if (sinceSave >= SAVE_EVERY_MS) {
                         sinceSave = 0
-                        saveProgress()
+                        save()
                     }
                 }
                 delay(TICK_MS)
@@ -132,63 +137,53 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         }
     }
 
+    /** Pausing, leaving the app and stopping all end here. */
     override fun onPlayingChanged(playing: Boolean) {
-        if (!playing) viewModelScope.launch { saveProgress() }
+        if (!playing) save(trim = true)
     }
 
-    private suspend fun saveProgress() {
-        val p = playlist ?: return
-        val now = current ?: return
-        val player = engine?.player ?: return
-        val duration = player.duration.takeIf { it > 0 } ?: return
-        c.vod.saveProgress(progressRow(p, now, player.currentPosition, duration, System.currentTimeMillis()))
+    /** Where playback is now, as a progress row (null before the duration is known). */
+    private fun snapshot(): WatchProgressEntity? {
+        val p = playlist
+        val item = current
+        val player = engine?.player
+        val duration = player?.duration?.takeIf { it > 0 }
+        if (p == null || item == null || player == null || duration == null) return null
+        return WatchProgressEntity(
+            playlistId = p.id,
+            kind = item.kind,
+            itemId = item.itemId,
+            positionMs = player.currentPosition.coerceAtMost(duration),
+            durationMs = duration,
+            updatedAt = System.currentTimeMillis(),
+            title = item.title,
+            imageUrl = item.imageUrl,
+            seriesId = screen.seriesId,
+            season = item.episode?.season,
+            episode = item.episode?.number,
+            episodeTitle = item.episode?.title,
+            hasNext = nextEpisode != null
+        )
     }
 
-    private fun progressRow(p: PlaylistEntity, item: Playing, position: Long, duration: Long, at: Long) = WatchProgressEntity(
-        playlistId = p.id,
-        kind = item.kind,
-        itemId = item.itemId,
-        positionMs = position,
-        durationMs = duration,
-        updatedAt = at,
-        title = item.title,
-        imageUrl = item.imageUrl,
-        extension = item.extension,
-        seriesId = screen.seriesId,
-        season = item.episode?.season,
-        episode = item.episode?.number,
-        episodeTitle = item.episode?.title
-    )
+    /** Taken now and written in the app's scope, so it completes even as the screen closes. */
+    private fun save(trim: Boolean = false) {
+        val row = snapshot() ?: return
+        c.appScope.launch { c.vod.saveProgress(row, trim) }
+    }
 
-    /** At the end: a movie closes; an episode is marked watched and the next one starts. */
+    /** At the end: a movie closes; an episode is saved as watched and the next one starts. */
     override fun onEnded() {
-        val p = playlist ?: return
-        val finished = current ?: return
-        viewModelScope.launch {
-            val duration = durationMs.coerceAtLeast(1)
-            val now = System.currentTimeMillis()
-            c.vod.saveProgress(progressRow(p, finished, duration, duration, now))
-            val next = nextEpisode
-            if (next == null || screen.seriesId == null) {
-                stop()
-            } else {
-                // Saved as the series' latest, so "Carry on watching" shows the next episode even if the user stops now.
-                c.vod.saveProgress(
-                    progressRow(p, finished.copy(itemId = next.id, extension = next.extension, episode = next), 0, 0, now + 1)
-                )
-                playNext()
-            }
-        }
+        save(trim = true)
+        if (nextEpisode == null) stop() else playNext()
     }
 
     fun playNext() {
         val p = playlist ?: return
         val next = nextEpisode ?: return
         val seriesId = screen.seriesId ?: return
-        viewModelScope.launch {
-            saveProgress()
-            startEpisode(p, seriesId, next.id, fromStart = true)
-        }
+        save()
+        viewModelScope.launch { startEpisode(p, seriesId, next.id, fromStart = true) }
     }
 
     fun startOver() {
@@ -196,25 +191,9 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         showControls()
     }
 
-    fun seekTo(fraction: Float) {
-        val player = engine?.player ?: return
-        if (durationMs > 0) player.seekTo((durationMs * fraction).toLong())
-    }
-
-    override fun onAppHidden() {
-        viewModelScope.launch { saveProgress() }
-        super.onAppHidden()
-    }
-
     override fun stop() {
-        // Save before the player stops, while its position is still known.
-        val p = playlist
-        val item = current
-        val player = engine?.player
-        if (p != null && item != null && player != null && player.duration > 0) {
-            val row = progressRow(p, item, player.currentPosition, player.duration, System.currentTimeMillis())
-            c.appScope.launch { c.vod.saveProgress(row) }
-        }
+        // Saved before the player stops, while its position is still known.
+        save(trim = true)
         tickJob?.cancel()
         super.stop()
     }
@@ -232,3 +211,6 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
 fun episodeLabel(e: EpisodeInfo): String =
     listOfNotNull("Series ${e.season}", "Episode ${e.number}", e.title.takeUnless { it.equals("Episode ${e.number}", ignoreCase = true) })
         .joinToString(" · ")
+
+/** "S1 E2". */
+fun shortEpisodeLabel(season: Int?, episode: Int?) = "S$season E$episode"

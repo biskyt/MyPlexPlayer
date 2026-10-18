@@ -199,7 +199,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     fun seekBy(ms: Long) {
         val p = engine?.player ?: return
         if (!p.isCurrentMediaItemSeekable) {
-            flash("Skipping isn't available on this live channel")
+            flash("Skipping isn't available here")
             return
         }
         p.seekTo((p.currentPosition + ms).coerceAtLeast(0))
@@ -226,8 +226,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     }
 
     fun retry() {
-        error = null
-        retries = 0
+        resetForNewStream()
         engine?.player?.prepare()
     }
 

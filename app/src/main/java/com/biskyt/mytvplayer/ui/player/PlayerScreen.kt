@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -197,48 +198,58 @@ private fun LiveControls(vm: PlayerViewModel, buttons: FocusRequester, root: Foc
     val nn = vm.nowNext.entries[ch.streamId]
     val accent = LocalAccent.current
     val now by rememberMinuteClock()
+    ControlsPanel {
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+            ChannelLogo(ch.logoUrl, ch.name, 110.dp, 66.dp)
+            Column(Modifier.weight(1f)) {
+                Muted(listOf(ch.numberLabel, ch.name).filter { it.isNotEmpty() }.joinToString(" · "))
+                Text(
+                    nn?.now?.title ?: ch.name,
+                    style = MaterialTheme.typography.displaySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            nn?.next?.let { next ->
+                Column(Modifier.width(320.dp), horizontalAlignment = Alignment.End) {
+                    Text(
+                        "UP NEXT · ${formatTime(next.startMs)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = accent.color
+                    )
+                    Text(next.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+        nn?.now?.let { current -> Timeline(formatTime(current.startMs), nn.progress(now), formatTime(current.stopMs)) }
+        ControlsBar(vm, root) {
+            PillButton("Channel guide", vm::openGuide, Modifier.focusRequester(buttons))
+        }
+        Muted("◀ ▶ skip · ▲ ▼ change channel · ▼ for buttons · OK hides this", Modifier.align(Alignment.CenterHorizontally))
+    }
+}
+
+/** The shaded panel at the bottom of the video that holds the controls. */
+@Composable
+internal fun ControlsPanel(content: @Composable ColumnScope.() -> Unit) {
     Box(Modifier.fillMaxSize()) {
         Box(
             Modifier.fillMaxWidth().align(Alignment.BottomCenter)
                 .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xF2080A0D), Color(0xF5080A0D))))
                 .padding(start = 56.dp, end = 56.dp, top = 80.dp, bottom = 36.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(22.dp)) {
-                    ChannelLogo(ch.logoUrl, ch.name, 110.dp, 66.dp)
-                    Column(Modifier.weight(1f)) {
-                        Muted(listOf(ch.numberLabel, ch.name).filter { it.isNotEmpty() }.joinToString(" · "))
-                        Text(
-                            nn?.now?.title ?: ch.name,
-                            style = MaterialTheme.typography.displaySmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    nn?.next?.let { next ->
-                        Column(Modifier.width(320.dp), horizontalAlignment = Alignment.End) {
-                            Text(
-                                "UP NEXT · ${formatTime(next.startMs)}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = accent.color
-                            )
-                            Text(next.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                }
-                nn?.now?.let { current ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Muted(formatTime(current.startMs))
-                        ProgressLine(nn.progress(now), Modifier.weight(1f), height = 6.dp)
-                        Muted(formatTime(current.stopMs))
-                    }
-                }
-                ControlsBar(vm, root) {
-                    PillButton("Channel guide", vm::openGuide, Modifier.focusRequester(buttons))
-                }
-                Muted("◀ ▶ skip · ▲ ▼ change channel · ▼ for buttons · OK pause", Modifier.align(Alignment.CenterHorizontally))
-            }
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp), content = content)
         }
+    }
+}
+
+/** Start time, progress bar, end time. */
+@Composable
+internal fun Timeline(start: String, fraction: Float, end: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Muted(start)
+        ProgressLine(fraction, Modifier.weight(1f), height = 6.dp)
+        Muted(end)
     }
 }
 
