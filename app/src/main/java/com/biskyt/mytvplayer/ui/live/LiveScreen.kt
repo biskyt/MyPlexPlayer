@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,6 +57,7 @@ import com.biskyt.mytvplayer.ui.common.TvTextField
 import com.biskyt.mytvplayer.ui.common.digit
 import com.biskyt.mytvplayer.ui.common.formatCount
 import com.biskyt.mytvplayer.ui.common.formatTime
+import com.biskyt.mytvplayer.ui.common.isGuide
 import com.biskyt.mytvplayer.ui.common.numberLabel
 import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
@@ -79,14 +79,20 @@ fun LiveScreen(initialFilter: ChannelFilter, initialGuide: Boolean) {
     TabScaffold(if (initialFilter == ChannelFilter.Favourites) Tab.FAVOURITES else Tab.LIVE) {
         Row(
             Modifier.fillMaxSize().padding(horizontal = 56.dp).onPreviewKeyEvent { e ->
-                // 0–9 on the remote jumps straight to that channel number.
+                // 0–9 on the remote jumps straight to that channel number; the Guide button switches list/guide.
                 val digit = e.key.digit()
-                if (digit != null && e.type == KeyEventType.KeyDown) {
-                    vm.playNumber = play
-                    vm.numberEntry.type(digit)
-                    true
-                } else {
-                    false
+                when {
+                    e.type != KeyEventType.KeyDown -> e.key.isGuide()
+                    digit != null -> {
+                        vm.playNumber = play
+                        vm.numberEntry.type(digit)
+                        true
+                    }
+                    e.key.isGuide() -> {
+                        vm.showGuide(!vm.guideMode)
+                        true
+                    }
+                    else -> false
                 }
             },
             horizontalArrangement = Arrangement.spacedBy(24.dp)
@@ -175,8 +181,8 @@ private fun ListHeader(vm: LiveViewModel, filter: ChannelFilter) {
             leading = { Icon(AppIcons.Filter, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) }
         )
         Row(Modifier.clip(RoundedCornerShape(12.dp)).background(Palette.surface).padding(4.dp)) {
-            PillButton("List", { vm.guideMode = false }, primary = !vm.guideMode)
-            PillButton("TV guide", { vm.guideMode = true }, primary = vm.guideMode)
+            PillButton("List", { vm.showGuide(false) }, primary = !vm.guideMode)
+            PillButton("TV guide", { vm.showGuide(true) }, primary = vm.guideMode)
         }
     }
 }
@@ -185,7 +191,8 @@ private fun ListHeader(vm: LiveViewModel, filter: ChannelFilter) {
 private fun ChannelList(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
     val items = vm.channels.collectAsLazyPagingItems()
     val favs by vm.favouriteIds.collectAsState()
-    val listState = rememberLazyListState()
+    val listState = vm.listState
+    LaunchedEffect(Unit) { if (vm.restoreFocusPending) vm.revealFocused() }
     val restore = remember { FocusRequester() }
     val now by rememberMinuteClock()
 
@@ -205,7 +212,8 @@ private fun ChannelList(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
                     nowMs = now,
                     onClick = { play(ch) },
                     onLongClick = { vm.optionsFor = ch },
-                    modifier = if (wantsFocus) Modifier.focusRequester(restore) else Modifier
+                    modifier = (if (wantsFocus) Modifier.focusRequester(restore) else Modifier)
+                        .onFocusChanged { if (it.isFocused) vm.focusMoved(ch.streamId, index) }
                 )
                 if (wantsFocus) {
                     LaunchedEffect(Unit) {
