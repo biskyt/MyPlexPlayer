@@ -1,0 +1,93 @@
+name: Release
+
+# Publishes a GitHub Release with the signed APK (for sideloading) and AAB (for Google Play).
+# Start it by pushing a tag that matches the app's versionName (e.g. `git tag v0.2.4 && git push origin v0.2.4`),
+# or from the Actions tab ("Run workflow"), which tags the chosen branch for you.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Read the version
+        id: version
+        run: |
+          version=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match versionName $version in app/build.gradle.kts"
+            exit 1
+          fi
+
+      # The upload key lives in repository secrets. Without them the build falls back to the public development key,
+      # which is fine for testing but must not be used for a real release (anyone could sign an "update").
+      - name: Set up the signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.MYTV_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.MYTV_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.MYTV_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.MYTV_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            {
+              echo "MYTV_KEYSTORE=$RUNNER_TEMP/release.keystore"
+              echo "MYTV_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+              echo "MYTV_KEY_ALIAS=$KEY_ALIAS"
+              echo "MYTV_KEY_PASSWORD=$KEY_PASSWORD"
+            } >> "$GITHUB_ENV"
+            echo "SIGNED_WITH=release" >> "$GITHUB_ENV"
+          else
+            echo "::warning::No signing secrets set: this release is signed with the public development key."
+            echo "SIGNED_WITH=development" >> "$GITHUB_ENV"
+          fi
+
+      - name: Check and test
+        run: ./gradlew ktlintCheck detekt lintDebug :core:test :app:testDebugUnitTest
+
+      - name: Build APK and app bundle
+        run: ./gradlew :app:assembleRelease :app:bundleRelease
+
+      - name: Collect files
+        id: files
+        run: |
+          v=${{ steps.version.outputs.version }}
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/MyTVPlayer-$v.apk"
+          cp app/build/outputs/bundle/release/app-release.aab "dist/MyTVPlayer-$v.aab"
+          (cd dist && sha256sum * > SHA256SUMS.txt)
+          # Release notes: this version's section of CHANGELOG.md.
+          awk -v v="$v" '/^## /{p = ($2 == v)} p' CHANGELOG.md | tail -n +2 > dist/notes.md
+          if [ "$SIGNED_WITH" = "development" ]; then
+            printf '\n> **Test build:** signed with the public development key. Not for general distribution.\n' >> dist/notes.md
+          fi
+          printf '\n**Install on Android TV:** download the APK and sideload it (e.g. with the Downloader app or `adb install`).\n' >> dist/notes.md
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: MyTVPlayer ${{ steps.version.outputs.version }}
+          body_path: dist/notes.md
+          prerelease: ${{ env.SIGNED_WITH == 'development' || startsWith(steps.version.outputs.version, '0.') }}
+          files: |
+            dist/MyTVPlayer-*.apk
+            dist/MyTVPlayer-*.aab
+            dist/SHA256SUMS.txt

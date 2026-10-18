@@ -24,16 +24,17 @@ just want to find their programmes and press play. No ads, no tracking, every fe
 - **Storage managed automatically**: only programmes for channels you use are kept (3 days), channel logos are capped
   at 30 MB, and the database is compacted when needed.
 
-Coming next: movies & series with posters and resume, global search, catch-up, reminders, backup & restore.
+Coming next: movies & series with posters and resume, global search, catch-up, reminders, backup & restore
+(see [ROADMAP.md](ROADMAP.md)).
 
 ## Install on your TV (sideload)
 
-1. Download `MyTVPlayer-apk` from the latest successful [CI run](../../actions) (or build it, below).
-2. Copy the APK to the TV (e.g. with the *Send Files to TV* app or a USB stick) and open it with a file manager;
-   allow installs from that app when asked.
+1. Download `MyTVPlayer-<version>.apk` from the latest [release](../../releases) (or a CI run's `MyTVPlayer-apk`).
+2. Copy the APK to the TV (e.g. with the *Downloader* or *Send Files to TV* app, or a USB stick) and open it with a
+   file manager; allow installs from that app when asked.
 
-Builds are signed with a shared public test key (`app/debug.keystore`) so new builds install over old ones. That key
-is not secret: for any wider distribution, sign with your own key via the `MYTV_KEYSTORE*` environment variables.
+Development builds are signed with a shared public test key (`app/debug.keystore`) so they install over each other.
+Releases are signed with a private key held in the repository's secrets; see [RELEASING.md](RELEASING.md).
 
 ## Build
 
