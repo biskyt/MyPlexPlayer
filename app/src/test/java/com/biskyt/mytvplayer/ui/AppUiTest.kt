@@ -7,12 +7,15 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.printToString
 import androidx.test.core.app.ApplicationProvider
@@ -28,6 +31,7 @@ import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.guide.GuideMatchingScreen
 import com.biskyt.mytvplayer.ui.home.HomeScreen
 import com.biskyt.mytvplayer.ui.live.LiveScreen
+import com.biskyt.mytvplayer.ui.search.SearchScreen
 import com.biskyt.mytvplayer.ui.settings.AppearanceScreen
 import com.biskyt.mytvplayer.ui.settings.PlaybackSettingsScreen
 import com.biskyt.mytvplayer.ui.settings.PlaylistsScreen
@@ -91,6 +95,7 @@ class AppUiTest {
             Screen.PlaybackSettings -> PlaybackSettingsScreen()
             Screen.Appearance -> AppearanceScreen()
             Screen.Playlists -> PlaylistsScreen()
+            Screen.Search -> SearchScreen()
             is Screen.Movies -> VodBrowseScreen(CAT_MOVIE, screen.filter)
             is Screen.Series -> VodBrowseScreen(CAT_SERIES, screen.filter)
             is Screen.MovieDetails -> MovieDetailsScreen(screen)
@@ -208,6 +213,21 @@ class AppUiTest {
             )
         }
         compose.waitUntil(5_000) { compose.onAllNodes(hasText("Add free channels", substring = true)).fetchSemanticsNodes().isEmpty() }
+    }
+
+    @Test
+    fun `search finds channels, programmes and movies, and opens what is picked`() {
+        show(Screen.Search)
+        compose.waitUntil(5_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasSetTextAction()).performTextInput("on")
+        waitFor("Now on one.uk") // programme
+        waitFor("UK: CHANNEL ONE HD") // channel
+        compose.onRoot().captureRoboImage("screenshots/search.png")
+        compose.onNode(hasSetTextAction()).performTextReplacement("padd")
+        waitFor("Paddington 2")
+        compose.onNode(hasText("Paddington 2")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+        assertEquals(Screen.MovieDetails(playlistId, 502), navigator.current.screen)
     }
 
     @Test

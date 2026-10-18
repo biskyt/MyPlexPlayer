@@ -291,4 +291,24 @@ class RepositoriesTest {
         vod.saveProgress(progress(VOD_EPISODE, 9003, 3_500_000, 6, seriesId = 77), trim = true) // the last episode
         assertEquals(listOf(501L), vod.observeCarryOn(id).first().map { it.itemId })
     }
+
+    @Test
+    fun `search finds channels, programmes, movies and series`() = runBlocking {
+        val id = addPlaylist()
+        playlists.syncChannels(id)
+        playlists.get(id)?.let { epg.ensureProviderSource(it, playlists.client(it).xmltvUrl()) }
+        epg.importAll(listOf(id))
+        vod.sync(playlists.get(id)!!)
+        val search = SearchRepository(db)
+
+        assertTrue(search.search(id, "a").isEmpty) // one letter: too broad
+        assertEquals(listOf(102L), search.search(id, "2").channels.map { it.streamId }) // one digit: channel number
+        assertEquals(listOf("UK: KITE KIDZ"), search.search(id, "kite").channels.map { it.name })
+        val news = search.search(id, "on one.uk")
+        assertEquals(listOf("Now on one.uk", "Next on one.uk"), news.programmes.map { it.title })
+        assertEquals("UK: CHANNEL ONE HD", news.programmes.first().channelName)
+        assertEquals(listOf("Paddington 2"), search.search(id, "padd").movies.map { it.title })
+        assertEquals(listOf("Line of Duty"), search.search(id, "duty").series.map { it.title })
+        assertTrue(search.search(id, "zzz").isEmpty)
+    }
 }

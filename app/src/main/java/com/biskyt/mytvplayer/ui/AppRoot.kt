@@ -23,10 +23,10 @@ import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.ui.guide.GuideMatchingScreen
 import com.biskyt.mytvplayer.ui.guide.GuideSourcesScreen
 import com.biskyt.mytvplayer.ui.home.HomeScreen
-import com.biskyt.mytvplayer.ui.home.PlaceholderScreen
 import com.biskyt.mytvplayer.ui.live.LiveScreen
 import com.biskyt.mytvplayer.ui.player.PlayerScreen
 import com.biskyt.mytvplayer.ui.player.VodPlayerScreen
+import com.biskyt.mytvplayer.ui.search.SearchScreen
 import com.biskyt.mytvplayer.ui.settings.AboutScreen
 import com.biskyt.mytvplayer.ui.settings.AppearanceScreen
 import com.biskyt.mytvplayer.ui.settings.CategoriesScreen
@@ -109,7 +109,7 @@ private fun ScreenContent(screen: Screen) {
         is Screen.MovieDetails -> MovieDetailsScreen(screen)
         is Screen.SeriesDetails -> SeriesDetailsScreen(screen)
         is Screen.VodPlayer -> VodPlayerScreen(screen)
-        Screen.Search -> PlaceholderScreen(null, "Search is coming in the next update. On Live TV, use the filter box to find a channel.")
+        Screen.Search -> SearchScreen()
         is Screen.Player -> PlayerScreen(screen)
         Screen.Settings -> SettingsScreen()
         Screen.Playlists -> PlaylistsScreen()

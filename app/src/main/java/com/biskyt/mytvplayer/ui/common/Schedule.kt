@@ -13,12 +13,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -87,14 +90,20 @@ fun ScheduleList(programmes: List<ChannelProgramme>?, modifier: Modifier = Modif
  */
 @Composable
 fun SidePanel(onDismiss: () -> Unit, width: Dp = 430.dp, dim: Boolean = true, content: @Composable () -> Unit) {
+    // A dialog is its own window, which resets the density to the system's; keep the app's scaling (see MyTvTheme)
+    // so panels are the same size as everything else.
+    val density = LocalDensity.current
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Box(
-            Modifier.fillMaxSize().ignoreHeldSelect().background(
-                if (dim) Palette.background.copy(alpha = 0.6f) else androidx.compose.ui.graphics.Color.Transparent
-            ),
-            contentAlignment = Alignment.CenterEnd
-        ) {
-            Box(Modifier.fillMaxHeight().width(width).background(Palette.surface.copy(alpha = 0.97f)).padding(28.dp)) { content() }
-        }
+        CompositionLocalProvider(LocalDensity provides density) { PanelContent(width, dim, content) }
+    }
+}
+
+@Composable
+private fun PanelContent(width: Dp, dim: Boolean, content: @Composable () -> Unit) {
+    Box(
+        Modifier.fillMaxSize().ignoreHeldSelect().background(if (dim) Palette.background.copy(alpha = 0.6f) else Color.Transparent),
+        contentAlignment = Alignment.CenterEnd
+    ) {
+        Box(Modifier.fillMaxHeight().width(width).background(Palette.surface.copy(alpha = 0.97f)).padding(28.dp)) { content() }
     }
 }

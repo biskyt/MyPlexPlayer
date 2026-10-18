@@ -128,6 +128,14 @@ interface ChannelDao {
     @Query("SELECT streamId FROM channel WHERE playlistId = :pid AND hidden = 0 ORDER BY position, name")
     suspend fun idsAll(pid: Long): List<Long>
 
+    /** Search: the same match as the list filter (name, or the number's start), first [limit] in list order. */
+    @Query(
+        """SELECT * FROM channel WHERE playlistId = :pid AND hidden = 0
+           AND (name LIKE '%' || :q || '%' OR CAST(number AS TEXT) LIKE :q || '%')
+           ORDER BY position, name LIMIT :limit"""
+    )
+    suspend fun search(pid: Long, q: String, limit: Int): List<ChannelEntity>
+
     @Query("SELECT streamId FROM channel WHERE playlistId = :pid AND hidden = 0 AND categoryId = :cat ORDER BY position, name")
     suspend fun idsCategory(pid: Long, cat: String): List<Long>
 
@@ -209,6 +217,17 @@ interface FavouriteDao {
     suspend fun trimRecent(pid: Long, keep: Int)
 }
 
+/** A programme found by search, with its channel. */
+data class ProgrammeHit(
+    val streamId: Long,
+    val channelName: String,
+    val logoUrl: String?,
+    val startMs: Long,
+    val stopMs: Long,
+    val title: String,
+    val subtitle: String?
+)
+
 /** Now/next row: a programme for a playlist channel with the channel's time shift already applied. */
 data class ChannelProgramme(
     val streamId: Long,
@@ -286,6 +305,21 @@ interface EpgDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProgrammes(items: List<ProgrammeEntity>)
+
+    /**
+     * Search: programmes on now or later whose title matches, on visible channels that use the guide, soonest first.
+     * Only guide channels in use are stored, for a few days, so this scans little.
+     */
+    @Query(
+        """SELECT m.streamId, c.name AS channelName, c.logoUrl, p.startMs + m.offsetMinutes * 60000 AS startMs,
+                  p.stopMs + m.offsetMinutes * 60000 AS stopMs, p.title, p.subtitle
+           FROM programme p JOIN channel_epg_mapping m ON m.sourceId = p.sourceId AND m.xmlId = p.xmlId
+           JOIN channel c ON c.playlistId = m.playlistId AND c.streamId = m.streamId
+           WHERE m.playlistId = :pid AND c.hidden = 0 AND p.stopMs > :from - m.offsetMinutes * 60000
+             AND p.title LIKE '%' || :q || '%'
+           ORDER BY startMs, c.position LIMIT :limit"""
+    )
+    suspend fun searchProgrammes(pid: Long, q: String, from: Long, limit: Int): List<ProgrammeHit>
 
     @Query("SELECT DISTINCT xmlId FROM channel_epg_mapping WHERE sourceId = :sourceId")
     suspend fun mappedXmlIds(sourceId: Long): List<String>
@@ -419,6 +453,12 @@ interface VodDao {
 
     @Query("SELECT COUNT(*) FROM series WHERE playlistId = :pid")
     fun observeSeriesCount(pid: Long): Flow<Int>
+
+    @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid AND title LIKE '%' || :q || '%' ORDER BY title LIMIT :limit")
+    suspend fun searchMovies(pid: Long, q: String, limit: Int): List<VodCard>
+
+    @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND title LIKE '%' || :q || '%' ORDER BY title LIMIT :limit")
+    suspend fun searchSeries(pid: Long, q: String, limit: Int): List<VodCard>
 
     // Whole lists, used by tests (screens page).
     @Query("SELECT * FROM movie WHERE playlistId = :pid ORDER BY position, title")

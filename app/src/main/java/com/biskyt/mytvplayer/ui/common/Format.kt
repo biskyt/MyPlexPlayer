@@ -15,6 +15,27 @@ fun formatRange(startMs: Long, stopMs: Long) = "${formatTime(startMs)} – ${for
 
 fun formatDateTime(epochMs: Long): String = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(epochMs))
 
+private val dayFormat = ThreadLocal.withInitial { SimpleDateFormat("EEE", Locale.getDefault()) }
+
+/** When something starts, relative to [now]: "Today 20:00", "Tomorrow 06:30" or "Wed 21:00". */
+fun formatDayTime(epochMs: Long, now: Long = System.currentTimeMillis()): String {
+    val days = java.util.concurrent.TimeUnit.MILLISECONDS.toDays(startOfDay(epochMs) - startOfDay(now))
+    val day = when (days) {
+        0L -> "Today"
+        1L -> "Tomorrow"
+        else -> dayFormat.get()!!.format(Date(epochMs))
+    }
+    return "$day ${formatTime(epochMs)}"
+}
+
+private fun startOfDay(epochMs: Long): Long = java.util.Calendar.getInstance().apply {
+    timeInMillis = epochMs
+    set(java.util.Calendar.HOUR_OF_DAY, 0)
+    set(java.util.Calendar.MINUTE, 0)
+    set(java.util.Calendar.SECOND, 0)
+    set(java.util.Calendar.MILLISECOND, 0)
+}.timeInMillis
+
 fun formatCount(n: Int): String = "%,d".format(n)
 
 /** A playback position: "12:34" or "1:02:03". */
