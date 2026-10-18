@@ -19,6 +19,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.ChannelFilter
+import com.biskyt.mytvplayer.data.PlaylistRepository
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.testutil.FakeProvider
@@ -29,6 +30,7 @@ import com.biskyt.mytvplayer.ui.home.HomeScreen
 import com.biskyt.mytvplayer.ui.live.LiveScreen
 import com.biskyt.mytvplayer.ui.settings.AppearanceScreen
 import com.biskyt.mytvplayer.ui.settings.PlaybackSettingsScreen
+import com.biskyt.mytvplayer.ui.settings.PlaylistsScreen
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import com.biskyt.mytvplayer.ui.vod.MovieDetailsScreen
 import com.biskyt.mytvplayer.ui.vod.SeriesDetailsScreen
@@ -88,6 +90,7 @@ class AppUiTest {
             is Screen.GuideMatching -> GuideMatchingScreen(screen.playlistId, screen.streamId)
             Screen.PlaybackSettings -> PlaybackSettingsScreen()
             Screen.Appearance -> AppearanceScreen()
+            Screen.Playlists -> PlaylistsScreen()
             is Screen.Movies -> VodBrowseScreen(CAT_MOVIE, screen.filter)
             is Screen.Series -> VodBrowseScreen(CAT_SERIES, screen.filter)
             is Screen.MovieDetails -> MovieDetailsScreen(screen)
@@ -185,6 +188,26 @@ class AppUiTest {
         compose.onNode(hasText("Episode 1")).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
         assertEquals(Screen.VodPlayer(playlistId, 9003, 77), navigator.current.screen)
+    }
+
+    @Test
+    fun `free channels button shows only until they are added`() {
+        show(Screen.Playlists)
+        waitFor("Home TV")
+        waitFor("Add free channels (iptv-org)")
+        runBlocking {
+            val c = app.container
+            c.db.playlists().insert(
+                com.biskyt.mytvplayer.data.db.PlaylistEntity(
+                    name = "Free TV (iptv-org)",
+                    kind = "m3u",
+                    server = PlaylistRepository.FREE_PLAYLIST_URL,
+                    username = "",
+                    password = ""
+                )
+            )
+        }
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Add free channels", substring = true)).fetchSemanticsNodes().isEmpty() }
     }
 
     @Test

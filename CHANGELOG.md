@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.3.1
+- Settings › Playlists has an "Add free channels (iptv-org)" button, shown until the free channels are added.
+
 ## 0.3.0
 - **Movies and Series** (Xtream accounts): browse by category with posters, filter by title, favourites,
   "Recently added", and pages with plot, cast and running time.
