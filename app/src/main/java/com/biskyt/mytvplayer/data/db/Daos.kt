@@ -252,8 +252,11 @@ interface EpgDao {
     @Query("DELETE FROM programme WHERE sourceId = :sourceId")
     suspend fun clearProgrammes(sourceId: Long)
 
-    @Query("DELETE FROM programme WHERE sourceId = :sourceId AND xmlId = :xmlId")
-    suspend fun clearProgrammes(sourceId: Long, xmlId: String)
+    @Query("DELETE FROM programme WHERE sourceId = :sourceId AND stamp != :stamp")
+    suspend fun deleteOlderProgrammes(sourceId: Long, stamp: Long)
+
+    @Query("DELETE FROM programme WHERE sourceId = :sourceId AND xmlId IN (:xmlIds) AND stamp != :stamp")
+    suspend fun deleteOlderProgrammes(sourceId: Long, xmlIds: List<String>, stamp: Long)
 
     @Query("DELETE FROM programme WHERE stopMs < :before")
     suspend fun pruneProgrammes(before: Long)

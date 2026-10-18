@@ -4,7 +4,6 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonObject
 
 /** Login details for one Xtream Codes account. [server] is the base URL, e.g. `http://example.tv:8080`. */
 data class XtreamCredentials(val server: String, val username: String, val password: String) {
@@ -69,7 +68,7 @@ internal fun JsonElement.toLiveStream(): XtreamLiveStream? {
 }
 
 internal fun JsonElement.toAccount(): XtreamAccount? {
-    val info = (this as? JsonObject)?.get("user_info")?.jsonObject ?: return null
+    val info = (this as? JsonObject)?.get("user_info") as? JsonObject ?: return null
     return XtreamAccount(
         active = info.str("auth") == "1" && (info.str("status")?.equals("Active", ignoreCase = true) ?: true),
         expiresAtEpochSec = info.long("exp_date"),

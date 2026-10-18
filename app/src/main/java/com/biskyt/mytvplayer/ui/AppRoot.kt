@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -65,6 +66,8 @@ fun AppRoot() {
             return@MyTvTheme
         }
         val activity = LocalContext.current as? Activity
+        // The navigator lives only as long as this composition, so release its screens (and the player) with it.
+        DisposableEffect(nav) { onDispose { nav.clear() } }
         BackHandler {
             when {
                 nav.pop() -> Unit

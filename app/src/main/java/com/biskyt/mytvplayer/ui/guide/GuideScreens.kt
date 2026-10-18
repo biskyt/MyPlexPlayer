@@ -43,6 +43,7 @@ import com.biskyt.mytvplayer.data.db.MappingInfo
 import com.biskyt.mytvplayer.data.db.MatchCounts
 import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.AppIcons
+import com.biskyt.mytvplayer.ui.common.BatchLoader
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.PillButton
@@ -158,10 +159,11 @@ class GuideMatchingViewModel(private val c: AppContainer, private val playlistId
     var busy by mutableStateOf(false)
         private set
 
-    /** Mapping summaries for visible rows, keyed by stream id. */
-    val rowInfo = androidx.compose.runtime.mutableStateMapOf<Long, MappingInfo?>()
+    /** Mapping summaries for visible rows, keyed by stream id (absent = no guide). */
+    val rowInfo = BatchLoader(viewModelScope) { ids -> c.epg.mappingInfo(playlistId, ids).associateBy { it.streamId } }
     private var sources: Map<Long, String> = emptyMap()
     private var searchJob: Job? = null
+    private var selectJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -170,16 +172,12 @@ class GuideMatchingViewModel(private val c: AppContainer, private val playlistId
         if (initial != null) viewModelScope.launch { c.channels.get(playlistId, initial)?.let { select(it) } }
     }
 
-    fun requestRow(id: Long) {
-        if (id in rowInfo) return
-        rowInfo[id] = null
-        viewModelScope.launch { rowInfo[id] = c.epg.mappingInfo(playlistId, listOf(id)).firstOrNull() }
-    }
-
     fun select(ch: ChannelEntity) {
         selected = ch
         search = ""
-        viewModelScope.launch {
+        searchJob?.cancel()
+        selectJob?.cancel() // quick changes of channel must not show an earlier channel's suggestions
+        selectJob = viewModelScope.launch {
             mapping = c.epg.mappingInfo(playlistId, listOf(ch.streamId)).firstOrNull()
             choices = c.epg.suggestions(ch.name, ch.providerEpgId).map { it.toChoice() }
         }
@@ -207,7 +205,7 @@ class GuideMatchingViewModel(private val c: AppContainer, private val playlistId
         viewModelScope.launch {
             block(ch)
             mapping = c.epg.mappingInfo(playlistId, listOf(ch.streamId)).firstOrNull()
-            rowInfo[ch.streamId] = mapping
+            rowInfo.refresh(ch.streamId)
             busy = false
         }
     }
@@ -254,8 +252,8 @@ fun GuideMatchingScreen(playlistId: Long, streamId: Long?) {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
                     items(count = items.itemCount, key = items.itemKey { it.streamId }) { i ->
                         val ch = items[i] ?: return@items
-                        LaunchedEffect(ch.streamId) { vm.requestRow(ch.streamId) }
-                        MatchRow(ch, vm.rowInfo[ch.streamId], ch.streamId == vm.selected?.streamId) { vm.select(ch) }
+                        LaunchedEffect(ch.streamId) { vm.rowInfo.request(ch.streamId) }
+                        MatchRow(ch, vm.rowInfo.entries[ch.streamId], ch.streamId == vm.selected?.streamId) { vm.select(ch) }
                     }
                 }
             }

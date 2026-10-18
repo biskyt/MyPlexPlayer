@@ -7,6 +7,7 @@ import com.biskyt.mytvplayer.data.db.AppDatabase
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.FavouriteEntity
 import com.biskyt.mytvplayer.data.db.RecentEntity
+import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 
 /** Which channels a list shows. Zapping in the player follows the same list. */
@@ -79,11 +80,19 @@ class ChannelRepository(private val db: AppDatabase) {
         // Only the two rows being swapped are read (SQLite limits how many ids an IN clause can take).
         val rows = channels.getMany(playlistId, listOf(streamId, ids[target])).associateBy { it.streamId }
         fun position(id: Long) = rows[id]?.let { it.sortOrder ?: it.number } ?: 0
-        // Swap the effective positions; equal positions get nudged so the swap is visible.
         val mine = position(streamId)
         val theirs = position(ids[target])
-        channels.setSortOrder(playlistId, streamId, if (theirs == mine) theirs + delta else theirs)
-        channels.setSortOrder(playlistId, ids[target], mine)
+        db.withTransaction {
+            if (mine == theirs) {
+                // Ties (e.g. a provider that numbers everything 0): give this list distinct positions first.
+                ids.forEachIndexed { i, id -> channels.setSortOrder(playlistId, id, (i + 1) * 10) }
+                channels.setSortOrder(playlistId, streamId, (target + 1) * 10)
+                channels.setSortOrder(playlistId, ids[target], (index + 1) * 10)
+            } else {
+                channels.setSortOrder(playlistId, streamId, theirs)
+                channels.setSortOrder(playlistId, ids[target], mine)
+            }
+        }
     }
 
     private companion object {

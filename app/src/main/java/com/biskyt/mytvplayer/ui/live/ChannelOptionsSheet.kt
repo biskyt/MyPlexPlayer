@@ -57,8 +57,10 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                     close()
                     nav.push(Screen.GuideMatching(ch.playlistId, ch.streamId))
                 }
-                Option("Move up") { vm.move(ch, -1) }
-                Option("Move down") { vm.move(ch, 1) }
+                if (vm.canMove) {
+                    Option("Move up") { vm.move(ch, -1) }
+                    Option("Move down") { vm.move(ch, 1) }
+                }
                 Option("Hide channel", "Unhide later in Settings › Languages & categories") { vm.hide(ch) }
                 LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
             }
