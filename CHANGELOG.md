@@ -1,0 +1,27 @@
+# Changelog
+
+Each version's section becomes its GitHub release notes, so it is written for the people using the app.
+
+## 0.2.4
+- Faster first setup of the free channels, and lighter on memory in the TV guide.
+- Channels whose links don't say they're HLS streams now start first time when you come back to them.
+- Country groups are recognised for every country (e.g. "Austria"), so the right ones are ticked automatically.
+
+## 0.2.3
+- The TV guide scrolls to earlier and later times with ◀ and ▶, keeping your place.
+- Switch between the channel list and the TV guide with the remote's Guide button or from the channel menu, without losing your place.
+
+## 0.2.2
+- Holding OK on a channel opens its menu without starting the channel.
+- The remote's Info or Menu button also opens the channel menu.
+- Text is a step smaller (turn "Large text" on in Settings › Appearance for the bigger size); channel names get more room.
+
+## 0.2.1
+- Typing addresses, user names and passwords: no autocorrect, passwords shown as typed, and the keyboard's Next button moves to the next box.
+
+## 0.2.0
+- Free TV channels from iptv-org are set up on first launch, with your country's channels selected.
+- M3U playlists can be added alongside Xtream accounts.
+
+## 0.1.0
+- First test release: Live TV list and guide, player with now/next, guide matching, playlists, settings.
