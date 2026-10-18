@@ -29,6 +29,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.core.epg.CategoryLanguageDetector
+import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.ui.LocalNavigator
@@ -50,7 +51,7 @@ import kotlinx.coroutines.launch
 data class LanguageGroup(val code: String?, val label: String, val total: Int, val included: Int)
 
 class CategoriesViewModel(private val c: AppContainer, private val playlistId: Long) : ViewModel() {
-    val categories = c.db.categories().observe(playlistId).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val categories = c.db.categories().observe(playlistId, CAT_LIVE).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val hidden = c.channels.observeHidden(playlistId).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     var selectedGroup by mutableStateOf<String?>(UNSET)
     private var changed = false

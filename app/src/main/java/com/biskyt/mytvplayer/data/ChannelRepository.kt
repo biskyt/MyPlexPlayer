@@ -5,6 +5,7 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.room.withTransaction
 import com.biskyt.mytvplayer.data.db.AppDatabase
+import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.FavouriteEntity
 import com.biskyt.mytvplayer.data.db.RecentEntity
@@ -74,7 +75,7 @@ class ChannelRepository(private val db: AppDatabase) {
 
     suspend fun setHidden(playlistId: Long, streamId: Long, hidden: Boolean) {
         channels.setHidden(playlistId, streamId, hidden)
-        db.categories().refreshCounts(playlistId)
+        db.categories().refreshCounts(playlistId, CAT_LIVE)
     }
 
     /** Moves a channel one place up/down within [filter] by giving it a sort position between its neighbours. */

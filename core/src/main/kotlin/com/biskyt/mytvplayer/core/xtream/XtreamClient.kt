@@ -33,30 +33,66 @@ class XtreamClient(private val http: OkHttpClient, private val credentials: Xtre
             ?: throw XtreamException("Login failed: check the server address, username and password")
     }
 
-    suspend fun liveCategories(): List<XtreamCategory> = withContext(Dispatchers.IO) {
-        get(apiUrl("get_live_categories")) { input -> json.decodeArray(input).mapNotNull { it.toCategory() }.toList() }
+    suspend fun liveCategories(): List<XtreamCategory> = categories("get_live_categories")
+
+    suspend fun movieCategories(): List<XtreamCategory> = categories("get_vod_categories")
+
+    suspend fun seriesCategories(): List<XtreamCategory> = categories("get_series_categories")
+
+    private suspend fun categories(action: String): List<XtreamCategory> = withContext(Dispatchers.IO) {
+        get(apiUrl(action)) { input -> json.decodeArray(input).mapNotNull { it.toCategory() }.toList() }
     }
 
     /**
      * Streams live channels to [onStream]. Pass [categoryId] to fetch a single category.
      * Returns the number of channels read.
      */
-    suspend fun liveStreams(categoryId: String? = null, onStream: suspend (XtreamLiveStream) -> Unit): Int = withContext(Dispatchers.IO) {
-        val url = apiUrl("get_live_streams") { if (categoryId != null) addQueryParameter("category_id", categoryId) }
-        get(url) { input ->
-            var count = 0
-            json.decodeArray(input).forEach { el ->
-                el.toLiveStream()?.let {
-                    onStream(it)
-                    count++
+    suspend fun liveStreams(categoryId: String? = null, onStream: suspend (XtreamLiveStream) -> Unit): Int =
+        list("get_live_streams", categoryId, { it.toLiveStream() }, onStream)
+
+    /** Streams the movie list to [onMovie], like [liveStreams]. */
+    suspend fun movies(categoryId: String? = null, onMovie: suspend (XtreamMovie) -> Unit): Int =
+        list("get_vod_streams", categoryId, { it.toMovie() }, onMovie)
+
+    /** Streams the series list to [onSeries], like [liveStreams]. */
+    suspend fun series(categoryId: String? = null, onSeries: suspend (XtreamSeries) -> Unit): Int =
+        list("get_series", categoryId, { it.toSeries() }, onSeries)
+
+    private suspend fun <T> list(action: String, categoryId: String?, parse: (JsonElement) -> T?, onItem: suspend (T) -> Unit): Int =
+        withContext(Dispatchers.IO) {
+            val url = apiUrl(action) { if (categoryId != null) addQueryParameter("category_id", categoryId) }
+            get(url) { input ->
+                var count = 0
+                json.decodeArray(input).forEach { el ->
+                    parse(el)?.let {
+                        onItem(it)
+                        count++
+                    }
                 }
+                count
             }
-            count
         }
+
+    suspend fun movieDetails(streamId: Long): VodDetails = withContext(Dispatchers.IO) {
+        get(apiUrl("get_vod_info") { addQueryParameter("vod_id", streamId.toString()) }) { json.decodeFromStream(it).toMovieDetails() }
+            ?: throw XtreamException("No details for this movie")
     }
 
-    fun liveStreamUrl(streamId: Long, extension: String = "ts"): String =
-        "${credentials.base}/live/${credentials.username.enc()}/${credentials.password.enc()}/$streamId.$extension"
+    suspend fun seriesDetails(seriesId: Long): SeriesDetails = withContext(Dispatchers.IO) {
+        get(apiUrl("get_series_info") { addQueryParameter("series_id", seriesId.toString()) }) {
+            json.decodeFromStream(it).toSeriesDetails()
+        }
+            ?: throw XtreamException("No episodes found for this series")
+    }
+
+    fun liveStreamUrl(streamId: Long, extension: String = "ts"): String = streamUrl("live", streamId, extension)
+
+    fun movieUrl(streamId: Long, extension: String): String = streamUrl("movie", streamId, extension)
+
+    fun episodeUrl(episodeId: Long, extension: String): String = streamUrl("series", episodeId, extension)
+
+    private fun streamUrl(type: String, id: Long, extension: String) =
+        "${credentials.base}/$type/${credentials.username.enc()}/${credentials.password.enc()}/$id.$extension"
 
     fun xmltvUrl(): String = "${credentials.base}/xmltv.php".toHttpUrl().newBuilder()
         .addQueryParameter("username", credentials.username)

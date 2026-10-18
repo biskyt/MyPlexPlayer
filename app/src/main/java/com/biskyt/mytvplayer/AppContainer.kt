@@ -22,6 +22,7 @@ import com.biskyt.mytvplayer.data.EpgRepository
 import com.biskyt.mytvplayer.data.PlaylistRepository
 import com.biskyt.mytvplayer.data.SettingsRepository
 import com.biskyt.mytvplayer.data.SyncManager
+import com.biskyt.mytvplayer.data.VodRepository
 import com.biskyt.mytvplayer.data.db.AppDatabase
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
@@ -42,7 +43,8 @@ class AppContainer(context: Context) {
     val epg = EpgRepository(db, http, context.filesDir, appScope)
     val playlists = PlaylistRepository(db, http, settings, epg, context.cacheDir.resolve("playlists"))
     val channels = ChannelRepository(db)
-    val sync = SyncManager(appScope, playlists, epg)
+    val vod = VodRepository(db, playlists)
+    val sync = SyncManager(appScope, playlists, vod, epg)
 }
 
 open class MyTvApp : Application(), SingletonImageLoader.Factory {

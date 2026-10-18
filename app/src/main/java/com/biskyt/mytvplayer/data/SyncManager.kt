@@ -14,6 +14,7 @@ import kotlinx.coroutines.sync.withLock
 sealed interface SyncState {
     data object Idle : SyncState
     data class Channels(val loaded: Int) : SyncState
+    data class Vod(val loaded: Int) : SyncState
     data class Guide(val message: String) : SyncState
     data class Failed(val message: String) : SyncState
 }
@@ -25,13 +26,14 @@ sealed interface SyncState {
 class SyncManager(
     private val scope: CoroutineScope,
     private val playlists: PlaylistRepository,
+    private val vod: VodRepository,
     private val epg: EpgRepository
 ) {
     private val mutex = Mutex()
     private val _state = MutableStateFlow<SyncState>(SyncState.Idle)
     val state: StateFlow<SyncState> = _state.asStateFlow()
 
-    /** Refreshes a playlist's channels, then the guide. */
+    /** Refreshes a playlist's channels, movies and series, then the guide. */
     fun refresh(playlistId: Long): Job = scope.launch { refreshNow(playlistId) }
 
     fun refreshGuide(): Job = scope.launch { refreshGuideNow() }
@@ -39,7 +41,18 @@ class SyncManager(
     suspend fun refreshNow(playlistId: Long, includeGuide: Boolean = true) = guarded("Couldn't refresh") {
         _state.value = SyncState.Channels(0)
         playlists.syncChannels(playlistId) { _state.value = SyncState.Channels(it) }
+        // Some providers have no movies or series (or a broken list): the guide still updates, then the failure shows.
+        val vodFailure = try {
+            playlists.get(playlistId)?.let { p ->
+                _state.value = SyncState.Vod(0)
+                vod.sync(p) { if (it % PROGRESS_STEP == 0) _state.value = SyncState.Vod(it) }
+            }
+            null
+        } catch (e: java.io.IOException) {
+            e
+        }
         if (includeGuide) importGuide()
+        if (vodFailure != null) throw vodFailure
     }
 
     suspend fun refreshGuideNow() = guarded("Couldn't update the TV guide") { importGuide() }
@@ -57,6 +70,11 @@ class SyncManager(
                 _state.value = SyncState.Failed(e.message ?: failure)
             }
         }
+    }
+
+    private companion object {
+        /** Movie lists run to tens of thousands; the status line updates every so often rather than per title. */
+        const val PROGRESS_STEP = 250
     }
 
     private suspend fun importGuide() {

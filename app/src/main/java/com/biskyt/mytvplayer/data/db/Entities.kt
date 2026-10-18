@@ -30,7 +30,15 @@ data class PlaylistEntity(
     fun isStale(now: Long = System.currentTimeMillis()) = now - lastSyncAt > 12 * 3_600_000L
 }
 
-/** A provider category. Only channels from [included] categories are downloaded. */
+/** What a category holds. */
+const val CAT_LIVE = "live"
+const val CAT_MOVIE = "movie"
+const val CAT_SERIES = "series"
+
+/**
+ * A provider category. Only items from [included] categories are downloaded. Movie and series category ids are
+ * stored with their [type] in front ("movie:12"), as providers number each kind separately.
+ */
 @Entity(tableName = "category", primaryKeys = ["playlistId", "categoryId"])
 data class CategoryEntity(
     val playlistId: Long,
@@ -40,8 +48,86 @@ data class CategoryEntity(
     val lang: String?,
     val included: Boolean,
     val sortOrder: Int,
-    val channelCount: Int = 0
+    /** Channels, movies or series in it. */
+    val channelCount: Int = 0,
+    @ColumnInfo(defaultValue = CAT_LIVE) val type: String = CAT_LIVE
 )
+
+/** A movie from the provider's list. [title] and [year] are cleaned from the provider's name (see VodTitles). */
+@Entity(
+    tableName = "movie",
+    primaryKeys = ["playlistId", "streamId"],
+    indices = [Index("playlistId", "categoryId", "position"), Index("playlistId", "position"), Index("playlistId", "added")]
+)
+data class MovieEntity(
+    val playlistId: Long,
+    val streamId: Long,
+    val title: String,
+    val year: Int?,
+    val categoryId: String,
+    val posterUrl: String?,
+    val rating: Double?,
+    val added: Long,
+    val extension: String,
+    /** Provider order. */
+    val position: Int,
+    val syncStamp: Long
+)
+
+@Entity(
+    tableName = "series",
+    primaryKeys = ["playlistId", "seriesId"],
+    indices = [Index("playlistId", "categoryId", "position"), Index("playlistId", "position"), Index("playlistId", "lastModified")]
+)
+data class SeriesEntity(
+    val playlistId: Long,
+    val seriesId: Long,
+    val title: String,
+    val year: Int?,
+    val categoryId: String,
+    val coverUrl: String?,
+    val rating: Double?,
+    val lastModified: Long,
+    val position: Int,
+    val syncStamp: Long
+)
+
+const val VOD_MOVIE = "movie"
+const val VOD_EPISODE = "episode"
+const val VOD_SERIES = "series"
+
+/**
+ * How far into a movie or episode the user got, for resuming and "Carry on watching". Holds enough to show the row
+ * and start playback without another lookup. [kind] is [VOD_MOVIE] or [VOD_EPISODE].
+ */
+@Entity(tableName = "watch_progress", primaryKeys = ["playlistId", "kind", "itemId"], indices = [Index("playlistId", "updatedAt")])
+data class WatchProgressEntity(
+    val playlistId: Long,
+    val kind: String,
+    val itemId: Long,
+    val positionMs: Long,
+    val durationMs: Long,
+    val updatedAt: Long,
+    val title: String,
+    val imageUrl: String?,
+    val extension: String,
+    /** Episodes: the series they belong to, and where in it. */
+    val seriesId: Long? = null,
+    val season: Int? = null,
+    val episode: Int? = null,
+    val episodeTitle: String? = null
+) {
+    val finished: Boolean get() = durationMs > 0 && positionMs >= durationMs * FINISHED_FRACTION
+
+    companion object {
+        /** Past this share of the running time (the credits), something counts as watched. */
+        const val FINISHED_FRACTION = 0.92
+    }
+}
+
+/** A favourite movie or series. [kind] is [VOD_MOVIE] or [VOD_SERIES]. */
+@Entity(tableName = "vod_favourite", primaryKeys = ["playlistId", "kind", "itemId"])
+data class VodFavouriteEntity(val playlistId: Long, val kind: String, val itemId: Long, val addedAt: Long)
 
 /**
  * Provider fields are refreshed on every sync; [hidden] and [sortOrder] are the user's and survive syncs.
