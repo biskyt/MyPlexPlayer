@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.3.3
+- TV guide sources: free guides for 75 countries from iptv-epg.org, added with one press (your country first).
+- The sources screen shows what an update is doing ("Downloading…", "Reading…", "Matching channels…").
+
 ## 0.3.2
 - Movies and series appear after updating: they load on the next start, and untagged categories ("Action",
   "Netflix Movies") are included by default.
