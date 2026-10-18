@@ -23,4 +23,7 @@ val ChannelEntity.numberLabel: String get() = if (number > 0) number.toString() 
 fun ChannelProgramme.isLive(nowMs: Long) = startMs <= nowMs && stopMs > nowMs
 
 /** The element [step] places after [current], wrapping around (the first element if [current] isn't in the list). */
-fun <T> List<T>.cycle(current: T, step: Int = 1): T = this[(indexOf(current).coerceAtLeast(0) + step).mod(size)]
+fun <T> List<T>.cycle(current: T, step: Int = 1): T {
+    val i = indexOf(current)
+    return if (i < 0) first() else this[(i + step).mod(size)]
+}

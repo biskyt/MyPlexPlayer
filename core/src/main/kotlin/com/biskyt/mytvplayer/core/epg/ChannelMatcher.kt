@@ -51,12 +51,13 @@ class ChannelMatcher(candidates: List<EpgCandidate>) {
         val shared = HashMap<Entry, Int>()
         for (bucket in useful) for (e in bucket) shared.merge(e, 1, Int::plus)
 
+        // Rank by rare-word overlap, then score the best few on their full token overlap (common words included).
         shared.entries
-            .map { (e, n) -> e to 2.0 * n / (tokens.size + e.tokens.size) }
-            .sortedByDescending { it.second }
+            .sortedByDescending { (e, n) -> n.toDouble() / (tokens.size + e.tokens.size) }
             .take(FUZZY_CANDIDATES)
-            .forEach { (e, dice) ->
+            .forEach { (e, _) ->
                 if (e.candidate in results) return@forEach
+                val dice = 2.0 * e.tokens.count { it in tokens } / (tokens.size + e.tokens.size)
                 var score = 0.6 * dice + 0.4 * jaroWinkler(norm, e.candidate.normalized)
                 if (numbers != e.numbers) score *= 0.6 // "Sports 1" is not "Sports 10"
                 if (score >= MIN_SUGGESTION) results[e.candidate] = score

@@ -25,6 +25,8 @@ jobs:
       - name: Style and static checks
         run: ./gradlew ktlintCheck detekt lintDebug
 
+      # Screenshots show the live clock and programme times, so they are recorded and uploaded for review rather than
+      # compared pixel-for-pixel against the committed copies.
       - name: Unit, Robolectric and UI tests (records screenshots)
         run: ./gradlew :core:test :app:recordRoborazziDebug koverXmlReport
 

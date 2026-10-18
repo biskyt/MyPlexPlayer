@@ -109,8 +109,17 @@ fun PlayerScreen(screen: Screen.Player) {
         Modifier.fillMaxSize().background(Color.Black)
             .focusRequester(root)
             .onFocusChanged { videoFocused = it.isFocused }
-            // Video keys only apply when the video itself has focus; a focused button keeps normal D-pad behaviour.
-            .onKeyEvent { e -> if (videoFocused && e.type == KeyEventType.KeyDown) handleKey(e, vm, buttons) else false }
+            // While a control button has focus the D-pad and OK belong to it; every other key (channel, digits, media)
+            // still works.
+            .onKeyEvent { e ->
+                if (e.type == KeyEventType.KeyDown &&
+                    (videoFocused || e.key !in buttonKeys)
+                ) {
+                    handleKey(e, vm, buttons)
+                } else {
+                    false
+                }
+            }
             .focusable()
     ) {
         vm.engine?.let { engine ->
@@ -277,3 +286,7 @@ private fun ErrorBox(text: String, vm: PlayerViewModel) {
         }
     }
 }
+
+/** Keys a focused control button handles itself. */
+private val buttonKeys =
+    setOf(Key.DirectionLeft, Key.DirectionRight, Key.DirectionUp, Key.DirectionDown, Key.DirectionCenter, Key.Enter, Key.NumPadEnter)
