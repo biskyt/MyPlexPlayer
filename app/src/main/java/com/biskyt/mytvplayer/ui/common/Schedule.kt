@@ -89,7 +89,7 @@ fun ScheduleList(programmes: List<ChannelProgramme>?, modifier: Modifier = Modif
 fun SidePanel(onDismiss: () -> Unit, width: Dp = 430.dp, dim: Boolean = true, content: @Composable () -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Box(
-            Modifier.fillMaxSize().background(
+            Modifier.fillMaxSize().ignoreHeldSelect().background(
                 if (dim) Palette.background.copy(alpha = 0.6f) else androidx.compose.ui.graphics.Color.Transparent
             ),
             contentAlignment = Alignment.CenterEnd

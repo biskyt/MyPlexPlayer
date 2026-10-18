@@ -34,7 +34,7 @@ data class Settings(
     val startOnLastChannel: Boolean = false,
     val lastChannelId: Long = 0,
     val accent: Int = AccentPalette.DEFAULT,
-    val largeText: Boolean = true
+    val largeText: Boolean = false
 ) {
     val effectiveSubtitleLanguage: String get() = subtitleLanguage.ifEmpty { Locale.getDefault().language }
 }

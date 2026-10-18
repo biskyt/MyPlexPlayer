@@ -244,10 +244,11 @@ fun ChannelRow(
                 modifier = Modifier.width(48.dp)
             )
             ChannelLogo(ch.logoUrl, ch.name)
-            Row(Modifier.width(220.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Provider names are long ("US: NBC 4 (WDIV) DETROIT HD"), so the name gets the larger share of the row.
+            Row(Modifier.weight(1.2f), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     ch.name,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
@@ -277,7 +278,7 @@ fun ChannelRow(
                     }
                 }
             }
-            if (nn?.now != null) ProgressLine(nn.progress(nowMs), Modifier.width(110.dp))
+            if (nn?.now != null) ProgressLine(nn.progress(nowMs), Modifier.width(80.dp))
         }
     }
 }

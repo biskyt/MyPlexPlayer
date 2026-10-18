@@ -74,7 +74,7 @@ private fun typography(large: Boolean): Typography {
 private const val DESIGN_WIDTH = 1280f
 
 @Composable
-fun MyTvTheme(accentArgb: Int = AccentPalette.DEFAULT, largeText: Boolean = true, content: @Composable () -> Unit) {
+fun MyTvTheme(accentArgb: Int = AccentPalette.DEFAULT, largeText: Boolean = false, content: @Composable () -> Unit) {
     // Derived once per accent change; nothing is recomputed while drawing.
     val accent = remember(accentArgb) {
         AccentPalette.from(accentArgb).let { Accent(Color(it.accent), Color(it.tint), Color(it.soft), Color(it.onAccent)) }

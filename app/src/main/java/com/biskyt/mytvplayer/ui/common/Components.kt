@@ -45,6 +45,7 @@ private val FocusRing = Border(BorderStroke(3.dp, Palette.text))
 /**
  * The app's one clickable surface: neutral background, white ring when focused, optional selected state in accent.
  * No focus scale animation by default — re-laying out rows on every focus change is costly on slow boxes.
+ * [onLongClick] (holding OK) is also opened by the remote's Info/Options/Menu button.
  */
 @Composable
 fun TvCard(
@@ -61,7 +62,7 @@ fun TvCard(
     Surface(
         onClick = onClick,
         onLongClick = onLongClick,
-        modifier = modifier,
+        modifier = if (onLongClick != null) modifier.onOptionsKey(onLongClick) else modifier,
         shape = ClickableSurfaceDefaults.shape(shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = ClickableSurfaceDefaults.colors(
