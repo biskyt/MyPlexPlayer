@@ -120,36 +120,50 @@ class VodRepository(private val db: AppDatabase, private val playlists: Playlist
     suspend fun sync(p: PlaylistEntity, onProgress: (Int) -> Unit = {}) {
         if (p.isM3u) return
         val client = playlists.client(p)
-        val movies = syncKind(
-            p.id,
-            CAT_MOVIE,
-            client::movieCategories,
-            { cat, emit -> client.movies(cat, emit) },
-            XtreamMovie::categoryId,
-            vod::insertMovies,
-            vod::deleteStaleMovies,
-            onProgress
-        ) { m, stamp ->
-            val clean = VodTitles.clean(m.name)
-            MovieEntity(
-                p.id, m.streamId, clean.title, clean.year, m.categoryId, m.posterUrl, m.rating, m.added, m.extension, m.number, stamp
-            )
+        var failure: java.io.IOException? = null
+
+        // Each list on its own: a broken movie list shouldn't stop series loading (the failure is reported after).
+        suspend fun guarded(block: suspend () -> Int): Int = try {
+            block()
+        } catch (e: java.io.IOException) {
+            failure = failure ?: e
+            0
         }
-        syncKind(
-            p.id,
-            CAT_SERIES,
-            client::seriesCategories,
-            { cat, emit -> client.series(cat, emit) },
-            XtreamSeries::categoryId,
-            vod::insertSeries,
-            vod::deleteStaleSeries,
-            { onProgress(movies + it) }
-        ) { s, stamp ->
-            val clean = VodTitles.clean(s.name)
-            SeriesEntity(
-                p.id, s.seriesId, clean.title, s.year ?: clean.year, s.categoryId, s.coverUrl, s.rating, s.lastModified, s.number, stamp
-            )
+        val movies = guarded {
+            syncKind(
+                p.id,
+                CAT_MOVIE,
+                client::movieCategories,
+                { cat, emit -> client.movies(cat, emit) },
+                XtreamMovie::categoryId,
+                vod::insertMovies,
+                vod::deleteStaleMovies,
+                onProgress
+            ) { m, stamp ->
+                val clean = VodTitles.clean(m.name)
+                MovieEntity(
+                    p.id, m.streamId, clean.title, clean.year, m.categoryId, m.posterUrl, m.rating, m.added, m.extension, m.number, stamp
+                )
+            }
         }
+        guarded {
+            syncKind(
+                p.id,
+                CAT_SERIES,
+                client::seriesCategories,
+                { cat, emit -> client.series(cat, emit) },
+                XtreamSeries::categoryId,
+                vod::insertSeries,
+                vod::deleteStaleSeries,
+                { onProgress(movies + it) }
+            ) { s, stamp ->
+                val clean = VodTitles.clean(s.name)
+                SeriesEntity(
+                    p.id, s.seriesId, clean.title, s.year ?: clean.year, s.categoryId, s.coverUrl, s.rating, s.lastModified, s.number, stamp
+                )
+            }
+        }
+        failure?.let { throw it }
     }
 
     /** One list (movies or series): categories, then the included items in batches, then what the provider dropped. */
@@ -165,7 +179,10 @@ class VodRepository(private val db: AppDatabase, private val playlists: Playlist
         onProgress: (Int) -> Unit,
         toEntity: (T, stamp: Long) -> E
     ): Int {
-        categoryStore.store(playlistId, type, fetchCategories())
+        // Live-only accounts have no movie or series section (the request fails or returns nothing): nothing to do.
+        val remote = runCatching { fetchCategories() }.getOrDefault(emptyList())
+        if (remote.isEmpty()) return 0
+        categoryStore.store(playlistId, type, remote)
         val stamp = System.currentTimeMillis()
         // Large batches: an open grid reloads after each one.
         val batch = Batch(BATCH, insert, onProgress)

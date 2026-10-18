@@ -49,6 +49,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -59,7 +60,10 @@ data class LanguageGroup(val code: String?, val label: String, val total: Int, v
 class CategoriesViewModel(private val c: AppContainer, private val playlistId: Long) : ViewModel() {
     /** Which list is being chosen: live channels, movies or series. */
     val type = MutableStateFlow(CAT_LIVE)
-    val categories = type.flatMapLatest { c.db.categories().observe(playlistId, it) }
+
+    // Only ever the shown type's list: right after switching, the previous type's list is not shown or acted on.
+    val categories = type.flatMapLatest { t -> c.db.categories().observe(playlistId, t).map { list -> list.takeIf { t == type.value } } }
+        .map { it.orEmpty() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Movies and series exist for Xtream accounts only. */
@@ -67,7 +71,7 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
         private set
     val hidden = c.channels.observeHidden(playlistId).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     var selectedGroup by mutableStateOf<String?>(UNSET)
-    private var changed = false
+    private val changed = HashSet<String>()
 
     init {
         viewModelScope.launch {
@@ -77,6 +81,7 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
     }
 
     fun showType(t: String) {
+        if (t == type.value) return
         type.value = t
         selectedGroup = UNSET
     }
@@ -86,21 +91,26 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
         .sortedWith(compareByDescending<LanguageGroup> { it.included > 0 }.thenBy { it.code == null }.thenBy { it.label })
 
     fun toggleGroup(g: LanguageGroup) = viewModelScope.launch {
-        changed = true
-        val ids = categories.value.filter { it.lang == g.code }.map { it.categoryId }
-        c.db.categories().setIncluded(playlistId, type.value, ids, g.included < g.total)
+        val t = type.value
+        val ids = categories.value.filter { it.type == t && it.lang == g.code }.map { it.categoryId }
+        if (ids.isEmpty()) return@launch
+        changed += t
+        c.db.categories().setIncluded(playlistId, t, ids, g.included < g.total)
     }
 
     fun toggleCategory(cat: CategoryEntity) = viewModelScope.launch {
-        changed = true
-        c.db.categories().setIncluded(playlistId, type.value, listOf(cat.categoryId), !cat.included)
+        changed += cat.type
+        c.db.categories().setIncluded(playlistId, cat.type, listOf(cat.categoryId), !cat.included)
     }
 
     fun unhide(ch: ChannelEntity) = viewModelScope.launch { c.channels.setHidden(ch.playlistId, ch.streamId, false) }
 
-    /** Downloads channels again if the selection changed (always on first run). */
+    /** Downloads again what the change affects: everything on first run or for live TV, else just movies and series. */
     fun finish(firstRun: Boolean) {
-        if (changed || firstRun) c.sync.refresh(playlistId)
+        when {
+            firstRun || CAT_LIVE in changed -> c.sync.refresh(playlistId)
+            changed.isNotEmpty() -> c.sync.refreshVod(playlistId)
+        }
     }
 
     companion object {

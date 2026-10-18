@@ -85,10 +85,12 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
         val all = categories.all(playlistId, type)
         val included = all.filter { it.included }.mapTo(HashSet()) { it.categoryId }
         if (included.isEmpty()) return
+        // Items are checked in both cases: some panels ignore the category asked for and send everything.
+        val keep: suspend (T) -> Unit = { item -> if (categoryOf(item) in included) onItem(item) }
         if (included.size <= PER_CATEGORY_LIMIT && included.size * 2 < all.size) {
-            for (cat in included) fetch(cat, onItem)
+            for (cat in included) fetch(cat, keep)
         } else {
-            fetch(null) { item -> if (categoryOf(item) in included) onItem(item) }
+            fetch(null, keep)
         }
     }
 

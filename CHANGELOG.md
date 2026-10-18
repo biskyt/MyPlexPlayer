@@ -2,6 +2,14 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.3.0
+- **Movies and Series** (Xtream accounts): browse by category with posters, filter by title, favourites,
+  "Recently added", and pages with plot, cast and running time.
+- Movies and episodes resume where you left off; the next episode starts on its own.
+- **Carry on watching** on Home, including the next episode of a series you're watching.
+- Settings › Languages & categories now has Live TV, Movies and Series tabs: only ticked categories are downloaded.
+- The settings button is now a cog.
+
 ## 0.2.4
 - Faster first setup of the free channels, and lighter on memory in the TV guide.
 - Channels whose links don't say they're HLS streams now start first time when you come back to them.
