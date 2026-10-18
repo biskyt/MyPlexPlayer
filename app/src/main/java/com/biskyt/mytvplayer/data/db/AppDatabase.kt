@@ -1,13 +1,16 @@
 package com.biskyt.mytvplayer.data.db
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    version = 1,
+    version = 2,
     exportSchema = true,
+    // 2: M3U playlists (playlist.kind; channel.streamUrl/userAgent/referrer).
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
     entities = [
         PlaylistEntity::class, CategoryEntity::class, ChannelEntity::class, FavouriteEntity::class, RecentEntity::class,
         EpgSourceEntity::class, EpgChannelEntity::class, ProgrammeEntity::class, ChannelEpgMappingEntity::class

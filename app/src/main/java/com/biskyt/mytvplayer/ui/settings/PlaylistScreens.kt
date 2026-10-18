@@ -100,13 +100,14 @@ fun PlaylistsScreen() {
 }
 
 private fun playlistDetails(p: PlaylistEntity): String {
-    val parts = mutableListOf("Xtream")
+    val parts = mutableListOf(if (p.isM3u) "M3U" else "Xtream")
     p.expiresAt?.takeIf { it > 0 }?.let { parts += "expires ${DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(it * 1000))}" }
     if (p.lastSyncAt > 0) parts += "updated ${formatDateTime(p.lastSyncAt)}"
     return parts.joinToString(" · ")
 }
 
 class PlaylistEditViewModel(private val c: AppContainer, private val id: Long?) : ViewModel() {
+    var m3u by mutableStateOf(false)
     var name by mutableStateOf("")
     var server by mutableStateOf("")
     var username by mutableStateOf("")
@@ -122,6 +123,7 @@ class PlaylistEditViewModel(private val c: AppContainer, private val id: Long?) 
             viewModelScope.launch {
                 c.playlists.get(id)?.let {
                     original = it
+                    m3u = it.isM3u
                     name = it.name
                     server = it.server
                     username = it.username
@@ -147,7 +149,7 @@ class PlaylistEditViewModel(private val c: AppContainer, private val id: Long?) 
     }
 
     fun test() = run {
-        c.playlists.testLogin(server, username, password)
+        if (m3u) c.playlists.testM3u(server) else c.playlists.testLogin(server, username, password)
         message = "Connected ✓"
     }
 
@@ -155,8 +157,8 @@ class PlaylistEditViewModel(private val c: AppContainer, private val id: Long?) 
     fun save(onSaved: (Long) -> Unit) = run {
         val old = original
         if (old == null) {
-            message = "Checking login…"
-            val newId = c.playlists.add(name, server, username, password)
+            message = if (m3u) "Downloading playlist…" else "Checking login…"
+            val newId = if (m3u) c.playlists.addM3u(name, server) else c.playlists.add(name, server, username, password)
             message = null
             onSaved(newId)
         } else {
@@ -197,21 +199,35 @@ fun PlaylistEditScreen(id: Long?, firstRun: Boolean) {
             },
             style = MaterialTheme.typography.headlineLarge
         )
-        if (firstRun) Muted("Enter the Xtream Codes details from your TV provider.")
+        if (firstRun) Muted("Enter the details from your TV provider.")
+        if (id == null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PillButton("Xtream Codes", { vm.m3u = false }, primary = !vm.m3u)
+                PillButton("M3U playlist URL", { vm.m3u = true }, primary = vm.m3u)
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Field("Name", Modifier.weight(1f)) {
                 TvTextField(vm.name, { vm.name = it }, "e.g. Home TV", rememberFirstFocus().fillMaxWidth())
             }
-            Field("Server address", Modifier.weight(1f)) {
-                TvTextField(vm.server, {
-                    vm.server = it
-                }, "http://example.com:8080", Modifier.fillMaxWidth(), keyboardType = KeyboardType.Uri)
+            Field(if (vm.m3u) "Playlist address" else "Server address", Modifier.weight(1f)) {
+                TvTextField(
+                    vm.server,
+                    { vm.server = it },
+                    if (vm.m3u) "https://example.com/playlist.m3u" else "http://example.com:8080",
+                    Modifier.fillMaxWidth(),
+                    keyboardType = KeyboardType.Uri
+                )
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Field("Username", Modifier.weight(1f)) { TvTextField(vm.username, { vm.username = it }, "Username", Modifier.fillMaxWidth()) }
-            Field("Password", Modifier.weight(1f)) {
-                TvTextField(vm.password, { vm.password = it }, "Password", Modifier.fillMaxWidth(), password = true)
+        if (!vm.m3u) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Field("Username", Modifier.weight(1f)) {
+                    TvTextField(vm.username, { vm.username = it }, "Username", Modifier.fillMaxWidth())
+                }
+                Field("Password", Modifier.weight(1f)) {
+                    TvTextField(vm.password, { vm.password = it }, "Password", Modifier.fillMaxWidth(), password = true)
+                }
             }
         }
         vm.message?.let {
@@ -241,7 +257,7 @@ fun PlaylistEditScreen(id: Long?, firstRun: Boolean) {
             if (id != null) {
                 Box(Modifier.width(40.dp))
                 PillButton("Delete playlist", {
-                    vm.delete { any -> nav.reset(if (any) Screen.Home else Screen.PlaylistEdit(null, firstRun = true)) }
+                    vm.delete { any -> nav.reset(if (any) Screen.Home else Screen.Welcome(auto = false)) }
                 })
             }
         }

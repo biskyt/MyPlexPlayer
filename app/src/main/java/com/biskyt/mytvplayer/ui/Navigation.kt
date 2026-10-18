@@ -18,6 +18,8 @@ import com.biskyt.mytvplayer.data.ChannelFilter
 
 /** Every screen in the app. Tab roots are [Home], [Live], [Movies], [Series]. */
 sealed interface Screen {
+    /** First launch ([auto] sets up the free channels straight away) or after the last playlist is deleted. */
+    data class Welcome(val auto: Boolean = true) : Screen
     data object Home : Screen
     data class Live(val filter: ChannelFilter = ChannelFilter.All, val guide: Boolean = false) : Screen
     data object Movies : Screen

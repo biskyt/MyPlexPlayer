@@ -31,9 +31,24 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
 
     val requests = mutableListOf<String>()
 
+    /** An iptv-org style playlist, grouped by country. */
+    var m3u = """
+        #EXTM3U
+        #EXTINF:-1 tvg-id="ChannelOne.uk@SD" tvg-logo="http://logo/one.png" group-title="United Kingdom",Channel One
+        http://stream.example/one.m3u8
+        #EXTINF:-1 tvg-id="KiteKids.uk@HD" group-title="United Kingdom" http-user-agent="Agent/2",Kite Kids (720p)
+        http://stream.example/kite.m3u8
+        #EXTINF:-1 tvg-id="CinePlus.fr@SD" group-title="France",Ciné+
+        http://stream.example/cine.m3u8
+        #EXTINF:-1 group-title="International",World News
+        http://stream.example/world.m3u8
+    """.trimIndent()
+
     override fun dispatch(request: RecordedRequest): MockResponse {
         val url = request.requestUrl!!
         requests += url.encodedPath + "?" + (url.queryParameter("action") ?: "")
+        if (url.encodedPath == "/free.m3u") return MockResponse().setBody(m3u)
+        if (url.encodedPath == "/not-a-playlist") return MockResponse().setBody("<html>hello</html>")
         if (url.queryParameter("password") != "secret") return MockResponse().setBody("""{"user_info":{"auth":0}}""")
         return when {
             url.encodedPath.endsWith("xmltv.php") -> MockResponse().setBody(Buffer().write(gzip(xmltv())))

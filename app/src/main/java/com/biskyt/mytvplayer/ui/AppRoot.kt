@@ -31,6 +31,7 @@ import com.biskyt.mytvplayer.ui.settings.PlaybackSettingsScreen
 import com.biskyt.mytvplayer.ui.settings.PlaylistEditScreen
 import com.biskyt.mytvplayer.ui.settings.PlaylistsScreen
 import com.biskyt.mytvplayer.ui.settings.SettingsScreen
+import com.biskyt.mytvplayer.ui.settings.WelcomeScreen
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import com.biskyt.mytvplayer.ui.theme.Palette
 
@@ -55,7 +56,7 @@ fun AppRoot() {
                 container.playlists.get(s.activePlaylistId)
                     ?: container.playlists.allIds().firstOrNull()?.let { container.playlists.get(it) }
             root.navigator = when {
-                playlist == null -> Navigator(Screen.PlaylistEdit(null, firstRun = true))
+                playlist == null -> Navigator(Screen.Welcome())
                 else -> Navigator(Screen.Home).also { nav ->
                     if (playlist.id != s.activePlaylistId) container.settings.update { it.copy(activePlaylistId = playlist.id) }
                     if (playlist.isStale()) container.sync.refresh(playlist.id)
@@ -73,7 +74,8 @@ fun AppRoot() {
         BackHandler {
             when {
                 nav.pop() -> Unit
-                nav.current.screen != Screen.Home && nav.current.screen !is Screen.PlaylistEdit -> nav.reset(Screen.Home)
+                nav.current.screen != Screen.Home && nav.current.screen !is Screen.Welcome && nav.current.screen !is Screen.PlaylistEdit ->
+                    nav.reset(Screen.Home)
                 else -> activity?.finish()
             }
         }
@@ -86,6 +88,7 @@ fun AppRoot() {
 @Composable
 private fun ScreenContent(screen: Screen) {
     when (screen) {
+        is Screen.Welcome -> WelcomeScreen(screen.auto)
         Screen.Home -> HomeScreen()
         is Screen.Live -> LiveScreen(screen.filter, screen.guide)
         Screen.Movies -> PlaceholderScreen(com.biskyt.mytvplayer.ui.common.Tab.MOVIES, "Movies are coming in the next update.")

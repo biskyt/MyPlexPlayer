@@ -79,7 +79,8 @@ class ChannelMatchingTest {
         val cases = mapOf(
             "UK | SPORTS" to "UK", "UK| NEWS" to "UK", "UK - KIDS" to "UK", "|EN| ENTERTAINMENT" to "UK",
             "FR: CINEMA" to "FR", "[DE] Kinder" to "DE", "AR | MBC" to "AR", "USA: NBA" to "US", "EX-YU | Sport" to null,
-            "EXYU | Sport" to "EXYU", "FRENCH MOVIES" to "FR", "Movies 24/7" to null, "NEWS" to null
+            "EXYU | Sport" to "EXYU", "FRENCH MOVIES" to "FR", "Movies 24/7" to null, "United Kingdom" to "UK", "United States" to "US",
+            "NEWS" to null, "North Korea" to null, "South Korea" to "KR", "Indian Movies" to null, "India" to "IN"
         )
         cases.forEach { (input, expected) -> assertEquals(input, expected, CategoryLanguageDetector.detect(input)) }
         assertEquals("English (UK)", CategoryLanguageDetector.label("UK"))

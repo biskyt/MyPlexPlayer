@@ -24,13 +24,21 @@ object CategoryLanguageDetector {
         "LATINO" to "LAT", "LATAM" to "LAT", "AFR" to "AF", "AFRICA" to "AF"
     )
 
+    // Whole words anywhere in the name, including full country names (iptv-org groups channels by country).
     private val words = mapOf(
-        "ENGLISH" to "UK", "FRENCH" to "FR", "GERMAN" to "DE", "SPANISH" to "ES", "ITALIAN" to "IT", "ARABIC" to "AR",
-        "TURKISH" to "TR", "POLISH" to "PL", "PORTUGAL" to "PT", "BRAZIL" to "BR", "GREEK" to "GR", "DUTCH" to "NL"
+        "UNITED KINGDOM" to "UK", "ENGLISH" to "UK", "UNITED STATES" to "US", "CANADA" to "CA", "AUSTRALIA" to "AU",
+        "IRELAND" to "IE", "FRANCE" to "FR", "FRENCH" to "FR", "GERMANY" to "DE", "GERMAN" to "DE", "SPAIN" to "ES",
+        "SPANISH" to "ES", "ITALY" to "IT", "ITALIAN" to "IT", "PORTUGAL" to "PT", "BRAZIL" to "BR",
+        "NETHERLANDS" to "NL", "DUTCH" to "NL", "BELGIUM" to "BE", "POLAND" to "PL", "POLISH" to "PL",
+        "TURKEY" to "TR", "TURKISH" to "TR", "ARABIC" to "AR", "INDIA" to "IN", "PAKISTAN" to "PK", "GREECE" to "GR",
+        "GREEK" to "GR", "ROMANIA" to "RO", "ALBANIA" to "AL", "SWEDEN" to "SE", "NORWAY" to "NO", "DENMARK" to "DK",
+        "FINLAND" to "FI", "RUSSIA" to "RU", "MEXICO" to "MX", "CHINA" to "CN", "SOUTH KOREA" to "KR", "JAPAN" to "JP",
     )
 
     // A short code at the start, wrapped or followed by a separator: "UK |", "|UK|", "[UK]", "UK:", "UK -", "UK/".
     private val leading = Regex("""^\W*([A-Za-z]{2,6})\s*[|:\-\]/)]""")
+
+    private val nonLetters = Regex("[^\\p{L}]+")
 
     fun detect(categoryName: String): String? {
         val m = leading.find(categoryName)
@@ -38,8 +46,8 @@ object CategoryLanguageDetector {
             val code = m.groupValues[1].uppercase()
             (aliases[code] ?: code.takeIf { it in groups })?.let { return it }
         }
-        val upper = categoryName.uppercase()
-        return words.entries.firstOrNull { upper.contains(it.key) }?.value
+        val upper = " " + categoryName.uppercase().replace(nonLetters, " ") + " "
+        return words.entries.firstOrNull { upper.contains(" ${it.key} ") }?.value
     }
 
     fun label(code: String?): String = code?.let { groups[it] ?: it } ?: "Other"

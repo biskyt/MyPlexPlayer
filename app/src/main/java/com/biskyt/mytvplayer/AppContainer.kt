@@ -40,7 +40,7 @@ class AppContainer(context: Context) {
         .build()
     val settings = SettingsRepository(context)
     val epg = EpgRepository(db, http, context.filesDir, appScope)
-    val playlists = PlaylistRepository(db, http, settings, epg)
+    val playlists = PlaylistRepository(db, http, settings, epg, context.cacheDir.resolve("playlists"))
     val channels = ChannelRepository(db)
     val sync = SyncManager(appScope, playlists, epg)
 }
