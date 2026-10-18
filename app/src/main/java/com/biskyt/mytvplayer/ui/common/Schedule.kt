@@ -66,7 +66,7 @@ fun ScheduleList(programmes: List<ChannelProgramme>?, modifier: Modifier = Modif
                         )
                         Column(Modifier.weight(1f)) {
                             Text(p.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            if (live) Text("ON NOW", style = MaterialTheme.typography.labelSmall, color = Palette.live)
+                            if (live) OnNowLabel()
                             val detail = p.subtitle ?: p.description
                             if (detail != null && (live || i < 3)) {
                                 Text(
@@ -85,6 +85,10 @@ fun ScheduleList(programmes: List<ChannelProgramme>?, modifier: Modifier = Modif
     }
 }
 
+/** Marks a programme on now, wherever programmes are listed. */
+@Composable
+fun OnNowLabel() = Text("ON NOW", style = MaterialTheme.typography.labelSmall, color = Palette.live)
+
 /**
  * A panel sliding in from the right over a dimmed screen. Shown as a dialog so focus stays inside it and Back closes it.
  */
@@ -94,16 +98,13 @@ fun SidePanel(onDismiss: () -> Unit, width: Dp = 430.dp, dim: Boolean = true, co
     // so panels are the same size as everything else.
     val density = LocalDensity.current
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        CompositionLocalProvider(LocalDensity provides density) { PanelContent(width, dim, content) }
-    }
-}
-
-@Composable
-private fun PanelContent(width: Dp, dim: Boolean, content: @Composable () -> Unit) {
-    Box(
-        Modifier.fillMaxSize().ignoreHeldSelect().background(if (dim) Palette.background.copy(alpha = 0.6f) else Color.Transparent),
-        contentAlignment = Alignment.CenterEnd
-    ) {
-        Box(Modifier.fillMaxHeight().width(width).background(Palette.surface.copy(alpha = 0.97f)).padding(28.dp)) { content() }
+        CompositionLocalProvider(LocalDensity provides density) {
+            Box(
+                Modifier.fillMaxSize().ignoreHeldSelect().background(if (dim) Palette.background.copy(alpha = 0.6f) else Color.Transparent),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Box(Modifier.fillMaxHeight().width(width).background(Palette.surface.copy(alpha = 0.97f)).padding(28.dp)) { content() }
+            }
+        }
     }
 }

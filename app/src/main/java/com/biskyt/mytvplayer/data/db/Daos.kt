@@ -89,6 +89,9 @@ interface CategoryDao {
     suspend fun deleteOthers(pid: Long, type: String, keep: List<String>)
 }
 
+/** A channel matches a typed filter by name, or by the start of its number. Shared by the lists and search. */
+private const val CHANNEL_MATCH = "(name LIKE '%' || :q || '%' OR CAST(number AS TEXT) LIKE :q || '%')"
+
 /** Lightweight row used to restore user preferences across syncs. */
 data class ChannelPrefs(val streamId: Long, val hidden: Boolean, val sortOrder: Int?)
 
@@ -99,14 +102,14 @@ interface ChannelDao {
 
     @Query(
         """SELECT * FROM channel WHERE playlistId = :pid AND hidden = 0
-           AND (:q = '' OR name LIKE '%' || :q || '%' OR CAST(number AS TEXT) LIKE :q || '%')
+           AND (:q = '' OR $CHANNEL_MATCH)
            ORDER BY position, name"""
     )
     fun pageAll(pid: Long, q: String): PagingSource<Int, ChannelEntity>
 
     @Query(
         """SELECT * FROM channel WHERE playlistId = :pid AND hidden = 0 AND categoryId = :cat
-           AND (:q = '' OR name LIKE '%' || :q || '%' OR CAST(number AS TEXT) LIKE :q || '%')
+           AND (:q = '' OR $CHANNEL_MATCH)
            ORDER BY position, name"""
     )
     fun pageCategory(pid: Long, cat: String, q: String): PagingSource<Int, ChannelEntity>
@@ -131,8 +134,7 @@ interface ChannelDao {
     /** Search: the same match as the list filter (name, or the number's start), first [limit] in list order. */
     @Query(
         """SELECT * FROM channel WHERE playlistId = :pid AND hidden = 0
-           AND (name LIKE '%' || :q || '%' OR CAST(number AS TEXT) LIKE :q || '%')
-           ORDER BY position, name LIMIT :limit"""
+           AND $CHANNEL_MATCH ORDER BY position, name LIMIT :limit"""
     )
     suspend fun search(pid: Long, q: String, limit: Int): List<ChannelEntity>
 
@@ -308,7 +310,7 @@ interface EpgDao {
 
     /**
      * Search: programmes on now or later whose title matches, on visible channels that use the guide, soonest first.
-     * Only guide channels in use are stored, for a few days, so this scans little.
+     * Scans every stored programme (only guide channels in use, for a few days), so search asks for 3+ letters.
      */
     @Query(
         """SELECT m.streamId, c.name AS channelName, c.logoUrl, p.startMs + m.offsetMinutes * 60000 AS startMs,
@@ -454,10 +456,10 @@ interface VodDao {
     @Query("SELECT COUNT(*) FROM series WHERE playlistId = :pid")
     fun observeSeriesCount(pid: Long): Flow<Int>
 
-    @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid AND title LIKE '%' || :q || '%' ORDER BY title LIMIT :limit")
+    @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid AND title LIKE '%' || :q || '%' ORDER BY position, title LIMIT :limit")
     suspend fun searchMovies(pid: Long, q: String, limit: Int): List<VodCard>
 
-    @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND title LIKE '%' || :q || '%' ORDER BY title LIMIT :limit")
+    @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND title LIKE '%' || :q || '%' ORDER BY position, title LIMIT :limit")
     suspend fun searchSeries(pid: Long, q: String, limit: Int): List<VodCard>
 
     // Whole lists, used by tests (screens page).

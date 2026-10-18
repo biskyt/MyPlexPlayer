@@ -219,7 +219,7 @@ class AppUiTest {
     fun `search finds channels, programmes and movies, and opens what is picked`() {
         show(Screen.Search)
         compose.waitUntil(5_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNode(hasSetTextAction()).performTextInput("on")
+        compose.onNode(hasSetTextAction()).performTextInput("one")
         waitFor("Now on one.uk") // programme
         waitFor("UK: CHANNEL ONE HD") // channel
         compose.onRoot().captureRoboImage("screenshots/search.png")
