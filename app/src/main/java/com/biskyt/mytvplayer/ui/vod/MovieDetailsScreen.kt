@@ -1,0 +1,137 @@
+package com.biskyt.mytvplayer.ui.vod
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Text
+import coil3.compose.AsyncImage
+import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.core.xtream.VodDetails
+import com.biskyt.mytvplayer.data.db.MovieEntity
+import com.biskyt.mytvplayer.data.db.VOD_MOVIE
+import com.biskyt.mytvplayer.data.db.WatchProgressEntity
+import com.biskyt.mytvplayer.ui.LocalNavigator
+import com.biskyt.mytvplayer.ui.Screen
+import com.biskyt.mytvplayer.ui.appViewModel
+import com.biskyt.mytvplayer.ui.common.Muted
+import com.biskyt.mytvplayer.ui.common.PillButton
+import com.biskyt.mytvplayer.ui.common.Poster
+import com.biskyt.mytvplayer.ui.common.ProgressLine
+import com.biskyt.mytvplayer.ui.common.formatDuration
+import com.biskyt.mytvplayer.ui.common.formatRuntime
+import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
+import com.biskyt.mytvplayer.ui.theme.Palette
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+class MovieDetailsViewModel(private val c: AppContainer, private val playlistId: Long, private val streamId: Long) : ViewModel() {
+    var movie by mutableStateOf<MovieEntity?>(null)
+        private set
+    var details by mutableStateOf<VodDetails?>(null)
+        private set
+
+    val progress = c.vod.observeMovieProgress(playlistId, streamId).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val favourite = c.vod.observeFavouriteIds(playlistId, VOD_MOVIE).map { streamId in it }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    init {
+        viewModelScope.launch {
+            movie = c.vod.movie(playlistId, streamId)
+            val p = c.playlists.get(playlistId) ?: return@launch
+            // The page works without details (title, poster and play come from the list).
+            details = runCatching { c.vod.movieDetails(p, streamId) }.getOrNull()
+        }
+    }
+
+    fun toggleFavourite() = viewModelScope.launch { c.vod.setFavourite(playlistId, VOD_MOVIE, streamId, !favourite.value) }
+}
+
+@Composable
+fun MovieDetailsScreen(screen: Screen.MovieDetails) {
+    val vm = appViewModel { MovieDetailsViewModel(it, screen.playlistId, screen.streamId) }
+    val nav = LocalNavigator.current
+    val movie = vm.movie ?: return
+    val d = vm.details
+    val progress by vm.progress.collectAsState()
+    val favourite by vm.favourite.collectAsState()
+    DetailsLayout(backdropUrl = d?.backdropUrl, posterUrl = movie.posterUrl ?: d?.posterUrl, title = movie.title) {
+        Text(movie.title, style = MaterialTheme.typography.displaySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Muted(metaLine(movie.year ?: d?.year, d?.durationSec, d?.genre, movie.rating ?: d?.rating))
+        d?.plot?.let { Text(it, style = MaterialTheme.typography.bodyLarge, maxLines = 6, overflow = TextOverflow.Ellipsis) }
+        d?.director?.let { Muted("Director: $it") }
+        d?.cast?.let { Muted("Cast: $it", maxLines = 2) }
+        ResumeBar(progress)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
+            val resumable = progress?.takeUnless { it.finished }
+            PillButton(
+                resumable?.let { "Resume from ${formatDuration(it.positionMs)}" } ?: "Play",
+                { nav.push(Screen.VodPlayer(screen.playlistId, movie.streamId)) },
+                rememberFirstFocus(),
+                primary = true
+            )
+            if (resumable != null) {
+                PillButton("From the start", { nav.push(Screen.VodPlayer(screen.playlistId, movie.streamId, fromStart = true)) })
+            }
+            PillButton(if (favourite) "Remove from favourites" else "Add to favourites", { vm.toggleFavourite() })
+        }
+    }
+}
+
+/** "2021 · 2 h 35 min · Drama · ★ 8.1", skipping whatever is unknown. */
+fun metaLine(year: Int?, durationSec: Int?, genre: String?, rating: Double?): String = listOfNotNull(
+    year?.toString(),
+    durationSec?.takeIf { it > 0 }?.let(::formatRuntime),
+    genre,
+    rating?.let { "★ %.1f".format(it) }
+).joinToString(" · ")
+
+@Composable
+internal fun ResumeBar(progress: WatchProgressEntity?) {
+    if (progress == null || progress.finished || progress.durationMs <= 0) return
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.widthIn(max = 520.dp)) {
+        ProgressLine(progress.positionMs.toFloat() / progress.durationMs, Modifier.weight(1f).padding(top = 8.dp))
+        Muted("${formatDuration(progress.durationMs - progress.positionMs)} left")
+    }
+}
+
+/** Backdrop faded behind, poster on the left, [content] on the right. Shared by movies and series. */
+@Composable
+internal fun DetailsLayout(backdropUrl: String?, posterUrl: String?, title: String, content: @Composable ColumnScope.() -> Unit) {
+    Box(Modifier.fillMaxSize().background(Palette.background)) {
+        if (backdropUrl != null) {
+            AsyncImage(backdropUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.35f)
+            Box(
+                Modifier.fillMaxSize()
+                    .background(Brush.horizontalGradient(listOf(Palette.background, Palette.background.copy(alpha = 0.6f))))
+            )
+        }
+        Row(Modifier.padding(horizontal = 72.dp, vertical = 56.dp), horizontalArrangement = Arrangement.spacedBy(40.dp)) {
+            Poster(posterUrl, title, 240.dp)
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.widthIn(max = 760.dp).fillMaxHeight()) {
+                content()
+            }
+        }
+    }
+}

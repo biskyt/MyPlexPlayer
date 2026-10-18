@@ -30,6 +30,8 @@ import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.core.epg.CategoryLanguageDetector
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
+import com.biskyt.mytvplayer.data.db.CAT_MOVIE
+import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.ui.LocalNavigator
@@ -43,18 +45,43 @@ import com.biskyt.mytvplayer.ui.common.formatCount
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /** A language/country group of categories, e.g. "English (UK)" with 34 categories. */
 data class LanguageGroup(val code: String?, val label: String, val total: Int, val included: Int)
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class CategoriesViewModel(private val c: AppContainer, private val playlistId: Long) : ViewModel() {
-    val categories = c.db.categories().observe(playlistId, CAT_LIVE).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    /** Which list is being chosen: live channels, movies or series. */
+    val type = MutableStateFlow(CAT_LIVE)
+    val categories = type.flatMapLatest { c.db.categories().observe(playlistId, it) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Movies and series exist for Xtream accounts only. */
+    var hasVod by mutableStateOf(false)
+        private set
     val hidden = c.channels.observeHidden(playlistId).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     var selectedGroup by mutableStateOf<String?>(UNSET)
     private var changed = false
+
+    init {
+        viewModelScope.launch {
+            val p = c.playlists.get(playlistId) ?: return@launch
+            hasVod = !p.isM3u
+            // Movie and series categories normally arrive with the first sync; fetch them now so they can be chosen first.
+            if (hasVod && c.db.categories().all(playlistId, CAT_MOVIE).isEmpty()) runCatching { c.vod.refreshCategories(p) }
+        }
+    }
+
+    fun showType(t: String) {
+        type.value = t
+        selectedGroup = UNSET
+    }
 
     fun groups(list: List<CategoryEntity>): List<LanguageGroup> = list.groupBy { it.lang }
         .map { (code, items) -> LanguageGroup(code, CategoryLanguageDetector.label(code), items.size, items.count { it.included }) }
@@ -88,6 +115,7 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
     val vm = appViewModel(key = "cats-$playlistId") { CategoriesViewModel(it, playlistId) }
     val nav = LocalNavigator.current
     val categories by vm.categories.collectAsState()
+    val type by vm.type.collectAsState()
     val hidden by vm.hidden.collectAsState()
     val groups = remember(categories) { vm.groups(categories) }
     if (vm.selectedGroup == CategoriesViewModel.UNSET && groups.isNotEmpty()) vm.selectedGroup = groups.first().code
@@ -108,6 +136,13 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
             }
             Muted("Loading ${groups.sumOf { it.included }} of ${categories.size} categories", Modifier.padding(end = 16.dp))
             PillButton(if (firstRun) "Continue" else "Done", done, primary = true)
+        }
+        if (vm.hasVod) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(CAT_LIVE to "Live TV", CAT_MOVIE to "Movies", CAT_SERIES to "Series").forEach { (t, label) ->
+                    PillButton(label, { vm.showType(t) }, selected = t == type)
+                }
+            }
         }
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             LazyColumn(
@@ -133,7 +168,7 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                         }
                     }
                 }
-                if (hidden.isNotEmpty()) {
+                if (type == CAT_LIVE && hidden.isNotEmpty()) {
                     item {
                         Text(
                             "HIDDEN CHANNELS",

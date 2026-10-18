@@ -6,8 +6,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -71,11 +73,29 @@ import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 
-@OptIn(UnstableApi::class)
 @Composable
 fun PlayerScreen(screen: Screen.Player) {
     val appContext = LocalContext.current.applicationContext
     val vm = appViewModel { PlayerViewModel(it, appContext, screen) }
+    PlayerFrame(
+        vm,
+        controls = { buttons, root -> LiveControls(vm, buttons, root) },
+        extras = { if (vm.numberEntry.typed.isNotEmpty()) FlashLabel(vm.numberEntry.typed, Modifier.align(Alignment.TopEnd)) }
+    )
+    if (vm.overlay == OverlayState.GUIDE) GuidePanel(vm)
+}
+
+/**
+ * The video with everything common to live and on-demand playback: keys, the loading and error states, flash
+ * messages, side sheets, and stopping when the app is left. [controls] draws the overlay shown on OK.
+ */
+@OptIn(UnstableApi::class)
+@Composable
+internal fun PlayerFrame(
+    vm: PlaybackViewModel,
+    controls: @Composable (buttons: FocusRequester, root: FocusRequester) -> Unit,
+    extras: @Composable BoxScope.() -> Unit = {}
+) {
     val nav = LocalNavigator.current
     val root = remember { FocusRequester() }
     val buttons = remember { FocusRequester() }
@@ -90,7 +110,7 @@ fun PlayerScreen(screen: Screen.Player) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
         view.keepScreenOn = true
-        // Leaving the app (Home button) stops live TV instead of streaming in the background.
+        // Leaving the app (Home button) stops playback instead of streaming in the background.
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_STOP -> vm.onAppHidden()
@@ -134,17 +154,16 @@ fun PlayerScreen(screen: Screen.Player) {
             Text("Loading…", style = MaterialTheme.typography.titleLarge, modifier = Modifier.align(Alignment.Center))
         }
         vm.error?.let { ErrorBox(it, vm) }
-        if (vm.overlay == OverlayState.CONTROLS) ControlsOverlay(vm, buttons, root)
+        if (vm.overlay == OverlayState.CONTROLS) controls(buttons, root)
         vm.message?.let { FlashLabel(it, Modifier.align(Alignment.TopCenter)) }
-        if (vm.numberEntry.typed.isNotEmpty()) FlashLabel(vm.numberEntry.typed, Modifier.align(Alignment.TopEnd))
+        extras()
     }
-    if (vm.overlay == OverlayState.GUIDE) GuidePanel(vm)
     vm.sheet?.let { PlayerSheet(it, vm) }
     LaunchedEffect(vm.overlay, vm.sheet) { if (vm.sheet == null && vm.overlay != OverlayState.GUIDE) runCatching { root.requestFocus() } }
 }
 
 /** Remote keys on the video: left/right skip, up/down zap, down with controls showing moves into the buttons. */
-private fun handleKey(e: KeyEvent, vm: PlayerViewModel, buttons: FocusRequester): Boolean {
+private fun handleKey(e: KeyEvent, vm: PlaybackViewModel, buttons: FocusRequester): Boolean {
     if (vm.overlay == OverlayState.CONTROLS && e.key == Key.DirectionDown) {
         return runCatching { buttons.requestFocus() }.isSuccess
     }
@@ -172,7 +191,7 @@ private fun handleKey(e: KeyEvent, vm: PlayerViewModel, buttons: FocusRequester)
 }
 
 @Composable
-private fun ControlsOverlay(vm: PlayerViewModel, buttons: FocusRequester, root: FocusRequester) {
+private fun LiveControls(vm: PlayerViewModel, buttons: FocusRequester, root: FocusRequester) {
     val ch = vm.channel ?: return
     LaunchedEffect(ch.streamId) { vm.nowNext.request(ch.streamId) }
     val nn = vm.nowNext.entries[ch.streamId]
@@ -214,40 +233,38 @@ private fun ControlsOverlay(vm: PlayerViewModel, buttons: FocusRequester, root: 
                         Muted(formatTime(current.stopMs))
                     }
                 }
-                Row(
-                    Modifier.onPreviewKeyEvent { e ->
-                        // Up from the buttons returns to the video, where left/right skip again.
-                        if (e.type == KeyEventType.KeyDown &&
-                            e.key == Key.DirectionUp
-                        ) {
-                            runCatching { root.requestFocus() }.isSuccess
-                        } else {
-                            false
-                        }
-                    },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+                ControlsBar(vm, root) {
                     PillButton("Channel guide", vm::openGuide, Modifier.focusRequester(buttons))
-                    Box(Modifier.weight(1f))
-                    RoundButton(AppIcons.Rewind, "Skip back") { vm.onKey(RemoteKey.LEFT) }
-                    RoundButton(
-                        if (vm.isPlaying) AppIcons.Pause else AppIcons.Play,
-                        if (vm.isPlaying) "Pause" else "Play",
-                        primary = true
-                    ) {
-                        vm.togglePlayPause()
-                    }
-                    RoundButton(AppIcons.Forward, "Skip forward") { vm.onKey(RemoteKey.RIGHT) }
-                    RoundButton(AppIcons.Stop, "Stop") { vm.stop() }
-                    Box(Modifier.weight(1f))
-                    PillButton("Audio", { vm.sheet = PlayerViewModel.Sheet.AUDIO })
-                    PillButton("Subtitles", { vm.sheet = PlayerViewModel.Sheet.SUBTITLES })
-                    PillButton("More", { vm.sheet = PlayerViewModel.Sheet.MORE })
                 }
                 Muted("◀ ▶ skip · ▲ ▼ change channel · ▼ for buttons · OK pause", Modifier.align(Alignment.CenterHorizontally))
             }
         }
+    }
+}
+
+/** The row of buttons under the video: [leading] on the left, play controls in the middle, tracks and more on the right. */
+@Composable
+internal fun ControlsBar(vm: PlaybackViewModel, root: FocusRequester, leading: @Composable RowScope.() -> Unit) {
+    Row(
+        Modifier.onPreviewKeyEvent { e ->
+            // Up from the buttons returns to the video, where left/right skip again.
+            if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionUp) runCatching { root.requestFocus() }.isSuccess else false
+        },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        leading()
+        Box(Modifier.weight(1f))
+        RoundButton(AppIcons.Rewind, "Skip back") { vm.onKey(RemoteKey.LEFT) }
+        RoundButton(if (vm.isPlaying) AppIcons.Pause else AppIcons.Play, if (vm.isPlaying) "Pause" else "Play", primary = true) {
+            vm.togglePlayPause()
+        }
+        RoundButton(AppIcons.Forward, "Skip forward") { vm.onKey(RemoteKey.RIGHT) }
+        RoundButton(AppIcons.Stop, "Stop") { vm.stop() }
+        Box(Modifier.weight(1f))
+        PillButton("Audio", { vm.sheet = PlaybackViewModel.Sheet.AUDIO })
+        PillButton("Subtitles", { vm.sheet = PlaybackViewModel.Sheet.SUBTITLES })
+        PillButton("More", { vm.sheet = PlaybackViewModel.Sheet.MORE })
     }
 }
 
@@ -270,7 +287,7 @@ private fun RoundButton(icon: ImageVector, label: String, primary: Boolean = fal
 }
 
 @Composable
-private fun ErrorBox(text: String, vm: PlayerViewModel) {
+private fun ErrorBox(text: String, vm: PlaybackViewModel) {
     val retry = rememberFirstFocus(text)
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(

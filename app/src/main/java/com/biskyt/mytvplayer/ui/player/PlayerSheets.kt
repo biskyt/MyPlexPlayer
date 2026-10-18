@@ -72,14 +72,14 @@ fun GuidePanel(vm: PlayerViewModel) {
 }
 
 @Composable
-fun PlayerSheet(sheet: PlayerViewModel.Sheet, vm: PlayerViewModel) {
+fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
     val engine = vm.engine ?: return
     val close = { vm.sheet = null }
     SidePanel(onDismiss = close, dim = false) {
         val first = rememberFirstFocus()
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             when (sheet) {
-                PlayerViewModel.Sheet.AUDIO -> {
+                PlaybackViewModel.Sheet.AUDIO -> {
                     item { Header("Audio", vm.audioLabel) }
                     val options = trackOptions(vm.tracks, C.TRACK_TYPE_AUDIO)
                     items(options) { o ->
@@ -90,7 +90,7 @@ fun PlayerSheet(sheet: PlayerViewModel.Sheet, vm: PlayerViewModel) {
                     }
                     if (options.isEmpty()) item { Muted("No audio tracks") }
                 }
-                PlayerViewModel.Sheet.SUBTITLES -> {
+                PlaybackViewModel.Sheet.SUBTITLES -> {
                     item { Header("Subtitles", null) }
                     val options = trackOptions(vm.tracks, C.TRACK_TYPE_TEXT)
                     item {
@@ -106,7 +106,7 @@ fun PlayerSheet(sheet: PlayerViewModel.Sheet, vm: PlayerViewModel) {
                         }
                     }
                 }
-                PlayerViewModel.Sheet.MORE -> {
+                PlaybackViewModel.Sheet.MORE -> {
                     item { Header("More", null) }
                     item {
                         val next = when (vm.contentScale) {

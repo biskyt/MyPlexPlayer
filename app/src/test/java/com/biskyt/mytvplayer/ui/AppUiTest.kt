@@ -19,6 +19,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.ChannelFilter
+import com.biskyt.mytvplayer.data.db.CAT_MOVIE
+import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.testutil.FakeProvider
 import com.biskyt.mytvplayer.testutil.TestApp
 import com.biskyt.mytvplayer.ui.common.formatTime
@@ -28,6 +30,9 @@ import com.biskyt.mytvplayer.ui.live.LiveScreen
 import com.biskyt.mytvplayer.ui.settings.AppearanceScreen
 import com.biskyt.mytvplayer.ui.settings.PlaybackSettingsScreen
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
+import com.biskyt.mytvplayer.ui.vod.MovieDetailsScreen
+import com.biskyt.mytvplayer.ui.vod.SeriesDetailsScreen
+import com.biskyt.mytvplayer.ui.vod.VodBrowseScreen
 import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -62,6 +67,7 @@ class AppUiTest {
         val c = app.container
         playlistId = c.playlists.add("Home TV", provider.url, "me", "secret")
         c.playlists.syncChannels(playlistId)
+        c.vod.sync(c.playlists.get(playlistId)!!)
         c.playlists.get(playlistId)?.let { c.epg.ensureProviderSource(it, c.playlists.client(it).xmltvUrl()) }
         c.epg.importAll(listOf(playlistId))
     }
@@ -82,6 +88,11 @@ class AppUiTest {
             is Screen.GuideMatching -> GuideMatchingScreen(screen.playlistId, screen.streamId)
             Screen.PlaybackSettings -> PlaybackSettingsScreen()
             Screen.Appearance -> AppearanceScreen()
+            is Screen.Movies -> VodBrowseScreen(CAT_MOVIE, screen.filter)
+            is Screen.Series -> VodBrowseScreen(CAT_SERIES, screen.filter)
+            is Screen.MovieDetails -> MovieDetailsScreen(screen)
+            is Screen.SeriesDetails -> SeriesDetailsScreen(screen)
+            is Screen.VodPlayer -> Text("VOD ${screen.itemId} ${screen.seriesId}")
             // The real player needs video hardware; a marker is enough to see where navigation went.
             is Screen.Player -> Text("PLAYER ${screen.streamId}")
             else -> Text(screen.toString())
@@ -150,6 +161,30 @@ class AppUiTest {
         press(Key.Guide)
         waitFor("Now on one.uk")
         compose.waitUntil(5_000) { focusedText().contains("UK: CHANNEL ONE HD") }
+    }
+
+    @Test
+    fun `movies grid opens details and plays, series show their episodes`() {
+        show(Screen.Movies())
+        waitFor("Paddington 2")
+        compose.onRoot().captureRoboImage("screenshots/movies.png")
+        compose.onNode(hasText("Dune")).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("A story.")
+        waitFor("2021 · 1 h 40 min · Drama")
+        compose.onRoot().captureRoboImage("screenshots/movie-details.png")
+        compose.onNode(hasText("Play")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+        assertEquals(Screen.VodPlayer(playlistId, 501), navigator.current.screen)
+
+        compose.runOnUiThread { navigator.reset(Screen.SeriesDetails(playlistId, 77)) }
+        waitFor("Play S1 E1")
+        waitFor("Episode 2")
+        compose.onRoot().captureRoboImage("screenshots/series-details.png")
+        compose.onNode(hasText("Series 2")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+        compose.onNode(hasText("Episode 1")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+        assertEquals(Screen.VodPlayer(playlistId, 9003, 77), navigator.current.screen)
     }
 
     @Test

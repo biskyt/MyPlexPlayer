@@ -17,6 +17,25 @@ fun formatDateTime(epochMs: Long): String = DateFormat.getDateTimeInstance(DateF
 
 fun formatCount(n: Int): String = "%,d".format(n)
 
+/** A playback position: "12:34" or "1:02:03". */
+fun formatDuration(ms: Long): String {
+    val total = ms.coerceAtLeast(0) / 1000
+    val h = total / 3600
+    val m = total / 60 % 60
+    val sec = total % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
+}
+
+/** A running time: "1 h 52 min" or "45 min". */
+fun formatRuntime(seconds: Int): String {
+    val minutes = (seconds + 30) / 60
+    return when {
+        minutes < 60 -> "$minutes min"
+        minutes % 60 == 0 -> "${minutes / 60} h"
+        else -> "${minutes / 60} h ${minutes % 60} min"
+    }
+}
+
 /** Channel number as shown in lists ("" when the provider gives none). */
 val ChannelEntity.numberLabel: String get() = if (number > 0) number.toString() else ""
 

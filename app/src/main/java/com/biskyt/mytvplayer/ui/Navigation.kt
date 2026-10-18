@@ -15,6 +15,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.ChannelFilter
+import com.biskyt.mytvplayer.data.VodFilter
 
 /** Every screen in the app. Tab roots are [Home], [Live], [Movies], [Series]. */
 sealed interface Screen {
@@ -22,10 +23,15 @@ sealed interface Screen {
     data class Welcome(val auto: Boolean = true) : Screen
     data object Home : Screen
     data class Live(val filter: ChannelFilter = ChannelFilter.All, val guide: Boolean = false) : Screen
-    data object Movies : Screen
-    data object Series : Screen
+    data class Movies(val filter: VodFilter = VodFilter.All) : Screen
+    data class Series(val filter: VodFilter = VodFilter.All) : Screen
     data object Search : Screen
     data class Player(val playlistId: Long, val streamId: Long, val filter: ChannelFilter) : Screen
+
+    /** A movie ([seriesId] null) or an episode. [fromStart] ignores any saved position. */
+    data class VodPlayer(val playlistId: Long, val itemId: Long, val seriesId: Long? = null, val fromStart: Boolean = false) : Screen
+    data class MovieDetails(val playlistId: Long, val streamId: Long) : Screen
+    data class SeriesDetails(val playlistId: Long, val seriesId: Long) : Screen
     data object Settings : Screen
     data object Playlists : Screen
     data class PlaylistEdit(val playlistId: Long?, val firstRun: Boolean = false) : Screen

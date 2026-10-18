@@ -44,6 +44,8 @@ import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.AppIcons
+import com.biskyt.mytvplayer.ui.common.CategoryColumn
+import com.biskyt.mytvplayer.ui.common.CategoryEntry
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
 import com.biskyt.mytvplayer.ui.common.FlashLabel
 import com.biskyt.mytvplayer.ui.common.Muted
@@ -97,7 +99,7 @@ fun LiveScreen(initialFilter: ChannelFilter, initialGuide: Boolean) {
             },
             horizontalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            CategoryColumn(vm, filter)
+            LiveCategories(vm, filter)
             Column(Modifier.weight(1f)) {
                 ListHeader(vm, filter)
                 if (vm.guideMode) GuideGrid(vm, play) else ChannelList(vm, play)
@@ -111,38 +113,16 @@ fun LiveScreen(initialFilter: ChannelFilter, initialGuide: Boolean) {
 }
 
 @Composable
-private fun CategoryColumn(vm: LiveViewModel, selected: ChannelFilter) {
+private fun LiveCategories(vm: LiveViewModel, selected: ChannelFilter) {
     val categories by vm.categories.collectAsState()
     val entries = remember(categories) {
-        listOf(
-            Triple<ChannelFilter, String, Int?>(ChannelFilter.Favourites, "Favourites", null),
-            Triple(ChannelFilter.Recent, "Recently watched", null),
-            Triple(ChannelFilter.All, "All channels", null)
-        ) + categories.map { Triple(ChannelFilter.Category(it.categoryId), it.name, it.channelCount) }
+        listOf<CategoryEntry<ChannelFilter>>(
+            CategoryEntry(ChannelFilter.Favourites, "Favourites"),
+            CategoryEntry(ChannelFilter.Recent, "Recently watched"),
+            CategoryEntry(ChannelFilter.All, "All channels")
+        ) + categories.map { CategoryEntry<ChannelFilter>(ChannelFilter.Category(it.categoryId), it.name, it.channelCount) }
     }
-    LazyColumn(Modifier.width(250.dp), verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
-        items(entries, key = { it.second + it.first.hashCode() }) { (f, label, count) ->
-            val isSelected = f == selected
-            TvCard(
-                onClick = { vm.selectFilter(f) },
-                selected = isSelected,
-                color = Palette.background,
-                modifier = Modifier.fillMaxWidth().onFocusChanged { if (it.isFocused) vm.focusFilter(f) }
-            ) {
-                Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        label,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = if (isSelected) LocalAccent.current.color else Palette.text,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (count != null) Text(formatCount(count), style = MaterialTheme.typography.bodySmall, color = Palette.textDim)
-                }
-            }
-        }
-    }
+    CategoryColumn(entries, selected, vm::focusFilter, vm::selectFilter)
 }
 
 @Composable
