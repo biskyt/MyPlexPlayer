@@ -17,3 +17,15 @@ fun rememberFirstFocus(key: Any? = Unit): Modifier {
     LaunchedEffect(key) { runCatching { r.requestFocus() } }
     return Modifier.focusRequester(r)
 }
+
+/**
+ * Gives this element focus once when [wanted] (e.g. returning to a list, on the item last opened), then calls
+ * [onRestored]. Items not composed yet simply try when they appear.
+ */
+@Composable
+fun Modifier.restoreFocusIf(wanted: Boolean, onRestored: () -> Unit): Modifier {
+    if (!wanted) return this
+    val r = remember { FocusRequester() }
+    LaunchedEffect(Unit) { if (runCatching { r.requestFocus() }.isSuccess) onRestored() }
+    return focusRequester(r)
+}

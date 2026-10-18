@@ -14,12 +14,11 @@ import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.db.ChannelEntity
+import com.biskyt.mytvplayer.ui.common.CategoryFilter
 import com.biskyt.mytvplayer.ui.common.NowNextLoader
 import com.biskyt.mytvplayer.ui.common.NumberEntry
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -38,7 +37,9 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter, i
     private val activePlaylist = c.settings.activePlaylistId
     val playlistId: StateFlow<Long> = activePlaylist.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
 
-    val filter = MutableStateFlow(initialFilter)
+    // A different list: the remembered channel may not be in it, so focus starts from the top.
+    val filters = CategoryFilter(viewModelScope, initialFilter) { focusStreamId = null }
+    val filter = filters.value
     val query = MutableStateFlow("")
     var guideMode by mutableStateOf(initialGuide)
         private set
@@ -109,30 +110,6 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter, i
 
     /** Digits typed on the remote jump straight to that channel number. */
     val numberEntry = NumberEntry(viewModelScope) { n -> c.channels.byNumber(playlistId.value, n)?.let { playNumber(it) } }
-
-    private var filterJob: Job? = null
-
-    /** Category focus changes the list after a short pause, so moving through categories stays smooth. */
-    fun focusFilter(f: ChannelFilter) {
-        filterJob?.cancel()
-        if (f == filter.value) return
-        filterJob = viewModelScope.launch {
-            delay(300)
-            setFilter(f)
-        }
-    }
-
-    fun selectFilter(f: ChannelFilter) {
-        filterJob?.cancel()
-        setFilter(f)
-    }
-
-    private fun setFilter(f: ChannelFilter) {
-        if (f == filter.value) return
-        filter.value = f
-        // A different list: the remembered channel may not be in it, so focus starts from the top.
-        focusStreamId = null
-    }
 
     fun toggleFavourite(ch: ChannelEntity) = viewModelScope.launch {
         c.channels.setFavourite(ch.playlistId, ch.streamId, ch.streamId !in favouriteIds.value)

@@ -28,8 +28,17 @@ sealed interface Screen {
     data object Search : Screen
     data class Player(val playlistId: Long, val streamId: Long, val filter: ChannelFilter) : Screen
 
-    /** A movie ([seriesId] null) or an episode. [fromStart] ignores any saved position. */
-    data class VodPlayer(val playlistId: Long, val itemId: Long, val seriesId: Long? = null, val fromStart: Boolean = false) : Screen
+    /**
+     * A movie ([seriesId] null) or an episode. [fromStart] ignores any saved position; [continueSeries] (from "Carry on
+     * watching") moves on to the next episode if this one was finished.
+     */
+    data class VodPlayer(
+        val playlistId: Long,
+        val itemId: Long,
+        val seriesId: Long? = null,
+        val fromStart: Boolean = false,
+        val continueSeries: Boolean = false
+    ) : Screen
     data class MovieDetails(val playlistId: Long, val streamId: Long) : Screen
     data class SeriesDetails(val playlistId: Long, val seriesId: Long) : Screen
     data object Settings : Screen

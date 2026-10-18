@@ -73,8 +73,8 @@ interface CategoryDao {
     @Upsert
     suspend fun upsert(items: List<CategoryEntity>)
 
-    @Query("UPDATE category SET included = :included WHERE playlistId = :pid AND categoryId IN (:ids)")
-    suspend fun setIncluded(pid: Long, ids: List<String>, included: Boolean)
+    @Query("UPDATE category SET included = :included WHERE playlistId = :pid AND type = :type AND categoryId IN (:ids)")
+    suspend fun setIncluded(pid: Long, type: String, ids: List<String>, included: Boolean)
 
     @Query(
         """UPDATE category SET channelCount = CASE type
@@ -367,44 +367,52 @@ data class MatchRow(
 
 data class MatchCounts(val total: Int, val unmatched: Int, val auto: Int, val manual: Int)
 
+/** A poster in a movie or series grid: only what the grid shows, so paging holds as little as possible. */
+data class VodCard(val id: Long, val title: String, val year: Int?, val imageUrl: String?)
+
+private const val MOVIE_CARD = "SELECT streamId AS id, title, year, posterUrl AS imageUrl"
+private const val SERIES_CARD = "SELECT seriesId AS id, title, year, coverUrl AS imageUrl"
+
 /** Movies, series, favourites among them, and how far the user has watched. */
 @Dao
 interface VodDao {
     // Lists filter by title as the user types; provider order unless sorted by date.
 
-    @Query("SELECT * FROM movie WHERE playlistId = :pid AND (:q = '' OR title LIKE '%' || :q || '%') ORDER BY position, title")
-    fun pageMovies(pid: Long, q: String): PagingSource<Int, MovieEntity>
+    @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid AND (:q = '' OR title LIKE '%' || :q || '%') ORDER BY position, title")
+    fun pageMovies(pid: Long, q: String): PagingSource<Int, VodCard>
 
     @Query(
-        "SELECT * FROM movie WHERE playlistId = :pid AND categoryId = :cat AND (:q = '' OR title LIKE '%' || :q || '%') ORDER BY position, title"
+        "$MOVIE_CARD FROM movie WHERE playlistId = :pid AND categoryId = :cat AND (:q = '' OR title LIKE '%' || :q || '%') ORDER BY position, title"
     )
-    fun pageMovieCategory(pid: Long, cat: String, q: String): PagingSource<Int, MovieEntity>
+    fun pageMovieCategory(pid: Long, cat: String, q: String): PagingSource<Int, VodCard>
 
-    @Query("SELECT * FROM movie WHERE playlistId = :pid AND (:q = '' OR title LIKE '%' || :q || '%') ORDER BY added DESC")
-    fun pageMoviesByAdded(pid: Long, q: String): PagingSource<Int, MovieEntity>
+    @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid AND (:q = '' OR title LIKE '%' || :q || '%') ORDER BY added DESC")
+    fun pageMoviesByAdded(pid: Long, q: String): PagingSource<Int, VodCard>
 
     @Query(
-        """SELECT m.* FROM movie m JOIN vod_favourite f ON f.playlistId = m.playlistId AND f.kind = 'movie' AND f.itemId = m.streamId
+        """SELECT m.streamId AS id, m.title, m.year, m.posterUrl AS imageUrl FROM movie m
+           JOIN vod_favourite f ON f.playlistId = m.playlistId AND f.kind = 'movie' AND f.itemId = m.streamId
            WHERE m.playlistId = :pid AND (:q = '' OR m.title LIKE '%' || :q || '%') ORDER BY f.addedAt DESC"""
     )
-    fun pageMovieFavourites(pid: Long, q: String): PagingSource<Int, MovieEntity>
+    fun pageMovieFavourites(pid: Long, q: String): PagingSource<Int, VodCard>
 
-    @Query("SELECT * FROM series WHERE playlistId = :pid AND (:q = '' OR title LIKE '%' || :q || '%') ORDER BY position, title")
-    fun pageSeries(pid: Long, q: String): PagingSource<Int, SeriesEntity>
+    @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND (:q = '' OR title LIKE '%' || :q || '%') ORDER BY position, title")
+    fun pageSeries(pid: Long, q: String): PagingSource<Int, VodCard>
 
     @Query(
-        "SELECT * FROM series WHERE playlistId = :pid AND categoryId = :cat AND (:q = '' OR title LIKE '%' || :q || '%') ORDER BY position, title"
+        "$SERIES_CARD FROM series WHERE playlistId = :pid AND categoryId = :cat AND (:q = '' OR title LIKE '%' || :q || '%') ORDER BY position, title"
     )
-    fun pageSeriesCategory(pid: Long, cat: String, q: String): PagingSource<Int, SeriesEntity>
+    fun pageSeriesCategory(pid: Long, cat: String, q: String): PagingSource<Int, VodCard>
 
-    @Query("SELECT * FROM series WHERE playlistId = :pid AND (:q = '' OR title LIKE '%' || :q || '%') ORDER BY lastModified DESC")
-    fun pageSeriesByUpdated(pid: Long, q: String): PagingSource<Int, SeriesEntity>
+    @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND (:q = '' OR title LIKE '%' || :q || '%') ORDER BY lastModified DESC")
+    fun pageSeriesByUpdated(pid: Long, q: String): PagingSource<Int, VodCard>
 
     @Query(
-        """SELECT s.* FROM series s JOIN vod_favourite f ON f.playlistId = s.playlistId AND f.kind = 'series' AND f.itemId = s.seriesId
+        """SELECT s.seriesId AS id, s.title, s.year, s.coverUrl AS imageUrl FROM series s
+           JOIN vod_favourite f ON f.playlistId = s.playlistId AND f.kind = 'series' AND f.itemId = s.seriesId
            WHERE s.playlistId = :pid AND (:q = '' OR s.title LIKE '%' || :q || '%') ORDER BY f.addedAt DESC"""
     )
-    fun pageSeriesFavourites(pid: Long, q: String): PagingSource<Int, SeriesEntity>
+    fun pageSeriesFavourites(pid: Long, q: String): PagingSource<Int, VodCard>
 
     @Query("SELECT COUNT(*) FROM movie WHERE playlistId = :pid")
     fun observeMovieCount(pid: Long): Flow<Int>
@@ -412,7 +420,7 @@ interface VodDao {
     @Query("SELECT COUNT(*) FROM series WHERE playlistId = :pid")
     fun observeSeriesCount(pid: Long): Flow<Int>
 
-    // Whole lists, for tests and small checks only (screens page).
+    // Whole lists, used by tests (screens page).
     @Query("SELECT * FROM movie WHERE playlistId = :pid ORDER BY position, title")
     suspend fun moviesSnapshot(pid: Long): List<MovieEntity>
 
@@ -425,11 +433,13 @@ interface VodDao {
     @Query("SELECT * FROM series WHERE playlistId = :pid AND seriesId = :id")
     suspend fun series(pid: Long, id: Long): SeriesEntity?
 
-    @Upsert
-    suspend fun upsertMovies(items: List<MovieEntity>)
+    // Replace, not upsert: these rows hold no user state, and upserting tens of thousands of existing rows costs a
+    // failed insert each.
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMovies(items: List<MovieEntity>)
 
-    @Upsert
-    suspend fun upsertSeries(items: List<SeriesEntity>)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSeries(items: List<SeriesEntity>)
 
     @Query("DELETE FROM movie WHERE playlistId = :pid AND syncStamp != :stamp")
     suspend fun deleteStaleMovies(pid: Long, stamp: Long)
@@ -437,8 +447,8 @@ interface VodDao {
     @Query("DELETE FROM series WHERE playlistId = :pid AND syncStamp != :stamp")
     suspend fun deleteStaleSeries(pid: Long, stamp: Long)
 
-    @Query("SELECT itemId FROM vod_favourite WHERE playlistId = :pid AND kind = :kind")
-    fun observeFavouriteIds(pid: Long, kind: String): Flow<List<Long>>
+    @Query("SELECT EXISTS(SELECT 1 FROM vod_favourite WHERE playlistId = :pid AND kind = :kind AND itemId = :id)")
+    fun observeFavourite(pid: Long, kind: String, id: Long): Flow<Boolean>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun addFavourite(f: VodFavouriteEntity)
@@ -459,16 +469,16 @@ interface VodDao {
     fun observeMovieProgress(pid: Long, id: Long): Flow<WatchProgressEntity?>
 
     /**
-     * "Carry on watching": unfinished movies and, per series, only its most recent episode, newest first.
-     * The finished share matches [WatchProgressEntity.FINISHED_FRACTION].
+     * "Carry on watching", newest first: unfinished movies, and per series its most recent episode, unless that was
+     * finished and the last one. [finished] is [WatchProgressEntity.FINISHED_FRACTION].
      */
     @Query(
         """SELECT * FROM watch_progress w WHERE playlistId = :pid
-           AND NOT (durationMs > 0 AND positionMs >= durationMs * 0.92)
+           AND (NOT (durationMs > 0 AND positionMs >= durationMs * :finished) OR hasNext)
            AND (seriesId IS NULL OR updatedAt = (SELECT MAX(x.updatedAt) FROM watch_progress x WHERE x.playlistId = w.playlistId AND x.seriesId = w.seriesId))
            ORDER BY updatedAt DESC LIMIT :limit"""
     )
-    fun observeCarryOn(pid: Long, limit: Int): Flow<List<WatchProgressEntity>>
+    fun observeCarryOn(pid: Long, limit: Int, finished: Double): Flow<List<WatchProgressEntity>>
 
     @Query(
         "DELETE FROM watch_progress WHERE playlistId = :pid AND updatedAt < (SELECT updatedAt FROM watch_progress WHERE playlistId = :pid ORDER BY updatedAt DESC LIMIT 1 OFFSET :keep)"

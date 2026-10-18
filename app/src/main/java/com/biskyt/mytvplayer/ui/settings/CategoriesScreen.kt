@@ -73,8 +73,6 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
         viewModelScope.launch {
             val p = c.playlists.get(playlistId) ?: return@launch
             hasVod = !p.isM3u
-            // Movie and series categories normally arrive with the first sync; fetch them now so they can be chosen first.
-            if (hasVod && c.db.categories().all(playlistId, CAT_MOVIE).isEmpty()) runCatching { c.vod.refreshCategories(p) }
         }
     }
 
@@ -90,12 +88,12 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
     fun toggleGroup(g: LanguageGroup) = viewModelScope.launch {
         changed = true
         val ids = categories.value.filter { it.lang == g.code }.map { it.categoryId }
-        c.db.categories().setIncluded(playlistId, ids, g.included < g.total)
+        c.db.categories().setIncluded(playlistId, type.value, ids, g.included < g.total)
     }
 
     fun toggleCategory(cat: CategoryEntity) = viewModelScope.launch {
         changed = true
-        c.db.categories().setIncluded(playlistId, listOf(cat.categoryId), !cat.included)
+        c.db.categories().setIncluded(playlistId, type.value, listOf(cat.categoryId), !cat.included)
     }
 
     fun unhide(ch: ChannelEntity) = viewModelScope.launch { c.channels.setHidden(ch.playlistId, ch.streamId, false) }

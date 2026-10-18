@@ -27,8 +27,8 @@ import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.core.xtream.EpisodeInfo
 import com.biskyt.mytvplayer.core.xtream.SeriesDetails
+import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.data.db.SeriesEntity
-import com.biskyt.mytvplayer.data.db.VOD_SERIES
 import com.biskyt.mytvplayer.data.db.WatchProgressEntity
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
@@ -39,6 +39,7 @@ import com.biskyt.mytvplayer.ui.common.ProgressLine
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.formatRuntime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
+import com.biskyt.mytvplayer.ui.player.shortEpisodeLabel
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 import kotlinx.coroutines.flow.SharingStarted
@@ -58,8 +59,7 @@ class SeriesDetailsViewModel(private val c: AppContainer, private val playlistId
     /** Progress per episode id. */
     val progress = c.vod.observeSeriesProgress(playlistId, seriesId).map { list -> list.associateBy { it.itemId } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
-    val favourite = c.vod.observeFavouriteIds(playlistId, VOD_SERIES).map { seriesId in it }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val favourite = c.vod.observeFavourite(playlistId, CAT_SERIES, seriesId).stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     init {
         load()
@@ -78,7 +78,7 @@ class SeriesDetailsViewModel(private val c: AppContainer, private val playlistId
         }
     }
 
-    fun toggleFavourite() = viewModelScope.launch { c.vod.setFavourite(playlistId, VOD_SERIES, seriesId, !favourite.value) }
+    fun toggleFavourite() = viewModelScope.launch { c.vod.setFavourite(playlistId, CAT_SERIES, seriesId, !favourite.value) }
 }
 
 /**
@@ -86,7 +86,7 @@ class SeriesDetailsViewModel(private val c: AppContainer, private val playlistId
  * when nothing has been watched yet.
  */
 fun continueEpisode(episodes: List<EpisodeInfo>, progress: Map<Long, WatchProgressEntity>): EpisodeInfo? {
-    val last = progress.values.filter { it.durationMs > 0 }.maxByOrNull { it.updatedAt } ?: return episodes.firstOrNull()
+    val last = progress.values.maxByOrNull { it.updatedAt } ?: return episodes.firstOrNull()
     val index = episodes.indexOfFirst { it.id == last.itemId }
     if (index < 0) return episodes.firstOrNull()
     return if (last.finished) episodes.getOrNull(index + 1) ?: episodes[index] else episodes[index]
@@ -111,7 +111,7 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
             if (next != null) {
                 val started = progress.isNotEmpty()
                 PillButton(
-                    if (started) "Continue: S${next.season} E${next.number}" else "Play S${next.season} E${next.number}",
+                    (if (started) "Continue: " else "Play ") + shortEpisodeLabel(next.season, next.number),
                     { play(next) },
                     rememberFirstFocus(next.id),
                     primary = true
@@ -156,7 +156,7 @@ private fun EpisodeRow(e: EpisodeInfo, progress: WatchProgressEntity?, onClick: 
                 Text(e.title, style = MaterialTheme.typography.titleSmall, maxLines = 1)
                 e.plot?.let { Muted(it) }
                 if (progress != null && !progress.finished && progress.durationMs > 0) {
-                    ProgressLine(progress.positionMs.toFloat() / progress.durationMs, Modifier.width(220.dp).padding(top = 4.dp))
+                    ProgressLine(progress.fraction, Modifier.width(220.dp).padding(top = 4.dp))
                 }
             }
             val duration = e.durationSec

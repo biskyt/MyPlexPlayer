@@ -3,8 +3,10 @@ package com.biskyt.mytvplayer.ui.common
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,10 +16,51 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+
+/**
+ * The selected entry of a [CategoryColumn]. Focusing an entry switches after a short pause, so moving through
+ * categories stays smooth; selecting switches at once. [onChange] runs when the selection changes.
+ */
+class CategoryFilter<F>(private val scope: CoroutineScope, initial: F, private val onChange: (F) -> Unit = {}) {
+    private val state = MutableStateFlow(initial)
+    val value: StateFlow<F> = state
+    private var job: Job? = null
+
+    fun focus(f: F) {
+        job?.cancel()
+        if (f == state.value) return
+        job = scope.launch {
+            delay(FOCUS_DELAY_MS)
+            set(f)
+        }
+    }
+
+    fun select(f: F) {
+        job?.cancel()
+        set(f)
+    }
+
+    private fun set(f: F) {
+        if (f == state.value) return
+        state.value = f
+        onChange(f)
+    }
+
+    private companion object {
+        const val FOCUS_DELAY_MS = 300L
+    }
+}
 
 /** One entry in a category column: a fixed list (Favourites, All…) or a provider category with its size. */
 data class CategoryEntry<F>(val filter: F, val label: String, val count: Int? = null)
@@ -50,5 +93,39 @@ fun <F> CategoryColumn(entries: List<CategoryEntry<F>>, selected: F, onFocus: (F
                 }
             }
         }
+    }
+}
+
+/** Above a list or grid: its title and size, a filter box, and anything screen-specific ([trailing]). */
+@Composable
+fun ListHeader(
+    title: String,
+    count: Int?,
+    query: String,
+    onQuery: (String) -> Unit,
+    placeholder: String,
+    trailing: @Composable RowScope.() -> Unit = {}
+) {
+    Row(
+        Modifier.padding(bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.headlineSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(0.45f, fill = false)
+        )
+        if (count != null) Muted("· ${formatCount(count)}")
+        TvTextField(
+            value = query,
+            onValueChange = onQuery,
+            placeholder = placeholder,
+            modifier = Modifier.weight(0.55f),
+            leading = { Icon(AppIcons.Filter, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) }
+        )
+        trailing()
     }
 }

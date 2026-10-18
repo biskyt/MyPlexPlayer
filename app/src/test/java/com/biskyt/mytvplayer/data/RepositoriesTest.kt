@@ -7,9 +7,9 @@ import com.biskyt.mytvplayer.core.xtream.XtreamException
 import com.biskyt.mytvplayer.data.db.AppDatabase
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
+import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.data.db.VOD_EPISODE
 import com.biskyt.mytvplayer.data.db.VOD_MOVIE
-import com.biskyt.mytvplayer.data.db.VOD_SERIES
 import com.biskyt.mytvplayer.data.db.WatchProgressEntity
 import com.biskyt.mytvplayer.testutil.FakeProvider
 import java.util.Locale
@@ -52,9 +52,10 @@ class RepositoriesTest {
         val http = OkHttpClient()
         settings = SettingsRepository(context)
         epg = EpgRepository(db, http, context.cacheDir.resolve("test-epg"), scope)
-        playlists = PlaylistRepository(db, http, settings, epg, context.cacheDir.resolve("test-playlists")) { Locale.UK }
+        val categoryStore = CategoryStore(db) { Locale.UK }
+        playlists = PlaylistRepository(db, http, settings, epg, context.cacheDir.resolve("test-playlists"), categoryStore)
         channels = ChannelRepository(db)
-        vod = VodRepository(db, playlists)
+        vod = VodRepository(db, playlists, categoryStore)
     }
 
     @After
@@ -90,7 +91,17 @@ class RepositoriesTest {
 
     @Test
     fun `a TV whose country the provider lacks falls back to its language`() = runBlocking {
-        val us = PlaylistRepository(db, OkHttpClient(), settings, epg, context.cacheDir.resolve("test-playlists")) { Locale.US }
+        val us =
+            PlaylistRepository(
+                db,
+                OkHttpClient(),
+                settings,
+                epg,
+                context.cacheDir.resolve("test-playlists"),
+                CategoryStore(db) {
+                    Locale.US
+                }
+            )
         val id = us.add("Home", provider.url, "me", "secret")
         val included = db.categories().all(id, CAT_LIVE).filter { it.included }.map { it.categoryId }
         assertEquals(listOf("1", "2"), included)
@@ -157,8 +168,8 @@ class RepositoriesTest {
     fun `excluding a category removes its channels on the next sync`() = runBlocking {
         val id = addPlaylist()
         playlists.syncChannels(id)
-        db.categories().setIncluded(id, listOf("2"), false)
-        db.categories().setIncluded(id, listOf("3"), true)
+        db.categories().setIncluded(id, CAT_LIVE, listOf("2"), false)
+        db.categories().setIncluded(id, CAT_LIVE, listOf("3"), true)
         playlists.syncChannels(id)
         assertEquals(setOf(101L, 103L, 201L), channels.ids(id, ChannelFilter.All).toSet())
         assertEquals(listOf(201L), channels.ids(id, ChannelFilter.Category("3")))
@@ -233,15 +244,15 @@ class RepositoriesTest {
         vod.sync(p)
         val movies = db.vod().moviesSnapshot(id)
         assertEquals(listOf("Dune" to 2021, "Paddington 2" to 2017), movies.map { it.title to it.year })
-        assertEquals("movie:10", movies.first().categoryId)
+        assertEquals("10", movies.first().categoryId)
         assertEquals(listOf("Line of Duty"), db.vod().seriesSnapshot(id).map { it.title })
         // Categories of each kind are kept apart, and live categories are untouched.
-        assertEquals(listOf("movie:10", "movie:11"), db.categories().all(id, CAT_MOVIE).map { it.categoryId })
+        assertEquals(listOf("10", "11"), db.categories().all(id, CAT_MOVIE).map { it.categoryId })
         assertEquals(2, db.categories().all(id, CAT_MOVIE).first().channelCount)
         assertEquals(4, db.categories().all(id, CAT_LIVE).size)
 
         // Including French movies brings Amélie in on the next sync; removing a movie at the provider drops it.
-        db.categories().setIncluded(id, listOf("movie:11"), true)
+        db.categories().setIncluded(id, CAT_MOVIE, listOf("11"), true)
         provider.movies = provider.movies.filter { it.first != 502L }
         vod.sync(p)
         assertEquals(setOf("Dune", "Amélie"), db.vod().moviesSnapshot(id).map { it.title }.toSet())
@@ -257,17 +268,21 @@ class RepositoriesTest {
         assertEquals(listOf(1, 2), show.seasons.map { it.number })
         assertEquals(3, show.episodes.size)
 
-        vod.setFavourite(id, VOD_SERIES, 77, true)
-        assertEquals(listOf(77L), vod.observeFavouriteIds(id, VOD_SERIES).first())
+        vod.setFavourite(id, CAT_SERIES, 77, true)
+        assertTrue(vod.observeFavourite(id, CAT_SERIES, 77).first())
 
-        fun progress(kind: String, item: Long, pos: Long, at: Long, seriesId: Long? = null) = WatchProgressEntity(
-            id, kind, item, pos, 3_600_000, at, "t", null, "mkv", seriesId = seriesId
-        )
+        fun progress(kind: String, item: Long, pos: Long, at: Long, seriesId: Long? = null, hasNext: Boolean = false) =
+            WatchProgressEntity(id, kind, item, pos, 3_600_000, at, "t", null, seriesId = seriesId, hasNext = hasNext)
         vod.saveProgress(progress(VOD_MOVIE, 501, 600_000, 1))
         vod.saveProgress(progress(VOD_EPISODE, 9001, 3_500_000, 2, seriesId = 77)) // finished
         vod.saveProgress(progress(VOD_EPISODE, 9002, 60_000, 3, seriesId = 77))
         vod.saveProgress(progress(VOD_MOVIE, 502, 3_400_000, 4)) // finished
         // Newest first; one row per series (its latest episode); finished things drop off.
         assertEquals(listOf(9002L, 501L), vod.observeCarryOn(id).first().map { it.itemId })
+        // A finished episode that has a next one stays, so the series carries on.
+        vod.saveProgress(progress(VOD_EPISODE, 9002, 3_500_000, 5, seriesId = 77, hasNext = true))
+        assertEquals(listOf(9002L, 501L), vod.observeCarryOn(id).first().map { it.itemId })
+        vod.saveProgress(progress(VOD_EPISODE, 9003, 3_500_000, 6, seriesId = 77), trim = true) // the last episode
+        assertEquals(listOf(501L), vod.observeCarryOn(id).first().map { it.itemId })
     }
 }

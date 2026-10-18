@@ -51,6 +51,9 @@ object CategoryLanguageDetector {
             )
         ).map { (name, code) -> padded(name) to code }.filter { it.first.isNotBlank() }.sortedByDescending { it.first.length }
 
+    /** Whether [code] is a language/country code providers put in front of names ("EN", "UK", "FRA"…). */
+    fun isLanguageCode(code: String): Boolean = code.uppercase().let { it in aliases || it in groups }
+
     fun detect(categoryName: String): String? {
         val m = leading.find(categoryName)
         if (m != null) {

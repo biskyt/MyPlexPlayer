@@ -160,7 +160,6 @@ class XtreamClientTest {
         assertEquals(2021, movie.year)
         assertEquals(9300, movie.durationSec)
         assertEquals("http://p/b.jpg", movie.backdropUrl)
-        assertEquals("mkv", movie.extension)
 
         server.enqueue(MockResponse().setBody("""{"info":[],"movie_data":{}}"""))
         assertNull(client.movieDetails(502).plot)

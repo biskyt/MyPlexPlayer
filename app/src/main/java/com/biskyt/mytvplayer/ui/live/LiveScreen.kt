@@ -23,8 +23,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -48,6 +46,7 @@ import com.biskyt.mytvplayer.ui.common.CategoryColumn
 import com.biskyt.mytvplayer.ui.common.CategoryEntry
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
 import com.biskyt.mytvplayer.ui.common.FlashLabel
+import com.biskyt.mytvplayer.ui.common.ListHeader
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.NowNext
 import com.biskyt.mytvplayer.ui.common.PillButton
@@ -55,13 +54,12 @@ import com.biskyt.mytvplayer.ui.common.ProgressLine
 import com.biskyt.mytvplayer.ui.common.Tab
 import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.TvCard
-import com.biskyt.mytvplayer.ui.common.TvTextField
 import com.biskyt.mytvplayer.ui.common.digit
-import com.biskyt.mytvplayer.ui.common.formatCount
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.common.isGuide
 import com.biskyt.mytvplayer.ui.common.numberLabel
 import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
+import com.biskyt.mytvplayer.ui.common.restoreFocusIf
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 
@@ -122,7 +120,7 @@ private fun LiveCategories(vm: LiveViewModel, selected: ChannelFilter) {
             CategoryEntry(ChannelFilter.All, "All channels")
         ) + categories.map { CategoryEntry<ChannelFilter>(ChannelFilter.Category(it.categoryId), it.name, it.channelCount) }
     }
-    CategoryColumn(entries, selected, vm::focusFilter, vm::selectFilter)
+    CategoryColumn(entries, selected, vm.filters::focus, vm.filters::select)
 }
 
 @Composable
@@ -140,26 +138,7 @@ private fun ListHeader(vm: LiveViewModel, filter: ChannelFilter) {
                 it?.channelCount
         }
     }
-    Row(
-        Modifier.padding(bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Text(
-            title,
-            style = MaterialTheme.typography.headlineSmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(0.45f, fill = false)
-        )
-        if (count != null) Muted("· ${formatCount(count)}")
-        TvTextField(
-            value = query,
-            onValueChange = { vm.query.value = it },
-            placeholder = "Filter by name or number",
-            modifier = Modifier.weight(0.55f),
-            leading = { Icon(AppIcons.Filter, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) }
-        )
+    ListHeader(title, count, query, { vm.query.value = it }, "Filter by name or number") {
         Row(Modifier.clip(RoundedCornerShape(12.dp)).background(Palette.surface).padding(4.dp)) {
             PillButton("List", { vm.showGuide(false) }, primary = !vm.guideMode)
             PillButton("TV guide", { vm.showGuide(true) }, primary = vm.guideMode)
@@ -173,7 +152,6 @@ private fun ChannelList(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
     val favs by vm.favouriteIds.collectAsState()
     val listState = vm.listState
     LaunchedEffect(Unit) { if (vm.restoreFocusPending) vm.revealFocused() }
-    val restore = remember { FocusRequester() }
     val now by rememberMinuteClock()
 
     LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
@@ -192,14 +170,9 @@ private fun ChannelList(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
                     nowMs = now,
                     onClick = { play(ch) },
                     onLongClick = { vm.optionsFor = ch },
-                    modifier = (if (wantsFocus) Modifier.focusRequester(restore) else Modifier)
+                    modifier = Modifier.restoreFocusIf(wantsFocus) { vm.restoreFocusPending = false }
                         .onFocusChanged { if (it.isFocused) vm.focusMoved(ch.streamId, index) }
                 )
-                if (wantsFocus) {
-                    LaunchedEffect(Unit) {
-                        if (runCatching { restore.requestFocus() }.isSuccess) vm.restoreFocusPending = false
-                    }
-                }
             }
         }
     }

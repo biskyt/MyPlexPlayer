@@ -36,10 +36,10 @@ const val CAT_MOVIE = "movie"
 const val CAT_SERIES = "series"
 
 /**
- * A provider category. Only items from [included] categories are downloaded. Movie and series category ids are
- * stored with their [type] in front ("movie:12"), as providers number each kind separately.
+ * A provider category of one [type] (providers number live, movie and series categories separately). Only items from
+ * [included] categories are downloaded.
  */
-@Entity(tableName = "category", primaryKeys = ["playlistId", "categoryId"])
+@Entity(tableName = "category", primaryKeys = ["playlistId", "type", "categoryId"])
 data class CategoryEntity(
     val playlistId: Long,
     val categoryId: String,
@@ -57,7 +57,15 @@ data class CategoryEntity(
 @Entity(
     tableName = "movie",
     primaryKeys = ["playlistId", "streamId"],
-    indices = [Index("playlistId", "categoryId", "position"), Index("playlistId", "position"), Index("playlistId", "added")]
+    // Title is in the order indexes so paged lists never sort (many providers number every title the same).
+    indices = [
+        Index(
+            "playlistId",
+            "categoryId",
+            "position",
+            "title"
+        ), Index("playlistId", "position", "title"), Index("playlistId", "added")
+    ]
 )
 data class MovieEntity(
     val playlistId: Long,
@@ -77,7 +85,11 @@ data class MovieEntity(
 @Entity(
     tableName = "series",
     primaryKeys = ["playlistId", "seriesId"],
-    indices = [Index("playlistId", "categoryId", "position"), Index("playlistId", "position"), Index("playlistId", "lastModified")]
+    indices = [
+        Index("playlistId", "categoryId", "position", "title"),
+        Index("playlistId", "position", "title"),
+        Index("playlistId", "lastModified")
+    ]
 )
 data class SeriesEntity(
     val playlistId: Long,
@@ -94,13 +106,16 @@ data class SeriesEntity(
 
 const val VOD_MOVIE = "movie"
 const val VOD_EPISODE = "episode"
-const val VOD_SERIES = "series"
 
 /**
- * How far into a movie or episode the user got, for resuming and "Carry on watching". Holds enough to show the row
- * and start playback without another lookup. [kind] is [VOD_MOVIE] or [VOD_EPISODE].
+ * How far into a movie or episode the user got, for resuming and "Carry on watching" (which shows [title] and
+ * [imageUrl] without another lookup). [kind] is [VOD_MOVIE] or [VOD_EPISODE].
  */
-@Entity(tableName = "watch_progress", primaryKeys = ["playlistId", "kind", "itemId"], indices = [Index("playlistId", "updatedAt")])
+@Entity(
+    tableName = "watch_progress",
+    primaryKeys = ["playlistId", "kind", "itemId"],
+    indices = [Index("playlistId", "updatedAt"), Index("playlistId", "seriesId", "updatedAt")]
+)
 data class WatchProgressEntity(
     val playlistId: Long,
     val kind: String,
@@ -110,14 +125,17 @@ data class WatchProgressEntity(
     val updatedAt: Long,
     val title: String,
     val imageUrl: String?,
-    val extension: String,
     /** Episodes: the series they belong to, and where in it. */
     val seriesId: Long? = null,
     val season: Int? = null,
     val episode: Int? = null,
-    val episodeTitle: String? = null
+    val episodeTitle: String? = null,
+    /** Episodes: whether another follows, so a finished one still leads "Carry on watching" to the next. */
+    val hasNext: Boolean = false
 ) {
     val finished: Boolean get() = durationMs > 0 && positionMs >= durationMs * FINISHED_FRACTION
+    val fraction: Float get() = if (durationMs > 0) positionMs.toFloat() / durationMs else 0f
+    val remainingMs: Long get() = (durationMs - positionMs).coerceAtLeast(0)
 
     companion object {
         /** Past this share of the running time (the credits), something counts as watched. */
@@ -125,7 +143,7 @@ data class WatchProgressEntity(
     }
 }
 
-/** A favourite movie or series. [kind] is [VOD_MOVIE] or [VOD_SERIES]. */
+/** A favourite movie or series. [kind] is [CAT_MOVIE] or [CAT_SERIES]. */
 @Entity(tableName = "vod_favourite", primaryKeys = ["playlistId", "kind", "itemId"])
 data class VodFavouriteEntity(val playlistId: Long, val kind: String, val itemId: Long, val addedAt: Long)
 

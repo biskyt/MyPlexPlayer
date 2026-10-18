@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 3,
-    "identityHash": "77e2312971e76b6ea7fb707af817ce60",
+    "identityHash": "0139e687c853fd1d992de5fbca116675",
     "entities": [
       {
         "tableName": "playlist",
@@ -71,7 +71,7 @@
       },
       {
         "tableName": "category",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`playlistId` INTEGER NOT NULL, `categoryId` TEXT NOT NULL, `name` TEXT NOT NULL, `lang` TEXT, `included` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, `channelCount` INTEGER NOT NULL, `type` TEXT NOT NULL DEFAULT 'live', PRIMARY KEY(`playlistId`, `categoryId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`playlistId` INTEGER NOT NULL, `categoryId` TEXT NOT NULL, `name` TEXT NOT NULL, `lang` TEXT, `included` INTEGER NOT NULL, `sortOrder` INTEGER NOT NULL, `channelCount` INTEGER NOT NULL, `type` TEXT NOT NULL DEFAULT 'live', PRIMARY KEY(`playlistId`, `type`, `categoryId`))",
         "fields": [
           {
             "fieldPath": "playlistId",
@@ -126,6 +126,7 @@
           "autoGenerate": false,
           "columnNames": [
             "playlistId",
+            "type",
             "categoryId"
           ]
         }
@@ -648,25 +649,27 @@
         },
         "indices": [
           {
-            "name": "index_movie_playlistId_categoryId_position",
+            "name": "index_movie_playlistId_categoryId_position_title",
             "unique": false,
             "columnNames": [
               "playlistId",
               "categoryId",
-              "position"
+              "position",
+              "title"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_movie_playlistId_categoryId_position` ON `${TABLE_NAME}` (`playlistId`, `categoryId`, `position`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_movie_playlistId_categoryId_position_title` ON `${TABLE_NAME}` (`playlistId`, `categoryId`, `position`, `title`)"
           },
           {
-            "name": "index_movie_playlistId_position",
+            "name": "index_movie_playlistId_position_title",
             "unique": false,
             "columnNames": [
               "playlistId",
-              "position"
+              "position",
+              "title"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_movie_playlistId_position` ON `${TABLE_NAME}` (`playlistId`, `position`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_movie_playlistId_position_title` ON `${TABLE_NAME}` (`playlistId`, `position`, `title`)"
           },
           {
             "name": "index_movie_playlistId_added",
@@ -751,25 +754,27 @@
         },
         "indices": [
           {
-            "name": "index_series_playlistId_categoryId_position",
+            "name": "index_series_playlistId_categoryId_position_title",
             "unique": false,
             "columnNames": [
               "playlistId",
               "categoryId",
-              "position"
+              "position",
+              "title"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_series_playlistId_categoryId_position` ON `${TABLE_NAME}` (`playlistId`, `categoryId`, `position`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_series_playlistId_categoryId_position_title` ON `${TABLE_NAME}` (`playlistId`, `categoryId`, `position`, `title`)"
           },
           {
-            "name": "index_series_playlistId_position",
+            "name": "index_series_playlistId_position_title",
             "unique": false,
             "columnNames": [
               "playlistId",
-              "position"
+              "position",
+              "title"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_series_playlistId_position` ON `${TABLE_NAME}` (`playlistId`, `position`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_series_playlistId_position_title` ON `${TABLE_NAME}` (`playlistId`, `position`, `title`)"
           },
           {
             "name": "index_series_playlistId_lastModified",
@@ -785,7 +790,7 @@
       },
       {
         "tableName": "watch_progress",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`playlistId` INTEGER NOT NULL, `kind` TEXT NOT NULL, `itemId` INTEGER NOT NULL, `positionMs` INTEGER NOT NULL, `durationMs` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `title` TEXT NOT NULL, `imageUrl` TEXT, `extension` TEXT NOT NULL, `seriesId` INTEGER, `season` INTEGER, `episode` INTEGER, `episodeTitle` TEXT, PRIMARY KEY(`playlistId`, `kind`, `itemId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`playlistId` INTEGER NOT NULL, `kind` TEXT NOT NULL, `itemId` INTEGER NOT NULL, `positionMs` INTEGER NOT NULL, `durationMs` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `title` TEXT NOT NULL, `imageUrl` TEXT, `seriesId` INTEGER, `season` INTEGER, `episode` INTEGER, `episodeTitle` TEXT, `hasNext` INTEGER NOT NULL, PRIMARY KEY(`playlistId`, `kind`, `itemId`))",
         "fields": [
           {
             "fieldPath": "playlistId",
@@ -835,12 +840,6 @@
             "affinity": "TEXT"
           },
           {
-            "fieldPath": "extension",
-            "columnName": "extension",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
             "fieldPath": "seriesId",
             "columnName": "seriesId",
             "affinity": "INTEGER"
@@ -859,6 +858,12 @@
             "fieldPath": "episodeTitle",
             "columnName": "episodeTitle",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "hasNext",
+            "columnName": "hasNext",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -879,6 +884,17 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_watch_progress_playlistId_updatedAt` ON `${TABLE_NAME}` (`playlistId`, `updatedAt`)"
+          },
+          {
+            "name": "index_watch_progress_playlistId_seriesId_updatedAt",
+            "unique": false,
+            "columnNames": [
+              "playlistId",
+              "seriesId",
+              "updatedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_watch_progress_playlistId_seriesId_updatedAt` ON `${TABLE_NAME}` (`playlistId`, `seriesId`, `updatedAt`)"
           }
         ]
       },
@@ -923,7 +939,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '77e2312971e76b6ea7fb707af817ce60')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0139e687c853fd1d992de5fbca116675')"
     ]
   }
 }

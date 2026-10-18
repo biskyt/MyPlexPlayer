@@ -15,7 +15,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,6 +30,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -37,6 +41,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
+import coil3.request.allowRgb565
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 
@@ -139,50 +144,51 @@ fun ProgressLine(fraction: Float, modifier: Modifier = Modifier, height: Dp = 5.
  * Images are decoded at the displayed size to keep memory low.
  */
 @Composable
-fun ChannelLogo(url: String?, name: String, width: Dp = 72.dp, height: Dp = 40.dp) {
+fun ChannelLogo(url: String?, name: String, width: Dp = 72.dp, height: Dp = 40.dp) =
+    ImageWithInitials(url, name, width, height, RoundedCornerShape(9.dp), ContentScale.Fit, 4.dp, MaterialTheme.typography.labelMedium)
+
+/** A movie or series poster (2:3). Posters are opaque, so they're decoded at half the memory of logos. */
+@Composable
+fun Poster(url: String?, title: String, width: Dp, modifier: Modifier = Modifier) = ImageWithInitials(
+    url, title, width, width * 3 / 2, RoundedCornerShape(10.dp), ContentScale.Crop, 0.dp, MaterialTheme.typography.titleMedium, modifier,
+    opaque = true
+)
+
+/** An image downsampled to its size on screen, with the name's initials until (or unless) it loads. */
+@Composable
+private fun ImageWithInitials(
+    url: String?,
+    name: String,
+    width: Dp,
+    height: Dp,
+    shape: Shape,
+    contentScale: ContentScale,
+    padding: Dp,
+    textStyle: TextStyle,
+    modifier: Modifier = Modifier,
+    opaque: Boolean = false
+) {
     val context = LocalContext.current
     val density = LocalDensity.current
     val request = remember(url) {
         url?.let {
-            with(density) { ImageRequest.Builder(context).data(it).size(width.roundToPx(), height.roundToPx()).build() }
+            with(density) {
+                ImageRequest.Builder(context).data(it).size(width.roundToPx(), height.roundToPx()).apply {
+                    if (opaque) allowRgb565(true)
+                }.build()
+            }
         }
     }
-    Box(
-        Modifier.size(width, height).clip(RoundedCornerShape(9.dp)).background(Palette.surfaceHigh),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(remember(name) { initials(name) }, style = MaterialTheme.typography.labelMedium, color = Palette.textDim, maxLines = 1)
+    var loaded by remember(url) { mutableStateOf(false) }
+    Box(modifier.size(width, height).clip(shape).background(Palette.surfaceHigh), contentAlignment = Alignment.Center) {
+        if (!loaded) Text(remember(name) { initials(name) }, style = textStyle, color = Palette.textDim, maxLines = 1)
         if (request != null) {
             AsyncImage(
                 model = request,
                 contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.size(width, height).padding(4.dp)
-            )
-        }
-    }
-}
-
-/** A movie or series poster (2:3), downsampled to its size on screen; the title's initials show until it loads. */
-@Composable
-fun Poster(url: String?, title: String, width: Dp, modifier: Modifier = Modifier) {
-    val height = width * 3 / 2
-    val context = LocalContext.current
-    val density = LocalDensity.current
-    val request = remember(url) {
-        url?.let { with(density) { ImageRequest.Builder(context).data(it).size(width.roundToPx(), height.roundToPx()).build() } }
-    }
-    Box(
-        modifier.size(width, height).clip(RoundedCornerShape(10.dp)).background(Palette.surfaceHigh),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(remember(title) { initials(title) }, style = MaterialTheme.typography.titleMedium, color = Palette.textDim, maxLines = 1)
-        if (request != null) {
-            AsyncImage(
-                model = request,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.size(width, height)
+                contentScale = contentScale,
+                onSuccess = { loaded = true },
+                modifier = Modifier.size(width, height).padding(padding)
             )
         }
     }
