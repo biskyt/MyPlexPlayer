@@ -29,13 +29,14 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
 
     data class Stream(val id: Long, val num: Int, val name: String, val cat: String, val epgId: String?)
 
-    var movieCategories = listOf("10" to "UK | MOVIES", "11" to "FR | FILMS")
+    var movieCategories = listOf("10" to "UK | MOVIES", "11" to "FR | FILMS", "12" to "ACTION")
 
     /** Movies: id to (raw name, category id, added epoch seconds). */
     var movies = listOf(
         Triple(501L, "EN - Dune (2021)", "10"),
         Triple(502L, "|UK| Paddington 2 (2017)", "10"),
         Triple(601L, "FR - Amélie (2001)", "11"),
+        Triple(701L, "Heat (1995)", "12"),
     )
 
     var seriesCategories = listOf("20" to "UK | DRAMA", "21" to "FR | SERIES")

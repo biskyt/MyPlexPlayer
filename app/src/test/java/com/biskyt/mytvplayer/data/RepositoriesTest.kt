@@ -243,11 +243,12 @@ class RepositoriesTest {
         val p = playlists.get(id)!!
         vod.sync(p)
         val movies = db.vod().moviesSnapshot(id)
-        assertEquals(listOf("Dune" to 2021, "Paddington 2" to 2017), movies.map { it.title to it.year })
+        // Untagged categories ("ACTION") count as the provider's own language, so they're included too.
+        assertEquals(listOf("Dune" to 2021, "Paddington 2" to 2017, "Heat" to 1995), movies.map { it.title to it.year })
         assertEquals("10", movies.first().categoryId)
         assertEquals(listOf("Line of Duty"), db.vod().seriesSnapshot(id).map { it.title })
         // Categories of each kind are kept apart, and live categories are untouched.
-        assertEquals(listOf("10", "11"), db.categories().all(id, CAT_MOVIE).map { it.categoryId })
+        assertEquals(listOf("10", "11", "12"), db.categories().all(id, CAT_MOVIE).map { it.categoryId })
         assertEquals(2, db.categories().all(id, CAT_MOVIE).first().channelCount)
         assertEquals(4, db.categories().all(id, CAT_LIVE).size)
 
@@ -255,7 +256,12 @@ class RepositoriesTest {
         db.categories().setIncluded(id, CAT_MOVIE, listOf("11"), true)
         provider.movies = provider.movies.filter { it.first != 502L }
         vod.sync(p)
-        assertEquals(setOf("Dune", "Amélie"), db.vod().moviesSnapshot(id).map { it.title }.toSet())
+        assertEquals(setOf("Dune", "Amélie", "Heat"), db.vod().moviesSnapshot(id).map { it.title }.toSet())
+
+        // A movie list with nothing included (as stored by 0.3.0, which ignored untagged categories) gets its defaults again.
+        db.categories().setIncluded(id, CAT_MOVIE, listOf("10", "11", "12"), false)
+        vod.sync(p)
+        assertEquals(listOf("10", "12"), db.categories().all(id, CAT_MOVIE).filter { it.included }.map { it.categoryId })
     }
 
     @Test

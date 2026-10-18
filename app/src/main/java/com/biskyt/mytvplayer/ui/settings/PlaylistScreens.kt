@@ -59,6 +59,11 @@ class PlaylistsViewModel(private val c: AppContainer) : ViewModel() {
         then()
     }
 
+    /** Downloads the playlist's channels, guide, movies and series again (progress shows in the top bar). */
+    fun update(p: PlaylistEntity) {
+        c.sync.refresh(p.id)
+    }
+
     /** Adding the free iptv-org channels: true while downloading; [freeError] if it failed. */
     var addingFree by mutableStateOf(false)
         private set
@@ -115,6 +120,7 @@ fun PlaylistsScreen() {
                         if (isActive) Text("IN USE", style = MaterialTheme.typography.labelMedium, color = accent.color)
                     }
                 }
+                PillButton("Update now", { vm.update(p) })
                 PillButton("Edit", { nav.push(Screen.PlaylistEdit(p.id)) })
             }
         }

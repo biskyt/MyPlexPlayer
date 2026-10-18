@@ -44,6 +44,7 @@ import com.biskyt.mytvplayer.ui.common.CategoryEntry
 import com.biskyt.mytvplayer.ui.common.CategoryFilter
 import com.biskyt.mytvplayer.ui.common.ListHeader
 import com.biskyt.mytvplayer.ui.common.Muted
+import com.biskyt.mytvplayer.ui.common.PillButton
 import com.biskyt.mytvplayer.ui.common.Poster
 import com.biskyt.mytvplayer.ui.common.Tab
 import com.biskyt.mytvplayer.ui.common.TabScaffold
@@ -89,6 +90,11 @@ class VodBrowseViewModel(private val c: AppContainer, val type: String, initialF
     /** The title last opened, to return focus to it when coming back. */
     var focusId: Long? = null
     var restoreFocusPending by mutableStateOf(false)
+
+    /** Downloads the movie and series lists (progress shows in the top bar). */
+    fun loadNow() {
+        c.sync.refreshVod(playlist.value?.id ?: return)
+    }
 
     fun open(card: VodCard, pid: Long): Screen {
         focusId = card.id
@@ -142,15 +148,17 @@ private fun PosterGrid(vm: VodBrowseViewModel, pid: Long) {
     val nav = LocalNavigator.current
     val items = vm.items.collectAsLazyPagingItems()
     if (items.itemCount == 0) {
-        Muted(
-            if (vm.filters.value.collectAsState().value == VodFilter.Favourites) {
-                "No favourites yet. Open a title and choose “Add to favourites”."
-            } else {
-                "Nothing here yet. Movies and series load after channels; choose which categories to load in Settings › Languages & categories."
-            },
-            Modifier.padding(top = 24.dp),
-            maxLines = 2
-        )
+        if (vm.filters.value.collectAsState().value == VodFilter.Favourites) {
+            Muted("No favourites yet. Open a title and choose “Add to favourites”.", Modifier.padding(top = 24.dp))
+        } else {
+            Column(Modifier.padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Muted("Nothing here yet. Load them now, or choose which categories to load.", maxLines = 2)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    PillButton("Load now", vm::loadNow, primary = true)
+                    PillButton("Choose categories", { nav.push(Screen.Categories(pid)) })
+                }
+            }
+        }
         return
     }
     LazyVerticalGrid(
