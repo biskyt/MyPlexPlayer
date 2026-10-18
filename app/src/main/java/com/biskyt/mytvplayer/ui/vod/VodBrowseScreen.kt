@@ -184,7 +184,7 @@ private fun PosterGrid(vm: VodBrowseViewModel, pid: Long) {
 }
 
 @Composable
-private fun PosterCard(card: VodCard, modifier: Modifier, onClick: () -> Unit) {
+internal fun PosterCard(card: VodCard, modifier: Modifier = Modifier, onClick: () -> Unit) {
     TvCard(onClick = onClick, color = Palette.background, modifier = modifier) {
         Column(Modifier.padding(6.dp).width(POSTER_WIDTH), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Poster(card.imageUrl, card.title, POSTER_WIDTH)

@@ -21,6 +21,7 @@ import com.biskyt.mytvplayer.data.CategoryStore
 import com.biskyt.mytvplayer.data.ChannelRepository
 import com.biskyt.mytvplayer.data.EpgRepository
 import com.biskyt.mytvplayer.data.PlaylistRepository
+import com.biskyt.mytvplayer.data.SearchRepository
 import com.biskyt.mytvplayer.data.SettingsRepository
 import com.biskyt.mytvplayer.data.SyncManager
 import com.biskyt.mytvplayer.data.VodRepository
@@ -46,6 +47,7 @@ class AppContainer(context: Context) {
     val playlists = PlaylistRepository(db, http, settings, epg, context.cacheDir.resolve("playlists"), categoryStore)
     val channels = ChannelRepository(db)
     val vod = VodRepository(db, playlists, categoryStore)
+    val search = SearchRepository(db)
     val sync = SyncManager(appScope, playlists, vod, epg)
 }
 
