@@ -14,8 +14,11 @@ data class PlaylistEntity(
     val password: String,
     val lastSyncAt: Long = 0,
     val expiresAt: Long? = null,
-    val maxConnections: Int? = null,
-)
+    val maxConnections: Int? = null
+) {
+    /** Channels are refreshed in the background when the last download is older than this. */
+    fun isStale(now: Long = System.currentTimeMillis()) = now - lastSyncAt > 12 * 3_600_000L
+}
 
 /** A provider category. Only channels from [included] categories are downloaded. */
 @Entity(tableName = "category", primaryKeys = ["playlistId", "categoryId"])
@@ -27,17 +30,22 @@ data class CategoryEntity(
     val lang: String?,
     val included: Boolean,
     val sortOrder: Int,
-    val channelCount: Int = 0,
+    val channelCount: Int = 0
 )
 
 /**
- * Provider fields are refreshed on every sync; [hidden] and [sortOrder] are the user's and survive syncs
- * (sync uses an upsert that only touches provider columns).
+ * Provider fields are refreshed on every sync; [hidden] and [sortOrder] are the user's and survive syncs.
+ * [position] is the effective list order (the user's [sortOrder], else the provider number), stored so lists of
+ * thousands of channels page straight from an index instead of sorting every row.
  */
 @Entity(
     tableName = "channel",
     primaryKeys = ["playlistId", "streamId"],
-    indices = [Index("playlistId", "categoryId", "number"), Index("playlistId", "number")],
+    indices = [
+        Index("playlistId", "hidden", "position", "name"),
+        Index("playlistId", "categoryId", "hidden", "position", "name"),
+        Index("playlistId", "number")
+    ]
 )
 data class ChannelEntity(
     val playlistId: Long,
@@ -47,10 +55,12 @@ data class ChannelEntity(
     val categoryId: String,
     val logoUrl: String?,
     val providerEpgId: String?,
+    /** Catch-up days offered by the provider (used by catch-up TV in the next update). */
     val archiveDays: Int,
     val hidden: Boolean = false,
     val sortOrder: Int? = null,
-    @ColumnInfo(defaultValue = "0") val syncStamp: Long = 0,
+    val position: Int = sortOrder ?: number,
+    @ColumnInfo(defaultValue = "0") val syncStamp: Long = 0
 )
 
 @Entity(tableName = "favourite", primaryKeys = ["playlistId", "streamId"])
@@ -69,16 +79,15 @@ data class EpgSourceEntity(
     val enabled: Boolean = true,
     val lastImportAt: Long = 0,
     val channelCount: Int = 0,
-    val lastError: String? = null,
+    val lastError: String? = null
 )
 
-@Entity(tableName = "epg_channel", primaryKeys = ["sourceId", "xmlId"], indices = [Index("nameNorm")])
+@Entity(tableName = "epg_channel", primaryKeys = ["sourceId", "xmlId"])
 data class EpgChannelEntity(
     val sourceId: Long,
     val xmlId: String,
     val displayName: String,
-    val nameNorm: String,
-    val iconUrl: String?,
+    val nameNorm: String
 )
 
 @Entity(tableName = "programme", primaryKeys = ["sourceId", "xmlId", "startMs"], indices = [Index("stopMs")])
@@ -90,9 +99,8 @@ data class ProgrammeEntity(
     val title: String,
     val subtitle: String?,
     val description: String?,
-    val category: String?,
     /** Import run that last wrote this row; rows from older runs are deleted once an import finishes. */
-    @ColumnInfo(defaultValue = "0") val stamp: Long = 0,
+    @ColumnInfo(defaultValue = "0") val stamp: Long = 0
 )
 
 /**
@@ -107,5 +115,5 @@ data class ChannelEpgMappingEntity(
     val xmlId: String?,
     val manual: Boolean,
     val score: Double,
-    val offsetMinutes: Int = 0,
+    val offsetMinutes: Int = 0
 )

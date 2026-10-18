@@ -31,8 +31,8 @@ class XtreamClientTest {
     fun `account parses user info and sends credentials`() = runTest {
         server.enqueue(
             MockResponse().setBody(
-                """{"user_info":{"auth":1,"status":"Active","exp_date":"1800000000","max_connections":"2","active_cons":0},"server_info":{}}""",
-            ),
+                """{"user_info":{"auth":1,"status":"Active","exp_date":"1800000000","max_connections":"2","active_cons":0},"server_info":{}}"""
+            )
         )
         val account = client.account()
         assertTrue(account.active)
@@ -72,8 +72,8 @@ class XtreamClientTest {
                   {"num":1,"name":"UK: ARENA 1 HD","stream_id":"101","stream_icon":"","epg_channel_id":null,"category_id":"5","tv_archive":1,"tv_archive_duration":"7"},
                   {"num":"2","name":" Kite Kids ","stream_id":102,"stream_icon":"http://x/logo.png","epg_channel_id":"kite.uk","category_id":5,"tv_archive":"0"},
                   {"name":"broken, no id"}
-                ]""",
-            ),
+                ]"""
+            )
         )
         val streams = mutableListOf<XtreamLiveStream>()
         val count = client.liveStreams("5") { streams += it }
@@ -95,7 +95,10 @@ class XtreamClientTest {
         server.enqueue(MockResponse().setBody(body))
         var seen = 0
         var last = -1L
-        client.liveStreams { seen++; last = it.streamId }
+        client.liveStreams {
+            seen++
+            last = it.streamId
+        }
         assertEquals(5000, seen)
         assertEquals(4999L, last)
     }

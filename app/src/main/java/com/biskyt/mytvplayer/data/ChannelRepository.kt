@@ -3,11 +3,11 @@ package com.biskyt.mytvplayer.data
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import androidx.room.withTransaction
 import com.biskyt.mytvplayer.data.db.AppDatabase
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.FavouriteEntity
 import com.biskyt.mytvplayer.data.db.RecentEntity
-import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 
 /** Which channels a list shows. Zapping in the player follows the same list. */
@@ -58,7 +58,13 @@ class ChannelRepository(private val db: AppDatabase) {
     fun observeHidden(playlistId: Long) = channels.observeHidden(playlistId)
 
     suspend fun setFavourite(playlistId: Long, streamId: Long, favourite: Boolean) {
-        if (favourite) favourites.add(FavouriteEntity(playlistId, streamId, System.currentTimeMillis())) else favourites.remove(playlistId, streamId)
+        if (favourite) {
+            favourites.add(
+                FavouriteEntity(playlistId, streamId, System.currentTimeMillis())
+            )
+        } else {
+            favourites.remove(playlistId, streamId)
+        }
     }
 
     suspend fun markWatched(playlistId: Long, streamId: Long) {

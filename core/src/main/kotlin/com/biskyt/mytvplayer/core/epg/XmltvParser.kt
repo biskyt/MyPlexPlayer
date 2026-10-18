@@ -1,10 +1,7 @@
 package com.biskyt.mytvplayer.core.epg
 
-import org.xmlpull.v1.XmlPullParser
 import java.io.InputStream
-import java.time.LocalDateTime
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
+import org.xmlpull.v1.XmlPullParser
 
 data class XmltvChannel(val id: String, val names: List<String>, val iconUrl: String?)
 
@@ -14,8 +11,7 @@ data class XmltvProgramme(
     val stopMs: Long,
     val title: String,
     val subtitle: String?,
-    val description: String?,
-    val category: String?,
+    val description: String?
 )
 
 /**
@@ -28,14 +24,14 @@ data class XmltvProgramme(
 class XmltvParser(
     private val newParser: () -> XmlPullParser,
     private val windowStartMs: Long = Long.MIN_VALUE,
-    private val windowEndMs: Long = Long.MAX_VALUE,
+    private val windowEndMs: Long = Long.MAX_VALUE
 ) {
     /** Blocking read; call from an IO dispatcher. Callbacks may suspend (e.g. to write a batch to the database). */
     suspend fun parse(
         input: InputStream,
         wantProgrammes: (channelId: String) -> Boolean,
         onChannel: suspend (XmltvChannel) -> Unit,
-        onProgramme: suspend (XmltvProgramme) -> Unit,
+        onProgramme: suspend (XmltvProgramme) -> Unit
     ) {
         val p = newParser()
         p.setInput(input, null)
@@ -45,14 +41,21 @@ class XmltvParser(
                 XmlPullParser.START_TAG -> when (p.name) {
                     "channel" -> readChannel(p)?.let { onChannel(it) }
                     "programme" -> {
+                        // Check the channel before parsing times: most programmes in a big guide are skipped.
                         val id = p.getAttributeValue(null, "channel")
-                        val start = parseTime(p.getAttributeValue(null, "start"))
-                        val stop = parseTime(p.getAttributeValue(null, "stop"))
-                        if (id == null || start == null || !wantProgrammes(id)) {
+                        val start = if (id != null && wantProgrammes(id)) parseTime(p.getAttributeValue(null, "start")) else null
+                        if (id == null || start == null) {
                             p.skipElement()
                         } else {
+                            val stop = parseTime(p.getAttributeValue(null, "stop"))
                             val end = stop ?: (start + DEFAULT_LENGTH_MS)
-                            if (end <= windowStartMs || start >= windowEndMs) p.skipElement() else onProgramme(readProgramme(p, id, start, end))
+                            if (end <= windowStartMs ||
+                                start >= windowEndMs
+                            ) {
+                                p.skipElement()
+                            } else {
+                                onProgramme(readProgramme(p, id, start, end))
+                            }
                         }
                     }
                 }
@@ -67,7 +70,10 @@ class XmltvParser(
         forEachChild(p) { tag ->
             when (tag) {
                 "display-name" -> p.nextText().trim().takeIf { it.isNotEmpty() }?.let(names::add)
-                "icon" -> { icon = p.getAttributeValue(null, "src"); p.skipElement() }
+                "icon" -> {
+                    icon = p.getAttributeValue(null, "src")
+                    p.skipElement()
+                }
                 else -> p.skipElement()
             }
         }
@@ -78,17 +84,15 @@ class XmltvParser(
         var title: String? = null
         var sub: String? = null
         var desc: String? = null
-        var category: String? = null
         forEachChild(p) { tag ->
             when (tag) {
                 "title" -> p.nextText().trim().let { if (title == null) title = it }
                 "sub-title" -> p.nextText().trim().let { if (sub == null) sub = it }
                 "desc" -> p.nextText().trim().let { if (desc == null) desc = it }
-                "category" -> p.nextText().trim().let { if (category == null) category = it }
                 else -> p.skipElement()
             }
         }
-        return XmltvProgramme(channelId, start, stop, title?.ifEmpty { null } ?: "No title", sub?.ifEmpty { null }, desc?.ifEmpty { null }, category)
+        return XmltvProgramme(channelId, start, stop, title?.ifEmpty { null } ?: "No title", sub?.ifEmpty { null }, desc?.ifEmpty { null })
     }
 
     /** Calls [onChild] for each direct child start tag; [onChild] must consume the child element. */
@@ -114,24 +118,52 @@ class XmltvParser(
 
     companion object {
         private const val DEFAULT_LENGTH_MS = 30 * 60_000L
-        private val BASIC = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
 
-        /** Parses XMLTV times such as `20261018180000 +0100`; a missing offset means UTC. */
+        /**
+         * Parses XMLTV times such as `20261018180000 +0100`; a missing offset means UTC. Hand-rolled digit parsing:
+         * this runs for every programme kept from guides with hundreds of thousands of entries.
+         */
+        @Suppress("CyclomaticComplexMethod", "ComplexCondition") // flat, allocation-free on purpose
         fun parseTime(value: String?): Long? {
-            val v = value?.trim() ?: return null
-            if (v.length < 14) return null
-            return try {
-                val local = LocalDateTime.parse(v.substring(0, 14), BASIC)
-                val offsetText = v.substring(14).trim()
-                val offset = if (offsetText.length == 5 && (offsetText[0] == '+' || offsetText[0] == '-')) {
-                    ZoneOffset.of(offsetText.substring(0, 3) + ":" + offsetText.substring(3))
-                } else {
-                    ZoneOffset.UTC
+            val v = value ?: return null
+            var i = 0
+            while (i < v.length && v[i] == ' ') i++
+            if (v.length - i < 14) return null
+            fun num(from: Int, len: Int): Int {
+                var n = 0
+                for (k in from until from + len) {
+                    val d = v[k] - '0'
+                    if (d !in 0..9) return -1
+                    n = n * 10 + d
                 }
-                local.toInstant(offset).toEpochMilli()
-            } catch (_: RuntimeException) {
-                null
+                return n
             }
+            val year = num(i, 4)
+            val month = num(i + 4, 2)
+            val day = num(i + 6, 2)
+            val hour = num(i + 8, 2)
+            val minute = num(i + 10, 2)
+            val second = num(i + 12, 2)
+            if (year < 0 || month !in 1..12 || day !in 1..31 || hour !in 0..23 || minute !in 0..59 || second !in 0..60) return null
+            var offsetSec = 0
+            var j = i + 14
+            while (j < v.length && v[j] == ' ') j++
+            if (v.length - j >= 5 && (v[j] == '+' || v[j] == '-')) {
+                val hh = num(j + 1, 2)
+                val mm = num(j + 3, 2)
+                if (hh >= 0 && mm >= 0) offsetSec = (hh * 3600 + mm * 60) * if (v[j] == '-') -1 else 1
+            }
+            return (daysFromCivil(year, month, day) * 86_400L + hour * 3600 + minute * 60 + second - offsetSec) * 1000
+        }
+
+        /** Days since 1970-01-01 for a proleptic Gregorian date (Howard Hinnant's algorithm). */
+        private fun daysFromCivil(year: Int, month: Int, day: Int): Long {
+            val y = if (month <= 2) year - 1 else year
+            val era = (if (y >= 0) y else y - 399) / 400
+            val yoe = y - era * 400
+            val doy = (153 * (month + (if (month > 2) -3 else 9)) + 2) / 5 + day - 1
+            val doe = yoe * 365 + yoe / 4 - yoe / 100 + doy
+            return era * 146_097L + doe - 719_468
         }
     }
 }

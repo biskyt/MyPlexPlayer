@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -15,6 +14,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.ui.guide.GuideMatchingScreen
@@ -45,29 +46,30 @@ fun AppRoot() {
     // Only the first settings value decides the start screen; later changes (e.g. last channel) mustn't recompose the app.
     val initial = remember { s }
     MyTvTheme(accentArgb = s.accent, largeText = s.largeText) {
-        var navigator by remember { mutableStateOf<Navigator?>(null) }
+        val root = viewModel<RootViewModel>()
         LaunchedEffect(Unit) {
+            if (root.navigator != null) return@LaunchedEffect
             // Decide the first screen once: set-up if there is no playlist yet, else Home (or the last channel).
             val s = initial
-            val playlist = container.playlists.get(s.activePlaylistId) ?: container.playlists.allIds().firstOrNull()?.let { container.playlists.get(it) }
-            navigator = when {
+            val playlist =
+                container.playlists.get(s.activePlaylistId)
+                    ?: container.playlists.allIds().firstOrNull()?.let { container.playlists.get(it) }
+            root.navigator = when {
                 playlist == null -> Navigator(Screen.PlaylistEdit(null, firstRun = true))
                 else -> Navigator(Screen.Home).also { nav ->
                     if (playlist.id != s.activePlaylistId) container.settings.update { it.copy(activePlaylistId = playlist.id) }
-                    if (System.currentTimeMillis() - playlist.lastSyncAt > STALE_MS) container.sync.refresh(playlist.id)
+                    if (playlist.isStale()) container.sync.refresh(playlist.id)
                     if (s.startOnLastChannel && s.lastChannelId != 0L && container.channels.get(playlist.id, s.lastChannelId) != null) {
                         nav.push(Screen.Player(playlist.id, s.lastChannelId, ChannelFilter.All))
                     }
                 }
             }
         }
-        val nav = navigator ?: run {
+        val nav = root.navigator ?: run {
             Box(Modifier.fillMaxSize().background(Palette.background))
             return@MyTvTheme
         }
         val activity = LocalContext.current as? Activity
-        // The navigator lives only as long as this composition, so release its screens (and the player) with it.
-        DisposableEffect(nav) { onDispose { nav.clear() } }
         BackHandler {
             when {
                 nav.pop() -> Unit
@@ -102,4 +104,11 @@ private fun ScreenContent(screen: Screen) {
     }
 }
 
-private const val STALE_MS = 12 * 3_600_000L
+/** Owns the back stack for the activity's lifetime and releases every screen (and the player) with it. */
+class RootViewModel : ViewModel() {
+    var navigator by mutableStateOf<Navigator?>(null)
+
+    override fun onCleared() {
+        navigator?.clear()
+    }
+}

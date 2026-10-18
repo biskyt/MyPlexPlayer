@@ -9,15 +9,22 @@ data class EpgCandidate(val sourceId: Long, val xmlId: String, val displayName: 
 data class EpgMatch(val candidate: EpgCandidate, val score: Double)
 
 /**
- * Suggests EPG channels for playlist channels. Built once per refresh from all candidates, then queried per channel.
- * An inverted token index keeps lookups cheap even with tens of thousands of candidates.
+ * Suggests EPG channels for playlist channels. Built once from all candidates, then queried per channel.
+ *
+ * Matching runs for thousands of channels against tens of thousands of guide channels on a slow CPU, so: candidate
+ * tokens are computed once here, shared tokens are counted while walking an inverted index, very common words are
+ * ignored when rarer ones exist, and the string-distance check only runs on the best few candidates.
  */
 class ChannelMatcher(candidates: List<EpgCandidate>) {
-    private val byXmlId = candidates.groupBy { it.xmlId.lowercase() }
-    private val byNormalized = candidates.groupBy { it.normalized }
-    private val byToken = HashMap<String, MutableList<EpgCandidate>>().also { index ->
-        for (c in candidates) for (t in ChannelNames.tokens(c.normalized)) index.getOrPut(t) { ArrayList() }.add(c)
+    private class Entry(val candidate: EpgCandidate, val tokens: Set<String>, val numbers: Set<String>)
+
+    private val entries = candidates.map { c -> ChannelNames.tokens(c.normalized).let { t -> Entry(c, t, t.numberTokens()) } }
+    private val byXmlId = entries.groupBy { it.candidate.xmlId.lowercase() }
+    private val byNormalized = entries.groupBy { it.candidate.normalized }
+    private val byToken = HashMap<String, MutableList<Entry>>().also { index ->
+        for (e in entries) for (t in e.tokens) index.getOrPut(t) { ArrayList() }.add(e)
     }
+    private val commonTokenSize = max(COMMON_TOKEN_MIN, entries.size / COMMON_TOKEN_DIVISOR)
 
     /** Best automatic match, or null when nothing reaches [AUTO_THRESHOLD]. */
     fun autoMatch(channelName: String, providerEpgId: String?): EpgMatch? =
@@ -25,44 +32,46 @@ class ChannelMatcher(candidates: List<EpgCandidate>) {
 
     fun suggestions(channelName: String, providerEpgId: String?, limit: Int = 5): List<EpgMatch> {
         val results = LinkedHashMap<EpgCandidate, Double>()
-        providerEpgId?.lowercase()?.let { id -> byXmlId[id]?.forEach { results[it] = 1.0 } }
+        providerEpgId?.lowercase()?.let { id -> byXmlId[id]?.forEach { results[it.candidate] = 1.0 } }
 
         val norm = ChannelNames.normalize(channelName)
-        if (norm.isEmpty()) return results.toMatches(limit)
-        byNormalized[norm]?.forEach { results.putIfAbsent(it, EXACT_NAME_SCORE) }
-
-        val tokens = ChannelNames.tokens(norm)
-        val seen = HashSet<EpgCandidate>()
-        for (t in tokens) {
-            val bucket = byToken[t] ?: continue
-            for (c in bucket) {
-                if (c in results || !seen.add(c)) continue
-                val s = similarity(norm, tokens, c.normalized)
-                if (s >= MIN_SUGGESTION) results[c] = s
-            }
+        if (norm.isNotEmpty()) {
+            byNormalized[norm]?.forEach { results.putIfAbsent(it.candidate, EXACT_NAME_SCORE) }
+            fuzzy(norm, results)
         }
-        return results.toMatches(limit)
+        return results.entries.sortedByDescending { it.value }.take(limit).map { EpgMatch(it.key, it.value) }
     }
 
-    private fun Map<EpgCandidate, Double>.toMatches(limit: Int) =
-        entries.sortedByDescending { it.value }.take(limit).map { EpgMatch(it.key, it.value) }
+    private fun fuzzy(norm: String, results: MutableMap<EpgCandidate, Double>) {
+        val tokens = ChannelNames.tokens(norm)
+        val numbers = tokens.numberTokens()
+        val buckets = tokens.mapNotNull { byToken[it] }
+        // Words like "tv" or "sport" appear in thousands of guide channels; only use them if nothing rarer matches.
+        val useful = buckets.filter { it.size <= commonTokenSize }.ifEmpty { buckets }
+        val shared = HashMap<Entry, Int>()
+        for (bucket in useful) for (e in bucket) shared.merge(e, 1, Int::plus)
+
+        shared.entries
+            .map { (e, n) -> e to 2.0 * n / (tokens.size + e.tokens.size) }
+            .sortedByDescending { it.second }
+            .take(FUZZY_CANDIDATES)
+            .forEach { (e, dice) ->
+                if (e.candidate in results) return@forEach
+                var score = 0.6 * dice + 0.4 * jaroWinkler(norm, e.candidate.normalized)
+                if (numbers != e.numbers) score *= 0.6 // "Sports 1" is not "Sports 10"
+                if (score >= MIN_SUGGESTION) results[e.candidate] = score
+            }
+    }
 
     companion object {
         const val AUTO_THRESHOLD = 0.85
         private const val EXACT_NAME_SCORE = 0.97
         private const val MIN_SUGGESTION = 0.4
+        private const val FUZZY_CANDIDATES = 40
+        private const val COMMON_TOKEN_MIN = 200
+        private const val COMMON_TOKEN_DIVISOR = 20
 
-        /** Token overlap blended with Jaro-Winkler; channels whose numbers differ ("Sports 1" vs "Sports 10") are heavily penalised. */
-        fun similarity(a: String, aTokens: Set<String>, b: String): Double {
-            val bTokens = ChannelNames.tokens(b)
-            val numbersA = aTokens.filter { t -> t.any(Char::isDigit) }.toSet()
-            val numbersB = bTokens.filter { t -> t.any(Char::isDigit) }.toSet()
-            val inter = aTokens.intersect(bTokens).size.toDouble()
-            val dice = 2 * inter / (aTokens.size + bTokens.size).coerceAtLeast(1)
-            var score = 0.6 * dice + 0.4 * jaroWinkler(a, b)
-            if (numbersA != numbersB) score *= 0.6
-            return score
-        }
+        private fun Set<String>.numberTokens() = filterTo(HashSet()) { t -> t.any(Char::isDigit) }
 
         fun jaroWinkler(s1: String, s2: String): Double {
             if (s1 == s2) return 1.0

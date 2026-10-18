@@ -20,15 +20,12 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
@@ -58,11 +55,13 @@ import com.biskyt.mytvplayer.ui.common.SettingRow
 import com.biskyt.mytvplayer.ui.common.Toggle
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.ValueChip
+import com.biskyt.mytvplayer.ui.common.cycle
+import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.theme.Palette
+import java.util.Locale
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     val settings = c.settings.settings.stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -78,14 +77,6 @@ fun SettingsPage(title: String, content: LazyListScope.() -> Unit) {
     }
 }
 
-/** Requests focus on the first item of a page once it is shown. */
-@Composable
-fun rememberFirstFocus(): Modifier {
-    val r = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { r.requestFocus() } }
-    return Modifier.focusRequester(r)
-}
-
 @Composable
 fun SettingsScreen() {
     val nav = LocalNavigator.current
@@ -93,15 +84,15 @@ fun SettingsScreen() {
     SettingsPage("Settings") {
         item { SettingRow("Playlists", "Add, edit or switch IPTV accounts", { nav.push(Screen.Playlists) }, rememberFirstFocus()) }
         item { SettingRow("Playback", "Skip times, audio passthrough, subtitles, buffer", { nav.push(Screen.PlaybackSettings) }) }
-        item { SettingRow("Languages & categories", "Choose which channels are loaded; unhide channels", { nav.push(Screen.Categories(pid)) }) }
+        item {
+            SettingRow("Languages & categories", "Choose which channels are loaded; unhide channels", { nav.push(Screen.Categories(pid)) })
+        }
         item { SettingRow("TV guide sources", "Your provider's guide and extra XMLTV guides", { nav.push(Screen.GuideSources) }) }
         item { SettingRow("TV guide matching", "Pick the guide channel used by each channel", { nav.push(Screen.GuideMatching(pid)) }) }
         item { SettingRow("Appearance", "Accent colour and text size", { nav.push(Screen.Appearance) }) }
         item { SettingRow("About", "Version, licences, storage", { nav.push(Screen.About) }) }
     }
 }
-
-private fun <T> List<T>.after(current: T): T = this[(indexOf(current) + 1).mod(size)]
 
 @Composable
 fun PlaybackSettingsScreen() {
@@ -110,12 +101,16 @@ fun PlaybackSettingsScreen() {
     val skipSteps = listOf(5, 10, 15, 20, 30, 45, 60, 90, 120)
     SettingsPage("Playback") {
         item {
-            SettingRow("Skip back", "Left on the remote during playback", { vm.update { it.copy(skipBackSec = skipSteps.after(it.skipBackSec)) } }, rememberFirstFocus()) {
+            SettingRow("Skip back", "Left on the remote during playback", {
+                vm.update { it.copy(skipBackSec = skipSteps.cycle(it.skipBackSec)) }
+            }, rememberFirstFocus()) {
                 ValueChip("${s.skipBackSec} s")
             }
         }
         item {
-            SettingRow("Skip forward", "Right on the remote during playback", { vm.update { it.copy(skipForwardSec = skipSteps.after(it.skipForwardSec)) } }) {
+            SettingRow("Skip forward", "Right on the remote during playback", {
+                vm.update { it.copy(skipForwardSec = skipSteps.cycle(it.skipForwardSec)) }
+            }) {
                 ValueChip("${s.skipForwardSec} s")
             }
         }
@@ -123,7 +118,7 @@ fun PlaybackSettingsScreen() {
             SettingRow(
                 "Audio passthrough",
                 "Send Dolby / DTS / Atmos to your soundbar or TV to decode. Turn off if you get no sound.",
-                { vm.update { it.copy(audioPassthrough = !it.audioPassthrough) } },
+                { vm.update { it.copy(audioPassthrough = !it.audioPassthrough) } }
             ) { Toggle(s.audioPassthrough) }
         }
         item {
@@ -135,13 +130,21 @@ fun PlaybackSettingsScreen() {
             SettingRow(
                 "Default subtitles",
                 "Forced only shows subtitles just for foreign-language lines",
-                { vm.update { it.copy(subtitleMode = SubtitleMode.entries.after(it.subtitleMode)) } },
+                { vm.update { it.copy(subtitleMode = SubtitleMode.entries.cycle(it.subtitleMode)) } }
             ) { ValueChip(mode) }
         }
         item {
             val languages = listOf("", "en", "fr", "de", "es", "it", "pt", "nl", "pl", "tr", "ar")
-            val label = if (s.subtitleLanguage.isEmpty()) "System (${Locale.getDefault().displayLanguage})" else Locale.forLanguageTag(s.subtitleLanguage).displayLanguage
-            SettingRow("Subtitle language", null, { vm.update { it.copy(subtitleLanguage = languages.after(it.subtitleLanguage)) } }) { ValueChip(label) }
+            val label = if (s.subtitleLanguage.isEmpty()) {
+                "System (${Locale.getDefault().displayLanguage})"
+            } else {
+                Locale.forLanguageTag(
+                    s.subtitleLanguage
+                ).displayLanguage
+            }
+            SettingRow("Subtitle language", null, {
+                vm.update { it.copy(subtitleLanguage = languages.cycle(it.subtitleLanguage)) }
+            }) { ValueChip(label) }
         }
         item {
             val label = when (s.bufferSize) {
@@ -149,17 +152,23 @@ fun PlaybackSettingsScreen() {
                 BufferSize.NORMAL -> "Normal"
                 BufferSize.LARGE -> "Large"
             }
-            SettingRow("Stream buffer", "Larger is smoother on weak Wi-Fi but slower to change channel", { vm.update { it.copy(bufferSize = BufferSize.entries.after(it.bufferSize)) } }) {
+            SettingRow("Stream buffer", "Larger is smoother on weak Wi-Fi but slower to change channel", {
+                vm.update { it.copy(bufferSize = BufferSize.entries.cycle(it.bufferSize)) }
+            }) {
                 ValueChip(label)
             }
         }
         item {
-            SettingRow("Stream format", "Try HLS if channels stutter or won't start", { vm.update { it.copy(streamFormat = StreamFormat.entries.after(it.streamFormat)) } }) {
+            SettingRow("Stream format", "Try HLS if channels stutter or won't start", {
+                vm.update { it.copy(streamFormat = StreamFormat.entries.cycle(it.streamFormat)) }
+            }) {
                 ValueChip(if (s.streamFormat == StreamFormat.TS) "MPEG-TS" else "HLS")
             }
         }
         item {
-            SettingRow("Start on last channel", "Open the app straight into the channel you watched last", { vm.update { it.copy(startOnLastChannel = !it.startOnLastChannel) } }) {
+            SettingRow("Start on last channel", "Open the app straight into the channel you watched last", {
+                vm.update { it.copy(startOnLastChannel = !it.startOnLastChannel) }
+            }) {
                 Toggle(s.startOnLastChannel)
             }
         }
@@ -170,14 +179,32 @@ fun PlaybackSettingsScreen() {
 fun AppearanceScreen() {
     val vm = appViewModel { SettingsViewModel(it) }
     val s = vm.settings.collectAsState().value ?: return
-    Column(Modifier.fillMaxSize().background(Palette.background).padding(horizontal = 96.dp, vertical = 40.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(
+        Modifier.fillMaxSize().background(Palette.background).padding(horizontal = 96.dp, vertical = 40.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
         Text("Appearance", style = MaterialTheme.typography.headlineLarge)
         Text("Accent colour", style = MaterialTheme.typography.titleLarge)
         Muted("Used for highlights, progress bars and buttons everywhere. Lighter and darker shades are worked out for you.", maxLines = 2)
-        LazyVerticalGrid(GridCells.Fixed(4), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.height(140.dp)) {
+        LazyVerticalGrid(
+            GridCells.Fixed(4),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.height(140.dp)
+        ) {
             items(AccentPalette.presets) { (name, argb) ->
                 val selected = s.accent == argb
-                TvCard(onClick = { vm.update { it.copy(accent = argb) } }, selected = selected, modifier = if (argb == AccentPalette.presets.first().second) rememberFirstFocus() else Modifier) {
+                TvCard(
+                    onClick = { vm.update { it.copy(accent = argb) } },
+                    selected = selected,
+                    modifier = if (argb ==
+                        AccentPalette.presets.first().second
+                    ) {
+                        rememberFirstFocus()
+                    } else {
+                        Modifier
+                    }
+                ) {
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(30.dp).clip(CircleShape).background(Color(argb)))
                         Text(name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 10.dp))
@@ -186,7 +213,9 @@ fun AppearanceScreen() {
             }
         }
         HueSlider(s.accent) { argb -> vm.update { it.copy(accent = argb) } }
-        SettingRow("Large text", "Bigger text is easier to read from the sofa", { vm.update { it.copy(largeText = !it.largeText) } }) { Toggle(s.largeText) }
+        SettingRow("Large text", "Bigger text is easier to read from the sofa", {
+            vm.update { it.copy(largeText = !it.largeText) }
+        }) { Toggle(s.largeText) }
     }
 }
 
@@ -200,11 +229,17 @@ private fun HueSlider(current: Int, onChange: (Int) -> Unit) {
         modifier = Modifier.fillMaxWidth().onPreviewKeyEvent { e ->
             if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
             when (e.key) {
-                Key.DirectionLeft -> { onChange(AccentPalette.fromHue(hue - 10f)); true }
-                Key.DirectionRight -> { onChange(AccentPalette.fromHue(hue + 10f)); true }
+                Key.DirectionLeft -> {
+                    onChange(AccentPalette.fromHue(hue - 10f))
+                    true
+                }
+                Key.DirectionRight -> {
+                    onChange(AccentPalette.fromHue(hue + 10f))
+                    true
+                }
                 else -> false
             }
-        },
+        }
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row {
@@ -213,7 +248,7 @@ private fun HueSlider(current: Int, onChange: (Int) -> Unit) {
             }
             Box(
                 Modifier.fillMaxWidth().height(16.dp).clip(RoundedCornerShape(8.dp))
-                    .background(Brush.horizontalGradient((0..6).map { Color(AccentPalette.fromHue(it * 60f)) })),
+                    .background(Brush.horizontalGradient((0..6).map { Color(AccentPalette.fromHue(it * 60f)) }))
             )
         }
     }
@@ -229,12 +264,14 @@ private fun hueOf(argb: Int): Float {
 fun AboutScreen() {
     val context = LocalContext.current
     val storage = remember {
-        fun size(f: java.io.File): Long = if (f.isDirectory) f.listFiles()?.sumOf(::size) ?: 0 else f.length()
-        val db = context.getDatabasePath("mytvplayer.db").parentFile?.let(::size) ?: 0
-        val guide = size(context.filesDir.resolve("epg"))
-        val logos = size(context.cacheDir.resolve("logos"))
-        Triple(db, guide, logos)
+        fun size(f: java.io.File?): Long = f?.walkTopDown()?.sumOf { it.length() } ?: 0
+        Triple(
+            size(context.getDatabasePath("mytvplayer.db").parentFile),
+            size(context.filesDir.resolve("epg")),
+            size(context.cacheDir.resolve("logos"))
+        )
     }
+    fun mb(bytes: Long) = android.text.format.Formatter.formatShortFileSize(context, bytes)
     SettingsPage("About") {
         item { Text("MyTVPlayer ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleLarge) }
         item { Muted("Free and open source (GPL-3.0). No ads, no tracking. Made by biskyt.", maxLines = 2) }
@@ -244,11 +281,18 @@ fun AboutScreen() {
                 Muted("Channels & guide database: ${mb(storage.first)}")
                 Muted("Downloaded guide files: ${mb(storage.second)}")
                 Muted("Channel logos: ${mb(storage.third)} (limited to 30 MB)")
-                Muted("Storage is managed automatically: old programmes are removed every day, logos are capped, and the database is compacted when needed.", maxLines = 3)
+                Muted(
+                    "Storage is managed automatically: old programmes are removed every day, logos are capped, and the database is compacted when needed.",
+                    maxLines = 3
+                )
             }
         }
-        item { Muted("Font: Nunito (SIL Open Font License). Playback: AndroidX Media3, FFmpeg (LGPL).", maxLines = 2, modifier = Modifier.padding(top = 16.dp)) }
+        item {
+            Muted(
+                "Font: Nunito (SIL Open Font License). Playback: AndroidX Media3, FFmpeg (LGPL).",
+                maxLines = 2,
+                modifier = Modifier.padding(top = 16.dp)
+            )
+        }
     }
 }
-
-private fun mb(bytes: Long) = "%.1f MB".format(bytes / 1_048_576.0)

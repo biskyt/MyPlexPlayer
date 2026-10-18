@@ -23,11 +23,11 @@ import com.biskyt.mytvplayer.data.PlaylistRepository
 import com.biskyt.mytvplayer.data.SettingsRepository
 import com.biskyt.mytvplayer.data.SyncManager
 import com.biskyt.mytvplayer.data.db.AppDatabase
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import okhttp3.OkHttpClient
-import java.util.concurrent.TimeUnit
 
 /** Hand-wired dependencies: small enough that a DI framework would only add start-up time. */
 class AppContainer(context: Context) {
@@ -39,7 +39,7 @@ class AppContainer(context: Context) {
         .retryOnConnectionFailure(true)
         .build()
     val settings = SettingsRepository(context)
-    val epg = EpgRepository(db, http, context.filesDir)
+    val epg = EpgRepository(db, http, context.filesDir, appScope)
     val playlists = PlaylistRepository(db, http, settings, epg)
     val channels = ChannelRepository(db)
     val sync = SyncManager(appScope, playlists, epg)

@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +39,7 @@ import com.biskyt.mytvplayer.ui.common.PillButton
 import com.biskyt.mytvplayer.ui.common.Toggle
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.formatCount
+import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 import kotlinx.coroutines.flow.SharingStarted
@@ -86,7 +88,7 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
     val nav = LocalNavigator.current
     val categories by vm.categories.collectAsState()
     val hidden by vm.hidden.collectAsState()
-    val groups = vm.groups(categories)
+    val groups = remember(categories) { vm.groups(categories) }
     if (vm.selectedGroup == CategoriesViewModel.UNSET && groups.isNotEmpty()) vm.selectedGroup = groups.first().code
     val done: () -> Unit = {
         vm.finish(firstRun)
@@ -94,23 +96,33 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
     }
     BackHandler(onBack = done)
 
-    Column(Modifier.fillMaxSize().background(Palette.background).padding(horizontal = 72.dp, vertical = 36.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(
+        Modifier.fillMaxSize().background(Palette.background).padding(horizontal = 72.dp, vertical = 36.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Languages & categories", style = MaterialTheme.typography.headlineLarge)
                 Muted("Only the categories you tick are downloaded, so lists load faster and use less storage.", maxLines = 2)
             }
-            val included = categories.filter { it.included }
-            Muted("Loading ${included.size} of ${categories.size} categories", Modifier.padding(end = 16.dp))
+            Muted("Loading ${groups.sumOf { it.included }} of ${categories.size} categories", Modifier.padding(end = 16.dp))
             PillButton(if (firstRun) "Continue" else "Done", done, primary = true)
         }
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            LazyColumn(Modifier.width(380.dp), verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+            LazyColumn(
+                Modifier.width(380.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(bottom = 24.dp)
+            ) {
                 item { Text("DETECTED FROM CATEGORY NAMES", style = MaterialTheme.typography.labelMedium, color = Palette.textMuted) }
                 items(groups, key = { it.code ?: "" }) { g ->
-                    TvCard(onClick = { vm.toggleGroup(g) }, selected = g.code == vm.selectedGroup, color = Palette.surfaceLow,
+                    TvCard(
+                        onClick = { vm.toggleGroup(g) },
+                        selected = g.code == vm.selectedGroup,
+                        color = Palette.surfaceLow,
                         modifier = (if (g == groups.first()) rememberFirstFocus() else Modifier).fillMaxWidth()
-                            .onFocusChanged { if (it.isFocused) vm.selectedGroup = g.code }) {
+                            .onFocusChanged { if (it.isFocused) vm.selectedGroup = g.code }
+                    ) {
                         Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(g.label, style = MaterialTheme.typography.titleSmall)
@@ -121,24 +133,52 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                     }
                 }
                 if (hidden.isNotEmpty()) {
-                    item { Text("HIDDEN CHANNELS", style = MaterialTheme.typography.labelMedium, color = Palette.textMuted, modifier = Modifier.padding(top = 16.dp)) }
+                    item {
+                        Text(
+                            "HIDDEN CHANNELS",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Palette.textMuted,
+                            modifier = Modifier.padding(top = 16.dp)
+                        )
+                    }
                     items(hidden, key = { "h${it.streamId}" }) { ch ->
                         TvCard(onClick = { vm.unhide(ch) }, color = Palette.surfaceLow, modifier = Modifier.fillMaxWidth()) {
                             Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                                Text(ch.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    ch.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                                 Text("Unhide", style = MaterialTheme.typography.labelMedium, color = LocalAccent.current.color)
                             }
                         }
                     }
                 }
             }
-            val shown = categories.filter { it.lang == vm.selectedGroup }
-            LazyColumn(Modifier.weight(1f).background(Palette.surfaceLow).padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            val selected = vm.selectedGroup
+            val shown = remember(categories, selected) { categories.filter { it.lang == selected } }
+            LazyColumn(
+                Modifier.weight(1f).background(Palette.surfaceLow).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 items(shown, key = { it.categoryId }) { cat ->
                     TvCard(onClick = { vm.toggleCategory(cat) }, color = Palette.surface, modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(
+                            Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
                             Toggle(cat.included)
-                            Text(cat.name, style = MaterialTheme.typography.bodyLarge, color = if (cat.included) Palette.text else Palette.textDim, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                cat.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (cat.included) Palette.text else Palette.textDim,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                             if (cat.channelCount > 0) Muted(formatCount(cat.channelCount))
                         }
                     }

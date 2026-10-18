@@ -13,8 +13,7 @@ data class XtreamCredentials(val server: String, val username: String, val passw
 data class XtreamAccount(
     val active: Boolean,
     val expiresAtEpochSec: Long?,
-    val maxConnections: Int?,
-    val activeConnections: Int?,
+    val maxConnections: Int?
 )
 
 data class XtreamCategory(val id: String, val name: String)
@@ -26,7 +25,7 @@ data class XtreamLiveStream(
     val categoryId: String,
     val logoUrl: String?,
     val epgChannelId: String?,
-    val archiveDays: Int,
+    val archiveDays: Int
 )
 
 // Xtream panels are inconsistent about types: numbers often arrive as strings, empty strings or null.
@@ -63,7 +62,7 @@ internal fun JsonElement.toLiveStream(): XtreamLiveStream? {
         categoryId = o.str("category_id") ?: "",
         logoUrl = o.str("stream_icon"),
         epgChannelId = o.str("epg_channel_id"),
-        archiveDays = if (o.bool("tv_archive")) o.int("tv_archive_duration") ?: 0 else 0,
+        archiveDays = if (o.bool("tv_archive")) o.int("tv_archive_duration") ?: 0 else 0
     )
 }
 
@@ -72,7 +71,6 @@ internal fun JsonElement.toAccount(): XtreamAccount? {
     return XtreamAccount(
         active = info.str("auth") == "1" && (info.str("status")?.equals("Active", ignoreCase = true) ?: true),
         expiresAtEpochSec = info.long("exp_date"),
-        maxConnections = info.int("max_connections"),
-        activeConnections = info.int("active_cons"),
+        maxConnections = info.int("max_connections")
     )
 }

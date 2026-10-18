@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,9 +40,9 @@ import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.EpgSourceEntity
 import com.biskyt.mytvplayer.data.db.MappingInfo
 import com.biskyt.mytvplayer.data.db.MatchCounts
+import com.biskyt.mytvplayer.data.db.MatchRow
 import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.AppIcons
-import com.biskyt.mytvplayer.ui.common.BatchLoader
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.PillButton
@@ -51,8 +50,9 @@ import com.biskyt.mytvplayer.ui.common.Toggle
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.TvTextField
 import com.biskyt.mytvplayer.ui.common.formatCount
+import com.biskyt.mytvplayer.ui.common.formatDateTime
+import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.settings.SettingsPage
-import com.biskyt.mytvplayer.ui.settings.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -66,8 +66,6 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.text.DateFormat
-import java.util.Date
 
 // ---------------------------------------------------------------- sources
 
@@ -95,15 +93,36 @@ fun GuideSourcesScreen() {
     val vm = appViewModel { GuideSourcesViewModel(it) }
     val sources by vm.sources.collectAsState()
     SettingsPage("TV guide sources") {
-        item { Muted("Guides are updated every day. Programmes are only stored for channels that use them, for the next 3 days.", maxLines = 2) }
+        item {
+            Muted("Guides are updated every day. Programmes are only stored for channels that use them, for the next 3 days.", maxLines = 2)
+        }
         items(sources, key = { it.id }) { s ->
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                TvCard(onClick = { vm.toggle(s) }, color = Palette.surfaceLow, modifier = (if (s == sources.first()) rememberFirstFocus() else Modifier).weight(1f)) {
+                TvCard(
+                    onClick = { vm.toggle(s) },
+                    color = Palette.surfaceLow,
+                    modifier = (
+                        if (s ==
+                            sources.first()
+                        ) {
+                            rememberFirstFocus()
+                        } else {
+                            Modifier
+                        }
+                        ).weight(1f)
+                ) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(s.name, style = MaterialTheme.typography.titleMedium)
                             Muted(sourceDetails(s))
-                            s.lastError?.let { Text("Last update failed: $it", style = MaterialTheme.typography.bodySmall, color = Palette.warning, maxLines = 1) }
+                            s.lastError?.let {
+                                Text(
+                                    "Last update failed: $it",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Palette.warning,
+                                    maxLines = 1
+                                )
+                            }
                         }
                         Toggle(s.enabled)
                     }
@@ -128,14 +147,22 @@ fun GuideSourcesScreen() {
 private fun sourceDetails(s: EpgSourceEntity): String {
     val parts = mutableListOf(if (s.playlistId != null) "From your provider" else s.url)
     if (s.channelCount > 0) parts += "${formatCount(s.channelCount)} channels"
-    if (s.lastImportAt > 0) parts += "updated ${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(s.lastImportAt))}"
+    if (s.lastImportAt > 0) parts += "updated ${formatDateTime(s.lastImportAt)}"
     if (!s.enabled) parts += "off"
     return parts.joinToString(" · ")
 }
 
 // ---------------------------------------------------------------- matching
 
-enum class MatchTab(val label: String, val status: Int) { ALL("All", 0), UNMATCHED("No guide", 1), AUTO("Automatic", 2), MANUAL("Set by you", 3) }
+enum class MatchTab(val label: String, val status: Int) {
+    ALL(
+        "All",
+        0
+    ),
+    UNMATCHED("No guide", 1),
+    AUTO("Automatic", 2),
+    MANUAL("Set by you", 3)
+}
 
 /** One candidate in the right-hand panel: from the matcher (with a score) or from a name search. */
 data class GuideChoice(val candidate: EpgCandidate, val score: Double?, val sourceName: String)
@@ -159,8 +186,6 @@ class GuideMatchingViewModel(private val c: AppContainer, private val playlistId
     var busy by mutableStateOf(false)
         private set
 
-    /** Mapping summaries for visible rows, keyed by stream id (absent = no guide). */
-    val rowInfo = BatchLoader(viewModelScope) { ids -> c.epg.mappingInfo(playlistId, ids).associateBy { it.streamId } }
     private var sources: Map<Long, String> = emptyMap()
     private var searchJob: Job? = null
     private var selectJob: Job? = null
@@ -192,7 +217,13 @@ class GuideMatchingViewModel(private val c: AppContainer, private val playlistId
             choices = if (q.isBlank()) {
                 c.epg.suggestions(ch.name, ch.providerEpgId).map { it.toChoice() }
             } else {
-                c.epg.searchGuideChannels(q).map { GuideChoice(EpgCandidate(it.sourceId, it.xmlId, it.displayName, it.nameNorm), null, sources[it.sourceId] ?: "") }
+                c.epg.searchGuideChannels(q).map {
+                    GuideChoice(
+                        EpgCandidate(it.sourceId, it.xmlId, it.displayName, it.nameNorm),
+                        null,
+                        sources[it.sourceId] ?: ""
+                    )
+                }
             }
         }
     }
@@ -205,14 +236,23 @@ class GuideMatchingViewModel(private val c: AppContainer, private val playlistId
         viewModelScope.launch {
             block(ch)
             mapping = c.epg.mappingInfo(playlistId, listOf(ch.streamId)).firstOrNull()
-            rowInfo.refresh(ch.streamId)
             busy = false
         }
     }
 
-    fun use(choice: GuideChoice) = change { c.epg.setManual(playlistId, it.streamId, choice.candidate.sourceId, choice.candidate.xmlId, mapping?.offsetMinutes ?: 0) }
+    fun use(choice: GuideChoice) = change {
+        c.epg.setManual(
+            playlistId,
+            it.streamId,
+            choice.candidate.sourceId,
+            choice.candidate.xmlId,
+            mapping?.offsetMinutes ?: 0
+        )
+    }
     fun noGuide() = change { c.epg.setNoGuide(playlistId, it.streamId) }
     fun reset() = change { c.epg.resetToAutomatic(playlistId, it.streamId, it.name, it.providerEpgId) }
+    override fun onCleared() = c.epg.releaseMatcher()
+
     fun shiftTime() = change {
         val next = ((mapping?.offsetMinutes ?: 0) / 60 + 1).let { h -> if (h > 3) -3 else h } * 60
         c.epg.setOffset(playlistId, it.streamId, next)
@@ -227,7 +267,10 @@ fun GuideMatchingScreen(playlistId: Long, streamId: Long?) {
     val filter by vm.filter.collectAsState()
     val items = vm.channels.collectAsLazyPagingItems()
 
-    Column(Modifier.fillMaxSize().background(Palette.background).padding(horizontal = 56.dp, vertical = 32.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(
+        Modifier.fillMaxSize().background(Palette.background).padding(horizontal = 56.dp, vertical = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("TV guide matching", style = MaterialTheme.typography.headlineLarge)
@@ -246,14 +289,16 @@ fun GuideMatchingScreen(playlistId: Long, streamId: Long?) {
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             Column(Modifier.width(480.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 TvTextField(
-                    filter, { vm.filter.value = it }, "Filter your channels by name", Modifier.fillMaxWidth(),
-                    leading = { Icon(AppIcons.Filter, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) },
+                    filter,
+                    { vm.filter.value = it },
+                    "Filter your channels by name",
+                    Modifier.fillMaxWidth(),
+                    leading = { Icon(AppIcons.Filter, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) }
                 )
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
-                    items(count = items.itemCount, key = items.itemKey { it.streamId }) { i ->
-                        val ch = items[i] ?: return@items
-                        LaunchedEffect(ch.streamId) { vm.rowInfo.request(ch.streamId) }
-                        MatchRow(ch, vm.rowInfo.entries[ch.streamId], ch.streamId == vm.selected?.streamId) { vm.select(ch) }
+                    items(count = items.itemCount, key = items.itemKey { it.channel.streamId }) { i ->
+                        val row = items[i] ?: return@items
+                        MatchRowCard(row, row.channel.streamId == vm.selected?.streamId) { vm.select(row.channel) }
                     }
                 }
             }
@@ -263,33 +308,46 @@ fun GuideMatchingScreen(playlistId: Long, streamId: Long?) {
 }
 
 @Composable
-private fun MatchRow(ch: ChannelEntity, info: MappingInfo?, selected: Boolean, onClick: () -> Unit) {
+private fun MatchRowCard(row: MatchRow, selected: Boolean, onClick: () -> Unit) {
+    val ch = row.channel
     TvCard(onClick = onClick, selected = selected, color = Palette.surfaceLow, modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             ChannelLogo(ch.logoUrl, ch.name, 52.dp, 30.dp)
             Column(Modifier.weight(1f)) {
                 Text(ch.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Muted(info?.displayName?.let { "$it (${info.sourceName})" } ?: "No guide data")
+                Muted(row.guideName?.let { "$it (${row.sourceName})" } ?: "No guide data")
             }
-            StatusChip(info)
+            StatusChip(row)
         }
     }
 }
 
 @Composable
-private fun StatusChip(info: MappingInfo?) {
+private fun StatusChip(row: MatchRow) {
     val (label, fg, bg) = when {
-        info == null || info.sourceId == null -> Triple("NO GUIDE", Palette.danger, Palette.danger.copy(alpha = 0.15f))
-        info.manual -> Triple("SET", LocalAccent.current.soft, LocalAccent.current.tint)
-        else -> Triple("AUTO ${(info.score * 100).toInt()}%", Palette.warning, Palette.warning.copy(alpha = 0.15f))
+        row.mapSourceId == null -> Triple("NO GUIDE", Palette.danger, Palette.danger.copy(alpha = 0.15f))
+        row.mapManual == true -> Triple("SET", LocalAccent.current.soft, LocalAccent.current.tint)
+        else -> Triple("AUTO ${((row.mapScore ?: 0.0) * 100).toInt()}%", Palette.warning, Palette.warning.copy(alpha = 0.15f))
     }
-    Text(label, style = MaterialTheme.typography.labelSmall, color = fg, modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(bg).padding(horizontal = 8.dp, vertical = 3.dp))
+    Text(
+        label,
+        style = MaterialTheme.typography.labelSmall,
+        color = fg,
+        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(bg).padding(horizontal = 8.dp, vertical = 3.dp)
+    )
 }
 
 @Composable
 private fun ChoicePanel(vm: GuideMatchingViewModel, modifier: Modifier) {
     val ch = vm.selected
-    Column(modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)).background(Palette.surfaceLow).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(
+        modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)).background(Palette.surfaceLow).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
         if (ch == null) {
             Muted("Select a channel on the left to choose its guide.", maxLines = 2)
             return@Column
@@ -300,12 +358,17 @@ private fun ChoicePanel(vm: GuideMatchingViewModel, modifier: Modifier) {
         Muted(
             when {
                 m == null || m.sourceId == null -> "Currently: no guide"
-                else -> "Currently: ${m.displayName ?: m.xmlId} (${m.sourceName ?: ""})" + (if (m.offsetMinutes != 0) " · shifted ${m.offsetMinutes / 60}h" else "")
-            },
+                else ->
+                    "Currently: ${m.displayName ?: m.xmlId} (${m.sourceName ?: ""})" +
+                        (if (m.offsetMinutes != 0) " · shifted ${m.offsetMinutes / 60}h" else "")
+            }
         )
         TvTextField(
-            vm.search, vm::onSearch, "Search all guide channels", Modifier.fillMaxWidth(),
-            leading = { Icon(AppIcons.Search, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) },
+            vm.search,
+            vm::onSearch,
+            "Search all guide channels",
+            Modifier.fillMaxWidth(),
+            leading = { Icon(AppIcons.Search, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) }
         )
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(vm.choices, key = { "${it.candidate.sourceId}/${it.candidate.xmlId}" }) { choice ->
@@ -313,14 +376,29 @@ private fun ChoicePanel(vm: GuideMatchingViewModel, modifier: Modifier) {
                 TvCard(onClick = { vm.use(choice) }, selected = current, color = Palette.surface, modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text(choice.candidate.displayName, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                choice.candidate.displayName,
+                                style = MaterialTheme.typography.titleSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                             Muted("${choice.sourceName} · ${choice.candidate.xmlId}")
                         }
-                        choice.score?.let { Text("${(it * 100).toInt()}% match", style = MaterialTheme.typography.labelMedium, color = LocalAccent.current.soft) }
+                        choice.score?.let {
+                            Text(
+                                "${(it * 100).toInt()}% match",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = LocalAccent.current.soft
+                            )
+                        }
                     }
                 }
             }
-            if (vm.choices.isEmpty()) item { Muted("No guide channels found. Try a shorter search, or add another guide source.", maxLines = 2) }
+            if (vm.choices.isEmpty()) {
+                item {
+                    Muted("No guide channels found. Try a shorter search, or add another guide source.", maxLines = 2)
+                }
+            }
         }
         Box(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

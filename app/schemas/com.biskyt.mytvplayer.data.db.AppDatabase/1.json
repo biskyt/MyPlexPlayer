@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "d33f42cce73591f5b06960b6941d365f",
+    "identityHash": "90902874ce70f596e86ed46c15f4e48c",
     "entities": [
       {
         "tableName": "playlist",
@@ -118,7 +118,7 @@
       },
       {
         "tableName": "channel",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`playlistId` INTEGER NOT NULL, `streamId` INTEGER NOT NULL, `number` INTEGER NOT NULL, `name` TEXT NOT NULL, `categoryId` TEXT NOT NULL, `logoUrl` TEXT, `providerEpgId` TEXT, `archiveDays` INTEGER NOT NULL, `hidden` INTEGER NOT NULL, `sortOrder` INTEGER, `syncStamp` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`playlistId`, `streamId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`playlistId` INTEGER NOT NULL, `streamId` INTEGER NOT NULL, `number` INTEGER NOT NULL, `name` TEXT NOT NULL, `categoryId` TEXT NOT NULL, `logoUrl` TEXT, `providerEpgId` TEXT, `archiveDays` INTEGER NOT NULL, `hidden` INTEGER NOT NULL, `sortOrder` INTEGER, `position` INTEGER NOT NULL, `syncStamp` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`playlistId`, `streamId`))",
         "fields": [
           {
             "fieldPath": "playlistId",
@@ -178,6 +178,12 @@
             "affinity": "INTEGER"
           },
           {
+            "fieldPath": "position",
+            "columnName": "position",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
             "fieldPath": "syncStamp",
             "columnName": "syncStamp",
             "affinity": "INTEGER",
@@ -194,15 +200,29 @@
         },
         "indices": [
           {
-            "name": "index_channel_playlistId_categoryId_number",
+            "name": "index_channel_playlistId_hidden_position_name",
+            "unique": false,
+            "columnNames": [
+              "playlistId",
+              "hidden",
+              "position",
+              "name"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_channel_playlistId_hidden_position_name` ON `${TABLE_NAME}` (`playlistId`, `hidden`, `position`, `name`)"
+          },
+          {
+            "name": "index_channel_playlistId_categoryId_hidden_position_name",
             "unique": false,
             "columnNames": [
               "playlistId",
               "categoryId",
-              "number"
+              "hidden",
+              "position",
+              "name"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_channel_playlistId_categoryId_number` ON `${TABLE_NAME}` (`playlistId`, `categoryId`, `number`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_channel_playlistId_categoryId_hidden_position_name` ON `${TABLE_NAME}` (`playlistId`, `categoryId`, `hidden`, `position`, `name`)"
           },
           {
             "name": "index_channel_playlistId_number",
@@ -350,7 +370,7 @@
       },
       {
         "tableName": "epg_channel",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sourceId` INTEGER NOT NULL, `xmlId` TEXT NOT NULL, `displayName` TEXT NOT NULL, `nameNorm` TEXT NOT NULL, `iconUrl` TEXT, PRIMARY KEY(`sourceId`, `xmlId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sourceId` INTEGER NOT NULL, `xmlId` TEXT NOT NULL, `displayName` TEXT NOT NULL, `nameNorm` TEXT NOT NULL, PRIMARY KEY(`sourceId`, `xmlId`))",
         "fields": [
           {
             "fieldPath": "sourceId",
@@ -375,11 +395,6 @@
             "columnName": "nameNorm",
             "affinity": "TEXT",
             "notNull": true
-          },
-          {
-            "fieldPath": "iconUrl",
-            "columnName": "iconUrl",
-            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -388,22 +403,11 @@
             "sourceId",
             "xmlId"
           ]
-        },
-        "indices": [
-          {
-            "name": "index_epg_channel_nameNorm",
-            "unique": false,
-            "columnNames": [
-              "nameNorm"
-            ],
-            "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_epg_channel_nameNorm` ON `${TABLE_NAME}` (`nameNorm`)"
-          }
-        ]
+        }
       },
       {
         "tableName": "programme",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sourceId` INTEGER NOT NULL, `xmlId` TEXT NOT NULL, `startMs` INTEGER NOT NULL, `stopMs` INTEGER NOT NULL, `title` TEXT NOT NULL, `subtitle` TEXT, `description` TEXT, `category` TEXT, `stamp` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`sourceId`, `xmlId`, `startMs`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sourceId` INTEGER NOT NULL, `xmlId` TEXT NOT NULL, `startMs` INTEGER NOT NULL, `stopMs` INTEGER NOT NULL, `title` TEXT NOT NULL, `subtitle` TEXT, `description` TEXT, `stamp` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`sourceId`, `xmlId`, `startMs`))",
         "fields": [
           {
             "fieldPath": "sourceId",
@@ -443,11 +447,6 @@
           {
             "fieldPath": "description",
             "columnName": "description",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "category",
-            "columnName": "category",
             "affinity": "TEXT"
           },
           {
@@ -546,7 +545,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd33f42cce73591f5b06960b6941d365f')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '90902874ce70f596e86ed46c15f4e48c')"
     ]
   }
 }

@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -24,7 +23,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -60,12 +58,16 @@ import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.AppIcons
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
+import com.biskyt.mytvplayer.ui.common.FlashLabel
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.PillButton
 import com.biskyt.mytvplayer.ui.common.ProgressLine
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.digit
 import com.biskyt.mytvplayer.ui.common.formatTime
+import com.biskyt.mytvplayer.ui.common.numberLabel
+import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
+import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 
@@ -77,7 +79,7 @@ fun PlayerScreen(screen: Screen.Player) {
     val nav = LocalNavigator.current
     val root = remember { FocusRequester() }
     val buttons = remember { FocusRequester() }
-    var buttonsFocused by remember { mutableStateOf(false) }
+    var videoFocused by remember { mutableStateOf(false) }
 
     if (vm.exit) {
         LaunchedEffect(Unit) { nav.pop() }
@@ -106,36 +108,34 @@ fun PlayerScreen(screen: Screen.Player) {
     Box(
         Modifier.fillMaxSize().background(Color.Black)
             .focusRequester(root)
-            .onKeyEvent { e -> if (e.type == KeyEventType.KeyDown) handleKey(e, vm, buttons, buttonsFocused) else false }
-            .focusable(),
+            .onFocusChanged { videoFocused = it.isFocused }
+            // Video keys only apply when the video itself has focus; a focused button keeps normal D-pad behaviour.
+            .onKeyEvent { e -> if (videoFocused && e.type == KeyEventType.KeyDown) handleKey(e, vm, buttons) else false }
+            .focusable()
     ) {
         vm.engine?.let { engine ->
             val presentation = rememberPresentationState(engine.player)
             PlayerSurface(
                 player = engine.player,
                 surfaceType = SURFACE_TYPE_SURFACE_VIEW,
-                modifier = Modifier.align(Alignment.Center).resizeWithContentScale(vm.contentScale, presentation.videoSizeDp),
+                modifier = Modifier.align(Alignment.Center).resizeWithContentScale(vm.contentScale, presentation.videoSizeDp)
             )
         }
         if (vm.buffering && vm.error == null) {
             Text("Loading…", style = MaterialTheme.typography.titleLarge, modifier = Modifier.align(Alignment.Center))
         }
         vm.error?.let { ErrorBox(it, vm) }
-        if (vm.overlay == OverlayState.CONTROLS) ControlsOverlay(vm, buttons, root) { buttonsFocused = it }
-        vm.message?.let { Flash(it, Modifier.align(Alignment.TopCenter)) }
-        if (vm.typedNumber.isNotEmpty()) Flash(vm.typedNumber, Modifier.align(Alignment.TopEnd))
+        if (vm.overlay == OverlayState.CONTROLS) ControlsOverlay(vm, buttons, root)
+        vm.message?.let { FlashLabel(it, Modifier.align(Alignment.TopCenter)) }
+        if (vm.numberEntry.typed.isNotEmpty()) FlashLabel(vm.numberEntry.typed, Modifier.align(Alignment.TopEnd))
     }
     if (vm.overlay == OverlayState.GUIDE) GuidePanel(vm)
     vm.sheet?.let { PlayerSheet(it, vm) }
     LaunchedEffect(vm.overlay, vm.sheet) { if (vm.sheet == null && vm.overlay != OverlayState.GUIDE) runCatching { root.requestFocus() } }
 }
 
-/**
- * Remote keys at the top level; left/right skip, up/down zap, down with controls showing moves into the buttons.
- * While a button has focus, arrows and OK are left to the buttons so the row can be navigated.
- */
-private fun handleKey(e: KeyEvent, vm: PlayerViewModel, buttons: FocusRequester, buttonsFocused: Boolean): Boolean {
-    if (buttonsFocused && e.key in navigationKeys) return false
+/** Remote keys on the video: left/right skip, up/down zap, down with controls showing moves into the buttons. */
+private fun handleKey(e: KeyEvent, vm: PlayerViewModel, buttons: FocusRequester): Boolean {
     if (vm.overlay == OverlayState.CONTROLS && e.key == Key.DirectionDown) {
         return runCatching { buttons.requestFocus() }.isSuccess
     }
@@ -162,52 +162,73 @@ private fun handleKey(e: KeyEvent, vm: PlayerViewModel, buttons: FocusRequester,
     return vm.onKey(RemoteKey.DIGIT, digit)
 }
 
-
 @Composable
-private fun ControlsOverlay(vm: PlayerViewModel, buttons: FocusRequester, root: FocusRequester, onButtonsFocus: (Boolean) -> Unit) {
+private fun ControlsOverlay(vm: PlayerViewModel, buttons: FocusRequester, root: FocusRequester) {
     val ch = vm.channel ?: return
     LaunchedEffect(ch.streamId) { vm.nowNext.request(ch.streamId) }
     val nn = vm.nowNext.entries[ch.streamId]
     val accent = LocalAccent.current
+    val now by rememberMinuteClock()
     Box(Modifier.fillMaxSize()) {
         Box(
             Modifier.fillMaxWidth().align(Alignment.BottomCenter)
                 .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xF2080A0D), Color(0xF5080A0D))))
-                .padding(start = 56.dp, end = 56.dp, top = 80.dp, bottom = 36.dp),
+                .padding(start = 56.dp, end = 56.dp, top = 80.dp, bottom = 36.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(22.dp)) {
                     ChannelLogo(ch.logoUrl, ch.name, 110.dp, 66.dp)
                     Column(Modifier.weight(1f)) {
-                        Muted("${if (ch.number > 0) "${ch.number} · " else ""}${ch.name}")
-                        Text(nn?.now?.title ?: ch.name, style = MaterialTheme.typography.displaySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Muted(listOf(ch.numberLabel, ch.name).filter { it.isNotEmpty() }.joinToString(" · "))
+                        Text(
+                            nn?.now?.title ?: ch.name,
+                            style = MaterialTheme.typography.displaySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                     nn?.next?.let { next ->
                         Column(Modifier.width(320.dp), horizontalAlignment = Alignment.End) {
-                            Text("UP NEXT · ${formatTime(next.startMs)}", style = MaterialTheme.typography.labelMedium, color = accent.color)
+                            Text(
+                                "UP NEXT · ${formatTime(next.startMs)}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = accent.color
+                            )
                             Text(next.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
-                nn?.now?.let { now ->
+                nn?.now?.let { current ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Muted(formatTime(now.startMs))
-                        ProgressLine(nn.progress(System.currentTimeMillis()), Modifier.weight(1f), height = 6.dp)
-                        Muted(formatTime(now.stopMs))
+                        Muted(formatTime(current.startMs))
+                        ProgressLine(nn.progress(now), Modifier.weight(1f), height = 6.dp)
+                        Muted(formatTime(current.stopMs))
                     }
                 }
                 Row(
-                    Modifier.onFocusChanged { onButtonsFocus(it.hasFocus) }.onPreviewKeyEvent { e ->
+                    Modifier.onPreviewKeyEvent { e ->
                         // Up from the buttons returns to the video, where left/right skip again.
-                        if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionUp) runCatching { root.requestFocus() }.isSuccess else false
+                        if (e.type == KeyEventType.KeyDown &&
+                            e.key == Key.DirectionUp
+                        ) {
+                            runCatching { root.requestFocus() }.isSuccess
+                        } else {
+                            false
+                        }
                     },
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     PillButton("Channel guide", vm::openGuide, Modifier.focusRequester(buttons))
                     Box(Modifier.weight(1f))
                     RoundButton(AppIcons.Rewind, "Skip back") { vm.onKey(RemoteKey.LEFT) }
-                    RoundButton(if (vm.isPlaying) AppIcons.Pause else AppIcons.Play, if (vm.isPlaying) "Pause" else "Play", primary = true) { vm.togglePlayPause() }
+                    RoundButton(
+                        if (vm.isPlaying) AppIcons.Pause else AppIcons.Play,
+                        if (vm.isPlaying) "Pause" else "Play",
+                        primary = true
+                    ) {
+                        vm.togglePlayPause()
+                    }
                     RoundButton(AppIcons.Forward, "Skip forward") { vm.onKey(RemoteKey.RIGHT) }
                     RoundButton(AppIcons.Stop, "Stop") { vm.stop() }
                     Box(Modifier.weight(1f))
@@ -224,33 +245,35 @@ private fun ControlsOverlay(vm: PlayerViewModel, buttons: FocusRequester, root: 
 @Composable
 private fun RoundButton(icon: ImageVector, label: String, primary: Boolean = false, onClick: () -> Unit) {
     val accent = LocalAccent.current
-    TvCard(onClick = onClick, shape = CircleShape, color = if (primary) accent.color else Palette.surfaceHigh, focusedColor = if (primary) accent.color else Palette.surfaceHigh) {
-        Icon(icon, label, tint = if (primary) accent.onAccent else Palette.text, modifier = Modifier.padding(if (primary) 18.dp else 14.dp).size(24.dp))
+    TvCard(
+        onClick = onClick,
+        shape = CircleShape,
+        color = if (primary) accent.color else Palette.surfaceHigh,
+        focusedColor = if (primary) accent.color else Palette.surfaceHigh
+    ) {
+        Icon(
+            icon,
+            label,
+            tint = if (primary) accent.onAccent else Palette.text,
+            modifier = Modifier.padding(if (primary) 18.dp else 14.dp).size(24.dp)
+        )
     }
 }
 
 @Composable
-private fun Flash(text: String, modifier: Modifier) {
-    Text(
-        text,
-        style = MaterialTheme.typography.headlineMedium,
-        modifier = modifier.padding(40.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xCC080A0D)).padding(horizontal = 24.dp, vertical = 12.dp),
-    )
-}
-
-@Composable
 private fun ErrorBox(text: String, vm: PlayerViewModel) {
-    val retry = remember { FocusRequester() }
-    LaunchedEffect(text) { runCatching { retry.requestFocus() } }
+    val retry = rememberFirstFocus(text)
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.width(560.dp)) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.width(560.dp)
+        ) {
             Text(text, style = MaterialTheme.typography.titleLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                PillButton("Try again", vm::retry, Modifier.focusRequester(retry), primary = true)
+                PillButton("Try again", vm::retry, retry, primary = true)
                 PillButton("Back", vm::stop)
             }
         }
     }
 }
-
-private val navigationKeys = setOf(Key.DirectionLeft, Key.DirectionRight, Key.DirectionUp, Key.DirectionDown, Key.DirectionCenter, Key.Enter, Key.NumPadEnter)

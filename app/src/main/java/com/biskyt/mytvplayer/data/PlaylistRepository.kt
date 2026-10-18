@@ -2,16 +2,18 @@ package com.biskyt.mytvplayer.data
 
 import androidx.room.withTransaction
 import com.biskyt.mytvplayer.core.epg.CategoryLanguageDetector
+import com.biskyt.mytvplayer.core.xtream.XtreamCategory
 import com.biskyt.mytvplayer.core.xtream.XtreamClient
 import com.biskyt.mytvplayer.core.xtream.XtreamCredentials
+import com.biskyt.mytvplayer.core.xtream.XtreamException
 import com.biskyt.mytvplayer.core.xtream.XtreamLiveStream
 import com.biskyt.mytvplayer.data.db.AppDatabase
 import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.PlaylistEntity
+import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 import okhttp3.OkHttpClient
-import java.util.Locale
 
 /** Playlists (Xtream accounts) and downloading their channel lists. */
 class PlaylistRepository(
@@ -19,7 +21,7 @@ class PlaylistRepository(
     private val http: OkHttpClient,
     private val settings: SettingsRepository,
     private val epg: EpgRepository,
-    private val locale: () -> Locale = Locale::getDefault,
+    private val locale: () -> Locale = Locale::getDefault
 ) {
     private val playlists = db.playlists()
     private val categories = db.categories()
@@ -31,23 +33,37 @@ class PlaylistRepository(
 
     suspend fun allIds(): List<Long> = playlists.all().map { it.id }
 
-    fun client(p: PlaylistEntity) = XtreamClient(http, XtreamCredentials(p.server, p.username, p.password))
+    fun client(p: PlaylistEntity) = client(p.server, p.username, p.password)
+
+    private fun client(server: String, username: String, password: String) =
+        XtreamClient(http, XtreamCredentials(server, username, password))
 
     /** Checks the login works; throws XtreamException with a readable message otherwise. */
     suspend fun testLogin(server: String, username: String, password: String) {
-        val account = XtreamClient(http, XtreamCredentials(server, username, password)).account()
-        if (!account.active) throw com.biskyt.mytvplayer.core.xtream.XtreamException("This account is not active")
+        if (!client(server, username, password).account().active) throw XtreamException("This account is not active")
     }
 
-    /** Saves a new playlist (after testing the login), downloads its categories and makes it the active one. */
+    /**
+     * Saves a new playlist and makes it the active one. Everything that can fail (login, category download) happens
+     * before anything is written, so a failed attempt leaves nothing behind.
+     */
     suspend fun add(name: String, server: String, username: String, password: String): Long {
-        testLogin(server, username, password)
-        val id = playlists.insert(PlaylistEntity(name = name.ifBlank { "My TV" }, server = server.trim(), username = username.trim(), password = password))
-        try {
-            refreshCategories(id)
-        } catch (e: java.io.IOException) {
-            playlists.delete(id) // don't leave a half-added playlist behind; the user can simply try again
-            throw e
+        val c = client(server.trim(), username.trim(), password)
+        if (!c.account().active) throw XtreamException("This account is not active")
+        val remote = c.liveCategories()
+        val id = db.withTransaction {
+            val newId = playlists.insert(
+                PlaylistEntity(
+                    name = name.ifBlank {
+                        "My TV"
+                    },
+                    server = server.trim(),
+                    username = username.trim(),
+                    password = password
+                )
+            )
+            storeCategories(newId, remote)
+            newId
         }
         settings.update { it.copy(activePlaylistId = id) }
         return id
@@ -81,7 +97,10 @@ class PlaylistRepository(
      */
     suspend fun refreshCategories(playlistId: Long) {
         val p = playlists.get(playlistId) ?: return
-        val remote = client(p).liveCategories()
+        storeCategories(playlistId, client(p).liveCategories())
+    }
+
+    private suspend fun storeCategories(playlistId: Long, remote: List<XtreamCategory>) {
         val existing = categories.all(playlistId).associateBy { it.categoryId }
         val wanted = if (existing.isEmpty()) defaultGroups() else existing.values.filter { it.included }.mapNotNull { it.lang }.toSet()
         val items = remote.mapIndexed { i, c ->
@@ -94,7 +113,7 @@ class PlaylistRepository(
                 lang = lang,
                 included = old?.included ?: (lang != null && lang in wanted),
                 sortOrder = old?.sortOrder ?: (existing.size + i),
-                channelCount = old?.channelCount ?: 0,
+                channelCount = old?.channelCount ?: 0
             )
         }
         db.withTransaction {
@@ -113,12 +132,34 @@ class PlaylistRepository(
         }
         val byLanguage = when (l.language) {
             "en" -> "UK"
-            "fr" -> "FR"; "de" -> "DE"; "es" -> "ES"; "it" -> "IT"; "pt" -> "PT"; "nl" -> "NL"; "pl" -> "PL"
-            "tr" -> "TR"; "ar" -> "AR"; "el" -> "GR"; "ro" -> "RO"; "sv" -> "SE"; "da" -> "DK"; "fi" -> "FI"
-            "ru" -> "RU"; "hi" -> "IN"
+            "fr" -> "FR"
+            "de" -> "DE"
+            "es" -> "ES"
+            "it" -> "IT"
+            "pt" -> "PT"
+            "nl" -> "NL"
+            "pl" -> "PL"
+            "tr" -> "TR"
+            "ar" -> "AR"
+            "el" -> "GR"
+            "ro" -> "RO"
+            "sv" -> "SE"
+            "da" -> "DK"
+            "fi" -> "FI"
+            "ru" -> "RU"
+            "hi" -> "IN"
             else -> null
         }
-        return setOfNotNull(country?.takeIf { it in CategoryLanguageDetector.groups }, if (country == null || country !in CategoryLanguageDetector.groups) byLanguage else null)
+        return setOfNotNull(
+            country?.takeIf { it in CategoryLanguageDetector.groups },
+            if (country == null ||
+                country !in CategoryLanguageDetector.groups
+            ) {
+                byLanguage
+            } else {
+                null
+            }
+        )
     }
 
     /**
@@ -152,7 +193,7 @@ class PlaylistRepository(
                 batch += ChannelEntity(
                     playlistId = playlistId, streamId = s.streamId, number = s.number, name = s.name, categoryId = s.categoryId,
                     logoUrl = s.logoUrl, providerEpgId = s.epgChannelId, archiveDays = s.archiveDays,
-                    hidden = pref?.hidden ?: false, sortOrder = pref?.sortOrder, syncStamp = stamp,
+                    hidden = pref?.hidden ?: false, sortOrder = pref?.sortOrder, syncStamp = stamp
                 )
                 count++
                 if (batch.size >= BATCH) flush()

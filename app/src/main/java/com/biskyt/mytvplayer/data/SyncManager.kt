@@ -25,43 +25,37 @@ sealed interface SyncState {
 class SyncManager(
     private val scope: CoroutineScope,
     private val playlists: PlaylistRepository,
-    private val epg: EpgRepository,
+    private val epg: EpgRepository
 ) {
     private val mutex = Mutex()
     private val _state = MutableStateFlow<SyncState>(SyncState.Idle)
     val state: StateFlow<SyncState> = _state.asStateFlow()
 
     /** Refreshes a playlist's channels, then the guide. */
-    fun refresh(playlistId: Long, includeGuide: Boolean = true): Job = scope.launch { refreshNow(playlistId, includeGuide) }
+    fun refresh(playlistId: Long): Job = scope.launch { refreshNow(playlistId) }
 
     fun refreshGuide(): Job = scope.launch { refreshGuideNow() }
 
-    suspend fun refreshNow(playlistId: Long, includeGuide: Boolean = true) {
-        mutex.withLock {
-            try {
-                _state.value = SyncState.Channels(0)
-                playlists.syncChannels(playlistId) { _state.value = SyncState.Channels(it) }
-                playlists.get(playlistId)?.let { epg.ensureProviderSource(it, playlists.client(it).xmltvUrl()) }
-                if (includeGuide) importGuide()
-                _state.value = SyncState.Idle
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                // Any failure (network, bad data, full storage) is shown, never allowed to crash the app.
-                _state.value = SyncState.Failed(e.message ?: "Couldn't refresh")
-            }
-        }
+    suspend fun refreshNow(playlistId: Long, includeGuide: Boolean = true) = guarded("Couldn't refresh") {
+        _state.value = SyncState.Channels(0)
+        playlists.syncChannels(playlistId) { _state.value = SyncState.Channels(it) }
+        playlists.get(playlistId)?.let { epg.ensureProviderSource(it, playlists.client(it).xmltvUrl()) }
+        if (includeGuide) importGuide()
     }
 
-    suspend fun refreshGuideNow() {
+    suspend fun refreshGuideNow() = guarded("Couldn't update the TV guide") { importGuide() }
+
+    /** Runs one refresh at a time; any failure (network, bad data, full storage) is shown, never allowed to crash the app. */
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun guarded(failure: String, block: suspend () -> Unit) {
         mutex.withLock {
             try {
-                importGuide()
+                block()
                 _state.value = SyncState.Idle
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _state.value = SyncState.Failed(e.message ?: "Couldn't update the TV guide")
+                _state.value = SyncState.Failed(e.message ?: failure)
             }
         }
     }

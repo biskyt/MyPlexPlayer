@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -14,8 +13,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -27,6 +24,8 @@ import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.ScheduleList
 import com.biskyt.mytvplayer.ui.common.SidePanel
 import com.biskyt.mytvplayer.ui.common.TvCard
+import com.biskyt.mytvplayer.ui.common.numberLabel
+import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.common.rememberSchedule
 import com.biskyt.mytvplayer.ui.theme.Palette
 
@@ -43,14 +42,19 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                 ChannelLogo(ch.logoUrl, ch.name, 72.dp, 44.dp)
                 Column(Modifier.padding(start = 14.dp)) {
                     Text(ch.name, style = MaterialTheme.typography.titleLarge, maxLines = 2)
-                    if (ch.number > 0) Muted(ch.number.toString())
+                    Muted(ch.numberLabel)
                 }
             }
             if (showGuide) {
-                ScheduleList(rememberSchedule(ch.playlistId, ch.streamId), onSelect = { close(); play(ch) })
+                ScheduleList(rememberSchedule(ch.playlistId, ch.streamId), onSelect = {
+                    close()
+                    play(ch)
+                })
             } else {
-                val first = remember { FocusRequester() }
-                Option("Watch", modifier = Modifier.focusRequester(first)) { close(); play(ch) }
+                Option("Watch", modifier = rememberFirstFocus()) {
+                    close()
+                    play(ch)
+                }
                 Option(if (ch.streamId in favs) "Remove from favourites" else "Add to favourites") { vm.toggleFavourite(ch) }
                 Option("Show TV guide for this channel", "Upcoming programmes") { showGuide = true }
                 Option("Change guide source…", "Pick which guide data this channel uses") {
@@ -62,7 +66,6 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                     Option("Move down") { vm.move(ch, 1) }
                 }
                 Option("Hide channel", "Unhide later in Settings › Languages & categories") { vm.hide(ch) }
-                LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
             }
         }
     }

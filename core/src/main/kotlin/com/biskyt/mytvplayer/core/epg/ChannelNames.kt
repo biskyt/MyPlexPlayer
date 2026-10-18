@@ -13,7 +13,7 @@ object ChannelNames {
     private val bracketed = Regex("""[\[(*][^\])*]*[\])*]""")
     private val noise = setOf(
         "hd", "fhd", "uhd", "sd", "4k", "8k", "hevc", "h265", "h264", "raw", "backup", "vip", "50fps", "60fps", "hq", "lq",
-        "1080p", "720p", "1080", "720", "multi",
+        "1080p", "720p", "1080", "720", "multi"
     )
     private val plusN = Regex("""\+\s*(\d)""")
 

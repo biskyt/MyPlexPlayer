@@ -55,7 +55,7 @@ fun TvCard(
     shape: Shape = RoundedCornerShape(14.dp),
     color: Color = Palette.surface,
     focusedColor: Color = Palette.surfaceHigh,
-    content: @Composable () -> Unit,
+    content: @Composable () -> Unit
 ) {
     val accent = LocalAccent.current
     Surface(
@@ -69,9 +69,9 @@ fun TvCard(
             focusedContainerColor = if (selected) accent.tint else focusedColor,
             pressedContainerColor = focusedColor,
             contentColor = Palette.text,
-            focusedContentColor = Palette.text,
+            focusedContentColor = Palette.text
         ),
-        border = ClickableSurfaceDefaults.border(focusedBorder = FocusRing),
+        border = ClickableSurfaceDefaults.border(focusedBorder = FocusRing)
     ) { content() }
 }
 
@@ -83,7 +83,7 @@ fun PillButton(
     modifier: Modifier = Modifier,
     primary: Boolean = false,
     selected: Boolean = false,
-    leading: (@Composable () -> Unit)? = null,
+    leading: (@Composable () -> Unit)? = null
 ) {
     val accent = LocalAccent.current
     val bg = when {
@@ -101,8 +101,13 @@ fun PillButton(
         modifier = modifier,
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-        colors = ClickableSurfaceDefaults.colors(containerColor = bg, focusedContainerColor = bg, contentColor = fg, focusedContentColor = fg),
-        border = ClickableSurfaceDefaults.border(focusedBorder = FocusRing),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = bg,
+            focusedContainerColor = bg,
+            contentColor = fg,
+            focusedContentColor = fg
+        ),
+        border = ClickableSurfaceDefaults.border(focusedBorder = FocusRing)
     ) {
         Row(Modifier.padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             if (leading != null) {
@@ -124,7 +129,7 @@ fun ProgressLine(fraction: Float, modifier: Modifier = Modifier, height: Dp = 5.
             drawRoundRect(Palette.track, cornerRadius = r)
             val f = fraction.coerceIn(0f, 1f)
             if (f > 0f) drawRoundRect(accent, size = Size(size.width * f, size.height), cornerRadius = r)
-        },
+        }
     )
 }
 
@@ -143,11 +148,16 @@ fun ChannelLogo(url: String?, name: String, width: Dp = 72.dp, height: Dp = 40.d
     }
     Box(
         Modifier.size(width, height).clip(RoundedCornerShape(9.dp)).background(Palette.surfaceHigh),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.Center
     ) {
-        Text(initials(name), style = MaterialTheme.typography.labelMedium, color = Palette.textDim, maxLines = 1)
+        Text(remember(name) { initials(name) }, style = MaterialTheme.typography.labelMedium, color = Palette.textDim, maxLines = 1)
         if (request != null) {
-            AsyncImage(model = request, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.size(width, height).padding(4.dp))
+            AsyncImage(
+                model = request,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(width, height).padding(4.dp)
+            )
         }
     }
 }
@@ -176,7 +186,7 @@ fun Muted(text: String, modifier: Modifier = Modifier, maxLines: Int = 1) {
         color = Palette.textMuted,
         modifier = modifier,
         maxLines = maxLines,
-        overflow = TextOverflow.Ellipsis,
+        overflow = TextOverflow.Ellipsis
     )
 }
 
@@ -185,15 +195,29 @@ fun Muted(text: String, modifier: Modifier = Modifier, maxLines: Int = 1) {
 fun Toggle(on: Boolean) {
     val accent = LocalAccent.current.color
     Box(Modifier.size(52.dp, 30.dp).clip(RoundedCornerShape(15.dp)).background(if (on) accent else Color(0xFF3A404C))) {
-        Box(Modifier.padding(3.dp).size(24.dp).align(if (on) Alignment.CenterEnd else Alignment.CenterStart).clip(CircleShape).background(Palette.text))
+        Box(
+            Modifier.padding(
+                3.dp
+            ).size(24.dp).align(if (on) Alignment.CenterEnd else Alignment.CenterStart).clip(CircleShape).background(Palette.text)
+        )
     }
 }
 
 /** A settings row: label + help text on the left, [trailing] control on the right. */
 @Composable
-fun SettingRow(label: String, help: String?, onClick: () -> Unit, modifier: Modifier = Modifier, trailing: @Composable RowScope.() -> Unit = {}) {
+fun SettingRow(
+    label: String,
+    help: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    trailing: @Composable RowScope.() -> Unit = {}
+) {
     TvCard(onClick = onClick, modifier = modifier.fillMaxWidth(), color = Palette.surfaceLow) {
-        Row(Modifier.padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        Row(
+            Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
             Column(Modifier.weight(1f)) {
                 Text(label, style = MaterialTheme.typography.titleSmall)
                 if (help != null) Muted(help, maxLines = 2)
@@ -209,6 +233,6 @@ fun ValueChip(value: String) {
     Text(
         "◀ $value ▶",
         style = MaterialTheme.typography.labelLarge,
-        modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Palette.surfaceHigh).padding(horizontal = 12.dp, vertical = 6.dp),
+        modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Palette.surfaceHigh).padding(horizontal = 12.dp, vertical = 6.dp)
     )
 }
