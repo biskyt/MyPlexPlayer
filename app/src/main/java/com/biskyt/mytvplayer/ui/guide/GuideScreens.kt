@@ -292,7 +292,7 @@ fun GuideMatchingScreen(playlistId: Long, streamId: Long?) {
                     filter,
                     { vm.filter.value = it },
                     "Filter your channels by name",
-                    Modifier.fillMaxWidth(),
+                    rememberFirstFocus().fillMaxWidth(),
                     leading = { Icon(AppIcons.Filter, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) }
                 )
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 24.dp)) {

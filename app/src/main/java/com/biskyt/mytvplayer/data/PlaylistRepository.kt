@@ -102,7 +102,11 @@ class PlaylistRepository(
 
     private suspend fun storeCategories(playlistId: Long, remote: List<XtreamCategory>) {
         val existing = categories.all(playlistId).associateBy { it.categoryId }
-        val wanted = if (existing.isEmpty()) defaultGroups() else existing.values.filter { it.included }.mapNotNull { it.lang }.toSet()
+        val wanted = if (existing.isEmpty()) {
+            defaultGroups(remote.mapNotNullTo(HashSet()) { CategoryLanguageDetector.detect(it.name) })
+        } else {
+            existing.values.filter { it.included }.mapNotNull { it.lang }.toSet()
+        }
         val items = remote.mapIndexed { i, c ->
             val old = existing[c.id]
             val lang = CategoryLanguageDetector.detect(c.name)
@@ -122,44 +126,15 @@ class PlaylistRepository(
         }
     }
 
-    /** Language groups included by default, from the TV's locale (e.g. en-GB → UK). */
-    fun defaultGroups(): Set<String> {
+    /**
+     * Language groups included by default: the TV's own country (e.g. en-GB → UK) when the provider has it,
+     * otherwise every group of the TV's language (e.g. en-US with a UK-only provider → UK). The user can change this.
+     */
+    fun defaultGroups(available: Set<String>): Set<String> {
         val l = locale()
-        val country = when (l.country.uppercase()) {
-            "GB" -> "UK"
-            "" -> null
-            else -> l.country.uppercase()
-        }
-        val byLanguage = when (l.language) {
-            "en" -> "UK"
-            "fr" -> "FR"
-            "de" -> "DE"
-            "es" -> "ES"
-            "it" -> "IT"
-            "pt" -> "PT"
-            "nl" -> "NL"
-            "pl" -> "PL"
-            "tr" -> "TR"
-            "ar" -> "AR"
-            "el" -> "GR"
-            "ro" -> "RO"
-            "sv" -> "SE"
-            "da" -> "DK"
-            "fi" -> "FI"
-            "ru" -> "RU"
-            "hi" -> "IN"
-            else -> null
-        }
-        return setOfNotNull(
-            country?.takeIf { it in CategoryLanguageDetector.groups },
-            if (country == null ||
-                country !in CategoryLanguageDetector.groups
-            ) {
-                byLanguage
-            } else {
-                null
-            }
-        )
+        val country = if (l.country.equals("GB", ignoreCase = true)) "UK" else l.country.uppercase()
+        if (country in available) return setOf(country)
+        return languageGroups[l.language].orEmpty().intersect(available)
     }
 
     /**
@@ -215,6 +190,14 @@ class PlaylistRepository(
     }
 
     private companion object {
+        /** Category groups that share a language, for the default selection. */
+        val languageGroups = mapOf(
+            "en" to setOf("UK", "US", "CA", "AU", "IE"), "fr" to setOf("FR", "BE"), "de" to setOf("DE"),
+            "es" to setOf("ES", "MX", "LAT"), "it" to setOf("IT"), "pt" to setOf("PT", "BR"), "nl" to setOf("NL", "BE"),
+            "pl" to setOf("PL"), "tr" to setOf("TR"), "ar" to setOf("AR"), "el" to setOf("GR"), "ro" to setOf("RO"),
+            "sv" to setOf("SE"), "nb" to setOf("NO"), "no" to setOf("NO"), "da" to setOf("DK"), "fi" to setOf("FI"),
+            "ru" to setOf("RU"), "hi" to setOf("IN"), "sq" to setOf("AL"), "zh" to setOf("CN"), "ko" to setOf("KR"), "ja" to setOf("JP"),
+        )
         const val BATCH = 500
         const val PER_CATEGORY_LIMIT = 20
     }

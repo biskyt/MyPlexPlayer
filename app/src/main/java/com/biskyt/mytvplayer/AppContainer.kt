@@ -45,7 +45,7 @@ class AppContainer(context: Context) {
     val sync = SyncManager(appScope, playlists, epg)
 }
 
-class MyTvApp : Application(), SingletonImageLoader.Factory {
+open class MyTvApp : Application(), SingletonImageLoader.Factory {
     lateinit var container: AppContainer
         private set
 
@@ -55,7 +55,7 @@ class MyTvApp : Application(), SingletonImageLoader.Factory {
         scheduleDailyRefresh()
     }
 
-    private fun scheduleDailyRefresh() {
+    protected open fun scheduleDailyRefresh() {
         val request = PeriodicWorkRequestBuilder<RefreshWorker>(1, TimeUnit.DAYS)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
