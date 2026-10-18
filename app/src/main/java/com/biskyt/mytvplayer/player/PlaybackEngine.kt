@@ -7,6 +7,7 @@ import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
@@ -60,15 +61,38 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
     /** True once the default subtitle choice has been applied to the current stream (the user may change it after). */
     private var subtitlesApplied = false
 
-    /** [userAgent] / [referrer]: some M3U streams only play when these headers are sent. */
-    fun play(url: String, hls: Boolean, userAgent: String? = null, referrer: String? = null) {
+    // URLs whose format was worked out from the address and turned out to be HLS (some M3U links don't say).
+    private val hlsUrls = HashSet<String>()
+    private var current: String? = null
+    private var currentInferred = false
+
+    /**
+     * [hls]: null works the format out from the stream (retrying once as HLS when that fails, see [retryAsHls]).
+     * [userAgent] / [referrer]: some M3U streams only play when these headers are sent.
+     */
+    fun play(url: String, hls: Boolean?, userAgent: String? = null, referrer: String? = null) {
         subtitlesApplied = false
+        current = url
+        currentInferred = hls == null && url !in hlsUrls
         http.setUserAgent(userAgent ?: DEFAULT_USER_AGENT)
         http.setDefaultRequestProperties(if (referrer != null) mapOf("Referer" to referrer) else emptyMap())
-        val item = MediaItem.Builder().setUri(url).apply { if (hls) setMimeType(MimeTypes.APPLICATION_M3U8) }.build()
+        val asHls = hls ?: (url in hlsUrls)
+        val item = MediaItem.Builder().setUri(url).apply { if (asHls) setMimeType(MimeTypes.APPLICATION_M3U8) }.build()
         player.setMediaItem(item)
         player.prepare()
         player.playWhenReady = true
+    }
+
+    /** A stream whose format was guessed and couldn't be read is tried once more as HLS. True if it was. */
+    fun retryAsHls(e: PlaybackException): Boolean {
+        val url = current ?: return false
+        if (!currentInferred || e.errorCode != PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED) return false
+        currentInferred = false
+        hlsUrls += url
+        val item = MediaItem.Builder().setUri(url).setMimeType(MimeTypes.APPLICATION_M3U8).build()
+        player.setMediaItem(item)
+        player.prepare()
+        return true
     }
 
     /** Applies the user's default subtitle setting the first time tracks are known for a stream. */

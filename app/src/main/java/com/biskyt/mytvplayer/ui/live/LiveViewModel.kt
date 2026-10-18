@@ -71,16 +71,18 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter, i
      * Updated as focus moves; a plain field, so moving focus never recomposes anything.
      */
     var focusStreamId: Long? = null
+        set(value) {
+            if (value != field) focusIndex = null
+            field = value
+        }
 
     // Position of [focusStreamId] in the list, when known (it isn't for a channel picked by number).
-    private var focusIndex = 0
-    private var focusIndexOf: Long? = null
+    private var focusIndex: Int? = null
 
     /** Called as focus moves in the list or guide. */
     fun focusMoved(streamId: Long, index: Int) {
         focusStreamId = streamId
         focusIndex = index
-        focusIndexOf = streamId
     }
 
     /**
@@ -90,12 +92,10 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter, i
     suspend fun revealFocused() {
         withFrameNanos { }
         val id = focusStreamId ?: return listState.scrollToItem(0) // nothing remembered: focus goes to the first row
-        val index = if (focusIndexOf == id) {
-            focusIndex
-        } else if (query.value.isBlank()) {
+        // Unknown position (e.g. a channel picked by number): look it up, unless a search makes the list different.
+        val index = focusIndex ?: run {
+            if (query.value.isNotBlank()) return
             c.channels.ids(playlistId.value, filter.value).indexOf(id).takeIf { it >= 0 } ?: return
-        } else {
-            return
         }
         val info = listState.layoutInfo
         val item = info.visibleItemsInfo.firstOrNull { it.index == index }
@@ -131,7 +131,6 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter, i
         filter.value = f
         // A different list: the remembered channel may not be in it, so focus starts from the top.
         focusStreamId = null
-        focusIndexOf = null
     }
 
     fun toggleFavourite(ch: ChannelEntity) = viewModelScope.launch {
@@ -155,7 +154,7 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter, i
 
     fun move(ch: ChannelEntity, delta: Int) = viewModelScope.launch {
         c.channels.move(ch.playlistId, filter.value, ch.streamId, delta)
-        focusMoved(ch.streamId, (focusIndex + delta).coerceAtLeast(0))
+        focusMoved(ch.streamId, ((focusIndex ?: 0) + delta).coerceAtLeast(0))
         restoreFocusPending = true
     }
 }

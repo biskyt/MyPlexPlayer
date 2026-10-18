@@ -150,7 +150,7 @@ class PlaylistEditViewModel(private val c: AppContainer, private val id: Long?) 
     }
 
     fun test() = run {
-        if (m3u) c.playlists.testM3u(server) else c.playlists.testLogin(server, username, password)
+        c.playlists.testConnection(m3u, server, username, password)
         message = "Connected ✓"
     }
 
