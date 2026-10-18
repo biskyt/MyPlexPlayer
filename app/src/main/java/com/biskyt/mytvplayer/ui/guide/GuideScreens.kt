@@ -19,10 +19,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -133,9 +135,17 @@ fun GuideSourcesScreen() {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 12.dp)) {
                 Text("Add an XMLTV guide", style = MaterialTheme.typography.titleMedium)
+                val urlEdit = rememberSaveable { mutableStateOf(false) }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TvTextField(vm.name, { vm.name = it }, "Name (optional)", Modifier.weight(0.35f))
-                    TvTextField(vm.url, { vm.url = it }, "https://…/guide.xml.gz", Modifier.weight(0.65f))
+                    TvTextField(vm.name, { vm.name = it }, "Name (optional)", Modifier.weight(0.35f), onNext = { urlEdit.value = true })
+                    TvTextField(
+                        vm.url,
+                        { vm.url = it },
+                        "https://…/guide.xml.gz",
+                        Modifier.weight(0.65f),
+                        keyboardType = KeyboardType.Uri,
+                        editing = urlEdit
+                    )
                     PillButton("Add", vm::add, primary = true)
                 }
             }

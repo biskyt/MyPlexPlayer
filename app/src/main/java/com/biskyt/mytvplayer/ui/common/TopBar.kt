@@ -16,6 +16,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,10 +32,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
@@ -148,8 +148,10 @@ fun TabScaffold(tab: Tab?, content: @Composable ColumnScope.() -> Unit) {
 }
 
 /**
- * Text entry for a remote: a normal focusable card that opens the on-screen keyboard only when OK is pressed,
- * so moving through a screen never pops the keyboard up.
+ * A text box that only opens the keyboard when selected, so D-pad focus can pass over it.
+ * [editing] can be hoisted so a form can open its next field straight from the keyboard's Next key ([onNext]).
+ * [autoCorrect] is off for addresses, user names and passwords, where "corrections" break what was typed.
+ * Everything is shown as typed, passwords included: they are entered with a remote and need checking.
  */
 @Composable
 fun TvTextField(
@@ -157,56 +159,75 @@ fun TvTextField(
     onValueChange: (String) -> Unit,
     placeholder: String,
     modifier: Modifier = Modifier,
-    password: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text,
+    autoCorrect: Boolean = keyboardType == KeyboardType.Text,
     leading: (@Composable () -> Unit)? = null,
+    editing: MutableState<Boolean> = rememberSaveable { mutableStateOf(false) },
+    onNext: (() -> Unit)? = null,
     onDone: () -> Unit = {}
 ) {
-    var editing by rememberSaveable { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
-    TvCard(onClick = { editing = true }, modifier = modifier, color = Palette.surface) {
+    val cardFocus = remember { FocusRequester() }
+    var refocusCard by remember { mutableStateOf(false) }
+    TvCard(onClick = { editing.value = true }, modifier = modifier.focusRequester(cardFocus), color = Palette.surface) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             if (leading != null) {
                 leading()
                 Box(Modifier.size(10.dp))
             }
-            if (editing) {
+            if (editing.value) {
                 var hadFocus by remember { mutableStateOf(false) }
+                val keyboard = LocalSoftwareKeyboardController.current
                 BasicTextField(
                     value = value,
                     onValueChange = onValueChange,
                     singleLine = true,
                     textStyle = MaterialTheme.typography.bodyLarge,
                     cursorBrush = SolidColor(LocalAccent.current.color),
-                    visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
-                    keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = {
-                        editing = false
-                        onDone()
-                    }),
+                    keyboardOptions = KeyboardOptions(
+                        autoCorrectEnabled = autoCorrect,
+                        keyboardType = keyboardType,
+                        imeAction = if (onNext != null) ImeAction.Next else ImeAction.Done,
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = {
+                            editing.value = false
+                            onNext?.invoke()
+                        },
+                        onDone = {
+                            editing.value = false
+                            refocusCard = true
+                            onDone()
+                        },
+                    ),
                     modifier = Modifier.weight(1f).focusRequester(focus).onFocusChanged {
                         // Leaving the field (e.g. pressing Back or moving away) ends editing.
                         if (it.isFocused) {
                             hadFocus = true
                         } else if (hadFocus) {
-                            editing = false
+                            editing.value = false
                         }
                     }
                 )
-                LaunchedEffect(Unit) { focus.requestFocus() }
-            } else {
-                val shown = when {
-                    value.isEmpty() -> placeholder
-                    password -> "•".repeat(value.length.coerceAtMost(12))
-                    else -> value
+                LaunchedEffect(Unit) {
+                    focus.requestFocus()
+                    keyboard?.show()
                 }
+            } else {
                 Text(
-                    shown,
+                    value.ifEmpty { placeholder },
                     style = MaterialTheme.typography.bodyLarge,
                     color = if (value.isEmpty()) Palette.textDim else Palette.text,
                     maxLines = 1
                 )
             }
+        }
+    }
+    if (refocusCard) {
+        // After Done, focus stays on this box rather than jumping elsewhere.
+        LaunchedEffect(Unit) {
+            runCatching { cardFocus.requestFocus() }
+            refocusCard = false
         }
     }
 }
