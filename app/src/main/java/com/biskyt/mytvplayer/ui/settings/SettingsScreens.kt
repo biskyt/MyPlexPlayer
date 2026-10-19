@@ -90,6 +90,7 @@ fun SettingsScreen() {
         item { SettingRow("TV guide sources", "Your provider's guide and extra XMLTV guides", { nav.push(Screen.GuideSources) }) }
         item { SettingRow("TV guide matching", "Pick the guide channel used by each channel", { nav.push(Screen.GuideMatching(pid)) }) }
         item { SettingRow("Appearance", "Accent colour and text size", { nav.push(Screen.Appearance) }) }
+        item { SettingRow("Backup & restore", "Save your playlists and choices to a file, or restore them", { nav.push(Screen.Backup) }) }
         item { SettingRow("About", "Version, licences, storage", { nav.push(Screen.About) }) }
     }
 }

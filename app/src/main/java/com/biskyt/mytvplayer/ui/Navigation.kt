@@ -49,6 +49,7 @@ sealed interface Screen {
     data object Appearance : Screen
     data object GuideSources : Screen
     data class GuideMatching(val playlistId: Long, val streamId: Long? = null) : Screen
+    data object Backup : Screen
     data object About : Screen
 }
 

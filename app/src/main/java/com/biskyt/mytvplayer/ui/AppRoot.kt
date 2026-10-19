@@ -29,6 +29,7 @@ import com.biskyt.mytvplayer.ui.player.VodPlayerScreen
 import com.biskyt.mytvplayer.ui.search.SearchScreen
 import com.biskyt.mytvplayer.ui.settings.AboutScreen
 import com.biskyt.mytvplayer.ui.settings.AppearanceScreen
+import com.biskyt.mytvplayer.ui.settings.BackupScreen
 import com.biskyt.mytvplayer.ui.settings.CategoriesScreen
 import com.biskyt.mytvplayer.ui.settings.PlaybackSettingsScreen
 import com.biskyt.mytvplayer.ui.settings.PlaylistEditScreen
@@ -119,6 +120,7 @@ private fun ScreenContent(screen: Screen) {
         Screen.Appearance -> AppearanceScreen()
         Screen.GuideSources -> GuideSourcesScreen()
         is Screen.GuideMatching -> GuideMatchingScreen(screen.playlistId, screen.streamId)
+        Screen.Backup -> BackupScreen()
         Screen.About -> AboutScreen()
     }
 }

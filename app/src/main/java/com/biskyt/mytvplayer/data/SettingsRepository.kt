@@ -16,11 +16,14 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.Serializable
 
 enum class BufferSize { SMALL, NORMAL, LARGE }
 
 enum class StreamFormat { TS, HLS }
 
+/** Serializable for backups (see BackupRepository). */
+@Serializable
 data class Settings(
     val activePlaylistId: Long = 0,
     val skipBackSec: Int = 10,

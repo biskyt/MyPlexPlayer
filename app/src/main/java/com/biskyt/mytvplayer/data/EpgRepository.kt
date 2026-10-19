@@ -243,6 +243,13 @@ class EpgRepository(
         File(cacheDir, "epg").listFiles()?.filter { it.name !in valid }?.forEach { it.delete() }
     }
 
+    /** After the sources were replaced wholesale (restoring a backup): their downloaded files and matcher are stale. */
+    suspend fun forgetDownloads() = withContext(Dispatchers.IO) {
+        matcherCache = null
+        File(cacheDir, "epg").listFiles()?.forEach { it.delete() }
+        changed()
+    }
+
     // --- import internals ---
 
     private fun sourceFile(id: Long) = File(cacheDir, "epg/source-$id.xml.gz")

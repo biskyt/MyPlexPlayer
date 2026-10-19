@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.roborazzi)
 }
@@ -14,8 +15,8 @@ android {
         applicationId = "com.biskyt.mytvplayer"
         minSdk = 30
         targetSdk = 36
-        versionCode = 11
-        versionName = "0.4.0"
+        versionCode = 12
+        versionName = "0.5.0"
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
     }
 

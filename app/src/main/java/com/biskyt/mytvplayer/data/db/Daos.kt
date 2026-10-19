@@ -538,3 +538,43 @@ interface VodDao {
     )
     suspend fun trimProgress(pid: Long, keep: Int)
 }
+
+/** Everything a backup holds (see BackupRepository), read and replaced as a whole. */
+@Dao
+interface BackupDao {
+    @Query("SELECT * FROM category")
+    suspend fun categories(): List<CategoryEntity>
+
+    /** Only channels the user hid or moved: the next sync keeps these choices and fills in the rest. */
+    @Query("SELECT * FROM channel WHERE hidden = 1 OR sortOrder IS NOT NULL")
+    suspend fun channelChoices(): List<ChannelEntity>
+
+    @Query("SELECT * FROM favourite")
+    suspend fun favourites(): List<FavouriteEntity>
+
+    @Query("SELECT * FROM vod_favourite")
+    suspend fun vodFavourites(): List<VodFavouriteEntity>
+
+    @Query("SELECT * FROM epg_source ORDER BY id")
+    suspend fun epgSources(): List<EpgSourceEntity>
+
+    /** Automatic matches are worked out again on the next guide update. */
+    @Query("SELECT * FROM channel_epg_mapping WHERE manual = 1")
+    suspend fun manualMappings(): List<ChannelEpgMappingEntity>
+
+    @Query("SELECT * FROM watch_progress")
+    suspend fun progress(): List<WatchProgressEntity>
+
+    @Insert
+    @Suppress("LongParameterList") // one per table
+    suspend fun insert(
+        playlists: List<PlaylistEntity>,
+        categories: List<CategoryEntity>,
+        channels: List<ChannelEntity>,
+        favourites: List<FavouriteEntity>,
+        vodFavourites: List<VodFavouriteEntity>,
+        epgSources: List<EpgSourceEntity>,
+        mappings: List<ChannelEpgMappingEntity>,
+        progress: List<WatchProgressEntity>
+    )
+}

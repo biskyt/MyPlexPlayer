@@ -25,6 +25,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun favourites(): FavouriteDao
     abstract fun epg(): EpgDao
     abstract fun vod(): VodDao
+    abstract fun backup(): BackupDao
 
     /**
      * Gives space back to the system after large deletes (old programmes, removed playlists). SQLite never shrinks the
@@ -35,6 +36,24 @@ abstract class AppDatabase : RoomDatabase() {
         val pages = db.query("PRAGMA page_count").use { if (it.moveToFirst()) it.getLong(0) else 0L }
         val free = db.query("PRAGMA freelist_count").use { if (it.moveToFirst()) it.getLong(0) else 0L }
         if (pages > 0 && free * 4 >= pages) db.execSQL("VACUUM")
+    }
+
+    /**
+     * Empties every table in the current transaction (unlike clearAllTables, which can't run inside one). Room's
+     * change tracking uses triggers, so open lists still update.
+     */
+    fun clearEveryTable() {
+        val db = openHelper.writableDatabase
+        val tables = db.query(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' " +
+                "AND name NOT IN ('android_metadata', 'room_master_table')"
+        ).use { c ->
+            List(c.count) {
+                c.moveToNext()
+                c.getString(0)
+            }
+        }
+        tables.forEach { db.execSQL("DELETE FROM `$it`") }
     }
 
     companion object {

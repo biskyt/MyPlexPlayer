@@ -315,4 +315,63 @@ class RepositoriesTest {
         assertTrue(find("%%").isEmpty) // typed literally, not as wildcards
         assertTrue(find("__").isEmpty)
     }
+
+    @Test
+    fun `a backup restores playlists, choices, favourites, guide choices and settings`() = runBlocking {
+        val backup = BackupRepository(db, settings, epg, SyncManager(scope, playlists, vod, epg))
+        fun import(text: String) = runBlocking { backup.apply(backup.read(text.byteInputStream())) }
+        val id = addPlaylist()
+        playlists.syncChannels(id)
+        vod.sync(playlists.get(id)!!)
+        val p = playlists.get(id)!!
+        epg.ensureProviderSource(p, playlists.client(p).xmltvUrl())
+        val source = db.epg().enabledSources().first().id
+        channels.setHidden(id, 103, true)
+        channels.setFavourite(id, 101, true)
+        channels.move(id, ChannelFilter.All, 102, -1)
+        epg.setManual(id, 101, source, "one.uk", offsetMinutes = 60)
+        db.categories().setIncluded(id, CAT_MOVIE, listOf("11"), true)
+        vod.setFavourite(id, CAT_MOVIE, 501, true)
+        vod.saveProgress(WatchProgressEntity(id, VOD_MOVIE, 501, 600_000, 3_600_000, 1, "Dune", null))
+        settings.update { it.copy(skipBackSec = 20, largeText = true) }
+
+        val file = backup.export().decodeToString()
+        // A bad file is turned down and changes nothing.
+        for (bad in listOf("not json", "{}", file.replace("\"MyTVPlayer\"", "\"Other\""))) {
+            try {
+                import(bad)
+                fail("accepted $bad")
+            } catch (_: BackupException) {
+            }
+        }
+        // A newer app's file says so, even when its contents have changed shape.
+        try {
+            import("""{"app":"MyTVPlayer","version":99,"playlists":"changed"}""")
+            fail("accepted a newer file")
+        } catch (e: BackupException) {
+            assertTrue(e.message!!.contains("newer version"))
+        }
+        assertEquals(listOf(id), playlists.allIds())
+
+        playlists.delete(id)
+        settings.update { Settings() }
+        assertTrue(import(file))
+
+        assertEquals(id, settings.current().activePlaylistId)
+        assertEquals(20, settings.current().skipBackSec)
+        assertTrue(settings.current().largeText)
+        assertEquals("secret", playlists.get(id)!!.password)
+        assertTrue(playlists.get(id)!!.isStale())
+        assertTrue(db.categories().all(id, CAT_MOVIE).single { it.categoryId == "11" }.included)
+        assertTrue(vod.observeFavourite(id, CAT_MOVIE, 501).first())
+        assertEquals(600_000L, vod.progress(id, VOD_MOVIE, 501)!!.positionMs)
+        assertEquals(source, db.epg().enabledSources().single().id)
+        assertEquals(60, db.epg().mapping(id, 101)!!.offsetMinutes)
+
+        // The next download fills the channel list back in, keeping the hidden, moved and favourite channels.
+        playlists.syncChannels(id)
+        assertEquals(listOf(102L, 101L), channels.ids(id, ChannelFilter.All))
+        assertTrue(channels.get(id, 103)!!.hidden)
+        assertEquals(listOf(101L), channels.ids(id, ChannelFilter.Favourites))
+    }
 }
