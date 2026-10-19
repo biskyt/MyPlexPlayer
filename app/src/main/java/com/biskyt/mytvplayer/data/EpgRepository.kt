@@ -387,10 +387,10 @@ class EpgRepository(
     private suspend fun importChannels(s: EpgSourceEntity): Int {
         val rows = ArrayList<EpgChannelEntity>()
         open(s.id).use { input ->
-            parser().parse(input, wantProgrammes = { false }, onChannel = { c ->
+            parser().parseChannels(input) { c ->
                 val name = c.names.firstOrNull() ?: c.id
                 rows += EpgChannelEntity(s.id, c.id, name, ChannelNames.normalize(name))
-            }, onProgramme = {})
+            }
         }
         db.withTransaction {
             epg.clearChannels(s.id)

@@ -86,6 +86,15 @@ class XmltvParserTest {
     }
 
     @Test
+    fun `reading just the channels stops at the programmes`() {
+        val channels = mutableListOf<String>()
+        // Truncated after the first programme starts: a channel-only read never gets that far.
+        val cut = xml.substring(0, xml.indexOf("<title lang"))
+        runBlocking { XmltvParser({ KXmlParser() }).parseChannels(ByteArrayInputStream(cut.toByteArray())) { channels += it.id } }
+        assertEquals(listOf("arena1.uk", "kite.uk"), channels)
+    }
+
+    @Test
     fun `reads gzip input`() {
         val gz = ByteArrayOutputStream().also { out -> GZIPOutputStream(out).use { it.write(xml.toByteArray()) } }.toByteArray()
         val channels = mutableListOf<XmltvChannel>()

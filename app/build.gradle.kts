@@ -15,8 +15,8 @@ android {
         applicationId = "com.biskyt.mytvplayer"
         minSdk = 30
         targetSdk = 36
-        versionCode = 17
-        versionName = "0.8.2"
+        versionCode = 18
+        versionName = "0.8.3"
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
     }
 

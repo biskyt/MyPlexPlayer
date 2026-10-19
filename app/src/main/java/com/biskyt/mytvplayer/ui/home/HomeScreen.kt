@@ -73,6 +73,7 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
 @Composable
 fun HomeScreen() {
     val vm = appViewModel { HomeViewModel(it) }
+    vm.nowNext.PauseWhenHidden()
     val nav = LocalNavigator.current
     val favourites by vm.favourites.collectAsState()
     val recent by vm.recent.collectAsState()

@@ -32,6 +32,39 @@ class NavigationAndLoaderTest {
     }
 
     @Test
+    fun `the guide button opens the guide except while watching or setting up`() {
+        assert(guideButtonOpensGuide(Screen.Home))
+        assert(guideButtonOpensGuide(Screen.Settings))
+        assert(guideButtonOpensGuide(Screen.Movies()))
+        assertFalse(guideButtonOpensGuide(Screen.Player(1, 5, ChannelFilter.All)))
+        assertFalse(guideButtonOpensGuide(Screen.Welcome))
+        assertFalse(guideButtonOpensGuide(Screen.Categories(1, firstRun = true)))
+        assert(guideButtonOpensGuide(Screen.Categories(1)))
+    }
+
+    @Test
+    fun `now next pauses while its screen is hidden and catches up on return`() = runTest {
+        val now = 1_000_000L
+        val changes = kotlinx.coroutines.flow.MutableStateFlow(0)
+        var loads = 0
+        val loader = NowNextLoader(backgroundScope, changes, clock = { now }) { ids, _, _ ->
+            loads++
+            ids.associateWith { listOf(prog(it, now - 10, now + 10, "now")) }
+        }
+        loader.request(1)
+        advanceTimeBy(200)
+        runCurrent()
+        assertEquals(1, loads)
+        loader.hidden()
+        changes.value = 1
+        runCurrent()
+        assertEquals(1, loads) // nothing reloaded behind another screen
+        loader.shown()
+        runCurrent()
+        assertEquals(2, loads) // the missed guide change, on return
+    }
+
+    @Test
     fun `cycle wraps both ways`() {
         val ids = listOf(10L, 20L, 30L)
         assertEquals(20L, ids.cycle(10L))

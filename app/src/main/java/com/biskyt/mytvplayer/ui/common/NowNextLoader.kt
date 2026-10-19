@@ -1,6 +1,7 @@
 package com.biskyt.mytvplayer.ui.common
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateMapOf
@@ -20,7 +21,7 @@ import kotlinx.coroutines.launch
  * [scope] must run on the main thread.
  */
 open class BatchLoader<V : Any>(
-    private val scope: CoroutineScope,
+    protected val scope: CoroutineScope,
     private val load: suspend (ids: List<Long>) -> Map<Long, V>
 ) {
     val entries = mutableStateMapOf<Long, V>()
@@ -96,16 +97,49 @@ class NowNextLoader(
     val result = load(ids, now, now + LOOKAHEAD_MS)
     ids.associateWith { id -> pick(result[id].orEmpty(), now) }
 }) {
+    /** False while the screen is in the back stack (e.g. Home under the player): nothing is reloaded then. */
+    private var shown = true
+    private var missedChange = false
+
     init {
         scope.launch {
             while (isActive) {
                 delay(60_000 - clock() % 60_000)
-                val t = clock()
-                val stale = entries.filterValues { it.isStale(t) }.keys.toList()
-                if (stale.isNotEmpty()) fetch(stale)
+                if (shown) refreshStale()
             }
         }
-        guideChanges?.let { flow -> scope.launch { flow.drop(1).collect { refreshAll() } } }
+        guideChanges?.let { flow ->
+            scope.launch { flow.drop(1).collect { if (shown) refreshAll() else missedChange = true } }
+        }
+    }
+
+    /**
+     * Call from the screen showing these rows. While it's covered by another screen (its view model kept in the back
+     * stack), the minute updates and guide reloads pause, leaving the CPU to what is on screen; on return, rows catch up.
+     */
+    @Composable
+    fun PauseWhenHidden() {
+        DisposableEffect(this) {
+            shown()
+            onDispose { hidden() }
+        }
+    }
+
+    fun hidden() {
+        shown = false
+    }
+
+    fun shown() {
+        if (shown) return
+        shown = true
+        if (missedChange) refreshAll() else scope.launch { refreshStale() }
+        missedChange = false
+    }
+
+    private suspend fun refreshStale() {
+        val t = clock()
+        val stale = entries.filterValues { it.isStale(t) }.keys.toList()
+        if (stale.isNotEmpty()) fetch(stale)
     }
 
     private companion object {

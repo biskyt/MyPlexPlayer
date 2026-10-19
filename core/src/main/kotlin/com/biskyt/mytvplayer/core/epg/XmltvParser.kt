@@ -67,6 +67,28 @@ class XmltvParser(
         }
     }
 
+    /**
+     * Reads just the channels. XMLTV lists every `<channel>` before the programmes, so this stops at the first
+     * programme after a channel: most of a big guide (its programmes) isn't even decompressed.
+     */
+    suspend fun parseChannels(input: InputStream, onChannel: suspend (XmltvChannel) -> Unit) {
+        val p = newParser()
+        p.setInput(input, null)
+        var seen = false
+        while (true) {
+            when (p.next()) {
+                XmlPullParser.END_DOCUMENT -> return
+                XmlPullParser.START_TAG -> when (p.name) {
+                    "channel" -> readChannel(p)?.let {
+                        seen = true
+                        onChannel(it)
+                    }
+                    "programme" -> if (seen) return else p.skipElement()
+                }
+            }
+        }
+    }
+
     private fun readChannel(p: XmlPullParser): XmltvChannel? {
         val id = p.getAttributeValue(null, "id")
         val names = ArrayList<String>(2)

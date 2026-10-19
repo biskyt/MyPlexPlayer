@@ -78,6 +78,7 @@ import com.biskyt.mytvplayer.ui.theme.Palette
 fun PlayerScreen(screen: Screen.Player) {
     val appContext = LocalContext.current.applicationContext
     val vm = appViewModel { PlayerViewModel(it, appContext, screen) }
+    vm.nowNext.PauseWhenHidden()
     PlayerFrame(
         vm,
         controls = { buttons, root -> LiveControls(vm, buttons, root) },
