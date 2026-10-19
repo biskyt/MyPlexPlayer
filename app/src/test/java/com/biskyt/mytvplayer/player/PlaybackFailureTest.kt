@@ -47,6 +47,9 @@ class PlaybackFailureTest {
         says(failure(PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED), "This TV box can't decode")
         says(failure(PlaybackException.ERROR_CODE_DRM_LICENSE_ACQUISITION_FAILED), "encrypted")
         says(failure(PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED), "can't read")
-        says(failure(PlaybackException.ERROR_CODE_UNSPECIFIED), "ERROR_CODE_UNSPECIFIED")
+        says(failure(PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED), "passthrough")
+        says(failure(PlaybackException.ERROR_CODE_UNSPECIFIED), "couldn't play it (unspecified)")
+        // An odd but playable address still names its server.
+        assertTrue(streamSource("http://srv.example:8080/live/a b|c.ts") == "Stream from srv.example.")
     }
 }

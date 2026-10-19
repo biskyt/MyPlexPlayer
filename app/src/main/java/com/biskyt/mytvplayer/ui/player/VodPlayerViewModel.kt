@@ -67,7 +67,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
                 val seriesId = screen.seriesId
                 if (seriesId == null) startMovie(p) else startEpisode(p, seriesId, screen.itemId, screen.fromStart, screen.continueSeries)
             } catch (e: java.io.IOException) {
-                error = e.message ?: failureMessage
+                fail(e.message ?: failureMessage)
             }
         }
     }

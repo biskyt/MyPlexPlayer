@@ -18,9 +18,13 @@ import org.robolectric.annotation.Config
 class PlaybackEngineTest {
     private val engine = PlaybackEngine(ApplicationProvider.getApplicationContext<Context>(), Settings())
     private var unsupported = 0
+    private var unsupportedUrl: String? = null
 
     init {
-        engine.onUnsupported = { unsupported++ }
+        engine.onUnsupported = {
+            unsupported++
+            unsupportedUrl = it
+        }
     }
 
     @After
@@ -34,6 +38,8 @@ class PlaybackEngineTest {
         // SmoothStreaming isn't included.
         engine.play("https://example.invalid/channel.ism/Manifest", hls = null)
         assertEquals(1, unsupported)
+        // The message names where it comes from.
+        assertEquals("Stream from example.invalid.", streamSource(unsupportedUrl))
     }
 
     @Test

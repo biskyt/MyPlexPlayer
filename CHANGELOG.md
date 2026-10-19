@@ -6,6 +6,8 @@ Each version's section becomes its GitHub release notes, so it is written for th
 - When a channel, film or episode won't play, the message now says why: the stream's server refused it (often because
   it only plays in its own country), the stream has gone from its address, the server didn't answer, or this TV box
   can't decode or read what it sent. It also names the server the stream comes from.
+- Settings › Playlists shows when your provider's subscription expires, in amber when it's two weeks away or has
+  passed. This now works for providers added with an M3U link (`…/get.php?username=…`) as well as with a login.
 
 ## 0.8.3
 - The **Guide** button on the remote opens the TV guide from anywhere in the app; Back returns to where you were.
