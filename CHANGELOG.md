@@ -2,6 +2,15 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.8.1
+- First launch asks what you'd like: add your TV provider, start with the free channels, or restore a backup.
+  Nothing is set up until you choose.
+- Settings › Languages & categories has a filter for countries, categories and hidden channels.
+- Fixed: some free channels (e.g. BBC Four) closed the app. DASH streams now play, and any stream the app can't play
+  shows a message instead.
+- Fixed: a channel that kept failing just after starting (e.g. 5USA) looped on "Loading…" for ever. It now says it
+  isn't playing after a few tries.
+
 ## 0.8.0
 - **Catch-up TV** on channels whose provider offers it:
   - **Catch-up** in a channel's menu: the last few days, day by day; pick a programme to watch it.

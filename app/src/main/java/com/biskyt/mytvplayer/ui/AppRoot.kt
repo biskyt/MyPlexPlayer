@@ -66,7 +66,7 @@ fun AppRoot() {
                 container.playlists.get(s.activePlaylistId)
                     ?: container.playlists.allIds().firstOrNull()?.let { container.playlists.get(it) }
             root.navigator = when {
-                playlist == null -> Navigator(Screen.Welcome())
+                playlist == null -> Navigator(Screen.Welcome)
                 else -> Navigator(Screen.Home).also { nav ->
                     if (playlist.id != s.activePlaylistId) container.settings.update { it.copy(activePlaylistId = playlist.id) }
                     when {
@@ -90,7 +90,7 @@ fun AppRoot() {
         BackHandler {
             when {
                 nav.pop() -> Unit
-                nav.current.screen != Screen.Home && nav.current.screen !is Screen.Welcome && nav.current.screen !is Screen.PlaylistEdit ->
+                nav.current.screen != Screen.Home && nav.current.screen != Screen.Welcome && nav.current.screen !is Screen.PlaylistEdit ->
                     nav.reset(Screen.Home)
                 else -> activity?.finish()
             }
@@ -104,7 +104,7 @@ fun AppRoot() {
 @Composable
 private fun ScreenContent(screen: Screen) {
     when (screen) {
-        is Screen.Welcome -> WelcomeScreen(screen.auto)
+        Screen.Welcome -> WelcomeScreen()
         Screen.Home -> HomeScreen()
         is Screen.Live -> LiveScreen(screen.filter, screen.guide)
         is Screen.Movies -> VodBrowseScreen(CAT_MOVIE, screen.filter)
