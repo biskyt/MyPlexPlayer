@@ -172,6 +172,12 @@ interface ChannelDao {
     @Query("SELECT COUNT(*) FROM channel WHERE playlistId = :pid AND hidden = 0 AND archiveDays > 0")
     fun observeCatchupCount(pid: Long): Flow<Int>
 
+    @Query("SELECT EXISTS(SELECT 1 FROM channel WHERE playlistId = :pid AND hidden = 0 AND archiveDays > 0)")
+    fun observeHasCatchup(pid: Long): Flow<Boolean>
+
+    @Query("DELETE FROM channel WHERE playlistId = :pid AND categoryId = :cat")
+    suspend fun deleteCategory(pid: Long, cat: String)
+
     @Query(
         """SELECT c.streamId FROM channel c JOIN favourite f ON f.playlistId = c.playlistId AND f.streamId = c.streamId
            WHERE c.playlistId = :pid ORDER BY c.position, c.name"""
@@ -564,6 +570,12 @@ interface VodDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSeries(items: List<SeriesEntity>)
+
+    @Query("DELETE FROM movie WHERE playlistId = :pid AND categoryId = :cat")
+    suspend fun deleteMovieCategory(pid: Long, cat: String)
+
+    @Query("DELETE FROM series WHERE playlistId = :pid AND categoryId = :cat")
+    suspend fun deleteSeriesCategory(pid: Long, cat: String)
 
     @Query("DELETE FROM movie WHERE playlistId = :pid AND syncStamp != :stamp")
     suspend fun deleteStaleMovies(pid: Long, stamp: Long)

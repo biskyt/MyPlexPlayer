@@ -31,6 +31,7 @@ import com.biskyt.mytvplayer.data.db.WatchProgressEntity
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
+import com.biskyt.mytvplayer.ui.common.CatchupMark
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
 import com.biskyt.mytvplayer.ui.common.ItemAction
 import com.biskyt.mytvplayer.ui.common.ItemActionsPanel
@@ -48,7 +49,6 @@ import com.biskyt.mytvplayer.ui.common.formatDuration
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
-import com.biskyt.mytvplayer.ui.live.CatchupMark
 import com.biskyt.mytvplayer.ui.player.shortEpisodeLabel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
@@ -125,7 +125,7 @@ fun HomeScreen() {
                     when {
                         favs == null -> Unit
                         favs.isEmpty() -> EmptyFavourites(first) { nav.reset(Screen.Live()) }
-                        else -> ChannelCardRow(favs, vm.nowNext, first, { options = HomeTile.Channel(it, ChannelFilter.Favourites) }) {
+                        else -> ChannelCardRow(favs, vm.nowNext, { options = HomeTile.Channel(it, ChannelFilter.Favourites) }, first) {
                             nav.push(Screen.Player(pid, it.streamId, ChannelFilter.Favourites))
                         }
                     }
@@ -135,7 +135,7 @@ fun HomeScreen() {
                 item {
                     Column {
                         SectionTitle("Recently watched")
-                        ChannelCardRow(recent, vm.nowNext, onOptions = { options = HomeTile.Channel(it, ChannelFilter.Recent) }) {
+                        ChannelCardRow(recent, vm.nowNext, { options = HomeTile.Channel(it, ChannelFilter.Recent) }) {
                             nav.push(Screen.Player(pid, it.streamId, ChannelFilter.Recent))
                         }
                     }
@@ -160,14 +160,18 @@ private fun TileOptions(tile: HomeTile, vm: HomeViewModel, onDismiss: () -> Unit
         is HomeTile.Channel -> {
             val ch = tile.ch
             val favourites by vm.favouriteIds.collectAsState()
-            val actions = listOf(ItemAction.Open("Watch", Screen.Player(ch.playlistId, ch.streamId, tile.list))) +
-                channelActions(ch, ch.streamId in favourites) { vm.setFavourite(ch, it) } +
-                listOfNotNull(
-                    ItemAction.Run("Remove from Recently watched") {
-                        vm.removeRecent(ch)
-                        onDismiss()
-                    }.takeIf { tile.list == ChannelFilter.Recent }
-                )
+            val actions = buildList {
+                add(ItemAction.Open("Watch", Screen.Player(ch.playlistId, ch.streamId, tile.list)))
+                addAll(channelActions(ch, ch.streamId in favourites) { vm.setFavourite(ch, it) })
+                if (tile.list == ChannelFilter.Recent) {
+                    add(
+                        ItemAction.Run("Remove from Recently watched") {
+                            vm.removeRecent(ch)
+                            onDismiss()
+                        }
+                    )
+                }
+            }
             ItemActionsPanel(ch.name, actions, onDismiss)
         }
         is HomeTile.CarryOn -> {
@@ -208,8 +212,8 @@ private fun EmptyFavourites(modifier: Modifier, onBrowse: () -> Unit) {
 private fun ChannelCardRow(
     channels: List<ChannelEntity>,
     loader: NowNextLoader,
-    modifier: Modifier = Modifier,
     onOptions: (ChannelEntity) -> Unit,
+    modifier: Modifier = Modifier,
     onPlay: (ChannelEntity) -> Unit
 ) {
     val now by rememberMinuteClock()
@@ -226,7 +230,7 @@ private fun ChannelCardRow(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         ChannelLogo(c.logoUrl, c.name, 64.dp, 38.dp)
                         Muted(c.name, Modifier.padding(start = 10.dp).weight(1f, fill = false))
-                        if (c.archiveDays > 0) CatchupMark(Modifier.padding(start = 6.dp))
+                        CatchupMark(c, Modifier.padding(start = 6.dp))
                     }
                     Text(
                         nn?.now?.title ?: " ",

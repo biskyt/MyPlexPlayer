@@ -40,12 +40,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.allowRgb565
+import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.VodCard
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
@@ -328,4 +330,10 @@ fun ValueChip(value: String) {
         style = MaterialTheme.typography.labelLarge,
         modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Palette.surfaceHigh).padding(horizontal = 12.dp, vertical = 6.dp)
     )
+}
+
+/** Marks a channel with catch-up (nothing for others): small and dim, there when looked for without crowding. */
+@Composable
+fun CatchupMark(ch: ChannelEntity, modifier: Modifier = Modifier) {
+    if (ch.archiveDays > 0) Icon(AppIcons.Catchup, "Catch-up", tint = Palette.textDim, modifier = modifier.size(16.dp))
 }

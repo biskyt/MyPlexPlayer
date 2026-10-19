@@ -166,7 +166,9 @@ data class VodFavouriteEntity(val playlistId: Long, val kind: String, val itemId
     indices = [
         Index("playlistId", "hidden", "position", "name"),
         Index("playlistId", "categoryId", "hidden", "position", "name"),
-        Index("playlistId", "number")
+        Index("playlistId", "number"),
+        // The Catch-up list, and whether a playlist has one (asked on every screen).
+        Index("playlistId", "hidden", "archiveDays")
     ]
 )
 @Serializable
