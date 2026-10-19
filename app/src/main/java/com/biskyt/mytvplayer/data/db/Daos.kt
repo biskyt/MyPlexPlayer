@@ -70,6 +70,9 @@ interface CategoryDao {
     @Query("SELECT * FROM category WHERE playlistId = :pid AND type = :type AND included = 1 ORDER BY sortOrder")
     fun observeIncluded(pid: Long, type: String): Flow<List<CategoryEntity>>
 
+    @Query("SELECT * FROM category WHERE playlistId = :pid AND type = :type AND included = 1")
+    suspend fun included(pid: Long, type: String): List<CategoryEntity>
+
     @Upsert
     suspend fun upsert(items: List<CategoryEntity>)
 
