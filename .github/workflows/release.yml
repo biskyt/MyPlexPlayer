@@ -70,6 +70,8 @@ jobs:
 
       - name: Collect files
         id: files
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           v=${{ steps.version.outputs.version }}
           mkdir -p dist
@@ -77,8 +79,8 @@ jobs:
           (cd dist && sha256sum MyTVPlayer-*.apk > SHA256SUMS.txt)
           mkdir -p play
           cp app/build/outputs/bundle/release/app-release.aab "play/MyTVPlayer-$v.aab"
-          # Release notes: this version's section of CHANGELOG.md.
-          awk -v v="$v" '/^## /{p = ($2 == v)} p' CHANGELOG.md | tail -n +2 > dist/notes.md
+          # Release notes: this version's section of CHANGELOG.md, and any versions since the last release.
+          .github/scripts/release-notes.sh "$v" > dist/notes.md
           if [ "$SIGNED_WITH" = "development" ]; then
             printf '\n> **Test build:** signed with the public development key. Not for general distribution.\n' >> dist/notes.md
           fi
