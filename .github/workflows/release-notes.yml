@@ -1,0 +1,35 @@
+name: Release notes
+
+# Rewrites an existing release's notes from CHANGELOG.md (as the Release workflow writes them), without rebuilding it:
+# for a changelog fixed after the release, or versions that were never released on their own.
+# Run it from the Actions tab with the release's tag (e.g. v0.8.3).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, e.g. v0.8.3
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rewrite the notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          .github/scripts/release-notes.sh "${TAG#v}" > notes.md
+          # The install line the Release workflow adds; the test-build warning is kept if the release had it.
+          if gh release view "$TAG" --json body --jq .body | grep -q 'Test build:'; then
+            printf '\n> **Test build:** signed with the public development key. Not for general distribution.\n' >> notes.md
+          fi
+          printf '\n**Install on Android TV:** download the APK and sideload it (e.g. with the Downloader app or `adb install`).\n' >> notes.md
+          gh release edit "$TAG" --notes-file notes.md
