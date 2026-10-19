@@ -6,6 +6,7 @@ import com.biskyt.mytvplayer.core.epg.ChannelMatcher
 import com.biskyt.mytvplayer.core.epg.ChannelNames
 import com.biskyt.mytvplayer.core.epg.EpgCandidate
 import com.biskyt.mytvplayer.core.epg.EpgMatch
+import com.biskyt.mytvplayer.core.epg.XmltvChannel
 import com.biskyt.mytvplayer.core.epg.XmltvParser
 import com.biskyt.mytvplayer.data.db.AppDatabase
 import com.biskyt.mytvplayer.data.db.ChannelEpgMappingEntity
@@ -161,15 +162,41 @@ class EpgRepository(
             }
             playlistIds.forEach { autoMatch(it, scope, onProgress) }
             releaseMatcher()
+            val late = HashMap<Long, List<EpgChannelEntity>>()
             for (s in sources) {
                 if (!sourceFile(s.id).exists()) continue
                 onProgress("Loading programmes from ${s.name}…")
-                runCatching { importProgrammes(s.id, epg.mappedXmlIds(s.id).toHashSet()) }
+                runCatching { importProgrammes(s.id, epg.mappedXmlIds(s.id).toHashSet(), known = epg.channelXmlIds(s.id).toHashSet()) }
+                    .onSuccess { if (it.isNotEmpty()) late[s.id] = it }
+                    // E.g. a file cut off part-way: the channels at its start read fine, so say so here.
+                    .onFailure { e ->
+                        (e.message ?: e.javaClass.simpleName).let {
+                            epg.setSourceError(s.id, it)
+                            errors[s.id] = it
+                        }
+                    }
             }
+            if (late.isNotEmpty()) addLateChannels(late, playlistIds, onProgress)
             epg.pruneProgrammes(clock() - KEEP_PAST_MS)
             changed()
             errors
         }
+
+    /**
+     * A guide that lists channels after programmes (against the XMLTV format, e.g. guides joined end to end): its
+     * channel list was read short. Adds the rest, matches again and reloads its programmes; later updates read such a
+     * guide in full ([interleavedMarker]).
+     */
+    private suspend fun addLateChannels(late: Map<Long, List<EpgChannelEntity>>, playlistIds: List<Long>, onProgress: (String) -> Unit) {
+        for ((id, rows) in late) {
+            rows.chunked(BATCH).forEach { epg.upsertChannels(it) }
+            interleavedMarker(id).createNewFile()
+        }
+        matcherCache = null
+        playlistIds.forEach { autoMatch(it, MatchScope.RETRY, onProgress) }
+        releaseMatcher()
+        late.keys.forEach { id -> runCatching { importProgrammes(id, epg.mappedXmlIds(id).toHashSet()) } }
+    }
 
     /** Downloads one source and reads its channels: their number, or why it failed (also stored with the source). */
     private suspend fun load(s: EpgSourceEntity, onProgress: (String) -> Unit): Result<Int> {
@@ -338,7 +365,7 @@ class EpgRepository(
 
     /** Deletes cached guide files whose source no longer exists. */
     suspend fun deleteOrphanFiles() = withContext(Dispatchers.IO) {
-        val valid = epg.allSourceIds().map { "source-$it.xml.gz" }.toSet()
+        val valid = epg.allSourceIds().flatMap { listOf(sourceFile(it).name, interleavedMarker(it).name) }.toSet()
         File(cacheDir, "epg").listFiles()?.filter { it.name !in valid }?.forEach { it.delete() }
     }
 
@@ -352,6 +379,9 @@ class EpgRepository(
     // --- import internals ---
 
     private fun sourceFile(id: Long) = File(cacheDir, "epg/source-$id.xml.gz")
+
+    /** Present for a guide whose channels aren't all before its programmes: its channels are read from the whole file. */
+    private fun interleavedMarker(id: Long) = File(cacheDir, "epg/source-$id.interleaved")
 
     /** Saves the response gzipped (compressing it if the server sent plain XML). */
     private fun download(s: EpgSourceEntity) {
@@ -387,9 +417,14 @@ class EpgRepository(
     private suspend fun importChannels(s: EpgSourceEntity): Int {
         val rows = ArrayList<EpgChannelEntity>()
         open(s.id).use { input ->
-            parser().parseChannels(input) { c ->
+            val onChannel: suspend (XmltvChannel) -> Unit = { c ->
                 val name = c.names.firstOrNull() ?: c.id
                 rows += EpgChannelEntity(s.id, c.id, name, ChannelNames.normalize(name))
+            }
+            if (interleavedMarker(s.id).exists()) {
+                parser().parse(input, { false }, onChannel) {}
+            } else {
+                parser().parseChannels(input, onChannel)
             }
         }
         db.withTransaction {
@@ -405,18 +440,33 @@ class EpgRepository(
      * and older rows removed at the end, so screens never see a half-empty guide during an import.
      * [onlyThese] limits the clean-up to [xmlIds] (used when one channel is re-mapped).
      */
-    private suspend fun importProgrammes(sourceId: Long, xmlIds: Set<String>, onlyThese: Boolean = false) {
-        if (!sourceFile(sourceId).exists()) return
-        if (xmlIds.isEmpty()) {
+    private suspend fun importProgrammes(
+        sourceId: Long,
+        xmlIds: Set<String>,
+        onlyThese: Boolean = false,
+        known: Set<String>? = null
+    ): List<EpgChannelEntity> {
+        // With [known] (the channels read before), returns any others the file has: see addLateChannels.
+        val late = ArrayList<EpgChannelEntity>()
+        if (!sourceFile(sourceId).exists()) return late
+        if (xmlIds.isEmpty() && known == null) {
             if (!onlyThese) epg.clearProgrammes(sourceId) // nothing uses this guide any more
-            return
+            return late
         }
         val now = clock()
         val batch = ArrayList<ProgrammeEntity>(BATCH)
+        val onChannel: (suspend (XmltvChannel) -> Unit)? = known?.let {
+            { c ->
+                if (c.id !in known) {
+                    val name = c.names.firstOrNull() ?: c.id
+                    late += EpgChannelEntity(sourceId, c.id, name, ChannelNames.normalize(name))
+                }
+            }
+        }
         open(sourceId).use { input ->
             parser(now - KEEP_PAST_MS, now + KEEP_FUTURE_MS).parse(input, wantProgrammes = {
                 it in xmlIds
-            }, onChannel = null, onProgramme = { p ->
+            }, onChannel = onChannel, onProgramme = { p ->
                 batch += ProgrammeEntity(
                     sourceId, p.channelId, p.startMs, p.stopMs, p.title, p.subtitle, p.description, now, p.kind, p.season, p.episode
                 )
@@ -432,6 +482,7 @@ class EpgRepository(
         } else {
             epg.deleteOlderProgrammes(sourceId, now)
         }
+        return late
     }
 
     private companion object {

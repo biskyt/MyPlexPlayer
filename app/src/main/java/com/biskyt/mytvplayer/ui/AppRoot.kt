@@ -97,18 +97,25 @@ fun AppRoot() {
             }
         }
         Box(
-            // The remote's Guide button opens the TV guide from anywhere a screen hasn't used it already (the live
-            // screen switches list and guide; the channel player shows the channel's schedule).
-            Modifier.fillMaxSize().background(Palette.background)
-                .onGuideKey({ guideButtonOpensGuide(nav.current.screen) }) { nav.reset(Screen.Live(guide = true)) }
+            Modifier.fillMaxSize().background(Palette.background).guideButton(nav, hasPlaylist = s.activePlaylistId != 0L)
         ) {
             NavHost(nav) { screen -> ScreenContent(screen) }
         }
     }
 }
 
-/** Not while watching something (leaving would stop it) or before there is anything to show. */
-internal fun guideButtonOpensGuide(screen: Screen) = !screen.isPlayback && !screen.isSetup
+/**
+ * The remote's Guide button opens the TV guide from anywhere a screen hasn't used it already (the channel player shows
+ * the channel's schedule). Opened on top, so Back returns to whatever was there, unchanged.
+ */
+private fun Modifier.guideButton(nav: Navigator, hasPlaylist: Boolean) =
+    onGuideKey({ hasPlaylist && guideButtonOpensGuide(nav.current.screen) }) { nav.push(Screen.Live(guide = true)) }
+
+/**
+ * Not while watching something (leaving would stop it), during set-up, or on the live screen (which switches between
+ * list and guide itself; pressed elsewhere on it, e.g. on the tabs, nothing happens).
+ */
+internal fun guideButtonOpensGuide(screen: Screen) = !screen.isPlayback && !screen.isSetup && screen !is Screen.Live
 
 @Composable
 private fun ScreenContent(screen: Screen) {
