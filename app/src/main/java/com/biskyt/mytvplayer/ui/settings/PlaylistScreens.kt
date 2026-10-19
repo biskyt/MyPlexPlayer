@@ -27,7 +27,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
-import com.biskyt.mytvplayer.data.PlaylistRepository
 import com.biskyt.mytvplayer.data.db.PlaylistEntity
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
@@ -43,7 +42,6 @@ import com.biskyt.mytvplayer.ui.theme.Palette
 import java.io.IOException
 import java.text.DateFormat
 import java.util.Date
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -76,16 +74,8 @@ class PlaylistsViewModel(private val c: AppContainer) : ViewModel() {
         addingFree = true
         freeError = null
         viewModelScope.launch {
-            try {
-                then(c.playlists.addM3u(PlaylistRepository.FREE_PLAYLIST_NAME, PlaylistRepository.FREE_PLAYLIST_URL))
-            } catch (e: CancellationException) {
-                throw e
-            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                // Any failure (network, full storage…) is shown rather than crashing.
-                freeError = (e as? java.io.IOException)?.message ?: "Couldn't set up the free channels"
-            } finally {
-                addingFree = false
-            }
+            c.playlists.addFree().onSuccess(then).onFailure { freeError = it.message }
+            addingFree = false
         }
     }
 }
@@ -130,7 +120,7 @@ fun PlaylistsScreen() {
                     nav.push(Screen.PlaylistEdit(null))
                 }, if (playlists.isEmpty()) rememberFirstFocus() else Modifier, primary = playlists.isEmpty())
                 // The free channels can be typed in as an M3U address too, but that's a long one to enter with a remote.
-                if (playlists.none { it.server == PlaylistRepository.FREE_PLAYLIST_URL }) {
+                if (playlists.none { it.isFree }) {
                     PillButton(
                         if (vm.addingFree) "Downloading free channels…" else "+ Add free channels (iptv-org)",
                         // First-run style: Continue downloads the channels and goes to Home.

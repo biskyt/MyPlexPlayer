@@ -36,9 +36,11 @@ object ChannelNames {
         "wisconsin" to "wi", "wyoming" to "wy", "district of columbia" to "dc"
     )
 
+    /** "Curaçao" → "Curacao"; NFKD also folds superscript letters such as ᴴᴰ into plain HD. */
+    fun stripAccents(text: String): String = marks.replace(Normalizer.normalize(text, Normalizer.Form.NFKD), "")
+
     fun normalize(name: String): String {
-        // NFKD also folds superscript letters such as ᴴᴰ into plain HD.
-        var s = marks.replace(Normalizer.normalize(name, Normalizer.Form.NFKD), "")
+        var s = stripAccents(name)
         s = prefix.replace(s, "")
         s = geoBlocked.replace(s, " ")
         s = bracketedNumbers.replace(s) { digits.replace(it.value, " ") }

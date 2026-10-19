@@ -20,7 +20,6 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -46,7 +45,6 @@ import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
-import kotlinx.coroutines.delay
 
 enum class Tab(val label: String) { HOME("Home"), LIVE("Live TV"), MOVIES("Movies"), SERIES("Series"), FAVOURITES("Favourites") }
 
@@ -117,13 +115,13 @@ private fun IconPill(icon: androidx.compose.ui.graphics.vector.ImageVector, labe
 
 @Composable
 private fun Clock() {
-    val time by produceState(initialValue = formatTime(System.currentTimeMillis())) {
-        while (true) {
-            delay(60_000 - System.currentTimeMillis() % 60_000)
-            value = formatTime(System.currentTimeMillis())
-        }
-    }
-    Text(time, style = MaterialTheme.typography.titleSmall, color = Palette.textMuted, modifier = Modifier.padding(horizontal = 8.dp))
+    val now by rememberMinuteClock()
+    Text(
+        formatTime(now),
+        style = MaterialTheme.typography.titleSmall,
+        color = Palette.textMuted,
+        modifier = Modifier.padding(horizontal = 8.dp)
+    )
 }
 
 @Composable

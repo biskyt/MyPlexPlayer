@@ -274,6 +274,9 @@ interface EpgDao {
     @Query("SELECT * FROM epg_source ORDER BY id")
     fun observeSources(): Flow<List<EpgSourceEntity>>
 
+    @Query("SELECT url FROM epg_source")
+    suspend fun sourceUrls(): List<String>
+
     @Query("SELECT id FROM epg_source")
     suspend fun allSourceIds(): List<Long>
 
@@ -421,6 +424,13 @@ interface EpgDao {
              (SELECT COUNT(*) FROM channel_epg_mapping m WHERE m.playlistId = :pid AND m.manual = 1) AS manual"""
     )
     fun observeMatchCounts(pid: Long): Flow<MatchCounts>
+
+    @Query(
+        """SELECT COALESCE(SUM(has), 0) AS withGuide, COUNT(*) - COALESCE(SUM(has), 0) AS noGuide FROM
+             (SELECT EXISTS (SELECT 1 FROM channel_epg_mapping m WHERE m.playlistId = c.playlistId AND m.streamId = c.streamId
+                AND m.sourceId IS NOT NULL) AS has FROM channel c WHERE c.hidden = 0)"""
+    )
+    suspend fun coverage(): GuideCoverage
 }
 
 /** Longest programme the time-range queries allow for; IPTV guides often use 24-hour placeholder entries. */
@@ -437,6 +447,9 @@ data class MatchRow(
 )
 
 data class MatchCounts(val total: Int, val unmatched: Int, val auto: Int, val manual: Int)
+
+/** How many visible channels, across every playlist, have a guide and how many have none. */
+data class GuideCoverage(val withGuide: Int, val noGuide: Int)
 
 /** A poster in a movie or series grid: only what the grid shows, so paging holds as little as possible. */
 data class VodCard(val id: Long, val title: String, val year: Int?, val imageUrl: String?)

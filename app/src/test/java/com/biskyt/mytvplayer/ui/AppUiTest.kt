@@ -361,7 +361,7 @@ class AppUiTest {
                 .fetchSemanticsNodes().isNotEmpty()
         }
         // The outcome says how many channels have a guide, not only what this run found.
-        waitFor("channel already")
+        waitFor("channel has a guide")
     }
 
     @Test

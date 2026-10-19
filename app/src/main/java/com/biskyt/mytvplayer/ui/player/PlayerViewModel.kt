@@ -49,8 +49,9 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
         viewModelScope.launch {
             startEngine()
             client = c.playlists.get(screen.playlistId)?.takeUnless { it.isM3u }?.let(c.playlists::client)
-            ids = c.channels.ids(screen.playlistId, screen.filter)
             tuneTo(screen.streamId)
+            // Only needed for changing channel: not worth delaying the first picture for.
+            ids = c.channels.ids(screen.playlistId, screen.filter)
         }
     }
 

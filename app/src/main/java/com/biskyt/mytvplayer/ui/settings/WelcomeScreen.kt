@@ -19,7 +19,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
-import com.biskyt.mytvplayer.data.PlaylistRepository
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
@@ -27,8 +26,6 @@ import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.PillButton
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.theme.Palette
-import java.io.IOException
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /** First launch: the free iptv-org channels, when the user picks them. */
@@ -45,16 +42,8 @@ class WelcomeViewModel(private val c: AppContainer) : ViewModel() {
         error = null
         working = true
         viewModelScope.launch {
-            try {
-                addedId = c.playlists.addM3u(PlaylistRepository.FREE_PLAYLIST_NAME, PlaylistRepository.FREE_PLAYLIST_URL)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                // Any failure (network, full storage…) must leave a way forward rather than crash on first launch.
-                error = (e as? IOException)?.message ?: "Couldn't set up the free channels"
-            } finally {
-                working = false
-            }
+            c.playlists.addFree().onSuccess { addedId = it }.onFailure { error = it.message }
+            working = false
         }
     }
 }

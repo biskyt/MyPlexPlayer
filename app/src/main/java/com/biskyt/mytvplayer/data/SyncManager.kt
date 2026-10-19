@@ -36,8 +36,6 @@ class SyncManager(
     /** Refreshes a playlist's channels, then the guide, then movies and series (the slowest, so last). */
     fun refresh(playlistId: Long): Job = scope.launch { refreshNow(playlistId) }
 
-    fun refreshGuide(): Job = scope.launch { updateGuide() }
-
     fun refreshAll(): Job = scope.launch { refreshAllNow() }
 
     /** Every playlist's channels, movies and series, then the guide once for all of them. */
@@ -61,8 +59,12 @@ class SyncManager(
         syncVod(playlistId)
     }
 
-    /** Updates the guide now, with this update's own outcome (another refresh may change [state] straight after). */
-    suspend fun updateGuide(): Result<Unit> = attempt("Couldn't update the TV guide") { importGuide() }
+    /**
+     * Updates the guide now, with this update's own outcome (another refresh may change [state] straight after):
+     * the error of each guide that couldn't be loaded, by source id. With [only], just that guide is downloaded (e.g.
+     * one just added); the others are used as last loaded.
+     */
+    suspend fun updateGuide(only: Long? = null): Result<Map<Long, String>> = attempt("Couldn't update the TV guide") { importGuide(only) }
 
     /** Only movies and series (after their categories change). */
     fun refreshVod(playlistId: Long): Job = scope.launch { guarded("Couldn't load movies and series") { syncVod(playlistId) } }
@@ -73,10 +75,15 @@ class SyncManager(
         vod.sync(p) { _state.value = SyncState.Vod(it) }
     }
 
-    /** Runs one refresh at a time; any failure (network, bad data, full storage) is shown, never allowed to crash the app. */
+    private suspend fun importGuide(only: Long? = null) = epg.importAll(playlists.allIds(), only) { _state.value = SyncState.Guide(it) }
+
+    /** [attempt] when only the state needs to show the outcome. */
     private suspend fun <T> guarded(failure: String, block: suspend () -> T): T? = attempt(failure, block).getOrNull()
 
-    /** [guarded], keeping the failure (with its message for the user) for whoever asked for it. */
+    /**
+     * Runs one refresh at a time; any failure (network, bad data, full storage) is shown in [state] and returned
+     * (with its message for the user), never allowed to crash the app.
+     */
     @Suppress("TooGenericExceptionCaught")
     private suspend fun <T> attempt(failure: String, block: suspend () -> T): Result<T> = mutex.withLock {
         try {
@@ -88,10 +95,5 @@ class SyncManager(
             _state.value = SyncState.Failed(message)
             Result.failure(Exception(message, e))
         }
-    }
-
-    private suspend fun importGuide() {
-        val ids = playlists.allIds()
-        epg.importAll(ids) { _state.value = SyncState.Guide(it) }
     }
 }
