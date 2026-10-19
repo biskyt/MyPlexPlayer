@@ -1,6 +1,7 @@
 package com.biskyt.mytvplayer.player
 
 import android.content.Context
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -58,6 +59,12 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         .setHandleAudioBecomingNoisy(true)
         .build()
 
+    /**
+     * Called when an address can't be played at all (a stream type the player has no support for), instead of the
+     * player throwing and closing the app.
+     */
+    var onUnsupported: () -> Unit = {}
+
     /** True once the default subtitle choice has been applied to the current stream (the user may change it after). */
     private var subtitlesApplied = false
 
@@ -78,9 +85,24 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         http.setDefaultRequestProperties(if (referrer != null) mapOf("Referer" to referrer) else emptyMap())
         val asHls = hls ?: (url in hlsUrls)
         val item = MediaItem.Builder().setUri(url).apply { if (asHls) setMimeType(MimeTypes.APPLICATION_M3U8) }.build()
+        if (!start(item)) return
+        player.playWhenReady = true
+    }
+
+    /** Sets and prepares [item]; false (and [onUnsupported]) when the player can't handle its type. */
+    private fun start(item: MediaItem): Boolean = try {
         player.setMediaItem(item)
         player.prepare()
-        player.playWhenReady = true
+        true
+    } catch (e: IllegalStateException) {
+        // E.g. a SmoothStreaming (.ism) address: the media source factory has no module for it.
+        Log.w(TAG, "Can't play ${item.localConfiguration?.uri}", e)
+        // Nothing of the previous stream may be left to start again on a later prepare().
+        player.stop()
+        player.clearMediaItems()
+        current = null
+        onUnsupported()
+        false
     }
 
     /** A stream whose format was guessed and couldn't be read is tried once more as HLS. True if it was. */
@@ -89,10 +111,7 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         if (!currentInferred || e.errorCode != PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED) return false
         currentInferred = false
         hlsUrls += url
-        val item = MediaItem.Builder().setUri(url).setMimeType(MimeTypes.APPLICATION_M3U8).build()
-        player.setMediaItem(item)
-        player.prepare()
-        return true
+        return start(MediaItem.Builder().setUri(url).setMimeType(MimeTypes.APPLICATION_M3U8).build())
     }
 
     /** Applies the user's default subtitle setting the first time tracks are known for a stream. */
@@ -161,6 +180,7 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
     }
 
     private companion object {
+        const val TAG = "PlaybackEngine"
         const val MB = 1024 * 1024
         const val DEFAULT_USER_AGENT = "MyTVPlayer"
 

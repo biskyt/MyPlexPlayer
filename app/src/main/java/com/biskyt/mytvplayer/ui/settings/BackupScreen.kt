@@ -157,7 +157,7 @@ fun BackupScreen() {
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         PillButton("Restore", {
-                            vm.restore { hasPlaylists -> nav.reset(if (hasPlaylists) Screen.Home else Screen.Welcome(auto = false)) }
+                            vm.restore { hasPlaylists -> nav.reset(if (hasPlaylists) Screen.Home else Screen.Welcome) }
                         }, rememberFirstFocus(), primary = true)
                         PillButton("Cancel", vm::cancel)
                     }

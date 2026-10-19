@@ -36,8 +36,10 @@ import com.biskyt.mytvplayer.ui.live.LiveScreen
 import com.biskyt.mytvplayer.ui.search.SearchScreen
 import com.biskyt.mytvplayer.ui.settings.AppearanceScreen
 import com.biskyt.mytvplayer.ui.settings.BackupScreen
+import com.biskyt.mytvplayer.ui.settings.CategoriesScreen
 import com.biskyt.mytvplayer.ui.settings.PlaybackSettingsScreen
 import com.biskyt.mytvplayer.ui.settings.PlaylistsScreen
+import com.biskyt.mytvplayer.ui.settings.WelcomeScreen
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import com.biskyt.mytvplayer.ui.vod.MovieDetailsScreen
 import com.biskyt.mytvplayer.ui.vod.SeriesDetailsScreen
@@ -102,6 +104,8 @@ class AppUiTest {
             Screen.PlaybackSettings -> PlaybackSettingsScreen()
             Screen.Appearance -> AppearanceScreen()
             Screen.Backup -> BackupScreen()
+            Screen.Welcome -> WelcomeScreen()
+            is Screen.Categories -> CategoriesScreen(screen.playlistId, screen.firstRun)
             Screen.GuideSources -> GuideSourcesScreen()
             Screen.Playlists -> PlaylistsScreen()
             is Screen.Search -> SearchScreen(screen.query)
@@ -356,6 +360,29 @@ class AppUiTest {
             compose.onAllNodes(hasText("had none", substring = true) or hasText("none matched", substring = true))
                 .fetchSemanticsNodes().isNotEmpty()
         }
+    }
+
+    @Test
+    fun `first launch offers a choice and sets nothing up by itself`() {
+        show(Screen.Welcome)
+        waitFor("Add my TV provider")
+        waitFor("Free channels (iptv-org)")
+        waitFor("Restore a backup")
+        compose.mainClock.advanceTimeBy(2_000)
+        compose.waitForIdle()
+        runBlocking { assertEquals(listOf(playlistId), app.container.playlists.allIds()) }
+    }
+
+    @Test
+    fun `languages and categories can be filtered`() {
+        show(Screen.Categories(playlistId))
+        waitFor("UK | ENTERTAINMENT")
+        // The box opens for typing when pressed (OK on the remote).
+        compose.onNode(hasText("Filter countries and categories")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(5_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasSetTextAction()).performTextInput("cine")
+        waitFor("FR: CINEMA")
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("UK | ENTERTAINMENT")).fetchSemanticsNodes().isEmpty() }
     }
 
     @Test
