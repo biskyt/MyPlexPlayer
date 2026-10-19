@@ -5,12 +5,14 @@ import com.biskyt.mytvplayer.data.db.ChannelProgramme
 import com.biskyt.mytvplayer.ui.common.NowNextLoader
 import com.biskyt.mytvplayer.ui.common.cycle
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -33,19 +35,19 @@ class NavigationAndLoaderTest {
 
     @Test
     fun `the guide button opens the guide except while watching or setting up`() {
-        assert(guideButtonOpensGuide(Screen.Home))
-        assert(guideButtonOpensGuide(Screen.Settings))
-        assert(guideButtonOpensGuide(Screen.Movies()))
+        assertTrue(guideButtonOpensGuide(Screen.Home))
+        assertTrue(guideButtonOpensGuide(Screen.Settings))
+        assertTrue(guideButtonOpensGuide(Screen.Movies()))
         assertFalse(guideButtonOpensGuide(Screen.Player(1, 5, ChannelFilter.All)))
         assertFalse(guideButtonOpensGuide(Screen.Welcome))
         assertFalse(guideButtonOpensGuide(Screen.Categories(1, firstRun = true)))
-        assert(guideButtonOpensGuide(Screen.Categories(1)))
+        assertTrue(guideButtonOpensGuide(Screen.Categories(1)))
     }
 
     @Test
     fun `now next pauses while its screen is hidden and catches up on return`() = runTest {
         val now = 1_000_000L
-        val changes = kotlinx.coroutines.flow.MutableStateFlow(0)
+        val changes = MutableStateFlow(0)
         var loads = 0
         val loader = NowNextLoader(backgroundScope, changes, clock = { now }) { ids, _, _ ->
             loads++

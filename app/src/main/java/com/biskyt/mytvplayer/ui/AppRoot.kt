@@ -13,10 +13,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -24,7 +20,7 @@ import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
-import com.biskyt.mytvplayer.ui.common.isGuide
+import com.biskyt.mytvplayer.ui.common.onGuideKey
 import com.biskyt.mytvplayer.ui.guide.GuideMatchingScreen
 import com.biskyt.mytvplayer.ui.guide.GuideSourcesScreen
 import com.biskyt.mytvplayer.ui.home.HomeScreen
@@ -101,13 +97,10 @@ fun AppRoot() {
             }
         }
         Box(
-            Modifier.fillMaxSize().background(Palette.background).onKeyEvent { e ->
-                // The remote's Guide button opens the TV guide from anywhere a screen hasn't used it already (the live
-                // screen switches list and guide; the channel player shows the channel's schedule).
-                if (!e.key.isGuide() || !guideButtonOpensGuide(nav.current.screen)) return@onKeyEvent false
-                if (e.type == KeyEventType.KeyDown) nav.reset(Screen.Live(guide = true))
-                true
-            }
+            // The remote's Guide button opens the TV guide from anywhere a screen hasn't used it already (the live
+            // screen switches list and guide; the channel player shows the channel's schedule).
+            Modifier.fillMaxSize().background(Palette.background)
+                .onGuideKey({ guideButtonOpensGuide(nav.current.screen) }) { nav.reset(Screen.Live(guide = true)) }
         ) {
             NavHost(nav) { screen -> ScreenContent(screen) }
         }
@@ -115,12 +108,7 @@ fun AppRoot() {
 }
 
 /** Not while watching something (leaving would stop it) or before there is anything to show. */
-internal fun guideButtonOpensGuide(screen: Screen) = screen !is Screen.Player &&
-    screen !is Screen.VodPlayer &&
-    screen !is Screen.CatchupPlayer &&
-    screen != Screen.Welcome &&
-    !(screen is Screen.PlaylistEdit && screen.firstRun) &&
-    !(screen is Screen.Categories && screen.firstRun)
+internal fun guideButtonOpensGuide(screen: Screen) = !screen.isPlayback && !screen.isSetup
 
 @Composable
 private fun ScreenContent(screen: Screen) {
