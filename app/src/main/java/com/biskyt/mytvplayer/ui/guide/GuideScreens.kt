@@ -65,6 +65,7 @@ import com.biskyt.mytvplayer.ui.theme.Palette
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -93,6 +94,23 @@ class GuideSourcesViewModel(private val c: AppContainer) : ViewModel() {
     fun toggle(s: EpgSourceEntity) = viewModelScope.launch { c.epg.setSourceEnabled(s, !s.enabled) }
     fun remove(s: EpgSourceEntity) = viewModelScope.launch { c.epg.removeSource(s.id) }
     fun refresh() = c.sync.refreshGuide()
+
+    /** What the last "Match channels without a guide" found. */
+    var matchResult by mutableStateOf<String?>(null)
+        private set
+
+    /** In the app's scope, so leaving the screen doesn't stop it (progress shows through the sync state). */
+    fun matchMissing() = viewModelScope.launch {
+        matchResult = null
+        val r = c.appScope.async { c.sync.matchMissingGuides() }.await() ?: return@launch
+        matchResult = when {
+            r.checked == 0 -> "Every channel already has a guide."
+            r.matched > 0 -> "Found a guide for ${formatCount(r.matched)} of ${formatCount(r.checked)} channels that had none."
+            else ->
+                "Checked ${formatCount(r.checked)} channels without a guide: none matched 90% or more. " +
+                    "You can choose guides by hand in TV guide matching."
+        }
+    }
 
     val freeGuides = FreeGuides.all()
     var showAllFree by mutableStateOf(false)
@@ -181,7 +199,13 @@ fun GuideSourcesScreen() {
                 }
             }
         }
-        item { PillButton(if (busy) "Updating…" else "Update guide now", { if (!busy) vm.refresh() }, Modifier.padding(top = 12.dp)) }
+        item {
+            Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                PillButton(if (busy) "Updating…" else "Update guide now", { if (!busy) vm.refresh() })
+                PillButton("Match channels without a guide", { if (!busy) vm.matchMissing() })
+            }
+        }
+        vm.matchResult?.let { item { Text(it, style = MaterialTheme.typography.bodyLarge) } }
         freeGuides(vm, sources)
     }
 }
@@ -259,7 +283,15 @@ class GuideMatchingViewModel(private val c: AppContainer, private val playlistId
         viewModelScope.launch {
             c.epg.observeSources().collect { list -> sources = list.associate { it.id to it.name } }
         }
-        if (initial != null) viewModelScope.launch { c.channels.get(playlistId, initial)?.let { select(it) } }
+        // Opened for one channel (from its menu): show just that channel, already selected.
+        if (initial != null) {
+            viewModelScope.launch {
+                c.channels.get(playlistId, initial)?.let {
+                    filter.value = it.name
+                    select(it)
+                }
+            }
+        }
     }
 
     fun select(ch: ChannelEntity) {

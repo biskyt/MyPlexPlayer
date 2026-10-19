@@ -17,6 +17,24 @@ sealed interface ChannelFilter {
     data object Favourites : ChannelFilter
     data object Recent : ChannelFilter
     data class Category(val id: String) : ChannelFilter
+
+    /** For remembering a list in settings: "all", "favourites", "recent" or "category:<id>". */
+    val key: String
+        get() = when (this) {
+            All -> "all"
+            Favourites -> "favourites"
+            Recent -> "recent"
+            is Category -> "category:$id"
+        }
+
+    companion object {
+        fun of(key: String): ChannelFilter = when {
+            key == "favourites" -> Favourites
+            key == "recent" -> Recent
+            key.startsWith("category:") -> Category(key.removePrefix("category:"))
+            else -> All
+        }
+    }
 }
 
 class ChannelRepository(private val db: AppDatabase) {

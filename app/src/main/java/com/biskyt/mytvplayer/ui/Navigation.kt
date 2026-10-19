@@ -22,7 +22,9 @@ sealed interface Screen {
     /** First launch ([auto] sets up the free channels straight away) or after the last playlist is deleted. */
     data class Welcome(val auto: Boolean = true) : Screen
     data object Home : Screen
-    data class Live(val filter: ChannelFilter = ChannelFilter.All, val guide: Boolean = false) : Screen
+
+    /** [filter] null: the list shown last. */
+    data class Live(val filter: ChannelFilter? = null, val guide: Boolean = false) : Screen
     data class Movies(val filter: VodFilter = VodFilter.All) : Screen
     data class Series(val filter: VodFilter = VodFilter.All) : Screen
     data object Search : Screen

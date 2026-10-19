@@ -17,7 +17,11 @@ class ChannelMatchingTest {
             "[UK] Kite Kids (Backup)" to "kite kids",
             "Channel One HD" to "channel one",
             "Télé Évasion 4K" to "tele evasion",
-            "Arena Sports 1 HEVC 50fps" to "arena sports 1"
+            "Arena Sports 1 HEVC 50fps" to "arena sports 1",
+            "US: NBC 4 (WNBC) NEW YORK (A)" to "nbc 4 wnbc ny",
+            "HBO (W)" to "hbo west",
+            "US| FOX 5 WTTG Washington DC [Geo-Blocked]" to "fox 5 wttg wa dc",
+            "West Virginia News" to "wv news"
         )
         cases.forEach { (input, expected) -> assertEquals(input, expected, ChannelNames.normalize(input)) }
     }
@@ -65,6 +69,32 @@ class ChannelMatchingTest {
         val suggestions = matcher.suggestions("UK: ARENA SPRTS 1 FHD *RAW*", null)
         assertEquals("arena1.uk", suggestions.first().candidate.xmlId)
         assertNull(matcher.autoMatch("Totally Different", null))
+    }
+
+    @Test
+    fun `US local stations match on their call sign wherever it is in the name`() {
+        val us = ChannelMatcher(
+            candidates + listOf(
+                candidate("wnbc.us", "US - NBC WNBC NY"),
+                candidate("knbc.us", "US - NBC KNBC LA"),
+                candidate("cnbc.us", "US - CNBC"),
+                candidate("wildlife.us", "Wildlife Explorer"),
+                candidate("nbcny.us", "NBC New York News")
+            )
+        )
+        val m = us.autoMatch("US: NBC 4 (WNBC) NEW YORK (A)", null, ChannelMatcher.MISSING_THRESHOLD)
+        assertEquals("wnbc.us", m?.candidate?.xmlId)
+        assertEquals("wnbc.us", us.autoMatch("US| WNBC NBC 4 New York HD", null, ChannelMatcher.MISSING_THRESHOLD)?.candidate?.xmlId)
+        // A state written out matches its abbreviation.
+        assertEquals("nbcny.us", us.autoMatch("NBC NY News", null)?.candidate?.xmlId)
+        // A rare word that isn't a call sign doesn't get the same benefit of the doubt.
+        assertNull(us.autoMatch("Wildlife TV", null, ChannelMatcher.MISSING_THRESHOLD))
+    }
+
+    @Test
+    fun `timeshifted channels never match the live one automatically`() {
+        val noShift = ChannelMatcher(candidates.filter { it.xmlId != "docplanet1.uk" })
+        assertNull(noShift.autoMatch("UK: DOC PLANET +1", null))
     }
 
     @Test

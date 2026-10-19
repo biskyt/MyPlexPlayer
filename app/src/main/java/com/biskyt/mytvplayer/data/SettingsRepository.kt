@@ -37,7 +37,9 @@ data class Settings(
     val startOnLastChannel: Boolean = false,
     val lastChannelId: Long = 0,
     val accent: Int = AccentPalette.DEFAULT,
-    val largeText: Boolean = false
+    val largeText: Boolean = false,
+    /** The Live TV list shown last (see ChannelFilter.key), where Live TV opens next time. */
+    val lastLiveFilter: String = "all"
 ) {
     val effectiveSubtitleLanguage: String get() = subtitleLanguage.ifEmpty { Locale.getDefault().language }
 }
@@ -58,9 +60,17 @@ class SettingsRepository(private val context: Context) {
         val lastChannel = longPreferencesKey("last_channel")
         val accent = intPreferencesKey("accent")
         val largeText = booleanPreferencesKey("large_text")
+        val lastLiveFilter = stringPreferencesKey("last_live_filter")
     }
 
-    val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings() }.distinctUntilChanged()
+    val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings().also { s -> latest = s } }.distinctUntilChanged()
+
+    /**
+     * The settings as last read, for screens that need a value straight away (the app reads settings before showing
+     * any screen, so this is set by then).
+     */
+    @Volatile var latest: Settings? = null
+        private set
 
     suspend fun current(): Settings = settings.first()
 
@@ -81,7 +91,8 @@ class SettingsRepository(private val context: Context) {
             startOnLastChannel = this[K.startLast] ?: d.startOnLastChannel,
             lastChannelId = this[K.lastChannel] ?: d.lastChannelId,
             accent = this[K.accent] ?: d.accent,
-            largeText = this[K.largeText] ?: d.largeText
+            largeText = this[K.largeText] ?: d.largeText,
+            lastLiveFilter = this[K.lastLiveFilter] ?: d.lastLiveFilter
         )
     }
 
@@ -100,6 +111,7 @@ class SettingsRepository(private val context: Context) {
             prefs[K.lastChannel] = s.lastChannelId
             prefs[K.accent] = s.accent
             prefs[K.largeText] = s.largeText
+            prefs[K.lastLiveFilter] = s.lastLiveFilter
         }
     }
 

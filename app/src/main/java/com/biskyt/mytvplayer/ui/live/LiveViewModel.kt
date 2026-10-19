@@ -27,19 +27,40 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
-class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter, initialGuide: Boolean) : ViewModel() {
+class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, initialGuide: Boolean) : ViewModel() {
     private val activePlaylist = c.settings.activePlaylistId
     val playlistId: StateFlow<Long> = activePlaylist.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
 
-    // A different list: the remembered channel may not be in it, so focus starts from the top.
-    val filters = CategoryFilter(viewModelScope, initialFilter) { focusStreamId = null }
+    /** Opens on the list chosen last time, unless a particular one was asked for (e.g. Favourites). */
+    val filters = CategoryFilter(
+        viewModelScope,
+        initialFilter ?: c.settings.latest?.lastLiveFilter?.let(ChannelFilter::of) ?: ChannelFilter.All
+    ) { f ->
+        // A different list: the remembered channel may not be in it, so focus starts from the top.
+        focusStreamId = null
+        c.appScope.launch { c.settings.update { it.copy(lastLiveFilter = f.key) } }
+    }
     val filter = filters.value
+
+    init {
+        // A remembered category since unticked (or from another playlist) would show an empty list.
+        val remembered = filter.value as? ChannelFilter.Category
+        if (initialFilter == null && remembered != null) {
+            viewModelScope.launch {
+                val pid = activePlaylist.first()
+                if (c.db.categories().all(pid, CAT_LIVE).none { it.categoryId == remembered.id && it.included }) {
+                    filters.select(ChannelFilter.All)
+                }
+            }
+        }
+    }
     val query = MutableStateFlow("")
     var guideMode by mutableStateOf(initialGuide)
         private set
