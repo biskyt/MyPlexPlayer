@@ -61,14 +61,18 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
             var saved = c.settings.current().lastLiveFilter
             val remembered = ChannelFilter.of(saved)
             // A category since unticked (or from another playlist) would show an empty list.
-            val gone = remembered is ChannelFilter.Category &&
-                c.db.categories().observeIncluded(activePlaylist.first(), CAT_LIVE).first().none { it.categoryId == remembered.id }
+            val gone = (
+                remembered is ChannelFilter.Category &&
+                    c.db.categories().observeIncluded(activePlaylist.first(), CAT_LIVE).first().none { it.categoryId == remembered.id }
+                ) ||
+                remembered == ChannelFilter.Catchup // opened from its own tab, not remembered
             if (initialFilter == null && !gone && !picked) {
                 filters.select(remembered)
                 picked = false
             }
             // Remembered once the user settles on a list (not for every category passed on the way).
-            filter.drop(1).debounce(SAVE_AFTER_MS).collect { f ->
+            // Not Catch-up: the Live TV tab opens on live lists (Catch-up has its own tab).
+            filter.drop(1).debounce(SAVE_AFTER_MS).filter { it != ChannelFilter.Catchup }.collect { f ->
                 if (f.key != saved) {
                     saved = f.key
                     c.settings.update { it.copy(lastLiveFilter = f.key) }

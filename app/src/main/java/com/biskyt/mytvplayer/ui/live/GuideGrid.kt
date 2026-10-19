@@ -176,6 +176,7 @@ fun GuideGrid(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (C
                     GuideRow(
                         ch = ch,
                         programmes = programmes,
+                        loaded = loaded,
                         windowStart = windowStart,
                         now = now,
                         focusTime = focusTime,
@@ -256,6 +257,7 @@ private fun TimeHeader(windowStart: Long) {
 private fun GuideRow(
     ch: ChannelEntity,
     programmes: List<ChannelProgramme>?,
+    loaded: Boolean,
     windowStart: Long,
     now: Long,
     focusTime: Long?,
@@ -285,7 +287,7 @@ private fun GuideRow(
             // a pending target, which then moves to the real programme once it arrives.
             Cell(
                 null, DpPerMinute * (WINDOW_MS / 60_000f), live = true, first = true, last = true,
-                focusKey = focusTime?.let { it to programmes }, onFocus, onPlay, onOptions, onEdge,
+                focusKey = focusTime?.let { Triple(it, programmes, loaded) }, onFocus, onPlay, onOptions, onEdge,
                 if (programmes == null) "" else "No guide information"
             )
         } else {
@@ -299,7 +301,8 @@ private fun GuideRow(
                 val width = DpPerMinute * ((end - start) / 60_000f)
                 Cell(
                     p, width, p.isLive(now), i == 0, i == visible.lastIndex,
-                    focusKey = if (i == focusIndex) focusTime else null, onFocus, onPlay, onOptions, onEdge,
+                    // Asks again once the row's own programmes arrive (and the target is then done).
+                    focusKey = if (i == focusIndex) focusTime?.let { it to loaded } else null, onFocus, onPlay, onOptions, onEdge,
                     // Marks what can be replayed.
                     if (ch.archiveDays > 0 && p.stopMs <= now) "⟲ ${p.title}" else p.title
                 )

@@ -13,9 +13,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,6 +55,7 @@ import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
 import com.biskyt.mytvplayer.ui.player.shortEpisodeLabel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -100,8 +104,23 @@ fun HomeScreen() {
     val recent by vm.recent.collectAsState()
     val carryOn by vm.carryOn.collectAsState()
     val pid = vm.playlistId.collectAsState().value
-    val first = rememberFirstFocus(favourites != null)
+    // Again after a card is taken off its row (focus would otherwise go with it): back to the first card.
+    var refocus by remember { mutableIntStateOf(0) }
+    val first = rememberFirstFocus((favourites != null) to refocus)
     var options by remember { mutableStateOf<HomeTile?>(null) }
+    val scope = rememberCoroutineScope()
+    fun shown(tile: HomeTile) = when (tile) {
+        is HomeTile.Channel -> (
+            if (tile.list ==
+                ChannelFilter.Recent
+            ) {
+                recent
+            } else {
+                favourites.orEmpty()
+            }
+            ).any { it.streamId == tile.ch.streamId }
+        is HomeTile.CarryOn -> carryOn.any { it.kind == tile.p.kind && it.itemId == tile.p.itemId }
+    }
 
     TabScaffold(Tab.HOME) {
         LazyColumn(
@@ -143,7 +162,12 @@ fun HomeScreen() {
             }
         }
     }
-    options?.let { TileOptions(it, vm) { options = null } }
+    options?.let { tile ->
+        TileOptions(tile, vm) { removed ->
+            options = null
+            if (removed) scope.launch { snapshotFlow { shown(tile) }.first { !it }.also { refocus++ } }
+        }
+    }
 }
 
 /** A Home card whose options are open: a channel (from [list]: favourites or recently watched), or a title carried on. */
@@ -155,24 +179,30 @@ private sealed interface HomeTile {
 
 /** Holding OK on a Home card: watch it, and favourites, catch-up and the guide source, or take it off its row. */
 @Composable
-private fun TileOptions(tile: HomeTile, vm: HomeViewModel, onDismiss: () -> Unit) {
+private fun TileOptions(tile: HomeTile, vm: HomeViewModel, onDismiss: (removed: Boolean) -> Unit) {
+    val close = { onDismiss(false) }
     when (tile) {
         is HomeTile.Channel -> {
             val ch = tile.ch
             val favourites by vm.favouriteIds.collectAsState()
             val actions = buildList {
                 add(ItemAction.Open("Watch", Screen.Player(ch.playlistId, ch.streamId, tile.list)))
-                addAll(channelActions(ch, ch.streamId in favourites) { vm.setFavourite(ch, it) })
+                addAll(
+                    channelActions(ch, ch.streamId in favourites) { favourite ->
+                        vm.setFavourite(ch, favourite)
+                        if (!favourite && tile.list == ChannelFilter.Favourites) onDismiss(true)
+                    }
+                )
                 if (tile.list == ChannelFilter.Recent) {
                     add(
                         ItemAction.Run("Remove from Recently watched") {
                             vm.removeRecent(ch)
-                            onDismiss()
+                            onDismiss(true)
                         }
                     )
                 }
             }
-            ItemActionsPanel(ch.name, actions, onDismiss)
+            ItemActionsPanel(ch.name, actions, close)
         }
         is HomeTile.CarryOn -> {
             val p = tile.p
@@ -192,10 +222,10 @@ private fun TileOptions(tile: HomeTile, vm: HomeViewModel, onDismiss: () -> Unit
                     if (series == null) "Forgets how far you got" else "Forgets which episodes you've watched"
                 ) {
                     vm.forget(p)
-                    onDismiss()
+                    onDismiss(true)
                 }
             )
-            ItemActionsPanel(p.title, actions, onDismiss)
+            ItemActionsPanel(p.title, actions, close)
         }
     }
 }
