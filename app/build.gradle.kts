@@ -67,7 +67,11 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
-        unitTests.all { it.systemProperty("robolectric.graphicsMode", "NATIVE") }
+        unitTests.all {
+            it.systemProperty("robolectric.graphicsMode", "NATIVE")
+            // Store graphics and screenshots (StoreAssetsTest) are only made when asked for: -PstoreAssets
+            it.systemProperty("storeAssets", project.hasProperty("storeAssets").toString())
+        }
     }
 
     lint {
