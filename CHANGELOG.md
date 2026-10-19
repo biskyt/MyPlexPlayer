@@ -3,8 +3,8 @@
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
 ## 0.8.3
-- The **Guide** button on the remote opens the TV guide from anywhere in the app. While watching a channel it still
-  shows that channel's schedule.
+- The **Guide** button on the remote opens the TV guide from anywhere in the app; Back returns to where you were.
+  While watching a channel it still shows that channel's schedule.
 - Faster on TV boxes:
   - Guide updates read just the start of each guide file for its channel list, instead of the whole file twice.
   - Matching channels to guides does less work per channel.

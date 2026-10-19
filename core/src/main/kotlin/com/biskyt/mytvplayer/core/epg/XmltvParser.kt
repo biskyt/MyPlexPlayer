@@ -62,13 +62,9 @@ class XmltvParser(
             when (p.next()) {
                 XmlPullParser.END_DOCUMENT -> return
                 XmlPullParser.START_TAG -> when (p.name) {
-                    "channel" -> if (onChannel == null) {
-                        p.skipElement()
-                    } else {
-                        readChannel(p)?.let {
-                            seenChannel = true
-                            onChannel(it)
-                        }
+                    "channel" -> {
+                        seenChannel = true
+                        if (onChannel == null) p.skipElement() else readChannel(p)?.let { onChannel(it) }
                     }
                     "programme" -> when {
                         !channelsOnly -> programme(p, wantProgrammes, onProgramme)

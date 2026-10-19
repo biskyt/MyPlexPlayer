@@ -40,6 +40,7 @@ class NavigationAndLoaderTest {
         assertTrue(guideButtonOpensGuide(Screen.Movies()))
         assertFalse(guideButtonOpensGuide(Screen.Player(1, 5, ChannelFilter.All)))
         assertFalse(guideButtonOpensGuide(Screen.Welcome))
+        assertFalse(guideButtonOpensGuide(Screen.Live())) // the live screen switches list and guide itself
         assertFalse(guideButtonOpensGuide(Screen.Categories(1, firstRun = true)))
         assertTrue(guideButtonOpensGuide(Screen.Categories(1)))
     }

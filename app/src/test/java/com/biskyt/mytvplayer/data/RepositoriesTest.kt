@@ -202,6 +202,24 @@ class RepositoriesTest {
     }
 
     @Test
+    fun `a guide listing channels between programmes still has all its channels`() = runBlocking {
+        provider.interleavedGuide = true
+        val id = addPlaylist()
+        playlists.syncChannels(id)
+        epg.ensureProviderSource(playlists.get(id)!!, playlists.client(playlists.get(id)!!).xmltvUrl())
+        fun guideChannelCount() = db.query("SELECT COUNT(*) FROM epg_channel", null).use {
+            it.moveToFirst()
+            it.getInt(0)
+        }
+        epg.importAll(listOf(id))
+        assertEquals(4, guideChannelCount())
+        assertEquals("kite.uk", epg.suggestions("UK: KITE KIDZ", null).first().candidate.xmlId)
+        // Later updates read such a guide in full straight away.
+        epg.importAll(listOf(id))
+        assertEquals(4, guideChannelCount())
+    }
+
+    @Test
     fun `manual guide choice wins over automatic matching and survives re-import`() = runBlocking {
         val id = addPlaylist()
         playlists.syncChannels(id)
