@@ -354,6 +354,21 @@ interface EpgDao {
     @Query("SELECT streamId FROM channel_epg_mapping WHERE playlistId = :pid AND manual = 1")
     suspend fun manualStreamIds(pid: Long): List<Long>
 
+    /** Channels matching has never looked at (added since the last update). */
+    @Query(
+        """SELECT c.streamId, c.name, c.providerEpgId FROM channel c WHERE c.playlistId = :pid
+             AND NOT EXISTS (SELECT 1 FROM channel_epg_mapping m WHERE m.playlistId = c.playlistId AND m.streamId = c.streamId)"""
+    )
+    suspend fun unmappedNames(pid: Long): List<ChannelName>
+
+    /** Visible channels without a guide, except those the user set to "no guide". */
+    @Query(
+        """SELECT c.streamId, c.name, c.providerEpgId FROM channel c WHERE c.playlistId = :pid AND c.hidden = 0
+             AND NOT EXISTS (SELECT 1 FROM channel_epg_mapping m WHERE m.playlistId = c.playlistId AND m.streamId = c.streamId
+                             AND (m.sourceId IS NOT NULL OR m.manual = 1))"""
+    )
+    suspend fun missingGuideNames(pid: Long): List<ChannelName>
+
     @Query(
         """SELECT m.streamId, m.sourceId, m.xmlId, m.manual, m.score, m.offsetMinutes, e.displayName, s.name AS sourceName
            FROM channel_epg_mapping m LEFT JOIN epg_channel e ON e.sourceId = m.sourceId AND e.xmlId = m.xmlId
@@ -383,7 +398,7 @@ interface EpgDao {
            LEFT JOIN epg_channel e ON e.sourceId = m.sourceId AND e.xmlId = m.xmlId
            LEFT JOIN epg_source s ON s.id = m.sourceId
            WHERE c.playlistId = :pid AND c.hidden = 0 AND (:q = '' OR c.name $LIKE_Q)
-             AND CASE :status WHEN 1 THEN m.sourceId IS NULL WHEN 2 THEN m.manual = 0 WHEN 3 THEN m.manual = 1 ELSE 1 END
+             AND CASE :status WHEN 1 THEN m.sourceId IS NULL WHEN 2 THEN m.manual = 0 AND m.sourceId IS NOT NULL WHEN 3 THEN m.manual = 1 ELSE 1 END
            ORDER BY c.position, c.name"""
     )
     fun pageForMatching(pid: Long, q: String, status: Int): PagingSource<Int, MatchRow>
@@ -393,7 +408,7 @@ interface EpgDao {
              (SELECT COUNT(*) FROM channel c WHERE c.playlistId = :pid AND c.hidden = 0) AS total,
              (SELECT COUNT(*) FROM channel c WHERE c.playlistId = :pid AND c.hidden = 0 AND NOT EXISTS
                 (SELECT 1 FROM channel_epg_mapping m WHERE m.playlistId = c.playlistId AND m.streamId = c.streamId AND m.sourceId IS NOT NULL)) AS unmatched,
-             (SELECT COUNT(*) FROM channel_epg_mapping m WHERE m.playlistId = :pid AND m.manual = 0) AS auto,
+             (SELECT COUNT(*) FROM channel_epg_mapping m WHERE m.playlistId = :pid AND m.manual = 0 AND m.sourceId IS NOT NULL) AS auto,
              (SELECT COUNT(*) FROM channel_epg_mapping m WHERE m.playlistId = :pid AND m.manual = 1) AS manual"""
     )
     fun observeMatchCounts(pid: Long): Flow<MatchCounts>

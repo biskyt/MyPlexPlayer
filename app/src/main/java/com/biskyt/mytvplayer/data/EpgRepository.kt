@@ -18,6 +18,7 @@ import java.io.BufferedInputStream
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import java.text.NumberFormat
 import java.util.zip.Deflater
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
@@ -31,6 +32,21 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+
+/** Which channels automatic matching looks at, and how sure it must be. */
+enum class MatchScope(val threshold: Double) {
+    /** Every channel without a manual choice (when a guide is first loaded). */
+    ALL(ChannelMatcher.AUTO_THRESHOLD),
+
+    /** Channels never tried yet (new since the last update). */
+    NEW(ChannelMatcher.AUTO_THRESHOLD),
+
+    /** Channels without a guide, near-certain matches only (the "Match channels without a guide" button). */
+    MISSING(ChannelMatcher.MISSING_THRESHOLD)
+}
+
+/** How many channels without a guide were checked, and how many got one. */
+data class MatchResult(val checked: Int, val matched: Int)
 
 /**
  * TV guide data: XMLTV sources, which guide channel each playlist channel uses, and programme lookups.
@@ -63,7 +79,8 @@ class EpgRepository(
     @Volatile private var matcherCache: ChannelMatcher? = null
 
     private suspend fun matcher(): ChannelMatcher = matcherCache ?: ChannelMatcher(
-        epg.allChannels().map { EpgCandidate(it.sourceId, it.xmlId, it.displayName, it.nameNorm) }
+        // Normalized afresh rather than from nameNorm, so guides stored by an older version follow today's rules.
+        epg.allChannels().map { EpgCandidate(it.sourceId, it.xmlId, it.displayName, ChannelNames.normalize(it.displayName)) }
     ).also { matcherCache = it }
 
     fun observeSources() = epg.observeSources()
@@ -71,7 +88,7 @@ class EpgRepository(
     fun observeMatchCounts(playlistId: Long) = epg.observeMatchCounts(playlistId)
 
     fun pageForMatching(playlistId: Long, query: String, status: Int) = androidx.paging.Pager(androidx.paging.PagingConfig(pageSize = 40)) {
-        epg.pageForMatching(playlistId, query.trim(), status)
+        epg.pageForMatching(playlistId, likeArg(query), status)
     }.flow
 
     suspend fun ensureProviderSource(p: PlaylistEntity, xmltvUrl: String) {
@@ -79,7 +96,7 @@ class EpgRepository(
         if (existing == null) {
             epg.insertSource(EpgSourceEntity(name = "${p.name} guide", url = xmltvUrl, playlistId = p.id))
         } else if (existing.url != xmltvUrl) {
-            epg.upsertSource(existing.copy(url = xmltvUrl))
+            epg.upsertSource(existing.copy(url = xmltvUrl, lastImportAt = 0)) // a different guide: match everything again
         }
     }
 
@@ -109,6 +126,8 @@ class EpgRepository(
     /** Downloads and imports every enabled source, then re-runs automatic matching for [playlistIds]. */
     suspend fun importAll(playlistIds: List<Long>, onProgress: (String) -> Unit = {}) = withContext(Dispatchers.IO) {
         val sources = epg.enabledSources()
+        // Everything is matched again only when a guide loads for the first time; otherwise matches are kept.
+        var firstLoad = false
         for (s in sources) {
             onProgress("Downloading ${s.name}…")
             val result = runCatching {
@@ -116,6 +135,7 @@ class EpgRepository(
                 onProgress("Reading ${s.name}…")
                 importChannels(s)
             }
+            if (result.isSuccess && s.lastImportAt == 0L) firstLoad = true
             epg.upsertSource(
                 s.copy(
                     lastImportAt = if (result.isSuccess) clock() else s.lastImportAt,
@@ -125,7 +145,8 @@ class EpgRepository(
             )
         }
         onProgress("Matching channels…")
-        playlistIds.forEach { autoMatch(it) }
+        val scope = if (firstLoad) MatchScope.ALL else MatchScope.NEW
+        playlistIds.forEach { id -> autoMatch(id, scope) { done, total -> onProgress(matchingLabel(done, total)) } }
         releaseMatcher()
         for (s in sources) {
             if (!sourceFile(s.id).exists()) continue
@@ -136,20 +157,70 @@ class EpgRepository(
         changed()
     }
 
-    /** Re-matches every channel of a playlist that doesn't have a manual choice. */
-    suspend fun autoMatch(playlistId: Long) = withContext(Dispatchers.Default) {
-        val matcher = matcher()
-        val manual = epg.manualStreamIds(playlistId).toHashSet()
-        val channels = db.channels().names(playlistId)
-        val updates = channels.filter { it.streamId !in manual }.mapNotNull { c ->
-            matcher.autoMatch(c.name, c.providerEpgId)?.let { m ->
-                ChannelEpgMappingEntity(playlistId, c.streamId, m.candidate.sourceId, m.candidate.xmlId, manual = false, score = m.score)
+    /**
+     * Matches a playlist's channels ([scope] says which) to guide channels. A channel with nothing good enough is stored
+     * with no guide, so later updates know it was tried. Returns how many were checked and the matches found.
+     */
+    suspend fun autoMatch(
+        playlistId: Long,
+        scope: MatchScope = MatchScope.ALL,
+        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> }
+    ): Pair<Int, List<ChannelEpgMappingEntity>> = withContext(Dispatchers.Default) {
+        val channels = when (scope) {
+            MatchScope.ALL -> {
+                val manual = epg.manualStreamIds(playlistId).toHashSet()
+                db.channels().names(playlistId).filter { it.streamId !in manual }
             }
+            MatchScope.NEW -> epg.unmappedNames(playlistId)
+            MatchScope.MISSING -> epg.missingGuideNames(playlistId)
+        }
+        // Building the matcher is the slow part: skip it when there's nothing to match.
+        if (channels.isEmpty() && scope != MatchScope.ALL) return@withContext 0 to emptyList()
+        val matcher = matcher()
+        val rows = channels.mapIndexed { i, c ->
+            if (i % PROGRESS_EVERY == 0) onProgress(i, channels.size)
+            val m = matcher.autoMatch(c.name, c.providerEpgId, scope.threshold)
+            ChannelEpgMappingEntity(
+                playlistId,
+                c.streamId,
+                m?.candidate?.sourceId,
+                m?.candidate?.xmlId,
+                manual = false,
+                score =
+                m?.score ?: 0.0
+            )
         }
         db.withTransaction {
-            epg.clearAutoMappings(playlistId)
-            updates.chunked(BATCH).forEach { epg.upsertMappings(it) }
+            if (scope == MatchScope.ALL) epg.clearAutoMappings(playlistId)
+            rows.chunked(BATCH).forEach { epg.upsertMappings(it) }
         }
+        channels.size to rows.filter { it.sourceId != null }
+    }
+
+    /**
+     * Tries again, with only near-certain matches, for every visible channel without a guide (except those the user set
+     * to "no guide"), then loads the programmes of the guide channels found.
+     */
+    suspend fun matchMissing(playlistIds: List<Long>, onProgress: (String) -> Unit = {}): MatchResult = withContext(Dispatchers.IO) {
+        var checked = 0
+        val found = playlistIds.flatMap { id ->
+            val (n, matches) = autoMatch(id, MatchScope.MISSING) { done, total -> onProgress(matchingLabel(done, total)) }
+            checked += n
+            matches
+        }
+        releaseMatcher()
+        val names = epg.enabledSources().associate { it.id to it.name }
+        found.groupBy({ it.sourceId!! }, { it.xmlId!! }).forEach { (source, xmlIds) ->
+            onProgress("Loading programmes from ${names[source] ?: "the guide"}…")
+            runCatching { importProgrammes(source, xmlIds.toHashSet(), onlyThese = true) }
+        }
+        changed()
+        MatchResult(checked, found.size)
+    }
+
+    private fun matchingLabel(done: Int, total: Int): String {
+        val n = NumberFormat.getIntegerInstance()
+        return "Matching channels… ${n.format(done)} of ${n.format(total)}"
     }
 
     fun releaseMatcher() {
@@ -336,6 +407,7 @@ class EpgRepository(
 
     private companion object {
         const val BATCH = 1000
+        const val PROGRESS_EVERY = 100
         const val MAX_SQL_ARGS = 900
         const val KEEP_PAST_MS = 2 * 3_600_000L
         const val KEEP_FUTURE_MS = 3 * 24 * 3_600_000L

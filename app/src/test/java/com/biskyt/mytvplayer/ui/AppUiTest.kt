@@ -29,6 +29,7 @@ import com.biskyt.mytvplayer.testutil.FakeProvider
 import com.biskyt.mytvplayer.testutil.TestApp
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.guide.GuideMatchingScreen
+import com.biskyt.mytvplayer.ui.guide.GuideSourcesScreen
 import com.biskyt.mytvplayer.ui.home.HomeScreen
 import com.biskyt.mytvplayer.ui.live.LiveScreen
 import com.biskyt.mytvplayer.ui.search.SearchScreen
@@ -77,6 +78,10 @@ class AppUiTest {
         c.vod.sync(c.playlists.get(playlistId)!!)
         c.playlists.get(playlistId)?.let { c.epg.ensureProviderSource(it, c.playlists.client(it).xmltvUrl()) }
         c.epg.importAll(listOf(playlistId))
+        // Settings outlive a test (one DataStore per process): Live TV starts on All channels unless a test says otherwise.
+        c.settings.update { it.copy(lastLiveFilter = "all") }
+        c.settings.current()
+        Unit
     }
 
     @After
@@ -96,6 +101,7 @@ class AppUiTest {
             Screen.PlaybackSettings -> PlaybackSettingsScreen()
             Screen.Appearance -> AppearanceScreen()
             Screen.Backup -> BackupScreen()
+            Screen.GuideSources -> GuideSourcesScreen()
             Screen.Playlists -> PlaylistsScreen()
             Screen.Search -> SearchScreen()
             is Screen.Movies -> VodBrowseScreen(CAT_MOVIE, screen.filter)
@@ -256,6 +262,29 @@ class AppUiTest {
     }
 
     @Test
+    fun `live TV opens on the category used last`() {
+        runBlocking {
+            app.container.settings.update { it.copy(lastLiveFilter = ChannelFilter.Category("2").key) }
+            app.container.settings.current()
+        }
+        show(Screen.Live())
+        waitFor("UK: ARENA SPRTS 1 FHD")
+        assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun `guide sources can match channels without a guide, showing the result`() {
+        show(Screen.GuideSources)
+        waitFor("Match channels without a guide")
+        compose.onNode(hasText("Match channels without a guide")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(10_000) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            compose.onAllNodes(hasText("had none", substring = true) or hasText("none matched", substring = true))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    @Test
     fun `screenshots of the main screens`() {
         show(Screen.Live())
         waitFor("Now on one.uk")
@@ -273,7 +302,9 @@ class AppUiTest {
 
         compose.runOnUiThread { navigator.reset(Screen.GuideMatching(playlistId, 102)) }
         waitFor("Arena Sports 1 HD")
-        waitFor("UK: KITE KIDZ")
+        // Opened for one channel: only that channel is listed.
+        waitFor("UK: ARENA SPRTS 1 FHD")
+        assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
         compose.onRoot().captureRoboImage("screenshots/guide-matching.png")
 
         compose.runOnUiThread { navigator.reset(Screen.PlaybackSettings) }

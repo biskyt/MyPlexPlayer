@@ -133,18 +133,20 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
     private val fmt = SimpleDateFormat("yyyyMMddHHmmss Z", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
     private fun t(offsetMin: Int) = fmt.format(Date(now + offsetMin * 60_000L))
 
-    /** Guide with three channels; each has a programme on now and one next. */
+    /** Guide channels (id to name); each has a programme on now and one next. */
+    var guideChannels = listOf(
+        "one.uk" to "Channel One",
+        "arena1.uk" to "Arena Sports 1 HD",
+        "kite.uk" to "Kite Kids",
+        "cine.fr" to "Ciné+"
+    )
+
     fun xmltv(): String = buildString {
         append("<?xml version=\"1.0\"?><tv>")
-        for ((id, name) in listOf(
-            "one.uk" to "Channel One",
-            "arena1.uk" to "Arena Sports 1 HD",
-            "kite.uk" to "Kite Kids",
-            "cine.fr" to "Ciné+"
-        )) {
+        for ((id, name) in guideChannels) {
             append("<channel id=\"$id\"><display-name>$name</display-name></channel>")
         }
-        for (id in listOf("one.uk", "arena1.uk", "kite.uk", "cine.fr")) {
+        for ((id, _) in guideChannels) {
             append(
                 "<programme start=\"${t(
                     -30

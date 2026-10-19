@@ -374,4 +374,45 @@ class RepositoriesTest {
         assertTrue(channels.get(id, 103)!!.hidden)
         assertEquals(listOf(101L), channels.ids(id, ChannelFilter.Favourites))
     }
+
+    @Test
+    fun `guide updates keep matches, and channels without a guide can be matched on request`() = runBlocking {
+        provider.streams = provider.streams + FakeProvider.Stream(104, 4, "US: NBC 4 (WNBC) NEW YORK (A)", "1", null)
+        val id = addPlaylist()
+        playlists.syncChannels(id)
+        val p = playlists.get(id)!!
+        epg.ensureProviderSource(p, playlists.client(p).xmltvUrl())
+        epg.importAll(listOf(id)) // the guide's first load matches everything
+        assertEquals("one.uk", db.epg().mapping(id, 101)!!.xmlId)
+        assertNull(db.epg().mapping(id, 104)!!.sourceId) // tried: nothing found
+
+        // Later updates keep automatic matches as they are and don't retry channels already tried.
+        db.epg().upsertMappings(listOf(db.epg().mapping(id, 101)!!.copy(score = 0.5)))
+        provider.guideChannels = provider.guideChannels + ("wnbc.us" to "US - NBC WNBC NY")
+        epg.importAll(listOf(id))
+        assertEquals(0.5, db.epg().mapping(id, 101)!!.score, 0.0)
+        assertNull(db.epg().mapping(id, 104)!!.sourceId)
+
+        // The button: near-certain matches for channels without a guide, with their programmes loaded.
+        val progress = mutableListOf<String>()
+        val result = epg.matchMissing(listOf(id)) { progress += it }
+        assertEquals("wnbc.us", db.epg().mapping(id, 104)!!.xmlId)
+        assertEquals(1, result.matched)
+        assertTrue(result.checked >= 1)
+        assertTrue(progress.any { it.startsWith("Matching channels") })
+        val now = System.currentTimeMillis()
+        assertEquals("Now on wnbc.us", epg.programmes(id, listOf(104), now, now + 3_600_000).getValue(104).first().title)
+
+        // A new guide source matches everything again.
+        epg.addSource("Extra", provider.url + "xmltv.php?username=me&password=secret&extra=1")
+        epg.importAll(listOf(id))
+        assertEquals(1.0, db.epg().mapping(id, 101)!!.score, 0.0)
+    }
+
+    @Test
+    fun `live TV lists are remembered by key`() {
+        for (f in listOf(ChannelFilter.All, ChannelFilter.Favourites, ChannelFilter.Recent, ChannelFilter.Category("12:a"))) {
+            assertEquals(f, ChannelFilter.of(f.key))
+        }
+    }
 }

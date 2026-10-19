@@ -1,5 +1,6 @@
 package com.biskyt.mytvplayer.core.epg
 
+import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
 
@@ -16,9 +17,13 @@ data class EpgMatch(val candidate: EpgCandidate, val score: Double)
  * ignored when rarer ones exist, and the string-distance check only runs on the best few candidates.
  */
 class ChannelMatcher(candidates: List<EpgCandidate>) {
-    private class Entry(val candidate: EpgCandidate, val tokens: Set<String>, val numbers: Set<String>)
+    private class Entry(val candidate: EpgCandidate, val tokens: Set<String>) {
+        val shifts = tokens.shifts()
+        val numbers = tokens.numbers()
+        var weight = 0.0
+    }
 
-    private val entries = candidates.map { c -> ChannelNames.tokens(c.normalized).let { t -> Entry(c, t, t.numberTokens()) } }
+    private val entries = candidates.map { c -> Entry(c, ChannelNames.tokens(c.normalized)) }
     private val byXmlId = entries.groupBy { it.candidate.xmlId.lowercase() }
     private val byNormalized = entries.groupBy { it.candidate.normalized }
     private val byToken = HashMap<String, MutableList<Entry>>().also { index ->
@@ -26,9 +31,20 @@ class ChannelMatcher(candidates: List<EpgCandidate>) {
     }
     private val commonTokenSize = max(COMMON_TOKEN_MIN, entries.size / COMMON_TOKEN_DIVISOR)
 
-    /** Best automatic match, or null when nothing reaches [AUTO_THRESHOLD]. */
-    fun autoMatch(channelName: String, providerEpgId: String?): EpgMatch? =
-        suggestions(channelName, providerEpgId, limit = 1).firstOrNull()?.takeIf { it.score >= AUTO_THRESHOLD }
+    init {
+        for (e in entries) e.weight = e.tokens.sumOf(::weight)
+    }
+
+    /** Rare words say more: a call sign found in one guide channel outweighs "tv" found in thousands. */
+    private fun weight(token: String) = ln(1.0 + entries.size.toDouble() / (byToken[token]?.size ?: 1))
+
+    /** A US or Canadian station's call sign ("wnbc", "kabc", "cfto"): it names one station, wherever it is in the name. */
+    private fun isCallSign(token: String) =
+        callSign.matches(token) && token !in NOT_CALL_SIGNS && (byToken[token]?.size ?: 0) <= CALL_SIGN_MAX_GUIDES
+
+    /** Best automatic match, or null when nothing reaches [threshold]. */
+    fun autoMatch(channelName: String, providerEpgId: String?, threshold: Double = AUTO_THRESHOLD): EpgMatch? =
+        suggestions(channelName, providerEpgId, limit = 1).firstOrNull()?.takeIf { it.score >= threshold }
 
     fun suggestions(channelName: String, providerEpgId: String?, limit: Int = 5): List<EpgMatch> {
         val results = LinkedHashMap<EpgCandidate, Double>()
@@ -44,35 +60,68 @@ class ChannelMatcher(candidates: List<EpgCandidate>) {
 
     private fun fuzzy(norm: String, results: MutableMap<EpgCandidate, Double>) {
         val tokens = ChannelNames.tokens(norm)
-        val numbers = tokens.numberTokens()
-        val buckets = tokens.mapNotNull { byToken[it] }
+        val weights = tokens.associateWith(::weight)
+        val own = weights.values.sum()
+        val shifts = tokens.shifts()
+        val numbers = tokens.numbers()
         // Words like "tv" or "sport" appear in thousands of guide channels; only use them if nothing rarer matches.
-        val useful = buckets.filter { it.size <= commonTokenSize }.ifEmpty { buckets }
-        val shared = HashMap<Entry, Int>()
-        for (bucket in useful) for (e in bucket) shared.merge(e, 1, Int::plus)
+        val buckets = tokens.mapNotNull { t -> byToken[t]?.let { t to it } }
+        val useful = buckets.filter { it.second.size <= commonTokenSize }.ifEmpty { buckets }
+        val shared = HashMap<Entry, Double>()
+        for ((t, bucket) in useful) for (e in bucket) shared.merge(e, weights.getValue(t), Double::plus)
 
-        // Rank by rare-word overlap, then score the best few on their full token overlap (common words included).
+        // Rank by the weight of the rarer shared words, then score the best few on all their words.
         shared.entries
-            .sortedByDescending { (e, n) -> n.toDouble() / (tokens.size + e.tokens.size) }
+            .sortedByDescending { (e, w) -> w / (own + e.weight) }
             .take(FUZZY_CANDIDATES)
             .forEach { (e, _) ->
                 if (e.candidate in results) return@forEach
-                val dice = 2.0 * e.tokens.count { it in tokens } / (tokens.size + e.tokens.size)
-                var score = 0.6 * dice + 0.4 * jaroWinkler(norm, e.candidate.normalized)
-                if (numbers != e.numbers) score *= 0.6 // "Sports 1" is not "Sports 10"
+                val common = e.tokens.filter { it in tokens }
+                val overlap = 2 * common.sumOf { weights.getValue(it) } / (own + e.weight)
+                var score = 0.6 * overlap + 0.4 * jaroWinkler(norm, e.candidate.normalized)
+                // "Sports 1" is not "Sports 10"; a number on one side only ("NBC 4" vs "NBC") is a smaller doubt.
+                val oneSided = numbers.isEmpty() || e.numbers.isEmpty()
+                val sameStation = shifts == e.shifts && common.any(::isCallSign)
+                if (shifts != e.shifts) score *= 0.5 // "+1" is an hour later
+                if (numbers != e.numbers) {
+                    score *= if (!oneSided) {
+                        0.6
+                    } else if (sameStation) {
+                        1.0
+                    } else {
+                        0.85
+                    }
+                }
+                if (sameStation && (oneSided || numbers == e.numbers)) score = max(score, CALL_SIGN_SCORE)
                 if (score >= MIN_SUGGESTION) results[e.candidate] = score
             }
     }
 
     companion object {
+        /** Matching after a guide or playlist is first loaded. */
         const val AUTO_THRESHOLD = 0.85
+
+        /** "Match channels without a guide": only near-certain matches. */
+        const val MISSING_THRESHOLD = 0.90
         private const val EXACT_NAME_SCORE = 0.97
+        private const val CALL_SIGN_SCORE = 0.96
+        private const val CALL_SIGN_MAX_GUIDES = 3
         private const val MIN_SUGGESTION = 0.4
         private const val FUZZY_CANDIDATES = 40
         private const val COMMON_TOKEN_MIN = 200
         private const val COMMON_TOKEN_DIVISOR = 20
 
-        private fun Set<String>.numberTokens() = filterTo(HashSet()) { t -> t.any(Char::isDigit) }
+        private val callSign = Regex("[kw][a-z]{2,3}|c[bfhijk][a-z]{2}")
+
+        /** Words shaped like call signs. */
+        private val NOT_CALL_SIGNS = setOf(
+            "kids", "kino", "kiss", "king", "kick", "keep", "know", "west", "wild", "word", "work", "wine", "wave", "wiki",
+            "wwe", "web", "war", "way", "wow", "win", "wok", "key", "kix", "wind", "wing", "wise", "wolf", "wood", "wars",
+            "chef", "chic", "city", "chat", "cine", "cbbc"
+        )
+
+        private fun Set<String>.shifts() = filterTo(HashSet()) { it.startsWith("plus") }
+        private fun Set<String>.numbers() = filterTo(HashSet()) { t -> !t.startsWith("plus") && t.any(Char::isDigit) }
 
         fun jaroWinkler(s1: String, s2: String): Double {
             if (s1 == s2) return 1.0
