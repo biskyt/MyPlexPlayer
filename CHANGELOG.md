@@ -2,6 +2,12 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.5.0
+- **Backup & restore** (Settings › Backup & restore): saves your playlists and logins, category and channel choices,
+  favourites, TV guide sources and choices, watching progress and settings to Download/MyTVPlayer/mytvplayer-backup.json.
+  Each backup replaces the last. No permissions needed. Copy the file with a file manager to keep it elsewhere.
+- Restore from that file, or pick another one (e.g. copied from another TV). Channels, movies and the guide download again afterwards.
+
 ## 0.4.0
 - **Search**: one box for channels (by name or number), what's on TV now and later, movies and series.
 - Menus and side panels (channel options, audio, subtitles, guide) are the same size as the rest of the app.

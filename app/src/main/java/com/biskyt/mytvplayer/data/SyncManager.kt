@@ -38,6 +38,18 @@ class SyncManager(
 
     fun refreshGuide(): Job = scope.launch { refreshGuideNow() }
 
+    fun refreshAll(): Job = scope.launch { refreshAllNow() }
+
+    /** Every playlist's channels, movies and series, then the guide once for all of them. */
+    suspend fun refreshAllNow() {
+        val ids = playlists.allIds()
+        ids.forEach { refreshNow(it, includeGuide = false) }
+        if (ids.isNotEmpty()) refreshGuideNow()
+    }
+
+    /** Runs [block] while no refresh is running, e.g. replacing everything from a backup. */
+    suspend fun <T> whileIdle(block: suspend () -> T): T = mutex.withLock { block() }
+
     suspend fun refreshNow(playlistId: Long, includeGuide: Boolean = true) = guarded("Couldn't refresh") {
         _state.value = SyncState.Channels(0)
         playlists.syncChannels(playlistId) { _state.value = SyncState.Channels(it) }

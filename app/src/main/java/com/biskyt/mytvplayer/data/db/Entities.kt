@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 const val KIND_XTREAM = "xtream"
 const val KIND_M3U = "m3u"
@@ -13,6 +14,7 @@ const val KIND_M3U = "m3u"
  * login fields are empty).
  */
 @Entity(tableName = "playlist")
+@Serializable
 data class PlaylistEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
@@ -40,6 +42,7 @@ const val CAT_SERIES = "series"
  * [included] categories are downloaded.
  */
 @Entity(tableName = "category", primaryKeys = ["playlistId", "type", "categoryId"])
+@Serializable
 data class CategoryEntity(
     val playlistId: Long,
     val categoryId: String,
@@ -116,6 +119,7 @@ const val VOD_EPISODE = "episode"
     primaryKeys = ["playlistId", "kind", "itemId"],
     indices = [Index("playlistId", "updatedAt"), Index("playlistId", "seriesId", "updatedAt")]
 )
+@Serializable
 data class WatchProgressEntity(
     val playlistId: Long,
     val kind: String,
@@ -145,6 +149,7 @@ data class WatchProgressEntity(
 
 /** A favourite movie or series. [kind] is [CAT_MOVIE] or [CAT_SERIES]. */
 @Entity(tableName = "vod_favourite", primaryKeys = ["playlistId", "kind", "itemId"])
+@Serializable
 data class VodFavouriteEntity(val playlistId: Long, val kind: String, val itemId: Long, val addedAt: Long)
 
 /**
@@ -161,6 +166,7 @@ data class VodFavouriteEntity(val playlistId: Long, val kind: String, val itemId
         Index("playlistId", "number")
     ]
 )
+@Serializable
 data class ChannelEntity(
     val playlistId: Long,
     val streamId: Long,
@@ -182,6 +188,7 @@ data class ChannelEntity(
 )
 
 @Entity(tableName = "favourite", primaryKeys = ["playlistId", "streamId"])
+@Serializable
 data class FavouriteEntity(val playlistId: Long, val streamId: Long, val addedAt: Long)
 
 @Entity(tableName = "recent", primaryKeys = ["playlistId", "streamId"], indices = [Index("playlistId", "watchedAt")])
@@ -189,6 +196,7 @@ data class RecentEntity(val playlistId: Long, val streamId: Long, val watchedAt:
 
 /** An XMLTV guide source. Provider guides are added automatically with [playlistId] set. */
 @Entity(tableName = "epg_source")
+@Serializable
 data class EpgSourceEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
@@ -226,6 +234,7 @@ data class ProgrammeEntity(
  * by automatic matching. A manual mapping with null [sourceId] means "no guide". [offsetMinutes] shifts programme times.
  */
 @Entity(tableName = "channel_epg_mapping", primaryKeys = ["playlistId", "streamId"], indices = [Index("sourceId", "xmlId")])
+@Serializable
 data class ChannelEpgMappingEntity(
     val playlistId: Long,
     val streamId: Long,

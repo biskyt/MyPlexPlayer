@@ -33,6 +33,7 @@ import com.biskyt.mytvplayer.ui.home.HomeScreen
 import com.biskyt.mytvplayer.ui.live.LiveScreen
 import com.biskyt.mytvplayer.ui.search.SearchScreen
 import com.biskyt.mytvplayer.ui.settings.AppearanceScreen
+import com.biskyt.mytvplayer.ui.settings.BackupScreen
 import com.biskyt.mytvplayer.ui.settings.PlaybackSettingsScreen
 import com.biskyt.mytvplayer.ui.settings.PlaylistsScreen
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
@@ -94,6 +95,7 @@ class AppUiTest {
             is Screen.GuideMatching -> GuideMatchingScreen(screen.playlistId, screen.streamId)
             Screen.PlaybackSettings -> PlaybackSettingsScreen()
             Screen.Appearance -> AppearanceScreen()
+            Screen.Backup -> BackupScreen()
             Screen.Playlists -> PlaylistsScreen()
             Screen.Search -> SearchScreen()
             is Screen.Movies -> VodBrowseScreen(CAT_MOVIE, screen.filter)
@@ -228,6 +230,29 @@ class AppUiTest {
         compose.onNode(hasText("Paddington 2")).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
         assertEquals(Screen.MovieDetails(playlistId, 502), navigator.current.screen)
+    }
+
+    @Test
+    fun `backup saves to Downloads and restores after confirming`() {
+        show(Screen.Backup)
+        waitFor("No backup on this TV yet.")
+        compose.onNode(hasText("Back up now")).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("Saved to Download/MyTVPlayer/mytvplayer-backup.json")
+        compose.onRoot().captureRoboImage("screenshots/settings-backup.png")
+
+        runBlocking { app.container.channels.setHidden(playlistId, 101, true) }
+        compose.onNode(hasText("Restore")).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("Restore?")
+        compose.onNode(hasText("Restore")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(5_000) {
+            // The restore finishes on the main thread, which this test is holding while it waits.
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            navigator.current.screen == Screen.Home
+        }
+        runBlocking {
+            assertEquals(listOf(playlistId), app.container.playlists.allIds())
+            assertEquals(false, app.container.db.channels().get(playlistId, 101)?.hidden ?: false)
+        }
     }
 
     @Test
