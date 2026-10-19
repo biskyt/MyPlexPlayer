@@ -376,7 +376,7 @@ class RepositoriesTest {
     }
 
     @Test
-    fun `guide updates keep matches, and channels without a guide can be matched on request`() = runBlocking {
+    fun `guide updates keep matches, retry when the guide changes, and match on request`() = runBlocking {
         provider.streams = provider.streams + FakeProvider.Stream(104, 4, "US: NBC 4 (WNBC) NEW YORK (A)", "1", null)
         val id = addPlaylist()
         playlists.syncChannels(id)
@@ -386,14 +386,21 @@ class RepositoriesTest {
         assertEquals("one.uk", db.epg().mapping(id, 101)!!.xmlId)
         assertNull(db.epg().mapping(id, 104)!!.sourceId) // tried: nothing found
 
-        // Later updates keep automatic matches as they are and don't retry channels already tried.
+        // An unchanged guide keeps automatic matches as they are and doesn't retry channels already tried.
         db.epg().upsertMappings(listOf(db.epg().mapping(id, 101)!!.copy(score = 0.5)))
-        provider.guideChannels = provider.guideChannels + ("wnbc.us" to "US - NBC WNBC NY")
         epg.importAll(listOf(id))
         assertEquals(0.5, db.epg().mapping(id, 101)!!.score, 0.0)
         assertNull(db.epg().mapping(id, 104)!!.sourceId)
 
-        // The button: near-certain matches for channels without a guide, with their programmes loaded.
+        // When the guide's channel list changes, channels without a guide are tried again.
+        provider.guideChannels = provider.guideChannels + ("wnbc.us" to "US - NBC WNBC NY")
+        epg.importAll(listOf(id))
+        assertEquals("wnbc.us", db.epg().mapping(id, 104)!!.xmlId)
+        assertEquals(0.5, db.epg().mapping(id, 101)!!.score, 0.0)
+
+        // The button: near-certain matches for channels without a guide (here as an older version left it),
+        // with their programmes loaded.
+        db.epg().upsertMappings(listOf(db.epg().mapping(id, 104)!!.copy(sourceId = null, xmlId = null, score = 0.0)))
         val progress = mutableListOf<String>()
         val result = epg.matchMissing(listOf(id)) { progress += it }
         assertEquals("wnbc.us", db.epg().mapping(id, 104)!!.xmlId)
@@ -407,6 +414,12 @@ class RepositoriesTest {
         epg.addSource("Extra", provider.url + "xmltv.php?username=me&password=secret&extra=1")
         epg.importAll(listOf(id))
         assertEquals(1.0, db.epg().mapping(id, 101)!!.score, 0.0)
+
+        // A matched guide channel that leaves the guide is matched again (here to nothing).
+        assertEquals("wnbc.us", db.epg().mapping(id, 104)!!.xmlId)
+        provider.guideChannels = provider.guideChannels.filter { it.first != "wnbc.us" }
+        epg.importAll(listOf(id))
+        assertNull(db.epg().mapping(id, 104)!!.sourceId)
     }
 
     @Test

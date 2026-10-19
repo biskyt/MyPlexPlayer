@@ -43,8 +43,10 @@ class ChannelMatcher(candidates: List<EpgCandidate>) {
     }
 
     /** A US or Canadian station's call sign ("wnbc", "kabc", "cfto"): it names one station, wherever it is in the name. */
-    private fun isCallSign(token: String) =
-        callSign.matches(token) && token !in NOT_CALL_SIGNS && (byToken[token]?.size ?: 0) <= CALL_SIGN_MAX_GUIDES
+    private fun isCallSign(token: String) = callSign.matches(token) &&
+        token.drop(1).count { it in "aeiou" } <= 1 &&
+        token !in NOT_CALL_SIGNS &&
+        (byToken[token]?.size ?: 0) <= CALL_SIGN_MAX_GUIDES
 
     /** Best automatic match, or null when nothing reaches [threshold]. */
     fun autoMatch(channelName: String, providerEpgId: String?, threshold: Double = AUTO_THRESHOLD): EpgMatch? =
@@ -95,17 +97,20 @@ class ChannelMatcher(candidates: List<EpgCandidate>) {
     private fun score(q: Query, e: Entry): Double {
         var common = 0.0
         var sharesCallSign = false
+        var sharedWords = 0
         for (t in e.tokens) {
             if (t !in q.tokens) continue
             common += weights.getValue(t)
+            sharedWords++
             if (t in q.callSigns) sharesCallSign = true
         }
         var score = 0.6 * (2 * common / (q.weight + e.weight)) + 0.4 * jaroWinkler(q.norm, e.candidate.normalized)
         // "Sports 1" is not "Sports 10"; a number on one side only ("NBC 4" vs "NBC") is a smaller doubt.
         val numbersAgree = q.numbers == e.numbers
         val oneSided = q.numbers.isEmpty() || e.numbers.isEmpty()
-        // A shared call sign is the same station, whatever the virtual channel number; "+1" is still an hour later.
-        val sameStation = sharesCallSign && q.shifts == e.shifts && (numbersAgree || oneSided)
+        // A shared call sign, with something else in common (the network, the city), is the same station whatever the
+        // virtual channel number; "+1" is still an hour later.
+        val sameStation = sharesCallSign && sharedWords >= 2 && q.shifts == e.shifts && (numbersAgree || oneSided)
         if (q.shifts != e.shifts) score *= 0.5
         if (!numbersAgree && !sameStation) score *= if (oneSided) 0.85 else 0.6
         return if (sameStation) max(score, CALL_SIGN_SCORE) else score
@@ -127,7 +132,7 @@ class ChannelMatcher(candidates: List<EpgCandidate>) {
 
         private val callSign = Regex("[kw][a-z]{2,3}|c[bfhijk][a-z]{2}")
 
-        /** Words shaped like call signs. */
+        /** Words shaped like call signs (at most one vowel after the K/W/C, e.g. "wnbc", "kabc", "wttg"). */
         private val NOT_CALL_SIGNS = setOf(
             "kids", "kino", "kiss", "king", "kick", "keep", "know", "west", "wild", "word", "work", "wine", "wave", "wiki",
             "wwe", "web", "war", "way", "wow", "win", "wok", "key", "kix", "wind", "wing", "wise", "wolf", "wood", "wars",

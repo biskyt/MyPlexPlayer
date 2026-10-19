@@ -2,6 +2,16 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.6.0
+- **Better TV guide matching**, especially for US local channels: call signs in brackets ("NBC 4 (WNBC) NEW YORK")
+  match guide names like "US - NBC WNBC NY", and state names match their abbreviations.
+- Settings › TV guide sources › **Match channels without a guide**: finds guides for channels that have none (90%
+  match or better), shows its progress, and says how many it found.
+- Guide updates are quicker: channels are only matched again when a guide is first added, when it changes, or for
+  new channels. Matches you set by hand are never changed.
+- Live TV opens on the list you used last.
+- "Change guide source" in a channel's menu opens guide matching on just that channel.
+
 ## 0.5.0
 - **Backup & restore** (Settings › Backup & restore): saves your playlists and logins, category and channel choices,
   favourites, TV guide sources and choices, watching progress and settings to Download/MyTVPlayer/mytvplayer-backup.json.

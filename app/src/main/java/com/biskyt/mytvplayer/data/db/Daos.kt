@@ -354,20 +354,21 @@ interface EpgDao {
     @Query("SELECT streamId FROM channel_epg_mapping WHERE playlistId = :pid AND manual = 1")
     suspend fun manualStreamIds(pid: Long): List<Long>
 
-    /** Channels matching has never looked at (added since the last update). */
+    /**
+     * Channels for automatic matching, other than those with a manual choice: never tried, or matched to a guide channel
+     * that has since gone from its guide; [retryFailed] adds those tried before without a match; [visibleOnly] leaves
+     * out hidden channels.
+     */
     @Query(
-        """SELECT c.streamId, c.name, c.providerEpgId FROM channel c WHERE c.playlistId = :pid
-             AND NOT EXISTS (SELECT 1 FROM channel_epg_mapping m WHERE m.playlistId = c.playlistId AND m.streamId = c.streamId)"""
+        """SELECT c.streamId, c.name, c.providerEpgId FROM channel c
+           LEFT JOIN channel_epg_mapping m ON m.playlistId = c.playlistId AND m.streamId = c.streamId
+           WHERE c.playlistId = :pid AND (:visibleOnly = 0 OR c.hidden = 0)
+             AND (m.streamId IS NULL
+                  OR (m.manual = 0 AND m.sourceId IS NULL AND :retryFailed)
+                  OR (m.manual = 0 AND m.sourceId IS NOT NULL
+                      AND NOT EXISTS (SELECT 1 FROM epg_channel e WHERE e.sourceId = m.sourceId AND e.xmlId = m.xmlId)))"""
     )
-    suspend fun unmappedNames(pid: Long): List<ChannelName>
-
-    /** Visible channels without a guide, except those the user set to "no guide". */
-    @Query(
-        """SELECT c.streamId, c.name, c.providerEpgId FROM channel c WHERE c.playlistId = :pid AND c.hidden = 0
-             AND NOT EXISTS (SELECT 1 FROM channel_epg_mapping m WHERE m.playlistId = c.playlistId AND m.streamId = c.streamId
-                             AND (m.sourceId IS NOT NULL OR m.manual = 1))"""
-    )
-    suspend fun missingGuideNames(pid: Long): List<ChannelName>
+    suspend fun namesToMatch(pid: Long, retryFailed: Boolean, visibleOnly: Boolean): List<ChannelName>
 
     @Query(
         """SELECT m.streamId, m.sourceId, m.xmlId, m.manual, m.score, m.offsetMinutes, e.displayName, s.name AS sourceName

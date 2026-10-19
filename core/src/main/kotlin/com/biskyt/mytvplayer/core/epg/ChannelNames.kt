@@ -14,8 +14,13 @@ object ChannelNames {
     private val prefix = Regex("""^\s*[|\[(]?\s*[A-Za-z]{2,3}\s*[|:\-\])]\s*""")
     private val noise = setOf(
         "hd", "fhd", "uhd", "sd", "4k", "8k", "hevc", "h265", "h264", "raw", "backup", "vip", "50fps", "60fps", "hq", "lq",
-        "1080p", "720p", "1080", "720", "multi", "geo", "blocked", "feed"
+        "1080p", "720p", "1080", "720", "multi", "feed"
     )
+    private val geoBlocked = Regex("""geo\W*blocked""", RegexOption.IGNORE_CASE)
+
+    // Numbers in brackets are notes ("(Backup 2)"), not the channel's number; the words stay (a call sign: "(WNBC)").
+    private val bracketedNumbers = Regex("""[\[(][^\])]*\d[^\])]*[\])]""")
+    private val digits = Regex("""\b\w*\d\w*\b""")
     private val plusN = Regex("""\+\s*(\d)""")
     private val feeds = mapOf("e" to "east", "w" to "west", "eastern" to "east", "western" to "west")
     private val states = mapOf(
@@ -35,6 +40,8 @@ object ChannelNames {
         // NFKD also folds superscript letters such as ᴴᴰ into plain HD.
         var s = marks.replace(Normalizer.normalize(name, Normalizer.Form.NFKD), "")
         s = prefix.replace(s, "")
+        s = geoBlocked.replace(s, " ")
+        s = bracketedNumbers.replace(s) { digits.replace(it.value, " ") }
         s = plusN.replace(s) { " plus${it.groupValues[1]} " }
         s = s.replace("&", " and ").lowercase()
         val words = s.split(separators).filter { it.isNotEmpty() && it !in noise }
@@ -44,10 +51,14 @@ object ChannelNames {
             // A state of up to three words ("district of columbia"), longest first so "west virginia" beats "virginia".
             val (word, used) = (3 downTo 1).firstNotNullOfOrNull { n ->
                 if (i + n > words.size) null else states[words.subList(i, i + n).joinToString(" ")]?.let { it to n }
-            } ?: (feeds[words[i]] ?: words[i]) to 1
+            } ?: ((if (i > 0) feeds[words[i]] else null) ?: words[i]) to 1
+            // A name's first word stays as it is ("E!", "W"). Later single letters are a feed ("HBO (E)") or say
+            // nothing about which channel it is (a provider's "(A)").
+            if (i > 0 && word.length == 1 && word[0].isLetter()) {
+                i += used
+                continue
+            }
             i += used
-            // Other single letters (a provider's "(A)") say nothing about which channel it is.
-            if (word.length == 1 && word[0].isLetter()) continue
             if (out.isNotEmpty()) out.append(' ')
             out.append(word)
         }
