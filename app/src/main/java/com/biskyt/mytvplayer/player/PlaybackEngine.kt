@@ -147,8 +147,9 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
      * How the sound is played, for the options menu, e.g. "Passthrough · Dolby Atmos". Read from the selected audio track in [tracks]: when tracks change,
      * the player's own audio format isn't known yet (the audio output starts a moment later).
      */
-    fun audioOutputLabel(tracks: Tracks = player.currentTracks): String {
-        val f = selectedAudioFormat(tracks) ?: player.audioFormat ?: return "No audio"
+    fun audioOutputLabel(tracks: Tracks = player.currentTracks, playing: Format? = player.audioFormat): String {
+        // The format being played when known (it has the real channel count); else the chosen track's.
+        val f = playing ?: selectedAudioFormat(tracks) ?: return "No audio"
         val name = encodedName(f.sampleMimeType)
         if (name != null && settings.audioPassthrough) {
             val caps = AudioCapabilities.getCapabilities(context, AudioAttributes.DEFAULT, null)
