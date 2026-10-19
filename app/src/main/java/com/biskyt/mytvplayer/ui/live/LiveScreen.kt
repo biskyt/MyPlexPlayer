@@ -44,6 +44,7 @@ import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.AppIcons
 import com.biskyt.mytvplayer.ui.common.CategoryColumn
 import com.biskyt.mytvplayer.ui.common.CategoryEntry
+import com.biskyt.mytvplayer.ui.common.CategoryOptionsSheet
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
 import com.biskyt.mytvplayer.ui.common.FlashLabel
 import com.biskyt.mytvplayer.ui.common.ListHeader
@@ -74,10 +75,19 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
         vm.focusStreamId = ch.streamId
         nav.push(Screen.Player(pid, ch.streamId, filter))
     }
+    // In the Catch-up list, OK opens the channel's past programmes (Watch, in its options, plays it live).
+    val open: (ChannelEntity) -> Unit = { ch ->
+        if (filter == ChannelFilter.Catchup) {
+            vm.focusStreamId = ch.streamId
+            nav.push(Screen.Catchup(ch.playlistId, ch.streamId))
+        } else {
+            play(ch)
+        }
+    }
 
     LaunchedEffect(Unit) { vm.restoreFocusPending = true }
 
-    TabScaffold(if (initialFilter == ChannelFilter.Favourites) Tab.FAVOURITES else Tab.LIVE) {
+    TabScaffold(if (filter == ChannelFilter.Catchup) Tab.CATCHUP else Tab.LIVE) {
         Row(
             Modifier.fillMaxSize().padding(horizontal = 56.dp).onPreviewKeyEvent { e ->
                 // 0–9 on the remote jumps straight to that channel number; the Guide button switches list/guide.
@@ -101,11 +111,14 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
             LiveCategories(vm, filter)
             Column(Modifier.weight(1f)) {
                 ListHeader(vm, filter)
-                if (vm.guideMode) GuideGrid(vm, play) else ChannelList(vm, play)
+                if (vm.guideMode) GuideGrid(vm, play) else ChannelList(vm, open)
             }
         }
     }
     vm.optionsFor?.let { ch -> ChannelOptionsSheet(ch, vm, play) }
+    vm.categoryOptions?.let { cat ->
+        CategoryOptionsSheet(cat.name, onHide = { vm.hideCategory(cat) }, onDismiss = { vm.categoryOptions = null })
+    }
     if (vm.numberEntry.typed.isNotEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopEnd) { FlashLabel(vm.numberEntry.typed) }
     }
@@ -114,14 +127,19 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
 @Composable
 private fun LiveCategories(vm: LiveViewModel, selected: ChannelFilter) {
     val categories by vm.categories.collectAsState()
-    val entries = remember(categories) {
-        listOf<CategoryEntry<ChannelFilter>>(
+    val catchup by vm.catchupCount.collectAsState()
+    val entries = remember(categories, catchup) {
+        listOfNotNull<CategoryEntry<ChannelFilter>>(
             CategoryEntry(ChannelFilter.Favourites, "Favourites"),
             CategoryEntry(ChannelFilter.Recent, "Recently watched"),
+            CategoryEntry<ChannelFilter>(ChannelFilter.Catchup, "Catch-up", catchup).takeIf { catchup > 0 },
             CategoryEntry(ChannelFilter.All, "All channels")
         ) + categories.map { CategoryEntry<ChannelFilter>(ChannelFilter.Category(it.categoryId), it.name, it.channelCount) }
     }
-    CategoryColumn(entries, selected, vm.filters::focus, vm.filters::select)
+    CategoryColumn(entries, selected, vm.filters::focus, vm.filters::select) { f ->
+        // Only the provider's categories can be hidden.
+        if (f is ChannelFilter.Category) vm.categoryOptions = categories.firstOrNull { it.categoryId == f.id }
+    }
 }
 
 @Composable
@@ -134,6 +152,7 @@ private fun ListHeader(vm: LiveViewModel, filter: ChannelFilter) {
         ChannelFilter.All -> "All channels" to total
         ChannelFilter.Favourites -> "Favourites" to favs.size
         ChannelFilter.Recent -> "Recently watched" to null
+        ChannelFilter.Catchup -> "Catch-up" to vm.catchupCount.collectAsState().value
         is ChannelFilter.Category -> categories.firstOrNull { it.categoryId == filter.id }.let {
             (it?.name ?: "Channels") to
                 it?.channelCount
@@ -223,6 +242,7 @@ fun ChannelRow(
                         modifier = Modifier.padding(start = 6.dp).size(16.dp)
                     )
                 }
+                if (ch.archiveDays > 0) CatchupMark(Modifier.padding(start = 6.dp))
             }
             Column(Modifier.weight(1f)) {
                 when {
@@ -256,4 +276,10 @@ private fun SkeletonLines() {
 @Composable
 private fun PlaceholderRow() {
     Box(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(14.dp)).background(Palette.surfaceLow))
+}
+
+/** Marks a channel with catch-up: small and dim, so it's there when looked for without crowding the row. */
+@Composable
+fun CatchupMark(modifier: Modifier = Modifier) {
+    Icon(AppIcons.Catchup, "Catch-up", tint = Palette.textDim, modifier = modifier.size(16.dp))
 }

@@ -160,6 +160,19 @@ interface ChannelDao {
     suspend fun idsCategory(pid: Long, cat: String): List<Long>
 
     @Query(
+        """SELECT * FROM channel WHERE playlistId = :pid AND hidden = 0 AND archiveDays > 0
+           AND (:q = '' OR $CHANNEL_MATCH)
+           ORDER BY position, name"""
+    )
+    fun pageCatchup(pid: Long, q: String): PagingSource<Int, ChannelEntity>
+
+    @Query("SELECT streamId FROM channel WHERE playlistId = :pid AND hidden = 0 AND archiveDays > 0 ORDER BY position, name")
+    suspend fun idsCatchup(pid: Long): List<Long>
+
+    @Query("SELECT COUNT(*) FROM channel WHERE playlistId = :pid AND hidden = 0 AND archiveDays > 0")
+    fun observeCatchupCount(pid: Long): Flow<Int>
+
+    @Query(
         """SELECT c.streamId FROM channel c JOIN favourite f ON f.playlistId = c.playlistId AND f.streamId = c.streamId
            WHERE c.playlistId = :pid ORDER BY c.position, c.name"""
     )
@@ -239,6 +252,9 @@ interface FavouriteDao {
         "DELETE FROM recent WHERE playlistId = :pid AND streamId NOT IN (SELECT streamId FROM recent WHERE playlistId = :pid ORDER BY watchedAt DESC LIMIT :keep)"
     )
     suspend fun trimRecent(pid: Long, keep: Int)
+
+    @Query("DELETE FROM recent WHERE playlistId = :pid AND streamId = :id")
+    suspend fun removeRecent(pid: Long, id: Long)
 }
 
 /** A programme found by search, with its channel. */
@@ -592,6 +608,12 @@ interface VodDao {
         "DELETE FROM watch_progress WHERE playlistId = :pid AND rowid NOT IN (SELECT rowid FROM watch_progress WHERE playlistId = :pid ORDER BY updatedAt DESC LIMIT :keep)"
     )
     suspend fun trimProgress(pid: Long, keep: Int)
+
+    @Query("DELETE FROM watch_progress WHERE playlistId = :pid AND kind = 'movie' AND itemId = :id")
+    suspend fun deleteMovieProgress(pid: Long, id: Long)
+
+    @Query("DELETE FROM watch_progress WHERE playlistId = :pid AND kind = 'episode' AND seriesId = :seriesId")
+    suspend fun deleteSeriesProgress(pid: Long, seriesId: Long)
 }
 
 /** Everything a backup holds (see BackupRepository), read and replaced as a whole. */

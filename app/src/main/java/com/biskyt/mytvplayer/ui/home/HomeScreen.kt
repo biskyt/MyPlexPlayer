@@ -13,6 +13,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,6 +32,8 @@ import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
+import com.biskyt.mytvplayer.ui.common.ItemAction
+import com.biskyt.mytvplayer.ui.common.ItemActionsPanel
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.NowNextLoader
 import com.biskyt.mytvplayer.ui.common.PillButton
@@ -38,15 +43,19 @@ import com.biskyt.mytvplayer.ui.common.SectionTitle
 import com.biskyt.mytvplayer.ui.common.Tab
 import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.TvCard
+import com.biskyt.mytvplayer.ui.common.channelActions
 import com.biskyt.mytvplayer.ui.common.formatDuration
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
+import com.biskyt.mytvplayer.ui.live.CatchupMark
 import com.biskyt.mytvplayer.ui.player.shortEpisodeLabel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class HomeViewModel(private val c: AppContainer) : ViewModel() {
     private val activePlaylist = c.settings.activePlaylistId
@@ -66,6 +75,18 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
     val carryOn = activePlaylist.flatMapLatest { c.vod.observeCarryOn(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val favouriteIds = activePlaylist.flatMapLatest { c.channels.observeFavouriteIds(it) }.map { it.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    fun setFavourite(ch: ChannelEntity, favourite: Boolean) = viewModelScope.launch {
+        c.channels.setFavourite(ch.playlistId, ch.streamId, favourite)
+    }
+
+    fun removeRecent(ch: ChannelEntity) = viewModelScope.launch { c.channels.removeRecent(ch.playlistId, ch.streamId) }
+
+    fun forget(p: WatchProgressEntity) = viewModelScope.launch { c.vod.forgetProgress(p) }
+
     val nowNext =
         NowNextLoader(viewModelScope, c.epg.changes) { ids, from, to -> c.epg.programmes(playlistId.value, ids, from, to, details = false) }
 }
@@ -80,6 +101,7 @@ fun HomeScreen() {
     val carryOn by vm.carryOn.collectAsState()
     val pid = vm.playlistId.collectAsState().value
     val first = rememberFirstFocus(favourites != null)
+    var options by remember { mutableStateOf<HomeTile?>(null) }
 
     TabScaffold(Tab.HOME) {
         LazyColumn(
@@ -90,7 +112,9 @@ fun HomeScreen() {
                 item {
                     Column {
                         SectionTitle("Carry on watching")
-                        CarryOnRow(carryOn) { nav.push(Screen.VodPlayer(pid, it.itemId, it.seriesId, continueSeries = true)) }
+                        CarryOnRow(carryOn, { options = HomeTile.CarryOn(it) }) {
+                            nav.push(Screen.VodPlayer(pid, it.itemId, it.seriesId, continueSeries = true))
+                        }
                     }
                 }
             }
@@ -101,7 +125,7 @@ fun HomeScreen() {
                     when {
                         favs == null -> Unit
                         favs.isEmpty() -> EmptyFavourites(first) { nav.reset(Screen.Live()) }
-                        else -> ChannelCardRow(favs, vm.nowNext, first) {
+                        else -> ChannelCardRow(favs, vm.nowNext, first, { options = HomeTile.Channel(it, ChannelFilter.Favourites) }) {
                             nav.push(Screen.Player(pid, it.streamId, ChannelFilter.Favourites))
                         }
                     }
@@ -111,10 +135,63 @@ fun HomeScreen() {
                 item {
                     Column {
                         SectionTitle("Recently watched")
-                        ChannelCardRow(recent, vm.nowNext) { nav.push(Screen.Player(pid, it.streamId, ChannelFilter.Recent)) }
+                        ChannelCardRow(recent, vm.nowNext, onOptions = { options = HomeTile.Channel(it, ChannelFilter.Recent) }) {
+                            nav.push(Screen.Player(pid, it.streamId, ChannelFilter.Recent))
+                        }
                     }
                 }
             }
+        }
+    }
+    options?.let { TileOptions(it, vm) { options = null } }
+}
+
+/** A Home card whose options are open: a channel (from [list]: favourites or recently watched), or a title carried on. */
+private sealed interface HomeTile {
+    data class Channel(val ch: ChannelEntity, val list: ChannelFilter) : HomeTile
+
+    data class CarryOn(val p: WatchProgressEntity) : HomeTile
+}
+
+/** Holding OK on a Home card: watch it, and favourites, catch-up and the guide source, or take it off its row. */
+@Composable
+private fun TileOptions(tile: HomeTile, vm: HomeViewModel, onDismiss: () -> Unit) {
+    when (tile) {
+        is HomeTile.Channel -> {
+            val ch = tile.ch
+            val favourites by vm.favouriteIds.collectAsState()
+            val actions = listOf(ItemAction.Open("Watch", Screen.Player(ch.playlistId, ch.streamId, tile.list))) +
+                channelActions(ch, ch.streamId in favourites) { vm.setFavourite(ch, it) } +
+                listOfNotNull(
+                    ItemAction.Run("Remove from Recently watched") {
+                        vm.removeRecent(ch)
+                        onDismiss()
+                    }.takeIf { tile.list == ChannelFilter.Recent }
+                )
+            ItemActionsPanel(ch.name, actions, onDismiss)
+        }
+        is HomeTile.CarryOn -> {
+            val p = tile.p
+            val series = p.seriesId
+            val actions = listOf(
+                ItemAction.Open(
+                    if (p.finished) "Play the next episode" else "Resume",
+                    Screen.VodPlayer(p.playlistId, p.itemId, series, continueSeries = true)
+                ),
+                if (series == null) {
+                    ItemAction.Open("About this movie", Screen.MovieDetails(p.playlistId, p.itemId))
+                } else {
+                    ItemAction.Open("All episodes", Screen.SeriesDetails(p.playlistId, series, p.season, p.episode))
+                },
+                ItemAction.Run(
+                    "Remove from Carry on watching",
+                    if (series == null) "Forgets how far you got" else "Forgets which episodes you've watched"
+                ) {
+                    vm.forget(p)
+                    onDismiss()
+                }
+            )
+            ItemActionsPanel(p.title, actions, onDismiss)
         }
     }
 }
@@ -132,6 +209,7 @@ private fun ChannelCardRow(
     channels: List<ChannelEntity>,
     loader: NowNextLoader,
     modifier: Modifier = Modifier,
+    onOptions: (ChannelEntity) -> Unit,
     onPlay: (ChannelEntity) -> Unit
 ) {
     val now by rememberMinuteClock()
@@ -139,11 +217,16 @@ private fun ChannelCardRow(
         items(channels, key = { it.streamId }) { c ->
             LaunchedEffect(c.streamId) { loader.request(c.streamId) }
             val nn = loader.entries[c.streamId]
-            TvCard(onClick = { onPlay(c) }, modifier = (if (c == channels.first()) modifier else Modifier).width(272.dp)) {
+            TvCard(
+                onClick = { onPlay(c) },
+                onLongClick = { onOptions(c) },
+                modifier = (if (c == channels.first()) modifier else Modifier).width(272.dp)
+            ) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         ChannelLogo(c.logoUrl, c.name, 64.dp, 38.dp)
-                        Muted(c.name, Modifier.padding(start = 10.dp))
+                        Muted(c.name, Modifier.padding(start = 10.dp).weight(1f, fill = false))
+                        if (c.archiveDays > 0) CatchupMark(Modifier.padding(start = 6.dp))
                     }
                     Text(
                         nn?.now?.title ?: " ",
@@ -164,10 +247,10 @@ private fun ChannelCardRow(
 
 /** Movies and episodes part-watched (or the next episode up): a poster-sized card each, with how much is left. */
 @Composable
-private fun CarryOnRow(items: List<WatchProgressEntity>, onPlay: (WatchProgressEntity) -> Unit) {
+private fun CarryOnRow(items: List<WatchProgressEntity>, onOptions: (WatchProgressEntity) -> Unit, onPlay: (WatchProgressEntity) -> Unit) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         items(items, key = { "${it.kind}${it.itemId}" }) { p ->
-            TvCard(onClick = { onPlay(p) }, modifier = Modifier.width(272.dp)) {
+            TvCard(onClick = { onPlay(p) }, onLongClick = { onOptions(p) }, modifier = Modifier.width(272.dp)) {
                 Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Poster(p.imageUrl, p.title, 64.dp)
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {

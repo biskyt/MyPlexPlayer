@@ -172,7 +172,12 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
                             focusTarget.value?.takeIf { it.streamId == ch.streamId || (it.streamId == null && index == 0) }?.time
                         }
                     }
-                    val programmes = rowLoader.entries[ch.streamId]
+                    // While a row loads another stretch of time (or catch-up, from the provider) it keeps showing
+                    // what it had: the cell with focus stays, instead of focus being lost and landing elsewhere.
+                    val loaded = rowLoader.entries[ch.streamId]
+                    val shown = remember(ch.streamId) { arrayOfNulls<List<ChannelProgramme>>(1) }
+                    if (loaded != null) shown[0] = loaded
+                    val programmes = loaded ?: shown[0]
                     GuideRow(
                         ch = ch,
                         programmes = programmes,
@@ -184,7 +189,7 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
                             vm.focusMoved(ch.streamId, index)
                             // The target is done once its cell has focus with the programmes loaded (until then the
                             // placeholder holds focus, and the real cell takes it when they arrive).
-                            if (isTarget && programmes != null) focusTarget.value = null
+                            if (isTarget && loaded != null) focusTarget.value = null
                         },
                         onPlay = { p -> openProgramme(nav, ch, p, play) },
                         // The programme with focus on this row, so its options can offer to find it on demand.
@@ -262,8 +267,9 @@ private fun GuideRow(
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 10.dp)
+                modifier = Modifier.padding(start = 10.dp).weight(1f, fill = false)
             )
+            if (ch.archiveDays > 0) CatchupMark(Modifier.padding(start = 4.dp))
         }
         val visible =
             remember(programmes, windowStart) { programmes.orEmpty().filter { it.stopMs > windowStart && it.startMs < windowEnd } }

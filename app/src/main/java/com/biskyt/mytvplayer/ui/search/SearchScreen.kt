@@ -28,7 +28,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.SearchResults
@@ -43,13 +42,12 @@ import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.AppIcons
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
 import com.biskyt.mytvplayer.ui.common.ItemAction
-import com.biskyt.mytvplayer.ui.common.MenuOption
+import com.biskyt.mytvplayer.ui.common.ItemActionsPanel
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.OnNowLabel
 import com.biskyt.mytvplayer.ui.common.OneLine
 import com.biskyt.mytvplayer.ui.common.PosterCard
 import com.biskyt.mytvplayer.ui.common.SectionTitle
-import com.biskyt.mytvplayer.ui.common.SidePanel
 import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.TvTextField
@@ -58,7 +56,6 @@ import com.biskyt.mytvplayer.ui.common.favouriteLabel
 import com.biskyt.mytvplayer.ui.common.formatDayTime
 import com.biskyt.mytvplayer.ui.common.isLive
 import com.biskyt.mytvplayer.ui.common.numberLabel
-import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
 import com.biskyt.mytvplayer.ui.theme.Palette
 import kotlinx.coroutines.CancellationException
@@ -187,11 +184,6 @@ fun SearchScreen(initialQuery: String = "") {
 /** What can be done with a result: watch or open it, favourites, and for channels catch-up and the guide source. */
 @Composable
 private fun ResultOptions(item: Picked, pid: Long, vm: SearchViewModel, onDismiss: () -> Unit) {
-    val nav = LocalNavigator.current
-    fun open(screen: Screen) {
-        onDismiss()
-        nav.push(screen)
-    }
     val (title, main, actions) = when (item) {
         is Picked.Channel -> {
             val favourites by vm.favouriteChannels.collectAsState()
@@ -220,19 +212,7 @@ private fun ResultOptions(item: Picked, pid: Long, vm: SearchViewModel, onDismis
             )
         }
     }
-    SidePanel(onDismiss) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 2, modifier = Modifier.padding(bottom = 8.dp))
-            (listOf(main) + actions).forEachIndexed { i, a ->
-                MenuOption(a.label, a.help, if (i == 0) rememberFirstFocus() else Modifier) {
-                    when (a) {
-                        is ItemAction.Open -> open(a.screen)
-                        is ItemAction.Run -> a.run()
-                    }
-                }
-            }
-        }
-    }
+    ItemActionsPanel(title, listOf(main) + actions, onDismiss)
 }
 
 /** A titled row of results, left out when there are none. */

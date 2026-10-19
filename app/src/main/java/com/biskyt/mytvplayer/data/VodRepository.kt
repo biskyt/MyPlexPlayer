@@ -110,6 +110,12 @@ class VodRepository(private val db: AppDatabase, private val playlists: Playlist
         }
     }
 
+    /** Takes a movie, or a whole series, off "Carry on watching": forgets how far it got (for a series, every episode). */
+    suspend fun forgetProgress(p: WatchProgressEntity) {
+        val series = p.seriesId
+        if (series == null) vod.deleteMovieProgress(p.playlistId, p.itemId) else vod.deleteSeriesProgress(p.playlistId, series)
+    }
+
     // --- details (fetched when opened) ---
 
     private val movieDetails = LruCache<String, VodDetails>(DETAILS_CACHE)
