@@ -11,11 +11,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -99,10 +103,23 @@ fun <F> CategoryColumn(
 ) {
     val selectedEntry = remember { FocusRequester() }
     var options by remember { mutableStateOf<CategoryEntity?>(null) }
+    val state = rememberLazyListState()
+    val selectedIndex = entries.indexOfFirst { it.filter == selected }
+    fun selectedShown() = state.layoutInfo.visibleItemsInfo.any { it.index == selectedIndex }
+    // Picked some other way (remembered, or the one shown was hidden): the column shows it, ready for focus.
+    LaunchedEffect(selectedIndex) { if (selectedIndex >= 0 && !selectedShown()) state.scrollToItem(selectedIndex) }
+    var refocus by remember { mutableIntStateOf(0) }
+    LaunchedEffect(refocus) {
+        if (refocus == 0) return@LaunchedEffect
+        withFrameNanos { }
+        if (selectedShown()) runCatching { selectedEntry.requestFocus() }
+    }
     LazyColumn(
         Modifier.width(250.dp)
-            .focusProperties { onEnter = { selectedEntry.requestFocus(requestedFocusDirection) } }
+            // Coming in, focus goes to the selected entry when it's there (else wherever it would have).
+            .focusProperties { onEnter = { if (selectedShown()) runCatching { selectedEntry.requestFocus(requestedFocusDirection) } } }
             .focusGroup(),
+        state = state,
         verticalArrangement = Arrangement.spacedBy(4.dp),
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
@@ -148,6 +165,7 @@ fun <F> CategoryColumn(
         val hide = ItemAction.Run("Hide category", "Show it again in Settings › Languages & categories") {
             close()
             onHide?.invoke(cat)
+            refocus++ // its entry goes, and focus with it
         }
         ItemActionsPanel(cat.name, listOf(hide), close)
     }

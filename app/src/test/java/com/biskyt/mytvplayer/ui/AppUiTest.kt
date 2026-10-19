@@ -421,6 +421,26 @@ class AppUiTest {
     }
 
     @Test
+    fun `left into the categories works when the list shown isn't among them`() {
+        runBlocking {
+            app.container.settings.update { it.copy(lastLiveFilter = ChannelFilter.Category("2").key) }
+            app.container.settings.current()
+        }
+        show(Screen.Live())
+        compose.waitUntil(5_000) { focusedText().contains("UK: ARENA SPRTS 1 FHD") }
+        // The category shown goes from the column (e.g. unticked elsewhere) while its list is still up.
+        runBlocking { app.container.db.categories().setIncluded(playlistId, com.biskyt.mytvplayer.data.db.CAT_LIVE, listOf("2"), false) }
+        compose.waitUntil(5_000) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            compose.onAllNodes(hasText("SPORT", substring = true) and hasClickAction()).fetchSemanticsNodes().isEmpty()
+        }
+        val before = focusedText()
+        press(Key.DirectionLeft)
+        settle()
+        assertTrue("before: '$before'", focusedText().isNotBlank())
+    }
+
+    @Test
     fun `left from the channel list goes to the selected category`() {
         runBlocking {
             app.container.settings.update { it.copy(lastLiveFilter = ChannelFilter.Category("2").key) }
@@ -435,6 +455,8 @@ class AppUiTest {
     @Test
     fun `the Catch-up tab lists catch-up channels, and OK opens their past programmes`() {
         show(Screen.Home)
+        // The tab shows once the playlist is known to have catch-up channels.
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasText("Catch-up") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
         assertEquals(Screen.Live(ChannelFilter.Catchup), navigator.current.screen)
@@ -462,6 +484,10 @@ class AppUiTest {
         }
         val included = runBlocking { app.container.db.categories().included(playlistId, com.biskyt.mytvplayer.data.db.CAT_LIVE) }
         assertTrue(included.none { it.categoryId == "2" })
+        // Its channels go at once, and focus stays in the column.
+        assertTrue(compose.onAllNodes(hasText("UK: ARENA SPRTS 1 FHD")).fetchSemanticsNodes().isEmpty())
+        settle()
+        assertTrue(focusedText(), focusedText().isNotBlank())
     }
 
     @Test
@@ -484,6 +510,7 @@ class AppUiTest {
         }
         show(Screen.Home)
         waitFor("Half Watched")
+        compose.onNode(hasText("Half Watched") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
         compose.onNode(hasText("Half Watched") and hasClickAction()).performSemanticsAction(SemanticsActions.OnLongClick)
         waitFor("About this movie")
         compose.onNode(hasText("Remove from Carry on watching")).performSemanticsAction(SemanticsActions.OnClick)
@@ -491,6 +518,9 @@ class AppUiTest {
             org.robolectric.shadows.ShadowLooper.idleMainLooper()
             compose.onAllNodes(hasText("Half Watched")).fetchSemanticsNodes().isEmpty()
         }
+        // Focus doesn't go with the card.
+        settle()
+        assertTrue(focusedText(), focusedText().isNotBlank())
 
         waitFor("Recently watched")
         compose.onNode(hasText("UK: ARENA SPRTS 1 FHD", substring = true) and hasClickAction())
