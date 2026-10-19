@@ -39,6 +39,7 @@ import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.PillButton
 import com.biskyt.mytvplayer.ui.common.ProgressLine
 import com.biskyt.mytvplayer.ui.common.TvCard
+import com.biskyt.mytvplayer.ui.common.favouriteLabel
 import com.biskyt.mytvplayer.ui.common.formatRuntime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.common.restoreFocusIf
@@ -131,7 +132,7 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
                     primary = true
                 )
             }
-            PillButton(if (favourite) "Remove from favourites" else "Add to favourites", { vm.toggleFavourite() })
+            PillButton(favouriteLabel(favourite), { vm.toggleFavourite() })
         }
         when {
             vm.error != null -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {

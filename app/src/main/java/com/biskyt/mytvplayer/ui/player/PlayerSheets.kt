@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,6 +24,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
+import com.biskyt.mytvplayer.ui.common.ItemAction
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.ScheduleList
 import com.biskyt.mytvplayer.ui.common.SidePanel
@@ -111,15 +113,14 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
                 PlaybackViewModel.Sheet.MORE -> {
                     item { Header("More", null) }
                     val actions = vm.menuActions()
-                    items(actions) { a ->
-                        Choice(a.label, false, if (a == actions.first()) first else Modifier) {
-                            val screen = a.opens
-                            if (screen != null) {
-                                close()
-                                vm.leaveForScreen()
-                                nav.push(screen)
-                            } else {
-                                a.run?.invoke()
+                    itemsIndexed(actions) { i, a ->
+                        Choice(a.label, false, if (i == 0) first else Modifier) {
+                            when (a) {
+                                is ItemAction.Open -> {
+                                    close()
+                                    nav.push(a.screen) // the player stops when it leaves the screen
+                                }
+                                is ItemAction.Run -> a.run()
                             }
                         }
                     }

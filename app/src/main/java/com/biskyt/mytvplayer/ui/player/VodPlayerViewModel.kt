@@ -16,6 +16,9 @@ import com.biskyt.mytvplayer.data.db.VOD_EPISODE
 import com.biskyt.mytvplayer.data.db.VOD_MOVIE
 import com.biskyt.mytvplayer.data.db.WatchProgressEntity
 import com.biskyt.mytvplayer.ui.Screen
+import com.biskyt.mytvplayer.ui.common.ItemAction
+import com.biskyt.mytvplayer.ui.common.favouriteFlash
+import com.biskyt.mytvplayer.ui.common.favouriteLabel
 import com.biskyt.mytvplayer.ui.common.formatDuration
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -61,29 +64,26 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     )
 
     /** The movie, or the series of the episode: what "Add to favourites" applies to. */
-    private val favouriteType = if (screen.seriesId == null) CAT_MOVIE else CAT_SERIES
-    private val favouriteId = screen.seriesId ?: screen.itemId
+    private val series = screen.seriesId
+    private val favouriteType = if (series == null) CAT_MOVIE else CAT_SERIES
+    private val favouriteId = series ?: screen.itemId
     private var favourite by mutableStateOf(false)
 
-    override fun menuActions(): List<MenuAction> {
-        val series = screen.seriesId
-        val what = if (series == null) "movie" else "series"
-        return listOf(
-            MenuAction(if (favourite) "Remove $what from favourites" else "Add $what to favourites") {
-                val add = !favourite
-                viewModelScope.launch {
-                    c.vod.setFavourite(screen.playlistId, favouriteType, favouriteId, add)
-                    flash(if (add) "Added to favourites" else "Removed from favourites")
-                }
-            },
-            if (series == null) {
-                MenuAction("About this movie", Screen.MovieDetails(screen.playlistId, screen.itemId))
-            } else {
-                val episode = current?.episode
-                MenuAction("All episodes", Screen.SeriesDetails(screen.playlistId, series, episode?.season, episode?.number))
+    override fun menuActions(): List<ItemAction> = listOf(
+        ItemAction.Run(favouriteLabel(favourite)) {
+            val add = !favourite
+            viewModelScope.launch {
+                c.vod.setFavourite(screen.playlistId, favouriteType, favouriteId, add)
+                flash(favouriteFlash(add))
             }
-        )
-    }
+        },
+        if (series == null) {
+            ItemAction.Open("About this movie", Screen.MovieDetails(screen.playlistId, screen.itemId))
+        } else {
+            val episode = current?.episode
+            ItemAction.Open("All episodes", Screen.SeriesDetails(screen.playlistId, series, episode?.season, episode?.number))
+        }
+    )
 
     init {
         viewModelScope.launch { c.vod.observeFavourite(screen.playlistId, favouriteType, favouriteId).collect { favourite = it } }

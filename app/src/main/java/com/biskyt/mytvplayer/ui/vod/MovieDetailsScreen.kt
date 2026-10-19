@@ -41,6 +41,7 @@ import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.PillButton
 import com.biskyt.mytvplayer.ui.common.Poster
 import com.biskyt.mytvplayer.ui.common.ProgressLine
+import com.biskyt.mytvplayer.ui.common.favouriteLabel
 import com.biskyt.mytvplayer.ui.common.formatDuration
 import com.biskyt.mytvplayer.ui.common.formatRuntime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
@@ -96,7 +97,7 @@ fun MovieDetailsScreen(screen: Screen.MovieDetails) {
             if (resumable != null) {
                 PillButton("From the start", { nav.push(Screen.VodPlayer(screen.playlistId, movie.streamId, fromStart = true)) })
             }
-            PillButton(if (favourite) "Remove from favourites" else "Add to favourites", { vm.toggleFavourite() })
+            PillButton(favouriteLabel(favourite), { vm.toggleFavourite() })
         }
     }
 }

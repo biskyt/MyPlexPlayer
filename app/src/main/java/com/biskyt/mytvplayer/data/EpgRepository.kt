@@ -19,6 +19,7 @@ import java.io.BufferedInputStream
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import java.net.HttpURLConnection
 import java.text.NumberFormat
 import java.util.zip.Deflater
 import java.util.zip.GZIPInputStream
@@ -141,9 +142,11 @@ class EpgRepository(
         withContext(Dispatchers.IO) {
             val errors = HashMap<Long, String>()
             val sources = epg.enabledSources()
-            // Which guide channels each source supplies before matching: afterwards, only what changed is read again.
-            val mappedBefore = sources.associate { it.id to epg.mappedXmlIds(it.id).toHashSet() }
             val downloads = downloadAll(sources.filter { only == null || it.id == only || !sourceFile(it.id).exists() }, errors, onProgress)
+            // Sources not read in full afterwards: which guide channels they supply before matching, so only what
+            // matching adds is read.
+            val mappedBefore = sources.filterNot { readInFull(it, it.id in downloads.fresh) }
+                .associate { it.id to epg.mappedXmlIds(it.id).toHashSet() }
             onProgress("Matching channels…")
             playlistIds.forEach { autoMatch(it, downloads.scope, onProgress) }
             releaseMatcher()
@@ -188,6 +191,9 @@ class EpgRepository(
         return Downloads(fresh, scope)
     }
 
+    /** All of a source's programmes are read if it was just downloaded, or those stored are running short. */
+    private fun readInFull(s: EpgSourceEntity, fresh: Boolean) = fresh || clock() - s.lastImportAt > REREAD_AFTER_MS
+
     /**
      * Stores a source's programmes after matching: all of them if it was just downloaded ([fresh]) or its stored ones
      * are running short; otherwise only for channels newly matched to it (since [mappedBefore]), or nothing. Returns
@@ -202,7 +208,7 @@ class EpgRepository(
     ): List<EpgChannelEntity>? {
         if (!sourceFile(s.id).exists()) return emptyList()
         val mapped = epg.mappedXmlIds(s.id).toHashSet()
-        val full = fresh || clock() - s.lastImportAt > REREAD_AFTER_MS
+        val full = readInFull(s, fresh)
         val wanted = if (full) mapped else mapped - mappedBefore
         if (wanted.isEmpty() && !full) return emptyList()
         val label = "Loading programmes from ${s.name}"
@@ -432,10 +438,10 @@ class EpgRepository(
     /** Present for a guide whose channels aren't all before its programmes: its channels are read from the whole file. */
     private fun interleavedMarker(id: Long) = File(cacheDir, "epg/source-$id.interleaved")
 
-    /** Saves the response gzipped (compressing it if the server sent plain XML). */
     /**
-     * Downloads a source's file; false when the server says it hasn't changed since the last download (then the copy
-     * kept is used). [onProgress] gets the percentage done when the server gives the size.
+     * Downloads a source's file, saved gzipped (compressing it if the server sent plain XML); false when the server says
+     * it hasn't changed since the last download (then the copy kept is used). [onProgress] gets the percentage done when
+     * the server gives the size.
      */
     private fun download(s: EpgSourceEntity, onProgress: (Int) -> Unit): Boolean {
         val target = sourceFile(s.id)
@@ -443,16 +449,14 @@ class EpgRepository(
         val tmp = File(target.path + ".part")
         val meta = metaFile(s.id)
         // The server's version tags for the copy kept, if it sent any (and the copy is still here).
-        val (etag, modified) = meta.takeIf { target.exists() && it.exists() }?.readLines().orEmpty().let {
-            it.getOrNull(0) to
-                it.getOrNull(1)
-        }
+        val (etag, modified) = meta.takeIf { target.exists() && it.exists() }?.readLines().orEmpty()
+            .map { it.ifEmpty { null } }.let { it.getOrNull(0) to it.getOrNull(1) }
         val request = Request.Builder().url(s.url).apply {
-            etag?.takeIf { it.isNotEmpty() }?.let { header("If-None-Match", it) }
-            modified?.takeIf { it.isNotEmpty() }?.let { header("If-Modified-Since", it) }
+            etag?.let { header("If-None-Match", it) }
+            modified?.let { header("If-Modified-Since", it) }
         }.build()
         val tags = http.newCall(request).execute().use { response ->
-            if (response.code == HTTP_NOT_MODIFIED) return false
+            if (response.code == HttpURLConnection.HTTP_NOT_MODIFIED) return false
             if (!response.isSuccessful) throw IOException("Server returned error ${response.code}")
             val length = response.body!!.contentLength()
             val counted = CountingInputStream(response.body!!.byteStream(), length, onProgress)
@@ -478,7 +482,7 @@ class EpgRepository(
         return true
     }
 
-    /** Counts what is read of a file of [length] bytes and reports each whole percent, for progress messages. */
+    /** Counts what is read of a file of [length] bytes and reports the percentage done, for progress messages. */
     private class CountingInputStream(input: InputStream, private val length: Long, private val onPercent: (Int) -> Unit) :
         java.io.FilterInputStream(input) {
         private var read = 0L
@@ -488,14 +492,23 @@ class EpgRepository(
 
         override fun read(b: ByteArray, off: Int, len: Int): Int = super.read(b, off, len).also { if (it > 0) count(it.toLong()) }
 
+        private var reportedAt = 0L
+
         private fun count(n: Long) {
             if (length <= 0) return
             read += n
             val percent = (read * 100 / length).toInt().coerceAtMost(100)
-            if (percent != reported) {
+            // Every progress message redraws the status line wherever it shows: at most twice a second.
+            val now = System.currentTimeMillis()
+            if (percent != reported && (now - reportedAt >= REPORT_EVERY_MS || percent == 100)) {
                 reported = percent
+                reportedAt = now
                 onPercent(percent)
             }
+        }
+
+        private companion object {
+            const val REPORT_EVERY_MS = 500L
         }
     }
 
@@ -586,7 +599,6 @@ class EpgRepository(
 
     private companion object {
         const val BATCH = 1000
-        const val HTTP_NOT_MODIFIED = 304
 
         /**
          * A guide kept from before (not downloaded again, or not changed) is read in full again after this long, so

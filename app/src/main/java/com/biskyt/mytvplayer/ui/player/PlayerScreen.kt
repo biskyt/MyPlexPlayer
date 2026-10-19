@@ -125,6 +125,9 @@ internal fun PlayerFrame(
         onDispose {
             lifecycle.removeObserver(observer)
             view.keepScreenOn = false
+            // Another screen opened over the player (e.g. from the More menu): stop as when leaving the app. Coming
+            // back adds the observer again, and its ON_START starts playback again.
+            if (!vm.exit) vm.onAppHidden()
         }
     }
 
@@ -162,8 +165,6 @@ internal fun PlayerFrame(
         extras()
     }
     vm.sheet?.let { PlayerSheet(it, vm) }
-    // Back from a screen opened from the More menu.
-    LaunchedEffect(Unit) { vm.onScreenShown() }
     LaunchedEffect(vm.overlay, vm.sheet) { if (vm.sheet == null && vm.overlay != OverlayState.GUIDE) runCatching { root.requestFocus() } }
 }
 
