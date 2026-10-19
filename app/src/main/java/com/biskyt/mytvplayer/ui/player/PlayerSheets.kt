@@ -21,6 +21,7 @@ import androidx.media3.common.C
 import androidx.media3.common.Tracks
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.ScheduleList
@@ -74,6 +75,7 @@ fun GuidePanel(vm: PlayerViewModel) {
 @Composable
 fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
     val engine = vm.engine ?: return
+    val nav = LocalNavigator.current
     val close = { vm.sheet = null }
     SidePanel(onDismiss = close, dim = false) {
         val first = rememberFirstFocus()
@@ -108,13 +110,28 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
                 }
                 PlaybackViewModel.Sheet.MORE -> {
                     item { Header("More", null) }
+                    val actions = vm.menuActions()
+                    items(actions) { a ->
+                        Choice(a.label, false, if (a == actions.first()) first else Modifier) {
+                            val screen = a.opens
+                            if (screen != null) {
+                                close()
+                                vm.leaveForScreen()
+                                nav.push(screen)
+                            } else {
+                                a.run?.invoke()
+                            }
+                        }
+                    }
                     item {
                         val next = when (vm.contentScale) {
                             ContentScale.Fit -> ContentScale.Crop
                             ContentScale.Crop -> ContentScale.FillBounds
                             else -> ContentScale.Fit
                         }
-                        Choice("Picture: ${scaleName(vm.contentScale)}", false, first) { vm.contentScale = next }
+                        Choice("Picture: ${scaleName(vm.contentScale)}", false, if (actions.isEmpty()) first else Modifier) {
+                            vm.contentScale = next
+                        }
                     }
                     item {
                         val next = listOf(0, 15, 30, 60, 90, 120).cycle(vm.sleepMinutes)

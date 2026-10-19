@@ -19,6 +19,7 @@ import com.biskyt.mytvplayer.data.Settings
 import com.biskyt.mytvplayer.player.PlaybackEngine
 import com.biskyt.mytvplayer.player.PlaybackError
 import com.biskyt.mytvplayer.player.failureReason
+import com.biskyt.mytvplayer.ui.Screen
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -62,6 +63,30 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
     enum class Sheet { AUDIO, SUBTITLES, MORE }
 
+    /**
+     * Something to do with what's playing, at the top of the More menu: [run] it, or open the screen [opens] (playback
+     * stops meanwhile and starts again on Back).
+     */
+    data class MenuAction(val label: String, val opens: Screen? = null, val run: (() -> Unit)? = null)
+
+    /** This player's [MenuAction]s; read while drawing the menu, so labels follow state (e.g. "Remove from favourites"). */
+    open fun menuActions(): List<MenuAction> = emptyList()
+
+    private var resumeOnReturn = false
+
+    /** Stops playback before [MenuAction.opens] opens its screen over the player. */
+    fun leaveForScreen() {
+        engine?.player?.stop()
+        resumeOnReturn = true
+    }
+
+    /** Called each time the player screen is shown: starts again after [leaveForScreen]. */
+    fun onScreenShown() {
+        if (!resumeOnReturn) return
+        resumeOnReturn = false
+        onAppShown()
+    }
+
     protected lateinit var settings: Settings
     private lateinit var mapper: KeyActionMapper
     private var hideJob: Job? = null
@@ -103,7 +128,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         override fun onTracksChanged(t: Tracks) {
             tracks = t
             engine?.applyDefaultSubtitles(t)
-            audioLabel = engine?.audioOutputLabel().orEmpty()
+            audioLabel = engine?.audioOutputLabel(t).orEmpty()
         }
 
         override fun onPlayerError(e: PlaybackException) {

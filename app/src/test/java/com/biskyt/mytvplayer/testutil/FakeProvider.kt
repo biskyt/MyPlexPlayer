@@ -91,7 +91,16 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
         if (url.encodedPath == "/not-a-playlist") return MockResponse().setBody("<html>hello</html>")
         if (url.queryParameter("password") != "secret") return MockResponse().setBody("""{"user_info":{"auth":0}}""")
         return when {
-            url.encodedPath.endsWith("xmltv.php") -> MockResponse().setBody(Buffer().write(gzip(xmltv())))
+            url.encodedPath.endsWith("xmltv.php") -> {
+                // Like real servers: a version tag, and "not modified" when the guide asked for hasn't changed.
+                val guide = xmltv()
+                val tag = "\"${guide.hashCode()}\""
+                if (request.getHeader("If-None-Match") == tag) {
+                    MockResponse().setResponseCode(304)
+                } else {
+                    MockResponse().setHeader("ETag", tag).setBody(Buffer().write(gzip(guide)))
+                }
+            }
             url.encodedPath.endsWith("get.php") -> MockResponse().setBody(m3u)
             url.queryParameter("action") == null -> MockResponse().setBody(
                 """{"user_info":{"auth":1,"status":"Active","exp_date":"1900000000","max_connections":"1"}}""",

@@ -2,6 +2,7 @@ package com.biskyt.mytvplayer.ui.common
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -160,17 +162,52 @@ val POSTER_WIDTH = 124.dp
 
 /** A movie or series poster with its title and year, as in grids and search. */
 @Composable
-fun PosterCard(card: VodCard, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    TvCard(onClick = onClick, color = Palette.background, modifier = modifier) {
+fun PosterCard(card: VodCard, modifier: Modifier = Modifier, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    TvCard(
+        onClick = onClick,
+        onLongClick = onLongClick,
+        color = Palette.background,
+        modifier = modifier.onFocusChanged {
+            focused =
+                it.hasFocus
+        }
+    ) {
         Column(Modifier.padding(6.dp).width(POSTER_WIDTH), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Poster(card.imageUrl, card.title, POSTER_WIDTH)
-            Text(
-                card.title,
-                style = MaterialTheme.typography.labelLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            OneLine(card.title, focused, MaterialTheme.typography.labelLarge)
             Muted(card.year?.toString() ?: " ")
+        }
+    }
+}
+
+/**
+ * One line of text: cut short with "…" normally, scrolling to show the rest while [focused] (only the focused item
+ * animates, so long lists cost nothing extra).
+ */
+@Composable
+fun OneLine(text: String, focused: Boolean, style: TextStyle, modifier: Modifier = Modifier, color: Color = Color.Unspecified) {
+    if (focused) {
+        Text(
+            text,
+            style = style,
+            color = color,
+            maxLines = 1,
+            softWrap = false,
+            modifier = modifier.basicMarquee(iterations = Int.MAX_VALUE)
+        )
+    } else {
+        Text(text, style = style, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = modifier)
+    }
+}
+
+/** A row in an options panel ([SidePanel]): a label and, under it, what it does. */
+@Composable
+fun MenuOption(label: String, help: String? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    TvCard(onClick = onClick, modifier = modifier.fillMaxWidth(), color = Palette.surface) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Text(label, style = MaterialTheme.typography.titleMedium)
+            if (help != null) Muted(help)
         }
     }
 }

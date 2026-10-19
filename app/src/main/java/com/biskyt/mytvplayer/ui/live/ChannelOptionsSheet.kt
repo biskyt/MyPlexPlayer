@@ -3,7 +3,6 @@ package com.biskyt.mytvplayer.ui.live
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -22,15 +21,14 @@ import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
+import com.biskyt.mytvplayer.ui.common.MenuOption
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.ScheduleList
 import com.biskyt.mytvplayer.ui.common.SidePanel
-import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.common.numberLabel
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.common.rememberSchedule
-import com.biskyt.mytvplayer.ui.theme.Palette
 
 /** Long-press options for a channel (agreed "LiveMenu" design). */
 @Composable
@@ -60,7 +58,7 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                     play(ch)
                 })
             } else {
-                Option("Watch", modifier = rememberFirstFocus()) {
+                MenuOption("Watch", modifier = rememberFirstFocus()) {
                     close()
                     play(ch)
                 }
@@ -71,7 +69,7 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                         ProgrammeKind.MOVIE -> "Find in Movies"
                         else -> "Search for \u201c${programme.title}\u201d"
                     }
-                    Option(label, "Watch it on demand") {
+                    MenuOption(label, "Watch it on demand") {
                         close()
                         // Only if the user is still here when the lookup finishes.
                         val from = nav.current
@@ -80,44 +78,34 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                 }
                 // Catch-up channels (known from the channel itself: nothing is asked of the provider to show these).
                 if (ch.archiveDays > 0) {
-                    Option("Catch-up", "Programmes from the last ${ch.archiveDays} days") {
+                    MenuOption("Catch-up", "Programmes from the last ${ch.archiveDays} days") {
                         close()
                         nav.push(Screen.Catchup(ch.playlistId, ch.streamId))
                     }
-                    Option("Start over", "Watch what's on from the beginning") {
+                    MenuOption("Start over", "Watch what's on from the beginning") {
                         close()
                         nav.push(Screen.CatchupPlayer(ch.playlistId, ch.streamId, filter = vm.filter.value))
                     }
                 }
-                Option(if (ch.streamId in favs) "Remove from favourites" else "Add to favourites") { vm.toggleFavourite(ch) }
-                Option("Show TV guide for this channel", "Upcoming programmes") { showGuide = true }
-                Option(
+                MenuOption(if (ch.streamId in favs) "Remove from favourites" else "Add to favourites") { vm.toggleFavourite(ch) }
+                MenuOption("Show TV guide for this channel", "Upcoming programmes") { showGuide = true }
+                MenuOption(
                     if (vm.guideMode) "Switch to channel list" else "Switch to TV guide grid",
                     "Or press the Guide button on the remote"
                 ) {
                     close()
                     vm.showGuide(!vm.guideMode)
                 }
-                Option("Change guide source…", "Pick which guide data this channel uses") {
+                MenuOption("Change guide source…", "Pick which guide data this channel uses") {
                     close()
                     nav.push(Screen.GuideMatching(ch.playlistId, ch.streamId))
                 }
                 if (vm.canMove) {
-                    Option("Move up") { vm.move(ch, -1) }
-                    Option("Move down") { vm.move(ch, 1) }
+                    MenuOption("Move up") { vm.move(ch, -1) }
+                    MenuOption("Move down") { vm.move(ch, 1) }
                 }
-                Option("Hide channel", "Unhide later in Settings › Languages & categories") { vm.hide(ch) }
+                MenuOption("Hide channel", "Unhide later in Settings › Languages & categories") { vm.hide(ch) }
             }
-        }
-    }
-}
-
-@Composable
-private fun Option(label: String, help: String? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    TvCard(onClick = onClick, modifier = modifier.fillMaxWidth(), color = Palette.surface) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Text(label, style = MaterialTheme.typography.titleMedium)
-            if (help != null) Muted(help)
         }
     }
 }

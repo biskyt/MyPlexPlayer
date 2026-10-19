@@ -51,4 +51,19 @@ class PlaybackEngineTest {
         assertTrue(budget.take())
         assertEquals(1, budget.used)
     }
+
+    @Test
+    fun `the sound label comes from the selected audio track, before the audio output has started`() {
+        val format = androidx.media3.common.Format.Builder()
+            .setSampleMimeType(androidx.media3.common.MimeTypes.AUDIO_AAC).setChannelCount(2).build()
+        val group = androidx.media3.common.Tracks.Group(
+            androidx.media3.common.TrackGroup(format),
+            false,
+            intArrayOf(androidx.media3.common.C.FORMAT_HANDLED),
+            booleanArrayOf(true)
+        )
+        // Nothing has played, so the player itself has no audio format yet: this used to say "No audio".
+        assertEquals("Audio · Stereo", engine.audioOutputLabel(androidx.media3.common.Tracks(listOf(group))))
+        assertEquals("No audio", engine.audioOutputLabel(androidx.media3.common.Tracks.EMPTY))
+    }
 }
