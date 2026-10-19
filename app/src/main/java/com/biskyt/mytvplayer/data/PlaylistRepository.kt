@@ -73,7 +73,6 @@ class PlaylistRepository(
         return id
     }
 
-    /** Saves a new M3U playlist (after checking it can be downloaded and read) and makes it the active one. */
     /**
      * Sets up the free iptv-org channels; the new playlist's id, or a message for the user. Never throws (but for
      * cancellation): any failure (network, full storage…) must leave a way forward, on first launch above all.
@@ -87,6 +86,7 @@ class PlaylistRepository(
         Result.failure(Exception((e as? IOException)?.message ?: "Couldn't set up the free channels", e))
     }
 
+    /** Saves a new M3U playlist (after checking it can be downloaded and read) and makes it the active one. */
     suspend fun addM3u(name: String, url: String): Long {
         val remote = withM3u(url.trim()) { file -> m3uGroups(file) }
         return insertAndActivate(PlaylistEntity(name = name, kind = KIND_M3U, server = url.trim(), username = "", password = ""), remote)

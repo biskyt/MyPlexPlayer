@@ -1,6 +1,5 @@
 package com.biskyt.mytvplayer.ui.settings
 
-import android.database.SQLException
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -52,6 +51,7 @@ import com.biskyt.mytvplayer.ui.common.formatCount
 import com.biskyt.mytvplayer.ui.common.restoreFocusIf
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -136,7 +136,9 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
                 // Optional: the channels still load if this fails.
                 try {
                     addFreeGuides()
-                } catch (e: SQLException) {
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
                     Log.w("Categories", "Couldn't add the free guides", e)
                 }
                 c.sync.refreshNow(playlistId)
@@ -149,7 +151,7 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
     /** Setting up the free channels: the free guides for the countries chosen (where there is one), before the first load. */
     private suspend fun addFreeGuides() {
         if (c.playlists.get(playlistId)?.isFree != true) return
-        val countries = c.db.categories().all(playlistId, CAT_LIVE).filter { it.included }.map { it.lang }
+        val countries = c.db.categories().included(playlistId, CAT_LIVE).map { it.lang }
         c.epg.addMissing(FreeGuides.forGroups(countries))
     }
 

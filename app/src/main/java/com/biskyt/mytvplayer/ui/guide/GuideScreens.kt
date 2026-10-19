@@ -100,9 +100,17 @@ class GuideSourcesViewModel(private val c: AppContainer) : ViewModel() {
     var status by mutableStateOf<GuideStatus?>(null)
         private set
 
+    init {
+        // A refresh started elsewhere (the daily update, a playlist) replaces an earlier outcome, so its own
+        // progress and result show instead.
+        viewModelScope.launch {
+            c.sync.state.collect { if (it !is SyncState.Idle && it !is SyncState.Failed && status?.working != true) status = null }
+        }
+    }
+
     /** Adds the typed address; false if it can't start yet (nothing typed, or something else is running). */
     fun add(): Boolean {
-        if (url.isBlank() || !addAndLoad(name.trim().ifEmpty { url.trim() }, url)) return false
+        if (url.isBlank() || !addAndLoad(name, url)) return false
         name = ""
         url = ""
         return true
@@ -110,13 +118,22 @@ class GuideSourcesViewModel(private val c: AppContainer) : ViewModel() {
 
     fun addFree(g: FreeGuide) = addAndLoad(g.sourceName, g.url)
 
-    private fun addAndLoad(name: String, url: String) = run("Adding $name") {
-        val id = c.epg.addSource(name, url)
-        // A guide that couldn't be loaded doesn't fail the update (the others still load), so look for its own error.
-        update("$name added", only = id) { errors -> errors[id]?.let { GuideStatus("Couldn't load $name", it, failed = true) } }
+    private fun addAndLoad(name: String, url: String): Boolean {
+        val shown = name.trim().ifEmpty { url.trim() }
+        return run("Adding $shown") {
+            val id = c.epg.addSource(name, url)
+            // A guide that couldn't be loaded doesn't fail the update (the others still load), so look for its own error.
+            update("$shown added", only = id) { errors -> errors[id]?.let { GuideStatus("Couldn't load $shown", it, failed = true) } }
+        }
     }
 
-    fun refresh() = run("Updating the TV guide") { update("TV guide updated") { null } }
+    fun refresh() = run("Updating the TV guide") {
+        update("TV guide updated") { errors ->
+            if (errors.isEmpty()) return@update null
+            val names = sources.value.filter { it.id in errors }.joinToString { it.name }
+            GuideStatus("Some guides couldn't be loaded", "$names: ${errors.values.first()}", failed = true)
+        }
+    }
 
     fun matchMissing() = run("Matching channels without a guide") {
         val r = c.sync.matchMissingGuides().getOrElse { return@run failed("Couldn't match channels", it) }
@@ -234,10 +251,10 @@ private fun StatusPanel(status: GuideStatus?, syncFlow: StateFlow<SyncState>) {
     // Read here, not by the page: progress ticks then redraw just this box.
     val sync = syncFlow.collectAsState().value
     val busy = sync !is SyncState.Idle && sync !is SyncState.Failed
-    val progress = syncLabel(sync) ?: "Please wait"
+    // Not an earlier failure: that isn't what is happening now.
+    val progress = sync.takeUnless { it is SyncState.Failed }?.let(::syncLabel) ?: "Please wait"
     val shown = when {
         status?.working == true -> status.copy(detail = progress)
-        // A refresh started elsewhere (the daily update, a playlist) shows its progress over an earlier outcome.
         busy -> GuideStatus("Updating", progress, working = true)
         status != null -> status
         sync is SyncState.Failed -> GuideStatus("The last update failed", sync.message, failed = true)

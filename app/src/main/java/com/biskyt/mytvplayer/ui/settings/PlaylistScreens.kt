@@ -74,8 +74,9 @@ class PlaylistsViewModel(private val c: AppContainer) : ViewModel() {
         addingFree = true
         freeError = null
         viewModelScope.launch {
-            c.playlists.addFree().onSuccess(then).onFailure { freeError = it.message }
+            val added = c.playlists.addFree()
             addingFree = false
+            added.onSuccess(then).onFailure { freeError = it.message }
         }
     }
 }
