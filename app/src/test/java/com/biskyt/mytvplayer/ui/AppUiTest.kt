@@ -8,11 +8,13 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performSemanticsAction
@@ -194,7 +196,7 @@ class AppUiTest {
             keyUp(Key.DirectionCenter)
         }
         waitFor("Start over")
-        compose.onNode(hasText("Catch-up")).performSemanticsAction(SemanticsActions.OnClick)
+        clickOption("Catch-up")
         compose.waitForIdle()
         assertEquals(Screen.Catchup(playlistId, 101), navigator.current.screen)
         waitFor("Earlier Today")
@@ -228,6 +230,22 @@ class AppUiTest {
             compose.onAllNodes(hasText("Earlier Today", substring = true)).fetchSemanticsNodes().isNotEmpty()
         }
         assertTrue(provider.requests.any { it.endsWith("get_simple_data_table") })
+    }
+
+    @Test
+    fun `scrolling back while catch-up loads keeps focus on the programme`() {
+        provider.catchupDelayMs = 1_500
+        show(Screen.Live(guide = true))
+        compose.waitUntil(5_000) { focusedText().contains("Now on one.uk") }
+        press(Key.DirectionLeft)
+        // Until the provider answers, the row keeps showing (and focusing) what it had.
+        val focused = LinkedHashSet<String>()
+        compose.waitUntil(8_000) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            focused += focusedText()
+            compose.onAllNodes(hasText("Earlier Today", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+        assertTrue(focused.toString(), focused.none { it.isBlank() })
     }
 
     private fun focusedText(): String = compose.onAllNodes(isFocused()).fetchSemanticsNodes().joinToString(" | ") { node ->
@@ -330,8 +348,8 @@ class AppUiTest {
         compose.onNode(hasText("Add to favourites")).performSemanticsAction(SemanticsActions.OnClick)
         waitFor("Remove from favourites")
         runBlocking { assertTrue(101L in app.container.channels.observeFavouriteIds(playlistId).first()) }
-        waitFor("Catch-up")
-        compose.onNode(hasText("Catch-up")).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("Programmes from the last")
+        clickOption("Catch-up")
         compose.waitForIdle()
         assertEquals(Screen.Catchup(playlistId, 101), navigator.current.screen)
     }
@@ -368,6 +386,164 @@ class AppUiTest {
         show(Screen.Live())
         waitFor("UK: ARENA SPRTS 1 FHD")
         assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun `the guide stays on the category it was opened from`() {
+        runBlocking {
+            app.container.settings.update { it.copy(lastLiveFilter = ChannelFilter.Category("2").key) }
+            app.container.settings.current()
+        }
+        show(Screen.Live())
+        compose.waitUntil(5_000) { focusedText().contains("UK: ARENA SPRTS 1 FHD") }
+        press(Key.Guide)
+        settle()
+        compose.waitUntil(5_000) { focusedText().contains("No guide information") }
+        settle()
+        assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
+        // Back to the list and to the guide again: still the same category.
+        press(Key.Guide)
+        settle()
+        press(Key.Guide)
+        settle()
+        assertTrue(compose.onAllNodes(hasText("UK: ARENA SPRTS 1 FHD")).fetchSemanticsNodes().isNotEmpty())
+        assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
+
+        // Focus thrown at another category (as when the row with focus goes away) goes to the selected one instead…
+        compose.onNode(hasText("All channels") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
+        settle()
+        assertTrue(focusedText(), focusedText().contains("SPORT", ignoreCase = true))
+        assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
+        // …and moving through the categories switches the list.
+        press(Key.DirectionUp)
+        settle()
+        waitFor("UK: KITE KIDZ")
+    }
+
+    @Test
+    fun `left into the categories works when the list shown isn't among them`() {
+        runBlocking {
+            app.container.settings.update { it.copy(lastLiveFilter = ChannelFilter.Category("2").key) }
+            app.container.settings.current()
+        }
+        show(Screen.Live())
+        compose.waitUntil(5_000) { focusedText().contains("UK: ARENA SPRTS 1 FHD") }
+        // The category shown goes from the column (e.g. unticked elsewhere) while its list is still up.
+        runBlocking { app.container.db.categories().setIncluded(playlistId, com.biskyt.mytvplayer.data.db.CAT_LIVE, listOf("2"), false) }
+        compose.waitUntil(5_000) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            compose.onAllNodes(hasText("SPORT", substring = true) and hasClickAction()).fetchSemanticsNodes().isEmpty()
+        }
+        val before = focusedText()
+        press(Key.DirectionLeft)
+        settle()
+        assertTrue("before: '$before'", focusedText().isNotBlank())
+    }
+
+    @Test
+    fun `left from the channel list goes to the selected category`() {
+        runBlocking {
+            app.container.settings.update { it.copy(lastLiveFilter = ChannelFilter.Category("2").key) }
+            app.container.settings.current()
+        }
+        show(Screen.Live())
+        compose.waitUntil(5_000) { focusedText().contains("UK: ARENA SPRTS 1 FHD") }
+        press(Key.DirectionLeft)
+        assertTrue(focusedText(), focusedText().contains("SPORT", ignoreCase = true))
+    }
+
+    @Test
+    fun `the Catch-up tab lists catch-up channels, and OK opens their past programmes`() {
+        show(Screen.Home)
+        // The tab shows once the playlist is known to have catch-up channels.
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasText("Catch-up") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+        assertEquals(Screen.Live(ChannelFilter.Catchup), navigator.current.screen)
+        compose.waitUntil(5_000) { focusedText().contains("UK: CHANNEL ONE HD") }
+        assertTrue(compose.onAllNodes(hasText("UK: ARENA SPRTS 1 FHD")).fetchSemanticsNodes().isEmpty())
+        // Marked as having catch-up.
+        assertTrue(compose.onAllNodes(hasContentDescription("Catch-up")).fetchSemanticsNodes().isNotEmpty())
+        press(Key.DirectionCenter)
+        compose.waitUntil(5_000) { navigator.current.screen is Screen.Catchup }
+        assertEquals(Screen.Catchup(playlistId, 101), navigator.current.screen)
+    }
+
+    @Test
+    fun `holding OK on a category offers to hide it`() {
+        show(Screen.Live())
+        waitFor("UK: KITE KIDZ")
+        compose.onNode(
+            hasText("Sport", substring = true, ignoreCase = true) and hasClickAction()
+        ).performSemanticsAction(SemanticsActions.OnLongClick)
+        waitFor("Show it again in Settings")
+        compose.onNode(hasText("Hide category")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(5_000) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            compose.onAllNodes(hasText("Sport", substring = true, ignoreCase = true) and hasClickAction()).fetchSemanticsNodes().isEmpty()
+        }
+        val included = runBlocking { app.container.db.categories().included(playlistId, com.biskyt.mytvplayer.data.db.CAT_LIVE) }
+        assertTrue(included.none { it.categoryId == "2" })
+        // Its channels go at once, and focus stays in the column.
+        assertTrue(compose.onAllNodes(hasText("UK: ARENA SPRTS 1 FHD")).fetchSemanticsNodes().isEmpty())
+        settle()
+        assertTrue(focusedText(), focusedText().isNotBlank())
+    }
+
+    @Test
+    fun `Home cards' options take them off their row`() {
+        runBlocking {
+            val c = app.container
+            c.channels.markWatched(playlistId, 102)
+            c.vod.saveProgress(
+                com.biskyt.mytvplayer.data.db.WatchProgressEntity(
+                    playlistId,
+                    com.biskyt.mytvplayer.data.db.VOD_MOVIE,
+                    11,
+                    600_000,
+                    6_000_000,
+                    System.currentTimeMillis(),
+                    "Half Watched",
+                    null
+                )
+            )
+        }
+        show(Screen.Home)
+        waitFor("Half Watched")
+        compose.onNode(hasText("Half Watched") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
+        compose.onNode(hasText("Half Watched") and hasClickAction()).performSemanticsAction(SemanticsActions.OnLongClick)
+        waitFor("About this movie")
+        compose.onNode(hasText("Remove from Carry on watching")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(5_000) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            compose.onAllNodes(hasText("Half Watched")).fetchSemanticsNodes().isEmpty()
+        }
+        // Focus doesn't go with the card.
+        settle()
+        assertTrue(focusedText(), focusedText().isNotBlank())
+
+        waitFor("Recently watched")
+        compose.onNode(hasText("UK: ARENA SPRTS 1 FHD", substring = true) and hasClickAction())
+            .performSemanticsAction(SemanticsActions.OnLongClick)
+        waitFor("Change guide source")
+        compose.onNode(hasText("Remove from Recently watched")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(5_000) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            compose.onAllNodes(hasText("Recently watched")).fetchSemanticsNodes().isEmpty()
+        }
+    }
+
+    /** Picks [label] in the options panel open (the top bar may have a tab of the same name). */
+    private fun clickOption(label: String) {
+        compose.onAllNodes(hasText(label) and hasClickAction()).onLast().performSemanticsAction(SemanticsActions.OnClick)
+    }
+
+    /** Lets delayed work (e.g. a category switch after focus rests) happen. */
+    private fun settle() {
+        repeat(10) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper(100, java.util.concurrent.TimeUnit.MILLISECONDS)
+            compose.waitForIdle()
+        }
     }
 
     @Test

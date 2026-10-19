@@ -59,6 +59,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /** Movies or series ([type] is CAT_MOVIE or CAT_SERIES): categories on the left, a grid of posters on the right. */
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
@@ -92,6 +93,12 @@ class VodBrowseViewModel(private val c: AppContainer, val type: String, initialF
         c.sync.refreshVod(playlist.value?.id ?: return)
     }
 
+    /** Hides a category (from its options in the column); if it's the one shown, all titles show instead. */
+    fun hideCategory(cat: CategoryEntity) = viewModelScope.launch {
+        if (filters.value.value == VodFilter.Category(cat.categoryId)) filters.select(VodFilter.All)
+        c.playlists.hideCategory(cat)
+    }
+
     fun open(card: VodCard, pid: Long): Screen {
         focusId = card.id
         restoreFocusPending = true
@@ -110,11 +117,11 @@ fun VodBrowseScreen(type: String, initialFilter: VodFilter) {
             CategoryEntry(VodFilter.Favourites, "Favourites"),
             CategoryEntry(VodFilter.Newest, if (vm.isMovies) "Recently added" else "Recently updated"),
             CategoryEntry(VodFilter.All, if (vm.isMovies) "All movies" else "All series")
-        ) + categories.map { CategoryEntry<VodFilter>(VodFilter.Category(it.categoryId), it.name, it.channelCount) }
+        ) + categories.map { CategoryEntry<VodFilter>(VodFilter.Category(it.categoryId), it.name, it.channelCount, it) }
     }
     TabScaffold(if (vm.isMovies) Tab.MOVIES else Tab.SERIES) {
         Row(Modifier.fillMaxSize().padding(horizontal = 56.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            CategoryColumn(entries, filter, vm.filters::focus, vm.filters::select)
+            CategoryColumn(entries, filter, vm.filters::focus, vm.filters::select, vm::hideCategory)
             Column(Modifier.weight(1f)) {
                 Header(vm, entries.firstOrNull { it.filter == filter })
                 val p = playlist

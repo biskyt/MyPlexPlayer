@@ -27,6 +27,9 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
         Stream(301, 301, "AR: NEWS 24", "4", null),
     )
 
+    /** How long catch-up listings take to arrive (a slow provider). */
+    var catchupDelayMs = 0L
+
     data class Stream(val id: Long, val num: Int, val name: String, val cat: String, val epgId: String?, val archiveDays: Int = 0)
 
     /**
@@ -122,7 +125,8 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
                     },
                 )
             }
-            url.queryParameter("action") == "get_simple_data_table" -> MockResponse().setBody(catchupListing())
+            url.queryParameter("action") == "get_simple_data_table" ->
+                MockResponse().setBody(catchupListing()).setBodyDelay(catchupDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
             else -> vodResponse(url) ?: MockResponse().setResponseCode(404)
         }
     }

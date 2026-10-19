@@ -10,20 +10,25 @@ import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.FavouriteEntity
 import com.biskyt.mytvplayer.data.db.RecentEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 /** Which channels a list shows. Zapping in the player follows the same list. */
 sealed interface ChannelFilter {
     data object All : ChannelFilter
     data object Favourites : ChannelFilter
     data object Recent : ChannelFilter
+
+    /** Channels whose provider keeps past programmes to watch again. */
+    data object Catchup : ChannelFilter
     data class Category(val id: String) : ChannelFilter
 
-    /** For remembering a list in settings: "all", "favourites", "recent" or "category:<id>". */
+    /** For remembering a list in settings: "all", "favourites", "recent", "catchup" or "category:<id>". */
     val key: String
         get() = when (this) {
             All -> "all"
             Favourites -> "favourites"
             Recent -> "recent"
+            Catchup -> "catchup"
             is Category -> "category:$id"
         }
 
@@ -31,6 +36,7 @@ sealed interface ChannelFilter {
         fun of(key: String): ChannelFilter = when {
             key == "favourites" -> Favourites
             key == "recent" -> Recent
+            key == "catchup" -> Catchup
             key.startsWith("category:") -> Category(key.removePrefix("category:"))
             else -> All
         }
@@ -49,6 +55,7 @@ class ChannelRepository(private val db: AppDatabase) {
                 ChannelFilter.All -> channels.pageAll(playlistId, q)
                 ChannelFilter.Favourites -> channels.pageFavourites(playlistId, q)
                 ChannelFilter.Recent -> channels.pageRecent(playlistId, q)
+                ChannelFilter.Catchup -> channels.pageCatchup(playlistId, q)
                 is ChannelFilter.Category -> channels.pageCategory(playlistId, filter.id, q)
             }
         }.flow
@@ -59,6 +66,7 @@ class ChannelRepository(private val db: AppDatabase) {
         ChannelFilter.All -> channels.idsAll(playlistId)
         ChannelFilter.Favourites -> channels.idsFavourites(playlistId)
         ChannelFilter.Recent -> channels.idsRecent(playlistId)
+        ChannelFilter.Catchup -> channels.idsCatchup(playlistId)
         is ChannelFilter.Category -> channels.idsCategory(playlistId, filter.id)
     }
 
@@ -67,6 +75,10 @@ class ChannelRepository(private val db: AppDatabase) {
     suspend fun byNumber(playlistId: Long, number: Int) = channels.byNumber(playlistId, number)
 
     fun observeCount(playlistId: Long) = channels.observeCount(playlistId)
+
+    fun observeCatchupCount(playlistId: Long) = channels.observeCatchupCount(playlistId).distinctUntilChanged()
+
+    fun observeHasCatchup(playlistId: Long) = channels.observeHasCatchup(playlistId).distinctUntilChanged()
 
     fun observeFavouriteIds(playlistId: Long): Flow<List<Long>> = favourites.observeIds(playlistId)
 
@@ -90,6 +102,9 @@ class ChannelRepository(private val db: AppDatabase) {
         favourites.touchRecent(RecentEntity(playlistId, streamId, System.currentTimeMillis()))
         favourites.trimRecent(playlistId, RECENT_LIMIT)
     }
+
+    /** Takes a channel off "Recently watched". */
+    suspend fun removeRecent(playlistId: Long, streamId: Long) = favourites.removeRecent(playlistId, streamId)
 
     suspend fun setHidden(playlistId: Long, streamId: Long, hidden: Boolean) {
         channels.setHidden(playlistId, streamId, hidden)

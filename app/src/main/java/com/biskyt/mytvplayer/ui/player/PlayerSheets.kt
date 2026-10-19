@@ -24,12 +24,12 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
-import com.biskyt.mytvplayer.ui.common.ItemAction
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.ScheduleList
 import com.biskyt.mytvplayer.ui.common.SidePanel
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.cycle
+import com.biskyt.mytvplayer.ui.common.perform
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.common.rememberSchedule
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
@@ -114,20 +114,8 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
                     item { Header("More", null) }
                     val actions = vm.menuActions()
                     itemsIndexed(actions) { i, a ->
-                        Choice(a.label, false, if (i == 0) first else Modifier) {
-                            when (a) {
-                                is ItemAction.Open -> {
-                                    close()
-                                    if (a.replace) {
-                                        vm.beforeLeaving()
-                                        nav.replace(a.screen)
-                                    } else {
-                                        nav.push(a.screen) // the player stops while it's covered
-                                    }
-                                }
-                                is ItemAction.Run -> a.run()
-                            }
-                        }
+                        // A screen pushed over the player stops it while it's covered.
+                        Choice(a.label, false, if (i == 0) first else Modifier) { a.perform(nav, close, vm::beforeLeaving) }
                     }
                     item {
                         val next = when (vm.contentScale) {

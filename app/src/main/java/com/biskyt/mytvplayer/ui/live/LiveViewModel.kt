@@ -61,14 +61,18 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
             var saved = c.settings.current().lastLiveFilter
             val remembered = ChannelFilter.of(saved)
             // A category since unticked (or from another playlist) would show an empty list.
-            val gone = remembered is ChannelFilter.Category &&
-                c.db.categories().observeIncluded(activePlaylist.first(), CAT_LIVE).first().none { it.categoryId == remembered.id }
+            val gone = (
+                remembered is ChannelFilter.Category &&
+                    c.db.categories().observeIncluded(activePlaylist.first(), CAT_LIVE).first().none { it.categoryId == remembered.id }
+                ) ||
+                remembered == ChannelFilter.Catchup // opened from its own tab, not remembered
             if (initialFilter == null && !gone && !picked) {
                 filters.select(remembered)
                 picked = false
             }
             // Remembered once the user settles on a list (not for every category passed on the way).
-            filter.drop(1).debounce(SAVE_AFTER_MS).collect { f ->
+            // Not Catch-up: the Live TV tab opens on live lists (Catch-up has its own tab).
+            filter.drop(1).debounce(SAVE_AFTER_MS).filter { it != ChannelFilter.Catchup }.collect { f ->
                 if (f.key != saved) {
                     saved = f.key
                     c.settings.update { it.copy(lastLiveFilter = f.key) }
@@ -86,6 +90,16 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
 
     val categories: StateFlow<List<CategoryEntity>> = activePlaylist.flatMapLatest { c.db.categories().observeIncluded(it, CAT_LIVE) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** How many channels offer catch-up (the Catch-up list is left out when none do). */
+    val catchupCount: StateFlow<Int> = activePlaylist.flatMapLatest { c.channels.observeCatchupCount(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    /** Hides a category (from its options in the column); if it's the one shown, All channels shows instead. */
+    fun hideCategory(cat: CategoryEntity) = viewModelScope.launch {
+        if (filter.value == ChannelFilter.Category(cat.categoryId)) filters.select(ChannelFilter.All)
+        c.playlists.hideCategory(cat)
+    }
 
     val totalCount: StateFlow<Int> = activePlaylist.flatMapLatest { c.channels.observeCount(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
