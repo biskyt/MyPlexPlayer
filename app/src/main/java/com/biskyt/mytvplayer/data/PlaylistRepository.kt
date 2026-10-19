@@ -22,6 +22,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.ResponseBody
@@ -50,6 +51,18 @@ class PlaylistRepository(
 
     private fun client(server: String, username: String, password: String) =
         XtreamClient(http, XtreamCredentials(server, username, password))
+
+    /**
+     * Reads the account's expiry date and connection limit, from an Xtream login or from an Xtream panel's M3U link
+     * (`…/get.php?username=…&password=…`). Optional: if it fails, what was known is kept.
+     */
+    private suspend fun refreshAccount(p: PlaylistEntity) {
+        val client = if (p.isM3u) xtreamLoginIn(p.server)?.let { (server, user, pass) -> client(server, user, pass) } else client(p)
+        val account = runCatching { client?.account() }.getOrNull() ?: return
+        playlists.get(p.id)?.let {
+            playlists.upsert(it.copy(expiresAt = account.expiresAtEpochSec, maxConnections = account.maxConnections))
+        }
+    }
 
     /** Checks the login works; throws XtreamException with a readable message otherwise. */
     suspend fun testLogin(server: String, username: String, password: String) {
@@ -157,11 +170,9 @@ class PlaylistRepository(
      */
     suspend fun syncChannels(playlistId: Long, onProgress: (Int) -> Unit = {}): Int {
         val p = playlists.get(playlistId) ?: return 0
+        refreshAccount(p)
         if (p.isM3u) return syncM3u(p, onProgress)
         val client = client(p)
-        runCatching { client.account() }.getOrNull()?.let {
-            playlists.upsert(p.copy(expiresAt = it.expiresAtEpochSec, maxConnections = it.maxConnections))
-        }
         refreshCategories(playlistId)
         val out = ChannelWriter(playlistId, onProgress)
         categoryStore.forIncluded(playlistId, CAT_LIVE, { s: XtreamLiveStream ->
@@ -320,6 +331,15 @@ class PlaylistRepository(
          * Free, legal, no-sign-up channels collected by iptv-org (github.com/iptv-org/iptv), grouped by country so the
          * language filter can pick the TV's own country. Set up on first launch; users can add their own providers.
          */
+        /** The server, user name and password in an Xtream panel's M3U link (`http://host:port/get.php?username=…`). */
+        fun xtreamLoginIn(m3uUrl: String): Triple<String, String, String>? {
+            val url = m3uUrl.trim().toHttpUrlOrNull()?.takeIf { it.pathSegments.lastOrNull() == "get.php" } ?: return null
+            val user = url.queryParameter("username")?.takeIf { it.isNotEmpty() } ?: return null
+            val pass = url.queryParameter("password") ?: return null
+            val server = url.newBuilder().removePathSegment(url.pathSize - 1).query(null).build().toString().trimEnd('/')
+            return Triple(server, user, pass)
+        }
+
         const val FREE_PLAYLIST_URL = "https://iptv-org.github.io/iptv/index.country.m3u"
         const val FREE_PLAYLIST_NAME = "Free TV (iptv-org)"
         private const val REUSE_DOWNLOAD_MS = 10 * 60_000L

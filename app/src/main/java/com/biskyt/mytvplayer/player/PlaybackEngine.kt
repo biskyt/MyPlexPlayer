@@ -63,7 +63,8 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
      * Called when an address can't be played at all (a stream type the player has no support for), instead of the
      * player throwing and closing the app.
      */
-    var onUnsupported: () -> Unit = {}
+    /** Called with the address the player can't handle. */
+    var onUnsupported: (url: String) -> Unit = {}
 
     /** True once the default subtitle choice has been applied to the current stream (the user may change it after). */
     private var subtitlesApplied = false
@@ -72,8 +73,8 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
     private val hlsUrls = HashSet<String>()
     private var current: String? = null
 
-    /** The server the current stream comes from, e.g. "lb.example.net". */
-    val currentHost: String? get() = current?.let { runCatching { java.net.URI(it).host }.getOrNull() }
+    /** The current stream's address. */
+    val currentUrl: String? get() = current
     private var currentInferred = false
 
     /**
@@ -104,7 +105,7 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         player.stop()
         player.clearMediaItems()
         current = null
-        onUnsupported()
+        onUnsupported(item.localConfiguration?.uri?.toString().orEmpty())
         false
     }
 

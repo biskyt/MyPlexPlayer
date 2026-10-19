@@ -202,6 +202,26 @@ class RepositoriesTest {
     }
 
     @Test
+    fun `a provider's M3U link shows the account's expiry date, free channels have none`() = runBlocking {
+        val panel = playlists.addM3u("Panel", provider.url + "get.php?username=me&password=secret&type=m3u_plus&output=ts")
+        playlists.syncChannels(panel)
+        assertEquals(1_900_000_000L, playlists.get(panel)!!.expiresAt)
+        val free = playlists.addM3u("Free", provider.url + "free.m3u")
+        playlists.syncChannels(free)
+        assertNull(playlists.get(free)!!.expiresAt)
+    }
+
+    @Test
+    fun `an Xtream panel's M3U link gives its server and login`() {
+        assertEquals(
+            Triple("http://tv.example:8080", "me", "p@ss"),
+            PlaylistRepository.xtreamLoginIn("http://tv.example:8080/get.php?username=me&password=p%40ss&type=m3u_plus&output=ts")
+        )
+        assertNull(PlaylistRepository.xtreamLoginIn(PlaylistRepository.FREE_PLAYLIST_URL))
+        assertNull(PlaylistRepository.xtreamLoginIn("http://tv.example/get.php?type=m3u"))
+    }
+
+    @Test
     fun `a guide listing channels between programmes still has all its channels`() = runBlocking {
         provider.interleavedGuide = true
         val id = addPlaylist()

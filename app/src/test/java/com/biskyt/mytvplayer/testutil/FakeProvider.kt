@@ -92,6 +92,7 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
         if (url.queryParameter("password") != "secret") return MockResponse().setBody("""{"user_info":{"auth":0}}""")
         return when {
             url.encodedPath.endsWith("xmltv.php") -> MockResponse().setBody(Buffer().write(gzip(xmltv())))
+            url.encodedPath.endsWith("get.php") -> MockResponse().setBody(m3u)
             url.queryParameter("action") == null -> MockResponse().setBody(
                 """{"user_info":{"auth":1,"status":"Active","exp_date":"1900000000","max_connections":"1"}}""",
             )

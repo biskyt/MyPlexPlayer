@@ -56,6 +56,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.core.player.OverlayState
 import com.biskyt.mytvplayer.core.player.RemoteKey
+import com.biskyt.mytvplayer.player.PlaybackError
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
@@ -303,16 +304,16 @@ private fun RoundButton(icon: ImageVector, label: String, primary: Boolean = fal
 }
 
 @Composable
-private fun ErrorBox(text: String, vm: PlaybackViewModel) {
-    val retry = rememberFirstFocus(text)
+private fun ErrorBox(error: PlaybackError, vm: PlaybackViewModel) {
+    val retry = rememberFirstFocus(error)
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.width(560.dp)
         ) {
-            Text(text, style = MaterialTheme.typography.titleLarge)
-            vm.errorReason?.let { Muted(it, maxLines = 4) }
+            Text(error.message, style = MaterialTheme.typography.titleLarge)
+            error.reason?.let { Muted(it, maxLines = 4) }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 PillButton("Try again", vm::retry, retry, primary = true)
                 PillButton("Back", vm::stop)
