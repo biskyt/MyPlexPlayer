@@ -31,6 +31,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import androidx.tv.material3.Icon
@@ -42,9 +43,9 @@ import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.AppIcons
+import com.biskyt.mytvplayer.ui.common.CatchupMark
 import com.biskyt.mytvplayer.ui.common.CategoryColumn
 import com.biskyt.mytvplayer.ui.common.CategoryEntry
-import com.biskyt.mytvplayer.ui.common.CategoryOptionsSheet
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
 import com.biskyt.mytvplayer.ui.common.FlashLabel
 import com.biskyt.mytvplayer.ui.common.ListHeader
@@ -111,14 +112,13 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
             LiveCategories(vm, filter)
             Column(Modifier.weight(1f)) {
                 ListHeader(vm, filter)
-                if (vm.guideMode) GuideGrid(vm, play) else ChannelList(vm, open)
+                // One paged list for both views, so the one switched to has its rows (and somewhere for focus) at once.
+                val items = vm.channels.collectAsLazyPagingItems()
+                if (vm.guideMode) GuideGrid(vm, items, play) else ChannelList(vm, items, open)
             }
         }
     }
     vm.optionsFor?.let { ch -> ChannelOptionsSheet(ch, vm, play) }
-    vm.categoryOptions?.let { cat ->
-        CategoryOptionsSheet(cat.name, onHide = { vm.hideCategory(cat) }, onDismiss = { vm.categoryOptions = null })
-    }
     if (vm.numberEntry.typed.isNotEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopEnd) { FlashLabel(vm.numberEntry.typed) }
     }
@@ -134,25 +134,23 @@ private fun LiveCategories(vm: LiveViewModel, selected: ChannelFilter) {
             CategoryEntry(ChannelFilter.Recent, "Recently watched"),
             CategoryEntry<ChannelFilter>(ChannelFilter.Catchup, "Catch-up", catchup).takeIf { catchup > 0 },
             CategoryEntry(ChannelFilter.All, "All channels")
-        ) + categories.map { CategoryEntry<ChannelFilter>(ChannelFilter.Category(it.categoryId), it.name, it.channelCount) }
+        ) + categories.map { CategoryEntry<ChannelFilter>(ChannelFilter.Category(it.categoryId), it.name, it.channelCount, it) }
     }
-    CategoryColumn(entries, selected, vm.filters::focus, vm.filters::select) { f ->
-        // Only the provider's categories can be hidden.
-        if (f is ChannelFilter.Category) vm.categoryOptions = categories.firstOrNull { it.categoryId == f.id }
-    }
+    CategoryColumn(entries, selected, vm.filters::focus, vm.filters::select, vm::hideCategory)
 }
 
 @Composable
 private fun ListHeader(vm: LiveViewModel, filter: ChannelFilter) {
     val categories by vm.categories.collectAsState()
     val total by vm.totalCount.collectAsState()
+    val catchup by vm.catchupCount.collectAsState()
     val favs by vm.favouriteIds.collectAsState()
     val query by vm.query.collectAsState()
     val (title, count) = when (filter) {
         ChannelFilter.All -> "All channels" to total
         ChannelFilter.Favourites -> "Favourites" to favs.size
         ChannelFilter.Recent -> "Recently watched" to null
-        ChannelFilter.Catchup -> "Catch-up" to vm.catchupCount.collectAsState().value
+        ChannelFilter.Catchup -> "Catch-up" to catchup
         is ChannelFilter.Category -> categories.firstOrNull { it.categoryId == filter.id }.let {
             (it?.name ?: "Channels") to
                 it?.channelCount
@@ -167,8 +165,7 @@ private fun ListHeader(vm: LiveViewModel, filter: ChannelFilter) {
 }
 
 @Composable
-private fun ChannelList(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
-    val items = vm.channels.collectAsLazyPagingItems()
+private fun ChannelList(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (ChannelEntity) -> Unit) {
     val favs by vm.favouriteIds.collectAsState()
     val listState = vm.listState
     LaunchedEffect(Unit) { if (vm.restoreFocusPending) vm.revealFocused() }
@@ -242,7 +239,7 @@ fun ChannelRow(
                         modifier = Modifier.padding(start = 6.dp).size(16.dp)
                     )
                 }
-                if (ch.archiveDays > 0) CatchupMark(Modifier.padding(start = 6.dp))
+                CatchupMark(ch, Modifier.padding(start = 6.dp))
             }
             Column(Modifier.weight(1f)) {
                 when {
@@ -276,10 +273,4 @@ private fun SkeletonLines() {
 @Composable
 private fun PlaceholderRow() {
     Box(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(14.dp)).background(Palette.surfaceLow))
-}
-
-/** Marks a channel with catch-up: small and dim, so it's there when looked for without crowding the row. */
-@Composable
-fun CatchupMark(modifier: Modifier = Modifier) {
-    Icon(AppIcons.Catchup, "Catch-up", tint = Palette.textDim, modifier = modifier.size(16.dp))
 }

@@ -10,6 +10,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.ui.LocalNavigator
+import com.biskyt.mytvplayer.ui.Navigator
 import com.biskyt.mytvplayer.ui.Screen
 
 /** Something an options menu offers for an item: open a screen, or do something there and then. */
@@ -26,6 +27,22 @@ sealed interface ItemAction {
     ) : ItemAction
 
     class Run(override val label: String, override val help: String? = null, val run: () -> Unit) : ItemAction
+}
+
+/** Does [this] from a menu: an Open closes the menu ([close]) first, and calls [beforeReplace] before replacing. */
+fun ItemAction.perform(nav: Navigator, close: () -> Unit, beforeReplace: () -> Unit = {}) {
+    when (this) {
+        is ItemAction.Open -> {
+            close()
+            if (replace) {
+                beforeReplace()
+                nav.replace(screen)
+            } else {
+                nav.push(screen)
+            }
+        }
+        is ItemAction.Run -> run()
+    }
 }
 
 fun favouriteLabel(favourite: Boolean) = if (favourite) "Remove from favourites" else "Add to favourites"
@@ -52,13 +69,7 @@ fun ItemActionsPanel(title: String, actions: List<ItemAction>, onDismiss: () -> 
             Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 2, modifier = Modifier.padding(bottom = 8.dp))
             actions.forEachIndexed { i, a ->
                 MenuOption(a.label, a.help, if (i == 0) rememberFirstFocus() else Modifier) {
-                    when (a) {
-                        is ItemAction.Open -> {
-                            onDismiss()
-                            nav.push(a.screen)
-                        }
-                        is ItemAction.Run -> a.run()
-                    }
+                    a.perform(nav, onDismiss)
                 }
             }
         }

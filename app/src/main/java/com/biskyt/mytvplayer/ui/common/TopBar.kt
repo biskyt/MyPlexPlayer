@@ -45,8 +45,7 @@ import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 
 enum class Tab(val label: String) { HOME("Home"), LIVE("Live TV"), MOVIES("Movies"), SERIES("Series"), CATCHUP("Catch-up") }
 
@@ -62,9 +61,8 @@ fun TopBar(selected: Tab?) {
     val active = playlists.firstOrNull { it.id == settings?.activePlaylistId } ?: playlists.firstOrNull()
 
     // Catch-up only for playlists that have some.
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val catchup by remember { container.settings.activePlaylistId.flatMapLatest { container.channels.observeCatchupCount(it) } }
-        .collectAsState(initial = 0)
+    val hasCatchup by remember(active?.id) { active?.let { container.channels.observeHasCatchup(it.id) } ?: flowOf(false) }
+        .collectAsState(initial = false)
     Row(
         Modifier.padding(start = 56.dp, end = 56.dp, top = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -75,7 +73,7 @@ fun TopBar(selected: Tab?) {
             Text("TV", style = MaterialTheme.typography.titleLarge, color = accent.color)
             Text("Player", style = MaterialTheme.typography.titleLarge)
         }
-        Tab.entries.filter { it != Tab.CATCHUP || catchup > 0 }.forEach { tab ->
+        Tab.entries.filter { it != Tab.CATCHUP || hasCatchup }.forEach { tab ->
             PillButton(
                 text = tab.label,
                 selected = tab == selected,

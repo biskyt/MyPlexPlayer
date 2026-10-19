@@ -38,7 +38,6 @@ import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.CategoryColumn
 import com.biskyt.mytvplayer.ui.common.CategoryEntry
 import com.biskyt.mytvplayer.ui.common.CategoryFilter
-import com.biskyt.mytvplayer.ui.common.CategoryOptionsSheet
 import com.biskyt.mytvplayer.ui.common.ListHeader
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.POSTER_WIDTH
@@ -94,15 +93,10 @@ class VodBrowseViewModel(private val c: AppContainer, val type: String, initialF
         c.sync.refreshVod(playlist.value?.id ?: return)
     }
 
-    /** The category whose options are open (from holding OK on it in the column). */
-    var categoryOptions by mutableStateOf<CategoryEntity?>(null)
-
-    /** Hides a category, as unticking it in Settings › Languages & categories does; its titles go at the next update. */
+    /** Hides a category (from its options in the column); if it's the one shown, all titles show instead. */
     fun hideCategory(cat: CategoryEntity) = viewModelScope.launch {
-        categoryOptions = null
         if (filters.value.value == VodFilter.Category(cat.categoryId)) filters.select(VodFilter.All)
-        c.db.categories().setIncluded(cat.playlistId, type, listOf(cat.categoryId), false)
-        c.sync.refreshVod(cat.playlistId)
+        c.playlists.hideCategory(cat)
     }
 
     fun open(card: VodCard, pid: Long): Screen {
@@ -123,13 +117,11 @@ fun VodBrowseScreen(type: String, initialFilter: VodFilter) {
             CategoryEntry(VodFilter.Favourites, "Favourites"),
             CategoryEntry(VodFilter.Newest, if (vm.isMovies) "Recently added" else "Recently updated"),
             CategoryEntry(VodFilter.All, if (vm.isMovies) "All movies" else "All series")
-        ) + categories.map { CategoryEntry<VodFilter>(VodFilter.Category(it.categoryId), it.name, it.channelCount) }
+        ) + categories.map { CategoryEntry<VodFilter>(VodFilter.Category(it.categoryId), it.name, it.channelCount, it) }
     }
     TabScaffold(if (vm.isMovies) Tab.MOVIES else Tab.SERIES) {
         Row(Modifier.fillMaxSize().padding(horizontal = 56.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            CategoryColumn(entries, filter, vm.filters::focus, vm.filters::select) { f ->
-                if (f is VodFilter.Category) vm.categoryOptions = categories.firstOrNull { it.categoryId == f.id }
-            }
+            CategoryColumn(entries, filter, vm.filters::focus, vm.filters::select, vm::hideCategory)
             Column(Modifier.weight(1f)) {
                 Header(vm, entries.firstOrNull { it.filter == filter })
                 val p = playlist
@@ -143,9 +135,6 @@ fun VodBrowseScreen(type: String, initialFilter: VodFilter) {
                 }
             }
         }
-    }
-    vm.categoryOptions?.let { cat ->
-        CategoryOptionsSheet(cat.name, onHide = { vm.hideCategory(cat) }, onDismiss = { vm.categoryOptions = null })
     }
 }
 

@@ -78,4 +78,20 @@ class MigrationTest {
             }
         }
     }
+
+    @Test
+    fun `version 4 to 5 keeps channels and adds the catch-up index`() {
+        helper.createDatabase("migration-test-5", 4).use { db ->
+            db.execSQL(
+                "INSERT INTO channel (playlistId, streamId, number, name, categoryId, archiveDays, hidden, position) " +
+                    "VALUES (1, 101, 1, 'One', '1', 3, 0, 1)"
+            )
+        }
+        helper.runMigrationsAndValidate("migration-test-5", 5, true).use { db ->
+            db.query("SELECT archiveDays FROM channel").use {
+                it.moveToFirst()
+                assertEquals(3, it.getInt(0))
+            }
+        }
+    }
 }

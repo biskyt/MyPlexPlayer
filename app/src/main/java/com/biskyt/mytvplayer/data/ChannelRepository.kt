@@ -10,6 +10,7 @@ import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.FavouriteEntity
 import com.biskyt.mytvplayer.data.db.RecentEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 /** Which channels a list shows. Zapping in the player follows the same list. */
 sealed interface ChannelFilter {
@@ -75,7 +76,9 @@ class ChannelRepository(private val db: AppDatabase) {
 
     fun observeCount(playlistId: Long) = channels.observeCount(playlistId)
 
-    fun observeCatchupCount(playlistId: Long) = channels.observeCatchupCount(playlistId)
+    fun observeCatchupCount(playlistId: Long) = channels.observeCatchupCount(playlistId).distinctUntilChanged()
+
+    fun observeHasCatchup(playlistId: Long) = channels.observeHasCatchup(playlistId).distinctUntilChanged()
 
     fun observeFavouriteIds(playlistId: Long): Flow<List<Long>> = favourites.observeIds(playlistId)
 
