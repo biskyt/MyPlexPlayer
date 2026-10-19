@@ -63,14 +63,7 @@ class SettingsRepository(private val context: Context) {
         val lastLiveFilter = stringPreferencesKey("last_live_filter")
     }
 
-    val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings().also { s -> latest = s } }.distinctUntilChanged()
-
-    /**
-     * The settings as last read, for screens that need a value straight away (the app reads settings before showing
-     * any screen, so this is set by then).
-     */
-    @Volatile var latest: Settings? = null
-        private set
+    val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings() }.distinctUntilChanged()
 
     suspend fun current(): Settings = settings.first()
 

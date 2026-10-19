@@ -31,12 +31,16 @@ class ChannelMatcher(candidates: List<EpgCandidate>) {
     }
     private val commonTokenSize = max(COMMON_TOKEN_MIN, entries.size / COMMON_TOKEN_DIVISOR)
 
-    init {
-        for (e in entries) e.weight = e.tokens.sumOf(::weight)
-    }
-
     /** Rare words say more: a call sign found in one guide channel outweighs "tv" found in thousands. */
-    private fun weight(token: String) = ln(1.0 + entries.size.toDouble() / (byToken[token]?.size ?: 1))
+    private val weights = HashMap<String, Double>(byToken.size * 2).also { w ->
+        for ((t, bucket) in byToken) w[t] = ln(1.0 + entries.size.toDouble() / bucket.size)
+    }
+    private val unseenWeight = ln(1.0 + entries.size)
+
+    init {
+        // Set once the index exists (weights depend on it).
+        for (e in entries) e.weight = e.tokens.sumOf { weights.getValue(it) }
+    }
 
     /** A US or Canadian station's call sign ("wnbc", "kabc", "cfto"): it names one station, wherever it is in the name. */
     private fun isCallSign(token: String) =
@@ -58,43 +62,53 @@ class ChannelMatcher(candidates: List<EpgCandidate>) {
         return results.entries.sortedByDescending { it.value }.take(limit).map { EpgMatch(it.key, it.value) }
     }
 
-    private fun fuzzy(norm: String, results: MutableMap<EpgCandidate, Double>) {
+    /** A playlist channel's name, worked out once per lookup. */
+    private inner class Query(val norm: String) {
         val tokens = ChannelNames.tokens(norm)
-        val weights = tokens.associateWith(::weight)
-        val own = weights.values.sum()
+        val weight = tokens.sumOf { weights[it] ?: unseenWeight }
         val shifts = tokens.shifts()
         val numbers = tokens.numbers()
+        val callSigns = tokens.filterTo(HashSet(), ::isCallSign)
+    }
+
+    private fun fuzzy(norm: String, results: MutableMap<EpgCandidate, Double>) {
+        val q = Query(norm)
         // Words like "tv" or "sport" appear in thousands of guide channels; only use them if nothing rarer matches.
-        val buckets = tokens.mapNotNull { t -> byToken[t]?.let { t to it } }
+        val buckets = q.tokens.mapNotNull { t -> byToken[t]?.let { t to it } }
         val useful = buckets.filter { it.second.size <= commonTokenSize }.ifEmpty { buckets }
         val shared = HashMap<Entry, Double>()
-        for ((t, bucket) in useful) for (e in bucket) shared.merge(e, weights.getValue(t), Double::plus)
-
+        for ((t, bucket) in useful) {
+            val w = weights.getValue(t)
+            for (e in bucket) shared.merge(e, w, Double::plus)
+        }
         // Rank by the weight of the rarer shared words, then score the best few on all their words.
         shared.entries
-            .sortedByDescending { (e, w) -> w / (own + e.weight) }
+            .sortedByDescending { (e, w) -> w / (q.weight + e.weight) }
             .take(FUZZY_CANDIDATES)
             .forEach { (e, _) ->
                 if (e.candidate in results) return@forEach
-                val common = e.tokens.filter { it in tokens }
-                val overlap = 2 * common.sumOf { weights.getValue(it) } / (own + e.weight)
-                var score = 0.6 * overlap + 0.4 * jaroWinkler(norm, e.candidate.normalized)
-                // "Sports 1" is not "Sports 10"; a number on one side only ("NBC 4" vs "NBC") is a smaller doubt.
-                val oneSided = numbers.isEmpty() || e.numbers.isEmpty()
-                val sameStation = shifts == e.shifts && common.any(::isCallSign)
-                if (shifts != e.shifts) score *= 0.5 // "+1" is an hour later
-                if (numbers != e.numbers) {
-                    score *= if (!oneSided) {
-                        0.6
-                    } else if (sameStation) {
-                        1.0
-                    } else {
-                        0.85
-                    }
-                }
-                if (sameStation && (oneSided || numbers == e.numbers)) score = max(score, CALL_SIGN_SCORE)
+                val score = score(q, e)
                 if (score >= MIN_SUGGESTION) results[e.candidate] = score
             }
+    }
+
+    private fun score(q: Query, e: Entry): Double {
+        var common = 0.0
+        var sharesCallSign = false
+        for (t in e.tokens) {
+            if (t !in q.tokens) continue
+            common += weights.getValue(t)
+            if (t in q.callSigns) sharesCallSign = true
+        }
+        var score = 0.6 * (2 * common / (q.weight + e.weight)) + 0.4 * jaroWinkler(q.norm, e.candidate.normalized)
+        // "Sports 1" is not "Sports 10"; a number on one side only ("NBC 4" vs "NBC") is a smaller doubt.
+        val numbersAgree = q.numbers == e.numbers
+        val oneSided = q.numbers.isEmpty() || e.numbers.isEmpty()
+        // A shared call sign is the same station, whatever the virtual channel number; "+1" is still an hour later.
+        val sameStation = sharesCallSign && q.shifts == e.shifts && (numbersAgree || oneSided)
+        if (q.shifts != e.shifts) score *= 0.5
+        if (!numbersAgree && !sameStation) score *= if (oneSided) 0.85 else 0.6
+        return if (sameStation) max(score, CALL_SIGN_SCORE) else score
     }
 
     companion object {
