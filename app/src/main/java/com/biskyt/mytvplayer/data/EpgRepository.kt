@@ -38,8 +38,11 @@ enum class MatchScope(val threshold: Double) {
     /** Every channel without a manual choice (when a guide is first loaded). */
     ALL(ChannelMatcher.AUTO_THRESHOLD),
 
-    /** Channels never tried yet (new since the last update). */
+    /** Channels new since the last update, or whose guide channel has gone. */
     NEW(ChannelMatcher.AUTO_THRESHOLD),
+
+    /** As [NEW], plus channels tried before without a match (a guide's channel list changed). */
+    RETRY(ChannelMatcher.AUTO_THRESHOLD),
 
     /** Channels without a guide, near-certain matches only (the "Match channels without a guide" button). */
     MISSING(ChannelMatcher.MISSING_THRESHOLD)
@@ -126,8 +129,10 @@ class EpgRepository(
     /** Downloads and imports every enabled source, then re-runs automatic matching for [playlistIds]. */
     suspend fun importAll(playlistIds: List<Long>, onProgress: (String) -> Unit = {}) = withContext(Dispatchers.IO) {
         val sources = epg.enabledSources()
-        // Everything is matched again only when a guide loads for the first time; otherwise matches are kept.
+        // Everything is matched again only when a guide loads for the first time; otherwise matches are kept, and
+        // channels without one are tried again only if a guide's channel list changed.
         var firstLoad = false
+        var guideChanged = false
         for (s in sources) {
             onProgress("Downloading ${s.name}…")
             val result = runCatching {
@@ -136,6 +141,7 @@ class EpgRepository(
                 importChannels(s)
             }
             if (result.isSuccess && s.lastImportAt == 0L) firstLoad = true
+            if (result.isSuccess && result.getOrNull() != s.channelCount) guideChanged = true
             epg.upsertSource(
                 s.copy(
                     lastImportAt = if (result.isSuccess) clock() else s.lastImportAt,
@@ -145,7 +151,11 @@ class EpgRepository(
             )
         }
         onProgress("Matching channels…")
-        val scope = if (firstLoad) MatchScope.ALL else MatchScope.NEW
+        val scope = when {
+            firstLoad -> MatchScope.ALL
+            guideChanged -> MatchScope.RETRY
+            else -> MatchScope.NEW
+        }
         playlistIds.forEach { autoMatch(it, scope, onProgress) }
         releaseMatcher()
         for (s in sources) {
@@ -171,8 +181,9 @@ class EpgRepository(
                 val manual = epg.manualStreamIds(playlistId).toHashSet()
                 db.channels().names(playlistId).filter { it.streamId !in manual }
             }
-            MatchScope.NEW -> epg.unmappedNames(playlistId)
-            MatchScope.MISSING -> epg.missingGuideNames(playlistId)
+            MatchScope.NEW -> epg.namesToMatch(playlistId, retryFailed = false, visibleOnly = false)
+            MatchScope.RETRY -> epg.namesToMatch(playlistId, retryFailed = true, visibleOnly = false)
+            MatchScope.MISSING -> epg.namesToMatch(playlistId, retryFailed = true, visibleOnly = true)
         }
         // Building the matcher is the slow part: skip it when there's nothing to match.
         if (channels.isEmpty() && scope != MatchScope.ALL) return@withContext emptyList()

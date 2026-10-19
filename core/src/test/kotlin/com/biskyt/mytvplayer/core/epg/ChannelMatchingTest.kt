@@ -21,7 +21,10 @@ class ChannelMatchingTest {
             "US: NBC 4 (WNBC) NEW YORK (A)" to "nbc 4 wnbc ny",
             "HBO (W)" to "hbo west",
             "US| FOX 5 WTTG Washington DC [Geo-Blocked]" to "fox 5 wttg wa dc",
-            "West Virginia News" to "wv news"
+            "West Virginia News" to "wv news",
+            "Sky Sports Main Event (Backup 2)" to "sky sports main event",
+            "Geo News (Geo-blocked)" to "geo news",
+            "E! (E)" to "e east"
         )
         cases.forEach { (input, expected) -> assertEquals(input, expected, ChannelNames.normalize(input)) }
     }
@@ -87,8 +90,11 @@ class ChannelMatchingTest {
         assertEquals("wnbc.us", us.autoMatch("US| WNBC NBC 4 New York HD", null, ChannelMatcher.MISSING_THRESHOLD)?.candidate?.xmlId)
         // A state written out matches its abbreviation.
         assertEquals("nbcny.us", us.autoMatch("NBC NY News", null)?.candidate?.xmlId)
-        // A rare word that isn't a call sign doesn't get the same benefit of the doubt.
+        // A rare word that isn't a call sign doesn't get the same benefit of the doubt, nor does a lone shared one.
         assertNull(us.autoMatch("Wildlife TV", null, ChannelMatcher.MISSING_THRESHOLD))
+        val kite = ChannelMatcher(listOf(candidate("kitekids.uk", "Kite Kids"), candidate("kbsworld.kr", "KBS World")))
+        assertNull(kite.autoMatch("Kite Movies", null))
+        assertNull(kite.autoMatch("KBS Drama", null))
     }
 
     @Test

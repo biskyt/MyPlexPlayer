@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -38,31 +39,38 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
     private val activePlaylist = c.settings.activePlaylistId
     val playlistId: StateFlow<Long> = activePlaylist.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
 
+    /** Whether the user has picked a list here yet (the remembered one mustn't replace their choice). */
+    private var picked = false
+
     // A different list: the remembered channel may not be in it, so focus starts from the top.
-    val filters = CategoryFilter(viewModelScope, initialFilter ?: ChannelFilter.All) { focusStreamId = null }
+    val filters = CategoryFilter(viewModelScope, initialFilter ?: ChannelFilter.All) {
+        picked = true
+        focusStreamId = null
+    }
     val filter = filters.value
 
-    /** The list remembered in settings, saved again (if changed) when the screen closes rather than on every change. */
-    private var savedKey: String? = null
-
     init {
-        // Opens on the list chosen last time, unless a particular one was asked for (e.g. Favourites).
         viewModelScope.launch {
-            val key = c.settings.current().lastLiveFilter
-            savedKey = key
-            if (initialFilter != null) return@launch
-            val remembered = ChannelFilter.of(key)
+            // Opens on the list chosen last time, unless a particular one was asked for (e.g. Favourites).
+            var saved = c.settings.current().lastLiveFilter
+            val remembered = ChannelFilter.of(saved)
             // A category since unticked (or from another playlist) would show an empty list.
             val gone = remembered is ChannelFilter.Category &&
                 c.db.categories().observeIncluded(activePlaylist.first(), CAT_LIVE).first().none { it.categoryId == remembered.id }
-            if (!gone) filters.select(remembered)
+            if (initialFilter == null && !gone && !picked) {
+                filters.select(remembered)
+                picked = false
+            }
+            // Remembered once the user settles on a list (not for every category passed on the way).
+            filter.drop(1).debounce(SAVE_AFTER_MS).collect { f ->
+                if (f.key != saved) {
+                    saved = f.key
+                    c.settings.update { it.copy(lastLiveFilter = f.key) }
+                }
+            }
         }
     }
 
-    override fun onCleared() {
-        val key = filter.value.key
-        if (savedKey != null && key != savedKey) c.appScope.launch { c.settings.update { it.copy(lastLiveFilter = key) } }
-    }
     val query = MutableStateFlow("")
     var guideMode by mutableStateOf(initialGuide)
         private set
@@ -157,5 +165,9 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
         c.channels.move(ch.playlistId, filter.value, ch.streamId, delta)
         focusMoved(ch.streamId, ((focusIndex ?: 0) + delta).coerceAtLeast(0))
         restoreFocusPending = true
+    }
+
+    private companion object {
+        const val SAVE_AFTER_MS = 1_500L
     }
 }
