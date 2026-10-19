@@ -97,12 +97,14 @@ class ProgrammeKindTest {
             }
             append("</tv>")
         }.toByteArray()
+        // This thread's CPU time, not the clock: other work on a shared build machine doesn't count against either side.
+        val cpu = java.lang.management.ManagementFactory.getThreadMXBean()
         fun time(bytes: ByteArray): Long {
             var count = 0
-            val start = System.nanoTime()
+            val start = cpu.currentThreadCpuTime
             runBlocking { XmltvParser({ KXmlParser() }).parse(ByteArrayInputStream(bytes), { true }, {}, { count++ }) }
             assertEquals(PROGRAMMES, count)
-            return System.nanoTime() - start
+            return cpu.currentThreadCpuTime - start
         }
         val skipped = guide("categorx", "episode-nux")
         val read = guide("category", "episode-num")
