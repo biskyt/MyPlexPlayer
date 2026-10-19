@@ -146,7 +146,7 @@ class EpgRepository(
         }
         onProgress("Matching channels…")
         val scope = if (firstLoad) MatchScope.ALL else MatchScope.NEW
-        playlistIds.forEach { id -> autoMatch(id, scope) { done, total -> onProgress(matchingLabel(done, total)) } }
+        playlistIds.forEach { autoMatch(it, scope, onProgress) }
         releaseMatcher()
         for (s in sources) {
             if (!sourceFile(s.id).exists()) continue
@@ -159,13 +159,13 @@ class EpgRepository(
 
     /**
      * Matches a playlist's channels ([scope] says which) to guide channels. A channel with nothing good enough is stored
-     * with no guide, so later updates know it was tried. Returns how many were checked and the matches found.
+     * with no guide, so later updates know it was tried. Returns a row for every channel checked.
      */
     suspend fun autoMatch(
         playlistId: Long,
         scope: MatchScope = MatchScope.ALL,
-        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> }
-    ): Pair<Int, List<ChannelEpgMappingEntity>> = withContext(Dispatchers.Default) {
+        onProgress: (String) -> Unit = {}
+    ): List<ChannelEpgMappingEntity> = withContext(Dispatchers.Default) {
         val channels = when (scope) {
             MatchScope.ALL -> {
                 val manual = epg.manualStreamIds(playlistId).toHashSet()
@@ -175,10 +175,10 @@ class EpgRepository(
             MatchScope.MISSING -> epg.missingGuideNames(playlistId)
         }
         // Building the matcher is the slow part: skip it when there's nothing to match.
-        if (channels.isEmpty() && scope != MatchScope.ALL) return@withContext 0 to emptyList()
+        if (channels.isEmpty() && scope != MatchScope.ALL) return@withContext emptyList()
         val matcher = matcher()
         val rows = channels.mapIndexed { i, c ->
-            if (i % PROGRESS_EVERY == 0) onProgress(i, channels.size)
+            if (i % PROGRESS_EVERY == 0) onProgress(matchingLabel(i, channels.size))
             val m = matcher.autoMatch(c.name, c.providerEpgId, scope.threshold)
             ChannelEpgMappingEntity(
                 playlistId,
@@ -186,15 +186,14 @@ class EpgRepository(
                 m?.candidate?.sourceId,
                 m?.candidate?.xmlId,
                 manual = false,
-                score =
-                m?.score ?: 0.0
+                score = m?.score ?: 0.0
             )
         }
         db.withTransaction {
             if (scope == MatchScope.ALL) epg.clearAutoMappings(playlistId)
             rows.chunked(BATCH).forEach { epg.upsertMappings(it) }
         }
-        channels.size to rows.filter { it.sourceId != null }
+        rows
     }
 
     /**
@@ -202,12 +201,8 @@ class EpgRepository(
      * to "no guide"), then loads the programmes of the guide channels found.
      */
     suspend fun matchMissing(playlistIds: List<Long>, onProgress: (String) -> Unit = {}): MatchResult = withContext(Dispatchers.IO) {
-        var checked = 0
-        val found = playlistIds.flatMap { id ->
-            val (n, matches) = autoMatch(id, MatchScope.MISSING) { done, total -> onProgress(matchingLabel(done, total)) }
-            checked += n
-            matches
-        }
+        val checked = playlistIds.flatMap { autoMatch(it, MatchScope.MISSING, onProgress) }
+        val found = checked.filter { it.sourceId != null }
         releaseMatcher()
         val names = epg.enabledSources().associate { it.id to it.name }
         found.groupBy({ it.sourceId!! }, { it.xmlId!! }).forEach { (source, xmlIds) ->
@@ -215,7 +210,7 @@ class EpgRepository(
             runCatching { importProgrammes(source, xmlIds.toHashSet(), onlyThese = true) }
         }
         changed()
-        MatchResult(checked, found.size)
+        MatchResult(checked.size, found.size)
     }
 
     private fun matchingLabel(done: Int, total: Int): String {

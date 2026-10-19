@@ -14,6 +14,7 @@ import com.biskyt.mytvplayer.data.db.VodFavouriteEntity
 import com.biskyt.mytvplayer.data.db.WatchProgressEntity
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -58,6 +59,7 @@ class Backup(
  * Writes and restores backups. Restoring replaces the database's contents in one transaction (a bad file changes
  * nothing), then downloads every playlist and guide again.
  */
+@OptIn(ExperimentalSerializationApi::class) // stream encoding and decoding
 class BackupRepository(
     private val db: AppDatabase,
     private val settings: SettingsRepository,

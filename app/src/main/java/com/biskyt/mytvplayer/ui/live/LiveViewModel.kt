@@ -38,28 +38,30 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
     private val activePlaylist = c.settings.activePlaylistId
     val playlistId: StateFlow<Long> = activePlaylist.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
 
-    /** Opens on the list chosen last time, unless a particular one was asked for (e.g. Favourites). */
-    val filters = CategoryFilter(
-        viewModelScope,
-        initialFilter ?: c.settings.latest?.lastLiveFilter?.let(ChannelFilter::of) ?: ChannelFilter.All
-    ) { f ->
-        // A different list: the remembered channel may not be in it, so focus starts from the top.
-        focusStreamId = null
-        c.appScope.launch { c.settings.update { it.copy(lastLiveFilter = f.key) } }
-    }
+    // A different list: the remembered channel may not be in it, so focus starts from the top.
+    val filters = CategoryFilter(viewModelScope, initialFilter ?: ChannelFilter.All) { focusStreamId = null }
     val filter = filters.value
 
+    /** The list remembered in settings, saved again (if changed) when the screen closes rather than on every change. */
+    private var savedKey: String? = null
+
     init {
-        // A remembered category since unticked (or from another playlist) would show an empty list.
-        val remembered = filter.value as? ChannelFilter.Category
-        if (initialFilter == null && remembered != null) {
-            viewModelScope.launch {
-                val pid = activePlaylist.first()
-                if (c.db.categories().all(pid, CAT_LIVE).none { it.categoryId == remembered.id && it.included }) {
-                    filters.select(ChannelFilter.All)
-                }
-            }
+        // Opens on the list chosen last time, unless a particular one was asked for (e.g. Favourites).
+        viewModelScope.launch {
+            val key = c.settings.current().lastLiveFilter
+            savedKey = key
+            if (initialFilter != null) return@launch
+            val remembered = ChannelFilter.of(key)
+            // A category since unticked (or from another playlist) would show an empty list.
+            val gone = remembered is ChannelFilter.Category &&
+                c.db.categories().observeIncluded(activePlaylist.first(), CAT_LIVE).first().none { it.categoryId == remembered.id }
+            if (!gone) filters.select(remembered)
         }
+    }
+
+    override fun onCleared() {
+        val key = filter.value.key
+        if (savedKey != null && key != savedKey) c.appScope.launch { c.settings.update { it.copy(lastLiveFilter = key) } }
     }
     val query = MutableStateFlow("")
     var guideMode by mutableStateOf(initialGuide)

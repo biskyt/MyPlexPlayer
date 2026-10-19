@@ -31,19 +31,27 @@ object ChannelNames {
         "wisconsin" to "wi", "wyoming" to "wy", "district of columbia" to "dc"
     )
 
-    // Longest first, so "west virginia" wins over "virginia".
-    private val statePattern = Regex(states.keys.sortedByDescending { it.length }.joinToString("|", "\\b(", ")\\b"))
-
     fun normalize(name: String): String {
         // NFKD also folds superscript letters such as ᴴᴰ into plain HD.
         var s = marks.replace(Normalizer.normalize(name, Normalizer.Form.NFKD), "")
         s = prefix.replace(s, "")
         s = plusN.replace(s) { " plus${it.groupValues[1]} " }
         s = s.replace("&", " and ").lowercase()
-        s = s.split(separators).filter { it.isNotEmpty() && it !in noise }.joinToString(" ")
-        s = statePattern.replace(s) { states.getValue(it.value) }
-        // Other single letters (a provider's "(A)") say nothing about which channel it is.
-        return s.split(' ').mapNotNull { t -> feeds[t] ?: t.takeUnless { it.length == 1 && it[0].isLetter() } }.joinToString(" ")
+        val words = s.split(separators).filter { it.isNotEmpty() && it !in noise }
+        val out = StringBuilder()
+        var i = 0
+        while (i < words.size) {
+            // A state of up to three words ("district of columbia"), longest first so "west virginia" beats "virginia".
+            val (word, used) = (3 downTo 1).firstNotNullOfOrNull { n ->
+                if (i + n > words.size) null else states[words.subList(i, i + n).joinToString(" ")]?.let { it to n }
+            } ?: (feeds[words[i]] ?: words[i]) to 1
+            i += used
+            // Other single letters (a provider's "(A)") say nothing about which channel it is.
+            if (word.length == 1 && word[0].isLetter()) continue
+            if (out.isNotEmpty()) out.append(' ')
+            out.append(word)
+        }
+        return out.toString()
     }
 
     fun tokens(normalized: String): Set<String> = normalized.split(' ').filter { it.isNotEmpty() }.toSet()

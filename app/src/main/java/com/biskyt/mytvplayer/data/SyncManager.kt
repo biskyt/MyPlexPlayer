@@ -48,11 +48,8 @@ class SyncManager(
     }
 
     /** Looks for guides for channels without one; null if that failed (the failure shows in [state]). */
-    suspend fun matchMissingGuides(): MatchResult? {
-        var result: MatchResult? = null
-        guarded("Couldn't match channels") { result = epg.matchMissing(playlists.allIds()) { _state.value = SyncState.Guide(it) } }
-        return result
-    }
+    suspend fun matchMissingGuides(): MatchResult? =
+        guarded("Couldn't match channels") { epg.matchMissing(playlists.allIds()) { _state.value = SyncState.Guide(it) } }
 
     /** Runs [block] while no refresh is running, e.g. replacing everything from a backup. */
     suspend fun <T> whileIdle(block: suspend () -> T): T = mutex.withLock { block() }
@@ -77,16 +74,14 @@ class SyncManager(
 
     /** Runs one refresh at a time; any failure (network, bad data, full storage) is shown, never allowed to crash the app. */
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun guarded(failure: String, block: suspend () -> Unit) {
-        mutex.withLock {
-            try {
-                block()
-                _state.value = SyncState.Idle
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _state.value = SyncState.Failed(e.message ?: failure)
-            }
+    private suspend fun <T> guarded(failure: String, block: suspend () -> T): T? = mutex.withLock {
+        try {
+            block().also { _state.value = SyncState.Idle }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _state.value = SyncState.Failed(e.message ?: failure)
+            null
         }
     }
 

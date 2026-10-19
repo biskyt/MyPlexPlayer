@@ -76,6 +76,14 @@ android {
     }
 }
 
+// Unit tests run against debug only: they need its extras (Room schemas for migration tests, the Compose test
+// activity), and a release run would only repeat them. This also keeps coverage reports (koverXmlReport) to debug.
+androidComponents {
+    beforeVariants(selector().withBuildType("release")) {
+        it.hostTests[com.android.build.api.variant.HostTestBuilder.UNIT_TEST_TYPE]?.enable = false
+    }
+}
+
 kotlin {
     compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
 }
