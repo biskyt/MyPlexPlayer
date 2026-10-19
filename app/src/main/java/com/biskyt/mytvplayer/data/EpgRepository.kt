@@ -27,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -50,6 +51,9 @@ enum class MatchScope(val threshold: Double) {
 
 /** How many channels without a guide were checked, and how many got one. */
 data class MatchResult(val checked: Int, val matched: Int)
+
+/** How many visible channels, across every playlist, have a guide and how many have none. */
+data class GuideCoverage(val withGuide: Int, val without: Int)
 
 /**
  * TV guide data: XMLTV sources, which guide channel each playlist channel uses, and programme lookups.
@@ -89,6 +93,9 @@ class EpgRepository(
     fun observeSources() = epg.observeSources()
 
     fun observeMatchCounts(playlistId: Long) = epg.observeMatchCounts(playlistId)
+
+    suspend fun coverage(playlistIds: List<Long>): GuideCoverage = playlistIds.map { epg.observeMatchCounts(it).first() }
+        .let { counts -> GuideCoverage(counts.sumOf { it.total - it.unmatched }, counts.sumOf { it.unmatched }) }
 
     fun pageForMatching(playlistId: Long, query: String, status: Int) = androidx.paging.Pager(androidx.paging.PagingConfig(pageSize = 40)) {
         epg.pageForMatching(playlistId, likeArg(query), status)

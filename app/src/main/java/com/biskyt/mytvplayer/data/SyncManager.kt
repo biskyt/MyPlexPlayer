@@ -36,7 +36,7 @@ class SyncManager(
     /** Refreshes a playlist's channels, then the guide, then movies and series (the slowest, so last). */
     fun refresh(playlistId: Long): Job = scope.launch { refreshNow(playlistId) }
 
-    fun refreshGuide(): Job = scope.launch { refreshGuideNow() }
+    fun refreshGuide(): Job = scope.launch { updateGuide() }
 
     fun refreshAll(): Job = scope.launch { refreshAllNow() }
 
@@ -44,12 +44,12 @@ class SyncManager(
     suspend fun refreshAllNow() {
         val ids = playlists.allIds()
         ids.forEach { refreshNow(it, includeGuide = false) }
-        if (ids.isNotEmpty()) refreshGuideNow()
+        if (ids.isNotEmpty()) updateGuide()
     }
 
-    /** Looks for guides for channels without one; null if that failed (the failure shows in [state]). */
-    suspend fun matchMissingGuides(): MatchResult? =
-        guarded("Couldn't match channels") { epg.matchMissing(playlists.allIds()) { _state.value = SyncState.Guide(it) } }
+    /** Looks for guides for channels without one. A failure also shows in [state]. */
+    suspend fun matchMissingGuides(): Result<MatchResult> =
+        attempt("Couldn't match channels") { epg.matchMissing(playlists.allIds()) { _state.value = SyncState.Guide(it) } }
 
     /** Runs [block] while no refresh is running, e.g. replacing everything from a backup. */
     suspend fun <T> whileIdle(block: suspend () -> T): T = mutex.withLock { block() }
@@ -61,7 +61,8 @@ class SyncManager(
         syncVod(playlistId)
     }
 
-    suspend fun refreshGuideNow() = guarded("Couldn't update the TV guide") { importGuide() }
+    /** Updates the guide now, with this update's own outcome (another refresh may change [state] straight after). */
+    suspend fun updateGuide(): Result<Unit> = attempt("Couldn't update the TV guide") { importGuide() }
 
     /** Only movies and series (after their categories change). */
     fun refreshVod(playlistId: Long): Job = scope.launch { guarded("Couldn't load movies and series") { syncVod(playlistId) } }
@@ -73,15 +74,19 @@ class SyncManager(
     }
 
     /** Runs one refresh at a time; any failure (network, bad data, full storage) is shown, never allowed to crash the app. */
+    private suspend fun <T> guarded(failure: String, block: suspend () -> T): T? = attempt(failure, block).getOrNull()
+
+    /** [guarded], keeping the failure (with its message for the user) for whoever asked for it. */
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun <T> guarded(failure: String, block: suspend () -> T): T? = mutex.withLock {
+    private suspend fun <T> attempt(failure: String, block: suspend () -> T): Result<T> = mutex.withLock {
         try {
-            block().also { _state.value = SyncState.Idle }
+            Result.success(block().also { _state.value = SyncState.Idle })
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            _state.value = SyncState.Failed(e.message ?: failure)
-            null
+            val message = e.message ?: failure
+            _state.value = SyncState.Failed(message)
+            Result.failure(Exception(message, e))
         }
     }
 
