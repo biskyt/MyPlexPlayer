@@ -1,6 +1,7 @@
 name: Release
 
-# Publishes a GitHub Release with the signed APK (for sideloading) and AAB (for Google Play).
+# Publishes a GitHub Release with the signed APK (for sideloading). The AAB for Google Play is kept as a workflow
+# artifact on the run, not published.
 # Start it by pushing a tag that matches the app's versionName (e.g. `git tag v0.2.4 && git push origin v0.2.4`),
 # or from the Actions tab ("Run workflow"), which tags the chosen branch for you.
 
@@ -73,14 +74,22 @@ jobs:
           v=${{ steps.version.outputs.version }}
           mkdir -p dist
           cp app/build/outputs/apk/release/app-release.apk "dist/MyTVPlayer-$v.apk"
-          cp app/build/outputs/bundle/release/app-release.aab "dist/MyTVPlayer-$v.aab"
-          (cd dist && sha256sum * > SHA256SUMS.txt)
+          (cd dist && sha256sum MyTVPlayer-*.apk > SHA256SUMS.txt)
+          mkdir -p play
+          cp app/build/outputs/bundle/release/app-release.aab "play/MyTVPlayer-$v.aab"
           # Release notes: this version's section of CHANGELOG.md.
           awk -v v="$v" '/^## /{p = ($2 == v)} p' CHANGELOG.md | tail -n +2 > dist/notes.md
           if [ "$SIGNED_WITH" = "development" ]; then
             printf '\n> **Test build:** signed with the public development key. Not for general distribution.\n' >> dist/notes.md
           fi
           printf '\n**Install on Android TV:** download the APK and sideload it (e.g. with the Downloader app or `adb install`).\n' >> dist/notes.md
+
+      # For Google Play (uploaded by hand for now): on the run's page under Artifacts, kept 90 days.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MyTVPlayer-${{ steps.version.outputs.version }}-play-bundle
+          path: play/*.aab
+          retention-days: 90
 
       - uses: softprops/action-gh-release@v2
         with:
@@ -91,5 +100,4 @@ jobs:
           prerelease: ${{ env.SIGNED_WITH == 'development' || startsWith(steps.version.outputs.version, '0.') }}
           files: |
             dist/MyTVPlayer-*.apk
-            dist/MyTVPlayer-*.aab
             dist/SHA256SUMS.txt
