@@ -77,13 +77,20 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
                 flash(favouriteFlash(add))
             }
         },
+        // In place of the player: playing from there starts a new player, not a second one over this.
         if (series == null) {
-            ItemAction.Open("About this movie", Screen.MovieDetails(screen.playlistId, screen.itemId))
+            ItemAction.Open("About this movie", Screen.MovieDetails(screen.playlistId, screen.itemId), replace = true)
         } else {
             val episode = current?.episode
-            ItemAction.Open("All episodes", Screen.SeriesDetails(screen.playlistId, series, episode?.season, episode?.number))
+            ItemAction.Open(
+                "All episodes",
+                Screen.SeriesDetails(screen.playlistId, series, episode?.season, episode?.number),
+                replace = true
+            )
         }
     )
+
+    override fun beforeLeaving() = save(trim = true)
 
     init {
         viewModelScope.launch { c.vod.observeFavourite(screen.playlistId, favouriteType, favouriteId).collect { favourite = it } }

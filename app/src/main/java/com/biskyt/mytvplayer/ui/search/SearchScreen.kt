@@ -99,10 +99,10 @@ class SearchViewModel(private val c: AppContainer, initialQuery: String = "") : 
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Found())
 
-    /** The active playlist's favourite channels, for the options panel. */
-    val favouriteChannels: StateFlow<Set<Long>> = c.settings.activePlaylistId
+    /** The active playlist's favourite channels, for the options panel (null until read). */
+    val favouriteChannels: StateFlow<Set<Long>?> = c.settings.activePlaylistId
         .flatMapLatest { c.channels.observeFavouriteIds(it) }.map { it.toSet() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun setChannelFavourite(pid: Long, streamId: Long, favourite: Boolean) =
         viewModelScope.launch { c.channels.setFavourite(pid, streamId, favourite) }
@@ -199,13 +199,14 @@ private fun ResultOptions(item: Picked, pid: Long, vm: SearchViewModel, onDismis
             Triple(
                 item.name,
                 ItemAction.Open("Watch", Screen.Player(pid, item.streamId, ChannelFilter.All)),
+                // Once both are read: a label saying "Add" for a favourite would undo it.
                 channel?.let { ch ->
-                    channelActions(ch, ch.streamId in favourites) { vm.setChannelFavourite(pid, ch.streamId, it) }
+                    favourites?.let { f -> channelActions(ch, ch.streamId in f) { vm.setChannelFavourite(pid, ch.streamId, it) } }
                 }.orEmpty()
             )
         }
         is Picked.Vod -> {
-            val favourite by remember(item) { vm.vodFavourite(pid, item.type, item.card.id) }.collectAsState(false)
+            val favourite by remember(item) { vm.vodFavourite(pid, item.type, item.card.id) }.collectAsState<Boolean, Boolean?>(null)
             val movie = item.type == CAT_MOVIE
             Triple(
                 item.card.title,
@@ -213,7 +214,9 @@ private fun ResultOptions(item: Picked, pid: Long, vm: SearchViewModel, onDismis
                     if (movie) "Open movie" else "Open series",
                     if (movie) Screen.MovieDetails(pid, item.card.id) else Screen.SeriesDetails(pid, item.card.id)
                 ),
-                listOf(ItemAction.Run(favouriteLabel(favourite)) { vm.setVodFavourite(pid, item.type, item.card.id, !favourite) })
+                listOfNotNull(
+                    favourite?.let { f -> ItemAction.Run(favouriteLabel(f)) { vm.setVodFavourite(pid, item.type, item.card.id, !f) } }
+                )
             )
         }
     }

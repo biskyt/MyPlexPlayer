@@ -219,7 +219,10 @@ class EpgRepository(
                 onlyThese = !full,
                 known = if (full) epg.channelXmlIds(s.id).toHashSet() else null,
                 onProgress = { percent -> onProgress("$label… $percent%") }
-            ).also { if (full && !fresh) epg.setLastImport(s.id, clock()) }
+            ).also {
+                // Unchanged but read again in full: counts from now. (Not a guide never read well, nor one that failed.)
+                if (full && !fresh && s.lastImportAt != 0L && s.id !in errors) epg.setLastImport(s.id, clock())
+            }
         }.onFailure { e ->
             // E.g. a file cut off part-way: the channels at its start read fine, so say so here.
             (e.message ?: e.javaClass.simpleName).let {
@@ -253,12 +256,13 @@ class EpgRepository(
         val label = "Downloading ${s.name}"
         onProgress("$label…")
         val result = runCatching {
-            if (!download(s) { percent -> onProgress("$label… $percent%") }) return@runCatching null
+            val tags = download(s) { percent -> onProgress("$label… $percent%") } ?: return@runCatching null
             onProgress("Reading ${s.name}…")
-            importChannels(s)
+            // The tags only once the file has read well: a bad copy is fetched again next time, not kept as unchanged.
+            importChannels(s).also { metaFile(s.id).writeText(tags) }
         }
         if (result.getOrNull() == null && result.isSuccess) {
-            if (s.lastError != null) epg.upsertSource(s.copy(lastError = null))
+            if (s.lastError != null) epg.setSourceError(s.id, null)
             return result
         }
         epg.upsertSource(
@@ -439,24 +443,25 @@ class EpgRepository(
     private fun interleavedMarker(id: Long) = File(cacheDir, "epg/source-$id.interleaved")
 
     /**
-     * Downloads a source's file, saved gzipped (compressing it if the server sent plain XML); false when the server says
-     * it hasn't changed since the last download (then the copy kept is used). [onProgress] gets the percentage done when
-     * the server gives the size.
+     * Downloads a source's file, saved gzipped (compressing it if the server sent plain XML). Returns the server's
+     * version tags for it (for [metaFile]), or null when the server says it hasn't changed since the last download (then
+     * the copy kept is used). [onProgress] gets the percentage done when the server gives the size.
      */
-    private fun download(s: EpgSourceEntity, onProgress: (Int) -> Unit): Boolean {
+    private fun download(s: EpgSourceEntity, onProgress: (Int) -> Unit): String? {
         val target = sourceFile(s.id)
         target.parentFile?.mkdirs()
         val tmp = File(target.path + ".part")
         val meta = metaFile(s.id)
-        // The server's version tags for the copy kept, if it sent any (and the copy is still here).
-        val (etag, modified) = meta.takeIf { target.exists() && it.exists() }?.readLines().orEmpty()
-            .map { it.ifEmpty { null } }.let { it.getOrNull(0) to it.getOrNull(1) }
+        // The server's version tags for the copy kept, if it sent any (and the copy is still here, from this address).
+        val lines = meta.takeIf { target.exists() && it.exists() }?.readLines().orEmpty()
+        val (etag, modified) = lines.takeIf { it.firstOrNull() == s.url }.orEmpty()
+            .map { it.ifEmpty { null } }.let { it.getOrNull(1) to it.getOrNull(2) }
         val request = Request.Builder().url(s.url).apply {
             etag?.let { header("If-None-Match", it) }
             modified?.let { header("If-Modified-Since", it) }
         }.build()
         val tags = http.newCall(request).execute().use { response ->
-            if (response.code == HttpURLConnection.HTTP_NOT_MODIFIED) return false
+            if (response.code == HttpURLConnection.HTTP_NOT_MODIFIED) return null
             if (!response.isSuccessful) throw IOException("Server returned error ${response.code}")
             val length = response.body!!.contentLength()
             val counted = CountingInputStream(response.body!!.byteStream(), length, onProgress)
@@ -475,11 +480,11 @@ class EpgRepository(
                     }.use { body.copyTo(it) }
                 }
             }
-            "${response.header("ETag").orEmpty()}\n${response.header("Last-Modified").orEmpty()}\n"
+            "${s.url}\n${response.header("ETag").orEmpty()}\n${response.header("Last-Modified").orEmpty()}\n"
         }
+        meta.delete()
         if (!tmp.renameTo(target)) throw IOException("Couldn't save guide file")
-        meta.writeText(tags)
-        return true
+        return tags
     }
 
     /** Counts what is read of a file of [length] bytes and reports the percentage done, for progress messages. */
@@ -519,7 +524,7 @@ class EpgRepository(
         return GZIPInputStream(raw.buffered(64 * 1024), 64 * 1024)
     }
 
-    /** The server's version tags (ETag, Last-Modified) for the downloaded file, to ask next time whether it changed. */
+    /** The address, then the server's version tags (ETag, Last-Modified), of the downloaded file: to ask next time whether it changed. */
     private fun metaFile(id: Long) = File(cacheDir, "epg/source-$id.meta")
 
     private fun parser(start: Long = Long.MIN_VALUE, end: Long = Long.MAX_VALUE) = XmltvParser({ Xml.newPullParser() }, start, end)

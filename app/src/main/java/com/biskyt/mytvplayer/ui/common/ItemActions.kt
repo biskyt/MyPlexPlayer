@@ -8,7 +8,13 @@ sealed interface ItemAction {
     val label: String
     val help: String?
 
-    data class Open(override val label: String, val screen: Screen, override val help: String? = null) : ItemAction
+    /** Opens [screen] on top, or in place of this one when [replace] (e.g. leaving a movie for its details). */
+    data class Open(
+        override val label: String,
+        val screen: Screen,
+        override val help: String? = null,
+        val replace: Boolean = false
+    ) : ItemAction
 
     class Run(override val label: String, override val help: String? = null, val run: () -> Unit) : ItemAction
 }

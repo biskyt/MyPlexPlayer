@@ -118,7 +118,12 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
                             when (a) {
                                 is ItemAction.Open -> {
                                     close()
-                                    nav.push(a.screen) // the player stops when it leaves the screen
+                                    if (a.replace) {
+                                        vm.beforeLeaving()
+                                        nav.replace(a.screen)
+                                    } else {
+                                        nav.push(a.screen) // the player stops while it's covered
+                                    }
                                 }
                                 is ItemAction.Run -> a.run()
                             }

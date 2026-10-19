@@ -127,7 +127,7 @@ internal fun PlayerFrame(
             view.keepScreenOn = false
             // Another screen opened over the player (e.g. from the More menu): stop as when leaving the app. Coming
             // back adds the observer again, and its ON_START starts playback again.
-            if (!vm.exit) vm.onAppHidden()
+            if (!vm.exit && !vm.released) vm.onAppHidden()
         }
     }
 
