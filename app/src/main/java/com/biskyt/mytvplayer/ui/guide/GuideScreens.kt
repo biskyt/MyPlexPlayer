@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -47,10 +46,10 @@ import com.biskyt.mytvplayer.core.epg.EpgCandidate
 import com.biskyt.mytvplayer.core.epg.EpgMatch
 import com.biskyt.mytvplayer.data.FreeGuide
 import com.biskyt.mytvplayer.data.FreeGuides
-import com.biskyt.mytvplayer.data.GuideCoverage
 import com.biskyt.mytvplayer.data.SyncState
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.EpgSourceEntity
+import com.biskyt.mytvplayer.data.db.GuideCoverage
 import com.biskyt.mytvplayer.data.db.MappingInfo
 import com.biskyt.mytvplayer.data.db.MatchCounts
 import com.biskyt.mytvplayer.data.db.MatchRow
@@ -78,6 +77,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
@@ -100,16 +100,9 @@ class GuideSourcesViewModel(private val c: AppContainer) : ViewModel() {
     var status by mutableStateOf<GuideStatus?>(null)
         private set
 
-    /** Free country guides not added yet, the TV's own country first. */
-    fun freeToAdd(sources: List<EpgSourceEntity>): List<FreeGuide> {
-        val added = sources.mapTo(HashSet()) { it.url }
-        return FreeGuides.all().filter { it.url !in added }
-    }
-
     /** Adds the typed address; false if it can't start yet (nothing typed, or something else is running). */
     fun add(): Boolean {
-        val u = url.trim().takeIf { it.isNotEmpty() } ?: return false
-        if (!addAndLoad(name.trim().ifEmpty { u }, u)) return false
+        if (url.isBlank() || !addAndLoad(name.trim().ifEmpty { url.trim() }, url)) return false
         name = ""
         url = ""
         return true
@@ -118,32 +111,33 @@ class GuideSourcesViewModel(private val c: AppContainer) : ViewModel() {
     fun addFree(g: FreeGuide) = addAndLoad(g.sourceName, g.url)
 
     private fun addAndLoad(name: String, url: String) = run("Adding $name") {
-        val before = coverage()
         val id = c.epg.addSource(name, url)
-        c.sync.updateGuide().exceptionOrNull()?.let { return@run failed("Couldn't load $name", it) }
-        // A guide that couldn't be downloaded or read doesn't fail the update (the others still load).
-        c.epg.observeSources().first().firstOrNull {
-            it.id == id
-        }?.lastError?.let { return@run GuideStatus("Couldn't load $name", it, failed = true) }
-        GuideStatus("$name added", coverageText(before, coverage()))
+        // A guide that couldn't be loaded doesn't fail the update (the others still load), so look for its own error.
+        update("$name added", only = id) { errors -> errors[id]?.let { GuideStatus("Couldn't load $name", it, failed = true) } }
     }
 
-    fun refresh() = run("Updating the TV guide") {
-        val before = coverage()
-        c.sync.updateGuide().exceptionOrNull()?.let { return@run failed("Couldn't update the TV guide", it) }
-        GuideStatus("TV guide updated", coverageText(before, coverage()))
-    }
+    fun refresh() = run("Updating the TV guide") { update("TV guide updated") { null } }
 
     fun matchMissing() = run("Matching channels without a guide") {
         val r = c.sync.matchMissingGuides().getOrElse { return@run failed("Couldn't match channels", it) }
-        val now = coverage()
+        val now = c.epg.coverage()
         val title = when {
             r.matched > 0 -> "Found a guide for ${channels(r.matched)} more"
-            now.without == 0 -> "Every channel has a guide"
+            now.noGuide == 0 -> "Every channel has a guide"
             r.checked == 0 -> "No channels left to match"
             else -> "No new matches found"
         }
-        GuideStatus(title, "${channels(now.withGuide)} ${have(now.withGuide)} a guide." + stillNone(now.without))
+        GuideStatus(title, coverageText(now, now))
+    }
+
+    /**
+     * Updates the guide (downloading just [only], if given): [done], with how many channels have a guide now, unless
+     * [check] finds a problem.
+     */
+    private suspend fun update(done: String, only: Long? = null, check: (Map<Long, String>) -> GuideStatus?): GuideStatus {
+        val before = c.epg.coverage()
+        val errors = c.sync.updateGuide(only).getOrElse { return failed("Couldn't update the TV guide", it) }
+        return check(errors) ?: GuideStatus(done, coverageText(before, c.epg.coverage()))
     }
 
     fun toggle(s: EpgSourceEntity) = viewModelScope.launch { c.epg.setSourceEnabled(s, !s.enabled) }
@@ -171,12 +165,10 @@ class GuideSourcesViewModel(private val c: AppContainer) : ViewModel() {
 
     private fun failed(title: String, e: Throwable) = GuideStatus(title, e.message, failed = true)
 
-    private suspend fun coverage() = c.epg.coverage(c.playlists.allIds())
-
     private fun coverageText(before: GuideCoverage, now: GuideCoverage): String {
         val gained = now.withGuide - before.withGuide
         val more = if (gained > 0) " (${formatCount(gained)} more than before)" else ""
-        return "${channels(now.withGuide)} ${have(now.withGuide)} a guide$more." + stillNone(now.without)
+        return "${channels(now.withGuide)} ${have(now.withGuide)} a guide$more." + stillNone(now.noGuide)
     }
 
     private fun stillNone(n: Int): String {
@@ -194,7 +186,6 @@ class GuideSourcesViewModel(private val c: AppContainer) : ViewModel() {
 fun GuideSourcesScreen() {
     val vm = appViewModel { GuideSourcesViewModel(it) }
     val sources by vm.sources.collectAsState()
-    val sync by vm.sync.collectAsState()
     var adding by rememberSaveable { mutableStateOf(false) }
     SettingsPage("TV guide sources") {
         item {
@@ -208,7 +199,7 @@ fun GuideSourcesScreen() {
             }
         }
         // Directly under the buttons, so whatever was pressed, its progress and outcome show in the same place.
-        statusPanel(vm.status, sync)
+        item(key = "status") { StatusPanel(vm.status, vm.sync) }
         item { Text("Your guides", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp)) }
         if (sources.isEmpty()) item { Muted("No guides yet. Add a free guide for your country, or your own XMLTV address.") }
         items(sources, key = { it.id }) { s ->
@@ -238,32 +229,30 @@ fun GuideSourcesScreen() {
 }
 
 /** Progress (the running step, e.g. "Loading guide: 40%") or the outcome, in one clearly visible box. */
-private fun LazyListScope.statusPanel(status: GuideStatus?, sync: SyncState) {
+@Composable
+private fun StatusPanel(status: GuideStatus?, syncFlow: StateFlow<SyncState>) {
+    // Read here, not by the page: progress ticks then redraw just this box.
+    val sync = syncFlow.collectAsState().value
     val busy = sync !is SyncState.Idle && sync !is SyncState.Failed
-    val ours = status?.working == true
-    // A refresh started elsewhere (the daily update, a playlist) shows its progress over an earlier outcome.
-    val working = ours || busy
-    val title = when {
-        ours -> status.title
-        busy -> "Updating"
-        status != null -> status.title
-        sync is SyncState.Failed -> "The last update failed"
+    val progress = syncLabel(sync) ?: "Please wait"
+    val shown = when {
+        status?.working == true -> status.copy(detail = progress)
+        // A refresh started elsewhere (the daily update, a playlist) shows its progress over an earlier outcome.
+        busy -> GuideStatus("Updating", progress, working = true)
+        status != null -> status
+        sync is SyncState.Failed -> GuideStatus("The last update failed", sync.message, failed = true)
         else -> return
     }
-    val detail = if (working) syncLabel(sync) ?: "Please wait" else status?.detail ?: syncLabel(sync)
-    val failed = !working && (status?.failed ?: true)
-    item(key = "status") {
-        val colour = if (failed) Palette.warning else LocalAccent.current.color
-        Row(
-            Modifier.fillMaxWidth().height(IntrinsicSize.Min).clip(RoundedCornerShape(12.dp)).background(Palette.surfaceLow)
-                .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(Modifier.width(6.dp).fillMaxHeight().background(colour))
-            Column(Modifier.padding(horizontal = 20.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(if (working) "$title…" else title, style = MaterialTheme.typography.titleMedium, color = colour)
-                detail?.let { Text(it, style = MaterialTheme.typography.bodyLarge, maxLines = 3, overflow = TextOverflow.Ellipsis) }
-            }
+    val colour = if (shown.failed) Palette.warning else LocalAccent.current.color
+    Row(
+        Modifier.fillMaxWidth().height(IntrinsicSize.Min).clip(RoundedCornerShape(12.dp)).background(Palette.surfaceLow)
+            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.width(6.dp).fillMaxHeight().background(colour))
+        Column(Modifier.padding(horizontal = 20.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(if (shown.working) "${shown.title}…" else shown.title, style = MaterialTheme.typography.titleMedium, color = colour)
+            shown.detail?.let { Text(it, style = MaterialTheme.typography.bodyLarge, maxLines = 3, overflow = TextOverflow.Ellipsis) }
         }
     }
 }
@@ -271,7 +260,7 @@ private fun LazyListScope.statusPanel(status: GuideStatus?, sync: SyncState) {
 /** Adding a guide: a free one for a country (the TV's own first), or any XMLTV address. Closes once one is added. */
 @Composable
 private fun AddGuidePanel(vm: GuideSourcesViewModel, sources: List<EpgSourceEntity>, onDismiss: () -> Unit) {
-    val free = remember(sources) { vm.freeToAdd(sources) }
+    val free = remember(sources) { FreeGuides.notAdded(sources) }
     SidePanel(onDismiss, width = 560.dp) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item { Text("Add a guide", style = MaterialTheme.typography.headlineSmall) }
@@ -322,14 +311,12 @@ private fun sourceDetails(s: EpgSourceEntity): String {
 
 // ---------------------------------------------------------------- matching
 
-enum class MatchTab(val label: String, val status: Int) {
-    ALL(
-        "All",
-        0
-    ),
-    UNMATCHED("No guide", 1),
-    AUTO("Automatic", 2),
-    MANUAL("Set by you", 3)
+/** [status] is what the matching query filters on; [count] the tab's number. */
+enum class MatchTab(val label: String, val status: Int, val count: (MatchCounts) -> Int) {
+    ALL("All", 0, { it.total }),
+    UNMATCHED("No guide", 1, { it.unmatched }),
+    AUTO("Automatic", 2, { it.auto }),
+    MANUAL("Set by you", 3, { it.manual })
 }
 
 /** One candidate in the right-hand panel: from the matcher (with a score) or from a name search. */
@@ -380,7 +367,7 @@ class GuideMatchingViewModel(private val c: AppContainer, private val playlistId
         selectJob?.cancel() // quick changes of channel must not show an earlier channel's suggestions
         selectJob = viewModelScope.launch {
             mapping = c.epg.mappingInfo(playlistId, listOf(ch.streamId)).firstOrNull()
-            choices = c.epg.suggestions(ch.name, ch.providerEpgId).map { it.toChoice() }
+            choices = suggestionsFor(ch)
         }
     }
 
@@ -391,7 +378,7 @@ class GuideMatchingViewModel(private val c: AppContainer, private val playlistId
         searchJob = viewModelScope.launch {
             delay(250)
             choices = if (q.isBlank()) {
-                c.epg.suggestions(ch.name, ch.providerEpgId).map { it.toChoice() }
+                suggestionsFor(ch)
             } else {
                 c.epg.searchGuideChannels(q).map {
                     GuideChoice(
@@ -403,6 +390,8 @@ class GuideMatchingViewModel(private val c: AppContainer, private val playlistId
             }
         }
     }
+
+    private suspend fun suggestionsFor(ch: ChannelEntity) = c.epg.suggestions(ch.name, ch.providerEpgId).map { it.toChoice() }
 
     private fun EpgMatch.toChoice() = GuideChoice(candidate, score, sources[candidate.sourceId] ?: "")
 
@@ -453,13 +442,13 @@ fun GuideMatchingScreen(playlistId: Long, streamId: Long?) {
                 Muted("Pick which guide data each channel uses. Your choices are kept when the playlist updates.")
             }
             MatchTab.entries.forEach { t ->
-                val n = when (t) {
-                    MatchTab.ALL -> counts.total
-                    MatchTab.UNMATCHED -> counts.unmatched
-                    MatchTab.AUTO -> counts.auto
-                    MatchTab.MANUAL -> counts.manual
-                }
-                PillButton("${t.label} ${formatCount(n)}", { vm.tab.value = t }, Modifier.padding(start = 8.dp), primary = t == tab)
+                PillButton(
+                    "${t.label} ${formatCount(t.count(counts))}",
+                    { vm.tab.value = t },
+                    Modifier.padding(start = 8.dp),
+                    primary =
+                    t == tab
+                )
             }
         }
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {

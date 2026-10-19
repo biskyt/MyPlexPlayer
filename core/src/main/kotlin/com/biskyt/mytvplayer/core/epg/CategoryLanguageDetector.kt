@@ -31,8 +31,18 @@ object CategoryLanguageDetector {
 
     private val nonLetters = Regex("[^\\p{L}]+")
 
-    /** " WORD WORD ": upper-case letters only, single spaces, padded so whole words can be found with contains(). */
-    private fun padded(text: String) = " " + text.uppercase().replace(nonLetters, " ").trim() + " "
+    /**
+     * " WORD WORD ": upper-case letters only, without accents, "&" as "and", single spaces, padded so whole words can
+     * be found with contains(). So "Curaçao" and "Bosnia & Herzegovina" match iptv-org's "Curacao" and "... and ...".
+     */
+    private fun padded(text: String) =
+        " " + ChannelNames.stripAccents(text).replace("&", " and ").uppercase().replace(nonLetters, " ").trim() + " "
+
+    /** The group for an ISO country code: "UK" for Great Britain, as providers write it. */
+    fun groupForCountry(iso: String): String = iso.uppercase().let { if (it == "GB") "UK" else it }
+
+    /** The ISO country code (lower case) for a group, the reverse of [groupForCountry]. */
+    fun countryForGroup(group: String): String = group.lowercase().let { if (it == "uk") "gb" else it }
 
     // Whole words anywhere in the name: every country's English name (iptv-org groups channels by country), a few
     // alternative names, and language adjectives. Longest first, so the most specific name wins.
@@ -41,13 +51,12 @@ object CategoryLanguageDetector {
             // Both the full name and the everyday one: "Myanmar (Burma)" → "Myanmar", "Hong Kong SAR China" → "Hong Kong".
             val name = Locale("", iso).getDisplayCountry(Locale.ENGLISH)
             val short = name.substringBefore(" (").substringBefore(" - ").removeSuffix(" SAR China")
-            val code = if (iso == "GB") "UK" else iso
+            val code = groupForCountry(iso)
             listOf(name to code, short to code)
         } +
             listOf(
                 "Turkey" to "TR", "Turkiye" to "TR", "Czech Republic" to "CZ", "Russia" to "RU",
-                // iptv-org's spellings, where they differ from Java's: "and" for "&", no accents.
-                "Bosnia and Herzegovina" to "BA", "Trinidad and Tobago" to "TT", "Curacao" to "CW",
+                // iptv-org's names, where they differ from Java's.
                 "Republic of the Congo" to "CG", "Democratic Republic of the Congo" to "CD", "English" to "UK", "French" to "FR",
                 "German" to "DE", "Spanish" to "ES", "Italian" to "IT", "Dutch" to "NL", "Polish" to "PL",
                 "Turkish" to "TR", "Arabic" to "AR", "Greek" to "GR",

@@ -75,7 +75,7 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
      */
     fun defaultGroups(available: Set<String>): Set<String> {
         val l = locale()
-        val country = if (l.country.equals("GB", ignoreCase = true)) "UK" else l.country.uppercase()
+        val country = CategoryLanguageDetector.groupForCountry(l.country)
         if (country in available) return setOf(country)
         return languageGroups[l.language].orEmpty().intersect(available)
     }

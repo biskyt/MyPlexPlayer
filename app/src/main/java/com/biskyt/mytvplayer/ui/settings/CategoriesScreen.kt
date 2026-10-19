@@ -34,7 +34,6 @@ import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.core.epg.CategoryLanguageDetector
 import com.biskyt.mytvplayer.data.FreeGuides
-import com.biskyt.mytvplayer.data.PlaylistRepository
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
@@ -56,7 +55,6 @@ import com.biskyt.mytvplayer.ui.theme.Palette
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -141,7 +139,7 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
                 } catch (e: SQLException) {
                     Log.w("Categories", "Couldn't add the free guides", e)
                 }
-                c.sync.refresh(playlistId)
+                c.sync.refreshNow(playlistId)
             }
             CAT_LIVE in changed -> c.sync.refresh(playlistId)
             changed.isNotEmpty() -> c.sync.refreshVod(playlistId)
@@ -150,10 +148,9 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
 
     /** Setting up the free channels: the free guides for the countries chosen (where there is one), before the first load. */
     private suspend fun addFreeGuides() {
-        if (c.playlists.get(playlistId)?.server != PlaylistRepository.FREE_PLAYLIST_URL) return
-        val countries = c.db.categories().observe(playlistId, CAT_LIVE).first().filter { it.included }.map { it.lang }
-        val existing = c.epg.observeSources().first().mapTo(HashSet()) { it.url }
-        FreeGuides.forGroups(countries).filter { it.url !in existing }.forEach { c.epg.addSource(it.sourceName, it.url) }
+        if (c.playlists.get(playlistId)?.isFree != true) return
+        val countries = c.db.categories().all(playlistId, CAT_LIVE).filter { it.included }.map { it.lang }
+        c.epg.addMissing(FreeGuides.forGroups(countries))
     }
 
     /** Focus goes to the first group once, when the screen opens (not each time filtering changes the first group). */
