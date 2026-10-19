@@ -222,6 +222,30 @@ class RepositoriesTest {
     }
 
     @Test
+    fun `an unchanged guide isn't downloaded or read again, and adding a guide leaves the others alone`() = runBlocking {
+        val id = addPlaylist()
+        playlists.syncChannels(id)
+        epg.ensureProviderSource(playlists.get(id)!!, playlists.client(playlists.get(id)!!).xmltvUrl())
+        epg.importAll(listOf(id))
+        val provider101 = db.epg().mapping(id, 101)!!.xmlId
+
+        // The same guide again: the server says it hasn't changed, so its channels and programmes aren't read again.
+        val again = mutableListOf<String>()
+        epg.importAll(listOf(id)) { again += it }
+        assertTrue(again.none { it.startsWith("Reading") || it.startsWith("Loading programmes") })
+        assertEquals("Now on $provider101", epg.programmes(id, listOf(101), now(), now() + 60_000).getValue(101).first().title)
+
+        // Adding a guide reads its own programmes, with progress; the provider's guide isn't read again.
+        val added = mutableListOf<String>()
+        val extra = epg.addSource("Extra", provider.url + "xmltv.php?username=me&password=secret&extra=1")
+        epg.importAll(listOf(id), only = extra) { added += it }
+        assertTrue(added.any { it.startsWith("Loading programmes from Extra… ") && it.endsWith("%") })
+        assertTrue(added.none { it.startsWith("Loading programmes from Home") })
+    }
+
+    private fun now() = System.currentTimeMillis()
+
+    @Test
     fun `a guide listing channels between programmes still has all its channels`() = runBlocking {
         provider.interleavedGuide = true
         val id = addPlaylist()

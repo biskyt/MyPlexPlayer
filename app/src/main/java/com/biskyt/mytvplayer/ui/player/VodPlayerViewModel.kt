@@ -9,11 +9,16 @@ import androidx.lifecycle.viewModelScope
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.core.player.OverlayState
 import com.biskyt.mytvplayer.core.xtream.EpisodeInfo
+import com.biskyt.mytvplayer.data.db.CAT_MOVIE
+import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.data.db.PlaylistEntity
 import com.biskyt.mytvplayer.data.db.VOD_EPISODE
 import com.biskyt.mytvplayer.data.db.VOD_MOVIE
 import com.biskyt.mytvplayer.data.db.WatchProgressEntity
 import com.biskyt.mytvplayer.ui.Screen
+import com.biskyt.mytvplayer.ui.common.ItemAction
+import com.biskyt.mytvplayer.ui.common.favouriteFlash
+import com.biskyt.mytvplayer.ui.common.favouriteLabel
 import com.biskyt.mytvplayer.ui.common.formatDuration
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -58,7 +63,37 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         val episode: EpisodeInfo? = null
     )
 
+    /** The movie, or the series of the episode: what "Add to favourites" applies to. */
+    private val series = screen.seriesId
+    private val favouriteType = if (series == null) CAT_MOVIE else CAT_SERIES
+    private val favouriteId = series ?: screen.itemId
+    private var favourite by mutableStateOf(false)
+
+    override fun menuActions(): List<ItemAction> = listOf(
+        ItemAction.Run(favouriteLabel(favourite)) {
+            val add = !favourite
+            viewModelScope.launch {
+                c.vod.setFavourite(screen.playlistId, favouriteType, favouriteId, add)
+                flash(favouriteFlash(add))
+            }
+        },
+        // In place of the player: playing from there starts a new player, not a second one over this.
+        if (series == null) {
+            ItemAction.Open("About this movie", Screen.MovieDetails(screen.playlistId, screen.itemId), replace = true)
+        } else {
+            val episode = current?.episode
+            ItemAction.Open(
+                "All episodes",
+                Screen.SeriesDetails(screen.playlistId, series, episode?.season, episode?.number),
+                replace = true
+            )
+        }
+    )
+
+    override fun beforeLeaving() = save(trim = true)
+
     init {
+        viewModelScope.launch { c.vod.observeFavourite(screen.playlistId, favouriteType, favouriteId).collect { favourite = it } }
         viewModelScope.launch {
             startEngine()
             val p = c.playlists.get(screen.playlistId) ?: return@launch stop()

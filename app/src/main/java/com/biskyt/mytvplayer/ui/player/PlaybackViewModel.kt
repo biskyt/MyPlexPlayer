@@ -19,6 +19,7 @@ import com.biskyt.mytvplayer.data.Settings
 import com.biskyt.mytvplayer.player.PlaybackEngine
 import com.biskyt.mytvplayer.player.PlaybackError
 import com.biskyt.mytvplayer.player.failureReason
+import com.biskyt.mytvplayer.ui.common.ItemAction
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -62,6 +63,19 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
     enum class Sheet { AUDIO, SUBTITLES, MORE }
 
+    /**
+     * What can be done with what's playing, at the top of the More menu; read while drawing it, so labels follow state
+     * (e.g. "Remove from favourites"). A screen opened from it stops playback until Back, like leaving the app.
+     */
+    open fun menuActions(): List<ItemAction> = emptyList()
+
+    /** Before an action replaces the player with another screen (e.g. saves how far a movie got). */
+    open fun beforeLeaving() = Unit
+
+    /** True once the screen has gone for good and the player was released. */
+    var released = false
+        private set
+
     protected lateinit var settings: Settings
     private lateinit var mapper: KeyActionMapper
     private var hideJob: Job? = null
@@ -103,7 +117,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         override fun onTracksChanged(t: Tracks) {
             tracks = t
             engine?.applyDefaultSubtitles(t)
-            audioLabel = engine?.audioOutputLabel().orEmpty()
+            audioLabel = engine?.audioOutputLabel(t).orEmpty()
         }
 
         override fun onPlayerError(e: PlaybackException) {
@@ -130,12 +144,25 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         }
     }
 
+    /** The sound's real format arrives once its output starts (after the tracks): the label follows it. */
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    private val audioFormatListener = object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+        override fun onAudioInputFormatChanged(
+            eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+            format: androidx.media3.common.Format,
+            decoderReuseEvaluation: androidx.media3.exoplayer.DecoderReuseEvaluation?
+        ) {
+            audioLabel = engine?.audioOutputLabel(playing = format).orEmpty()
+        }
+    }
+
     /** Reads the settings and creates the engine; subclasses call this first when they start. */
     protected suspend fun startEngine(): PlaybackEngine {
         settings = c.settings.current()
         mapper = KeyActionMapper(settings.skipBackSec * 1_000L, settings.skipForwardSec * 1_000L)
         return PlaybackEngine(appContext, settings).also {
             it.player.addListener(listener)
+            it.player.addAnalyticsListener(audioFormatListener)
             it.onUnsupported = { url -> fail("This uses a stream format MyTVPlayer can't play.", failureReason(null, url)) }
             engine = it
         }
@@ -276,7 +303,9 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     }
 
     override fun onCleared() {
+        released = true
         engine?.player?.removeListener(listener)
+        engine?.player?.removeAnalyticsListener(audioFormatListener)
         engine?.release()
     }
 

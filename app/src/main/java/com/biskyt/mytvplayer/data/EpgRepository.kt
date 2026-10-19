@@ -19,6 +19,7 @@ import java.io.BufferedInputStream
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import java.net.HttpURLConnection
 import java.text.NumberFormat
 import java.util.zip.Deflater
 import java.util.zip.GZIPInputStream
@@ -141,46 +142,95 @@ class EpgRepository(
         withContext(Dispatchers.IO) {
             val errors = HashMap<Long, String>()
             val sources = epg.enabledSources()
-            // Everything is matched again only when a guide loads for the first time; otherwise matches are kept, and
-            // channels without one are tried again only if a guide's channel list changed.
-            var firstLoad = false
-            var guideChanged = false
-            for (s in sources) {
-                if (only != null && s.id != only && sourceFile(s.id).exists()) continue
-                val result = load(s, onProgress)
-                result.onSuccess { count ->
-                    if (s.lastImportAt == 0L) firstLoad = true
-                    if (count != s.channelCount) guideChanged = true
-                }
-                result.exceptionOrNull()?.let { errors[s.id] = it.message ?: it.javaClass.simpleName }
-            }
+            val downloads = downloadAll(sources.filter { only == null || it.id == only || !sourceFile(it.id).exists() }, errors, onProgress)
+            // Sources not read in full afterwards: which guide channels they supply before matching, so only what
+            // matching adds is read.
+            val mappedBefore = sources.filterNot { readInFull(it, it.id in downloads.fresh) }
+                .associate { it.id to epg.mappedXmlIds(it.id).toHashSet() }
             onProgress("Matching channels…")
-            val scope = when {
-                firstLoad -> MatchScope.ALL
-                guideChanged -> MatchScope.RETRY
-                else -> MatchScope.NEW
-            }
-            playlistIds.forEach { autoMatch(it, scope, onProgress) }
+            playlistIds.forEach { autoMatch(it, downloads.scope, onProgress) }
             releaseMatcher()
             val late = HashMap<Long, List<EpgChannelEntity>>()
             for (s in sources) {
-                if (!sourceFile(s.id).exists()) continue
-                onProgress("Loading programmes from ${s.name}…")
-                runCatching { importProgrammes(s.id, epg.mappedXmlIds(s.id).toHashSet(), known = epg.channelXmlIds(s.id).toHashSet()) }
-                    .onSuccess { if (it.isNotEmpty()) late[s.id] = it }
-                    // E.g. a file cut off part-way: the channels at its start read fine, so say so here.
-                    .onFailure { e ->
-                        (e.message ?: e.javaClass.simpleName).let {
-                            epg.setSourceError(s.id, it)
-                            errors[s.id] = it
-                        }
-                    }
+                importProgrammesOf(s, s.id in downloads.fresh, mappedBefore[s.id].orEmpty(), errors, onProgress)
+                    ?.let { if (it.isNotEmpty()) late[s.id] = it }
             }
             if (late.isNotEmpty()) addLateChannels(late, playlistIds, onProgress)
             epg.pruneProgrammes(clock() - KEEP_PAST_MS)
             changed()
             errors
         }
+
+    /** What [downloadAll] found: the sources downloaded anew, and how much matching that calls for. */
+    private class Downloads(val fresh: Set<Long>, val scope: MatchScope)
+
+    /** Downloads [sources] and reads their channels, adding each failure to [errors]. */
+    private suspend fun downloadAll(
+        sources: List<EpgSourceEntity>,
+        errors: MutableMap<Long, String>,
+        onProgress: (String) -> Unit
+    ): Downloads {
+        // Everything is matched again only when a guide loads for the first time; otherwise matches are kept, and
+        // channels without one are tried again only if a guide's channel list changed.
+        var firstLoad = false
+        var guideChanged = false
+        val fresh = HashSet<Long>()
+        for (s in sources) {
+            val result = load(s, onProgress)
+            result.exceptionOrNull()?.let { errors[s.id] = it.message ?: it.javaClass.simpleName }
+            val count = result.getOrNull() ?: continue // failed, or not changed on the server
+            fresh += s.id
+            if (s.lastImportAt == 0L) firstLoad = true
+            if (count != s.channelCount) guideChanged = true
+        }
+        val scope = when {
+            firstLoad -> MatchScope.ALL
+            guideChanged -> MatchScope.RETRY
+            else -> MatchScope.NEW
+        }
+        return Downloads(fresh, scope)
+    }
+
+    /** All of a source's programmes are read if it was just downloaded, or those stored are running short. */
+    private fun readInFull(s: EpgSourceEntity, fresh: Boolean) = fresh || clock() - s.lastImportAt > REREAD_AFTER_MS
+
+    /**
+     * Stores a source's programmes after matching: all of them if it was just downloaded ([fresh]) or its stored ones
+     * are running short; otherwise only for channels newly matched to it (since [mappedBefore]), or nothing. Returns
+     * channels found after programmes (see [addLateChannels]), or null if it failed (added to [errors]).
+     */
+    private suspend fun importProgrammesOf(
+        s: EpgSourceEntity,
+        fresh: Boolean,
+        mappedBefore: Set<String>,
+        errors: MutableMap<Long, String>,
+        onProgress: (String) -> Unit
+    ): List<EpgChannelEntity>? {
+        if (!sourceFile(s.id).exists()) return emptyList()
+        val mapped = epg.mappedXmlIds(s.id).toHashSet()
+        val full = readInFull(s, fresh)
+        val wanted = if (full) mapped else mapped - mappedBefore
+        if (wanted.isEmpty() && !full) return emptyList()
+        val label = "Loading programmes from ${s.name}"
+        return runCatching {
+            importProgrammes(
+                s.id,
+                wanted,
+                onlyThese = !full,
+                known = if (full) epg.channelXmlIds(s.id).toHashSet() else null,
+                onProgress = { percent -> onProgress("$label… $percent%") }
+            ).also {
+                // Unchanged but read again in full: counts from now. (Not a guide never read well, nor one that failed.)
+                if (full && !fresh && s.lastImportAt != 0L && s.id !in errors) epg.setLastImport(s.id, clock())
+            }
+        }.onFailure { e ->
+            // E.g. a file cut off part-way: the channels at its start read fine, so say so here.
+            (e.message ?: e.javaClass.simpleName).let {
+                epg.setSourceError(s.id, it)
+                errors[s.id] = it
+            }
+        }.getOrNull()
+    }
 
     /**
      * A guide that lists channels after programmes (against the XMLTV format, e.g. guides joined end to end): its
@@ -198,13 +248,22 @@ class EpgRepository(
         late.keys.forEach { id -> runCatching { importProgrammes(id, epg.mappedXmlIds(id).toHashSet()) } }
     }
 
-    /** Downloads one source and reads its channels: their number, or why it failed (also stored with the source). */
-    private suspend fun load(s: EpgSourceEntity, onProgress: (String) -> Unit): Result<Int> {
-        onProgress("Downloading ${s.name}…")
+    /**
+     * Downloads one source and reads its channels: their number, null if the file hadn't changed on the server (nothing
+     * is read again), or why it failed (also stored with the source).
+     */
+    private suspend fun load(s: EpgSourceEntity, onProgress: (String) -> Unit): Result<Int?> {
+        val label = "Downloading ${s.name}"
+        onProgress("$label…")
         val result = runCatching {
-            download(s)
+            val tags = download(s) { percent -> onProgress("$label… $percent%") } ?: return@runCatching null
             onProgress("Reading ${s.name}…")
-            importChannels(s)
+            // The tags only once the file has read well: a bad copy is fetched again next time, not kept as unchanged.
+            importChannels(s).also { metaFile(s.id).writeText(tags) }
+        }
+        if (result.getOrNull() == null && result.isSuccess) {
+            if (s.lastError != null) epg.setSourceError(s.id, null)
+            return result
         }
         epg.upsertSource(
             s.copy(
@@ -365,7 +424,7 @@ class EpgRepository(
 
     /** Deletes cached guide files whose source no longer exists. */
     suspend fun deleteOrphanFiles() = withContext(Dispatchers.IO) {
-        val valid = epg.allSourceIds().flatMap { listOf(sourceFile(it).name, interleavedMarker(it).name) }.toSet()
+        val valid = epg.allSourceIds().flatMap { listOf(sourceFile(it).name, interleavedMarker(it).name, metaFile(it).name) }.toSet()
         File(cacheDir, "epg").listFiles()?.filter { it.name !in valid }?.forEach { it.delete() }
     }
 
@@ -383,14 +442,30 @@ class EpgRepository(
     /** Present for a guide whose channels aren't all before its programmes: its channels are read from the whole file. */
     private fun interleavedMarker(id: Long) = File(cacheDir, "epg/source-$id.interleaved")
 
-    /** Saves the response gzipped (compressing it if the server sent plain XML). */
-    private fun download(s: EpgSourceEntity) {
+    /**
+     * Downloads a source's file, saved gzipped (compressing it if the server sent plain XML). Returns the server's
+     * version tags for it (for [metaFile]), or null when the server says it hasn't changed since the last download (then
+     * the copy kept is used). [onProgress] gets the percentage done when the server gives the size.
+     */
+    private fun download(s: EpgSourceEntity, onProgress: (Int) -> Unit): String? {
         val target = sourceFile(s.id)
         target.parentFile?.mkdirs()
         val tmp = File(target.path + ".part")
-        http.newCall(Request.Builder().url(s.url).build()).execute().use { response ->
+        val meta = metaFile(s.id)
+        // The server's version tags for the copy kept, if it sent any (and the copy is still here, from this address).
+        val lines = meta.takeIf { target.exists() && it.exists() }?.readLines().orEmpty()
+        val (etag, modified) = lines.takeIf { it.firstOrNull() == s.url }.orEmpty()
+            .map { it.ifEmpty { null } }.let { it.getOrNull(1) to it.getOrNull(2) }
+        val request = Request.Builder().url(s.url).apply {
+            etag?.let { header("If-None-Match", it) }
+            modified?.let { header("If-Modified-Since", it) }
+        }.build()
+        val tags = http.newCall(request).execute().use { response ->
+            if (response.code == HttpURLConnection.HTTP_NOT_MODIFIED) return null
             if (!response.isSuccessful) throw IOException("Server returned error ${response.code}")
-            val body = BufferedInputStream(response.body!!.byteStream())
+            val length = response.body!!.contentLength()
+            val counted = CountingInputStream(response.body!!.byteStream(), length, onProgress)
+            val body = BufferedInputStream(counted)
             body.mark(2)
             val gz = body.read() == 0x1f && body.read() == 0x8b
             body.reset()
@@ -405,11 +480,52 @@ class EpgRepository(
                     }.use { body.copyTo(it) }
                 }
             }
+            "${s.url}\n${response.header("ETag").orEmpty()}\n${response.header("Last-Modified").orEmpty()}\n"
         }
+        meta.delete()
         if (!tmp.renameTo(target)) throw IOException("Couldn't save guide file")
+        return tags
     }
 
-    private fun open(sourceId: Long): InputStream = GZIPInputStream(sourceFile(sourceId).inputStream().buffered(64 * 1024), 64 * 1024)
+    /** Counts what is read of a file of [length] bytes and reports the percentage done, for progress messages. */
+    private class CountingInputStream(input: InputStream, private val length: Long, private val onPercent: (Int) -> Unit) :
+        java.io.FilterInputStream(input) {
+        private var read = 0L
+        private var reported = -1
+
+        override fun read(): Int = super.read().also { if (it >= 0) count(1) }
+
+        override fun read(b: ByteArray, off: Int, len: Int): Int = super.read(b, off, len).also { if (it > 0) count(it.toLong()) }
+
+        private var reportedAt = 0L
+
+        private fun count(n: Long) {
+            if (length <= 0) return
+            read += n
+            val percent = (read * 100 / length).toInt().coerceAtMost(100)
+            // Every progress message redraws the status line wherever it shows: at most twice a second.
+            val now = System.currentTimeMillis()
+            if (percent != reported && (now - reportedAt >= REPORT_EVERY_MS || percent == 100)) {
+                reported = percent
+                reportedAt = now
+                onPercent(percent)
+            }
+        }
+
+        private companion object {
+            const val REPORT_EVERY_MS = 500L
+        }
+    }
+
+    /** The source's file, unpacked; [onProgress] (if given) gets the percentage of it read so far. */
+    private fun open(sourceId: Long, onProgress: ((Int) -> Unit)? = null): InputStream {
+        val file = sourceFile(sourceId)
+        val raw: InputStream = file.inputStream().let { if (onProgress != null) CountingInputStream(it, file.length(), onProgress) else it }
+        return GZIPInputStream(raw.buffered(64 * 1024), 64 * 1024)
+    }
+
+    /** The address, then the server's version tags (ETag, Last-Modified), of the downloaded file: to ask next time whether it changed. */
+    private fun metaFile(id: Long) = File(cacheDir, "epg/source-$id.meta")
 
     private fun parser(start: Long = Long.MIN_VALUE, end: Long = Long.MAX_VALUE) = XmltvParser({ Xml.newPullParser() }, start, end)
 
@@ -444,7 +560,8 @@ class EpgRepository(
         sourceId: Long,
         xmlIds: Set<String>,
         onlyThese: Boolean = false,
-        known: Set<String>? = null
+        known: Set<String>? = null,
+        onProgress: ((Int) -> Unit)? = null
     ): List<EpgChannelEntity> {
         // With [known] (the channels read before), returns any others the file has: see addLateChannels.
         val late = ArrayList<EpgChannelEntity>()
@@ -463,7 +580,7 @@ class EpgRepository(
                 }
             }
         }
-        open(sourceId).use { input ->
+        open(sourceId, onProgress).use { input ->
             parser(now - KEEP_PAST_MS, now + KEEP_FUTURE_MS).parse(input, wantProgrammes = {
                 it in xmlIds
             }, onChannel = onChannel, onProgramme = { p ->
@@ -487,6 +604,12 @@ class EpgRepository(
 
     private companion object {
         const val BATCH = 1000
+
+        /**
+         * A guide kept from before (not downloaded again, or not changed) is read in full again after this long, so
+         * its stored programmes still reach about two days ahead.
+         */
+        const val REREAD_AFTER_MS = 20 * 3_600_000L
         const val PROGRESS_EVERY = 100
         const val MAX_SQL_ARGS = 900
         const val KEEP_PAST_MS = 2 * 3_600_000L

@@ -17,10 +17,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -30,23 +32,33 @@ import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.SearchResults
+import com.biskyt.mytvplayer.data.db.CAT_MOVIE
+import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.ProgrammeHit
+import com.biskyt.mytvplayer.data.db.VodCard
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.AppIcons
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
+import com.biskyt.mytvplayer.ui.common.ItemAction
+import com.biskyt.mytvplayer.ui.common.MenuOption
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.OnNowLabel
+import com.biskyt.mytvplayer.ui.common.OneLine
 import com.biskyt.mytvplayer.ui.common.PosterCard
 import com.biskyt.mytvplayer.ui.common.SectionTitle
+import com.biskyt.mytvplayer.ui.common.SidePanel
 import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.TvTextField
+import com.biskyt.mytvplayer.ui.common.channelActions
+import com.biskyt.mytvplayer.ui.common.favouriteLabel
 import com.biskyt.mytvplayer.ui.common.formatDayTime
 import com.biskyt.mytvplayer.ui.common.isLive
 import com.biskyt.mytvplayer.ui.common.numberLabel
+import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
 import com.biskyt.mytvplayer.ui.theme.Palette
 import kotlinx.coroutines.CancellationException
@@ -58,9 +70,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class SearchViewModel(private val c: AppContainer, initialQuery: String = "") : ViewModel() {
@@ -84,6 +98,28 @@ class SearchViewModel(private val c: AppContainer, initialQuery: String = "") : 
                 }
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Found())
+
+    /** The active playlist's favourite channels, for the options panel (null until read). */
+    val favouriteChannels: StateFlow<Set<Long>?> = c.settings.activePlaylistId
+        .flatMapLatest { c.channels.observeFavouriteIds(it) }.map { it.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun setChannelFavourite(pid: Long, streamId: Long, favourite: Boolean) =
+        viewModelScope.launch { c.channels.setFavourite(pid, streamId, favourite) }
+
+    fun vodFavourite(pid: Long, type: String, id: Long) = c.vod.observeFavourite(pid, type, id)
+
+    fun setVodFavourite(pid: Long, type: String, id: Long, favourite: Boolean) =
+        viewModelScope.launch { c.vod.setFavourite(pid, type, id, favourite) }
+
+    /** The channel a programme is on (for catch-up in its options). */
+    suspend fun channel(pid: Long, streamId: Long) = c.channels.get(pid, streamId)
+}
+
+/** A search result whose options panel is open. */
+private sealed interface Picked {
+    data class Channel(val streamId: Long, val name: String) : Picked
+    data class Vod(val type: String, val card: VodCard) : Picked
 }
 
 /** One search box for channels, TV programmes, movies and series. */
@@ -99,6 +135,7 @@ fun SearchScreen(initialQuery: String = "") {
     val now by rememberMinuteClock()
     // The keyboard is up on arrival, ready to type.
     val editing = rememberSaveable { mutableStateOf(true) }
+    var picked by remember { mutableStateOf<Picked?>(null) }
     TabScaffold(null) {
         LazyColumn(
             contentPadding = PaddingValues(start = 56.dp, end = 56.dp, bottom = 40.dp),
@@ -120,17 +157,78 @@ fun SearchScreen(initialQuery: String = "") {
                 results == null -> item { Muted("Keep typing: at least 2 letters, or a channel number.") }
                 results.isEmpty -> item { Muted("Nothing found for “$searched”.") }
                 else -> {
+                    // Holding OK (or the remote's Menu button) on a result opens its options.
                     section("Channels", results.channels, { it.streamId }) {
-                        ChannelCard(it) { nav.push(Screen.Player(pid, it.streamId, ChannelFilter.All)) }
+                        ChannelCard(it, { picked = Picked.Channel(it.streamId, it.name) }) {
+                            nav.push(Screen.Player(pid, it.streamId, ChannelFilter.All))
+                        }
                     }
                     if (results.programmes.isNotEmpty()) {
                         item { SectionTitle("On TV", Modifier.padding(top = SECTION_GAP)) }
                         items(results.programmes, key = { "p${it.streamId}:${it.startMs}" }) { p ->
-                            ProgrammeRow(p, now) { nav.push(Screen.Player(pid, p.streamId, ChannelFilter.All)) }
+                            ProgrammeRow(p, now, { picked = Picked.Channel(p.streamId, p.channelName) }) {
+                                nav.push(Screen.Player(pid, p.streamId, ChannelFilter.All))
+                            }
                         }
                     }
-                    section("Movies", results.movies, { it.id }) { PosterCard(it) { nav.push(Screen.MovieDetails(pid, it.id)) } }
-                    section("Series", results.series, { it.id }) { PosterCard(it) { nav.push(Screen.SeriesDetails(pid, it.id)) } }
+                    section("Movies", results.movies, { it.id }) {
+                        PosterCard(it, onLongClick = { picked = Picked.Vod(CAT_MOVIE, it) }) { nav.push(Screen.MovieDetails(pid, it.id)) }
+                    }
+                    section("Series", results.series, { it.id }) {
+                        PosterCard(it, onLongClick = { picked = Picked.Vod(CAT_SERIES, it) }) { nav.push(Screen.SeriesDetails(pid, it.id)) }
+                    }
+                }
+            }
+        }
+    }
+    picked?.let { ResultOptions(it, pid, vm) { picked = null } }
+}
+
+/** What can be done with a result: watch or open it, favourites, and for channels catch-up and the guide source. */
+@Composable
+private fun ResultOptions(item: Picked, pid: Long, vm: SearchViewModel, onDismiss: () -> Unit) {
+    val nav = LocalNavigator.current
+    fun open(screen: Screen) {
+        onDismiss()
+        nav.push(screen)
+    }
+    val (title, main, actions) = when (item) {
+        is Picked.Channel -> {
+            val favourites by vm.favouriteChannels.collectAsState()
+            val channel by produceState<ChannelEntity?>(null, item) { value = vm.channel(pid, item.streamId) }
+            Triple(
+                item.name,
+                ItemAction.Open("Watch", Screen.Player(pid, item.streamId, ChannelFilter.All)),
+                // Once both are read: a label saying "Add" for a favourite would undo it.
+                channel?.let { ch ->
+                    favourites?.let { f -> channelActions(ch, ch.streamId in f) { vm.setChannelFavourite(pid, ch.streamId, it) } }
+                }.orEmpty()
+            )
+        }
+        is Picked.Vod -> {
+            val favourite by remember(item) { vm.vodFavourite(pid, item.type, item.card.id) }.collectAsState<Boolean, Boolean?>(null)
+            val movie = item.type == CAT_MOVIE
+            Triple(
+                item.card.title,
+                ItemAction.Open(
+                    if (movie) "Open movie" else "Open series",
+                    if (movie) Screen.MovieDetails(pid, item.card.id) else Screen.SeriesDetails(pid, item.card.id)
+                ),
+                listOfNotNull(
+                    favourite?.let { f -> ItemAction.Run(favouriteLabel(f)) { vm.setVodFavourite(pid, item.type, item.card.id, !f) } }
+                )
+            )
+        }
+    }
+    SidePanel(onDismiss) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 2, modifier = Modifier.padding(bottom = 8.dp))
+            (listOf(main) + actions).forEachIndexed { i, a ->
+                MenuOption(a.label, a.help, if (i == 0) rememberFirstFocus() else Modifier) {
+                    when (a) {
+                        is ItemAction.Open -> open(a.screen)
+                        is ItemAction.Run -> a.run()
+                    }
                 }
             }
         }
@@ -148,27 +246,37 @@ private fun <T> LazyListScope.section(title: String, items: List<T>, key: (T) ->
     }
 }
 
+/** Long channel names are common ("UK: CHANNEL ONE HD FHD (backup)"): they scroll while the card is focused. */
 @Composable
-private fun ChannelCard(ch: ChannelEntity, onClick: () -> Unit) {
-    TvCard(onClick = onClick, modifier = Modifier.width(280.dp)) {
+private fun ChannelCard(ch: ChannelEntity, onLongClick: () -> Unit, onClick: () -> Unit) {
+    TvCard(onClick = onClick, onLongClick = onLongClick, modifier = Modifier.width(340.dp)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ChannelLogo(ch.logoUrl, ch.name, 56.dp, 34.dp)
+            ChannelLogo(ch.logoUrl, ch.name, 48.dp, 30.dp)
             Column {
                 Muted(ch.numberLabel)
-                Text(ch.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                OneLine(ch.name, MaterialTheme.typography.labelLarge)
             }
         }
     }
 }
 
 @Composable
-private fun ProgrammeRow(p: ProgrammeHit, now: Long, onClick: () -> Unit) {
-    TvCard(onClick = onClick, color = Palette.surfaceLow, modifier = Modifier.fillMaxWidth()) {
+private fun ProgrammeRow(p: ProgrammeHit, now: Long, onLongClick: () -> Unit, onClick: () -> Unit) {
+    TvCard(
+        onClick = onClick,
+        onLongClick = onLongClick,
+        color = Palette.surfaceLow,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             ChannelLogo(p.logoUrl, p.channelName, 56.dp, 34.dp)
             Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                Text(p.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Muted(listOfNotNull(p.channelName, p.subtitle).joinToString(" · "))
+                OneLine(p.title, MaterialTheme.typography.titleSmall)
+                OneLine(
+                    listOfNotNull(p.channelName, p.subtitle).joinToString(" · "),
+                    MaterialTheme.typography.bodyMedium,
+                    color = Palette.textMuted
+                )
             }
             if (isLive(p.startMs, p.stopMs, now)) OnNowLabel() else Muted(formatDayTime(p.startMs, now))
         }
