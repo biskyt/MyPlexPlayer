@@ -2,8 +2,9 @@
 
 Releases are built and published by GitHub Actions (`.github/workflows/release.yml`). Each one is a GitHub Release with:
 - `MyTVPlayer-<version>.apk`: for sideloading onto a TV box.
-- `MyTVPlayer-<version>.aab`: the app bundle Google Play wants.
-- `SHA256SUMS.txt`: checksums of the two files.
+- `SHA256SUMS.txt`: the APK's checksum.
+
+The app bundle Google Play wants (`MyTVPlayer-<version>.aab`) isn't published with the release: it is kept on the workflow run's page under **Artifacts** for 90 days.
 - Release notes taken from this version's section of `CHANGELOG.md`.
 
 ## One-time setup: your own signing key
@@ -42,4 +43,4 @@ Until these secrets exist, releases still build, but they are signed with the pu
 Versions starting with `0.` are marked as pre-releases. From `1.0.0` they are full releases.
 
 ## Google Play
-Upload the `.aab` from the release to the Play Console. Play re-signs it with its own app-signing key, so Play installs and GitHub APK installs can't update each other. Pick one channel per device.
+Upload the `.aab` from the release run's Artifacts (GitHub › Actions › the Release run) to the Play Console. Play re-signs it with its own app-signing key, so Play installs and GitHub APK installs can't update each other. Pick one channel per device.
