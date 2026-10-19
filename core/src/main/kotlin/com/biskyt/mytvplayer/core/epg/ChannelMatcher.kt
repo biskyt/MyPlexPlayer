@@ -97,7 +97,7 @@ class ChannelMatcher(candidates: List<EpgCandidate>) {
      * a small heap rather than sorting every entry: a common word can be shared by thousands.
      */
     private fun best(shared: Map<Entry, Double>, queryWeight: Double): List<Entry> {
-        val heap = PriorityQueue<Ranked>(FUZZY_CANDIDATES + 1, compareBy { it.rank })
+        val heap = PriorityQueue(FUZZY_CANDIDATES + 1, byRank)
         for ((e, w) in shared) {
             val rank = w / (queryWeight + e.weight)
             if (heap.size < FUZZY_CANDIDATES) {
@@ -111,6 +111,9 @@ class ChannelMatcher(candidates: List<EpgCandidate>) {
     }
 
     private class Ranked(val entry: Entry, val rank: Double)
+
+    /** Unboxed: compared a few times per shared entry, for every channel matched. */
+    private val byRank = Comparator<Ranked> { a, b -> a.rank.compareTo(b.rank) }
 
     private fun score(q: Query, e: Entry): Double {
         var common = 0.0

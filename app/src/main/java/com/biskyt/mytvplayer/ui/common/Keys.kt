@@ -4,8 +4,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 
@@ -29,10 +31,20 @@ fun Key.isGuide(): Boolean = this == Key.Guide
 /**
  * Opens [onOptions] from the remote's Info/Options/Menu button, as an alternative to holding OK.
  */
-fun Modifier.onOptionsKey(onOptions: () -> Unit): Modifier = onPreviewKeyEvent { e ->
-    if (!e.key.isOptions()) return@onPreviewKeyEvent false
-    if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) onOptions()
-    true
+fun Modifier.onOptionsKey(onOptions: () -> Unit): Modifier = onPreviewKeyEvent { e -> handlePress(e, e.key.isOptions(), onOptions) }
+
+/**
+ * Runs [onGuide] for the Guide button when [enabled] says so, once per press. After the screen's own handling (a
+ * screen that uses the button itself, like the live list, gets it first).
+ */
+fun Modifier.onGuideKey(enabled: () -> Boolean, onGuide: () -> Unit): Modifier =
+    onKeyEvent { e -> handlePress(e, e.key.isGuide() && enabled(), onGuide) }
+
+/** Consumes the whole press (down, repeats, up) when [matches], acting once on the first key-down. */
+private fun handlePress(e: KeyEvent, matches: Boolean, action: () -> Unit): Boolean {
+    if (!matches) return false
+    if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) action()
+    return true
 }
 
 /**

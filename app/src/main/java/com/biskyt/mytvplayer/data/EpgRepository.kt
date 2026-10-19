@@ -416,7 +416,7 @@ class EpgRepository(
         open(sourceId).use { input ->
             parser(now - KEEP_PAST_MS, now + KEEP_FUTURE_MS).parse(input, wantProgrammes = {
                 it in xmlIds
-            }, onChannel = {}, onProgramme = { p ->
+            }, onChannel = null, onProgramme = { p ->
                 batch += ProgrammeEntity(
                     sourceId, p.channelId, p.startMs, p.stopMs, p.title, p.subtitle, p.description, now, p.kind, p.season, p.episode
                 )

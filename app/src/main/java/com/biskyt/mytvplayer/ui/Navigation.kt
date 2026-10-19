@@ -139,6 +139,13 @@ fun NavHost(navigator: Navigator, content: @Composable (Screen) -> Unit) {
     }
 }
 
+/** Something playing: leaving the screen would stop it. */
+val Screen.isPlayback: Boolean get() = this is Screen.Player || this is Screen.VodPlayer || this is Screen.CatchupPlayer
+
+/** First-launch set-up, before there is anything to watch. */
+val Screen.isSetup: Boolean
+    get() = this == Screen.Welcome || (this is Screen.PlaylistEdit && firstRun) || (this is Screen.Categories && firstRun)
+
 /** Creates a screen-scoped ViewModel with access to the app's dependencies. */
 @Composable
 inline fun <reified VM : ViewModel> appViewModel(key: String? = null, crossinline create: (AppContainer) -> VM): VM {

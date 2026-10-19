@@ -19,7 +19,7 @@ data class XmltvProgramme(
 )
 
 /**
- * Streaming XMLTV reader. Every `<channel>` is reported (they are small and needed for matching), but
+ * Streaming XMLTV reader. Every `<channel>` can be reported (they are small and needed for matching), but
  * `<programme>` elements are only built when [wantProgrammes] accepts the channel id and the programme
  * overlaps [windowStartMs]..[windowEndMs]; everything else is skipped without allocating.
  *
@@ -30,63 +30,63 @@ class XmltvParser(
     private val windowStartMs: Long = Long.MIN_VALUE,
     private val windowEndMs: Long = Long.MAX_VALUE
 ) {
-    /** Blocking read; call from an IO dispatcher. Callbacks may suspend (e.g. to write a batch to the database). */
+    /**
+     * Blocking read; call from an IO dispatcher. Callbacks may suspend (e.g. to write a batch to the database).
+     * Without [onChannel], channels are skipped unread.
+     */
     suspend fun parse(
         input: InputStream,
         wantProgrammes: (channelId: String) -> Boolean,
-        onChannel: suspend (XmltvChannel) -> Unit,
+        onChannel: (suspend (XmltvChannel) -> Unit)?,
         onProgramme: suspend (XmltvProgramme) -> Unit
+    ) = read(input, wantProgrammes, onChannel, onProgramme, channelsOnly = false)
+
+    /**
+     * Reads just the channels. XMLTV lists every `<channel>` before the programmes, so this stops at the first
+     * programme after a channel: most of a big guide (its programmes) isn't even decompressed.
+     */
+    suspend fun parseChannels(input: InputStream, onChannel: suspend (XmltvChannel) -> Unit) =
+        read(input, { false }, onChannel, {}, channelsOnly = true)
+
+    private suspend fun read(
+        input: InputStream,
+        wantProgrammes: (channelId: String) -> Boolean,
+        onChannel: (suspend (XmltvChannel) -> Unit)?,
+        onProgramme: suspend (XmltvProgramme) -> Unit,
+        channelsOnly: Boolean
     ) {
         val p = newParser()
         p.setInput(input, null)
+        var seenChannel = false
         while (true) {
             when (p.next()) {
                 XmlPullParser.END_DOCUMENT -> return
                 XmlPullParser.START_TAG -> when (p.name) {
-                    "channel" -> readChannel(p)?.let { onChannel(it) }
-                    "programme" -> {
-                        // Check the channel before parsing times: most programmes in a big guide are skipped.
-                        val id = p.getAttributeValue(null, "channel")
-                        val start = if (id != null && wantProgrammes(id)) parseTime(p.getAttributeValue(null, "start")) else null
-                        if (id == null || start == null) {
-                            p.skipElement()
-                        } else {
-                            val stop = parseTime(p.getAttributeValue(null, "stop"))
-                            val end = stop ?: (start + DEFAULT_LENGTH_MS)
-                            if (end <= windowStartMs ||
-                                start >= windowEndMs
-                            ) {
-                                p.skipElement()
-                            } else {
-                                onProgramme(readProgramme(p, id, start, end))
-                            }
+                    "channel" -> if (onChannel == null) {
+                        p.skipElement()
+                    } else {
+                        readChannel(p)?.let {
+                            seenChannel = true
+                            onChannel(it)
                         }
+                    }
+                    "programme" -> when {
+                        !channelsOnly -> programme(p, wantProgrammes, onProgramme)
+                        seenChannel -> return
+                        else -> p.skipElement()
                     }
                 }
             }
         }
     }
 
-    /**
-     * Reads just the channels. XMLTV lists every `<channel>` before the programmes, so this stops at the first
-     * programme after a channel: most of a big guide (its programmes) isn't even decompressed.
-     */
-    suspend fun parseChannels(input: InputStream, onChannel: suspend (XmltvChannel) -> Unit) {
-        val p = newParser()
-        p.setInput(input, null)
-        var seen = false
-        while (true) {
-            when (p.next()) {
-                XmlPullParser.END_DOCUMENT -> return
-                XmlPullParser.START_TAG -> when (p.name) {
-                    "channel" -> readChannel(p)?.let {
-                        seen = true
-                        onChannel(it)
-                    }
-                    "programme" -> if (seen) return else p.skipElement()
-                }
-            }
-        }
+    private suspend fun programme(p: XmlPullParser, wantProgrammes: (String) -> Boolean, onProgramme: suspend (XmltvProgramme) -> Unit) {
+        // Check the channel before parsing times: most programmes in a big guide are skipped.
+        val id = p.getAttributeValue(null, "channel")
+        val start = if (id != null && wantProgrammes(id)) parseTime(p.getAttributeValue(null, "start")) else null
+        if (id == null || start == null) return p.skipElement()
+        val end = parseTime(p.getAttributeValue(null, "stop")) ?: (start + DEFAULT_LENGTH_MS)
+        if (end <= windowStartMs || start >= windowEndMs) p.skipElement() else onProgramme(readProgramme(p, id, start, end))
     }
 
     private fun readChannel(p: XmlPullParser): XmltvChannel? {
