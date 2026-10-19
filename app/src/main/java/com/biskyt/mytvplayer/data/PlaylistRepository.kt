@@ -18,6 +18,7 @@ import com.biskyt.mytvplayer.data.db.PlaylistEntity
 import java.io.BufferedReader
 import java.io.File
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -70,6 +71,19 @@ class PlaylistRepository(
         runCatching { categoryStore.store(id, CAT_MOVIE, c.movieCategories()) }
         runCatching { categoryStore.store(id, CAT_SERIES, c.seriesCategories()) }
         return id
+    }
+
+    /**
+     * Sets up the free iptv-org channels; the new playlist's id, or a message for the user. Never throws (but for
+     * cancellation): any failure (network, full storage…) must leave a way forward, on first launch above all.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    suspend fun addFree(): Result<Long> = try {
+        Result.success(addM3u(FREE_PLAYLIST_NAME, FREE_PLAYLIST_URL))
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(Exception((e as? IOException)?.message ?: "Couldn't set up the free channels", e))
     }
 
     /** Saves a new M3U playlist (after checking it can be downloaded and read) and makes it the active one. */

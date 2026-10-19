@@ -117,7 +117,8 @@ class ChannelMatchingTest {
             "FR: CINEMA" to "FR", "[DE] Kinder" to "DE", "AR | MBC" to "AR", "USA: NBA" to "US", "EX-YU | Sport" to null,
             "EXYU | Sport" to "EXYU", "FRENCH MOVIES" to "FR", "Movies 24/7" to null, "United Kingdom" to "UK", "United States" to "US",
             "NEWS" to null, "North Korea" to "KP", "South Korea" to "KR", "Austria" to "AT", "Bosnia & Herzegovina" to "BA",
-            "Indian Movies" to null, "India" to "IN"
+            "Indian Movies" to null, "India" to "IN", "Turkiye" to "TR", "Bosnia and Herzegovina" to "BA", "Curacao" to "CW",
+            "Trinidad and Tobago" to "TT", "Republic of the Congo" to "CG", "Democratic Republic of the Congo" to "CD"
         )
         cases.forEach { (input, expected) -> assertEquals(input, expected, CategoryLanguageDetector.detect(input)) }
         assertEquals("English (UK)", CategoryLanguageDetector.label("UK"))

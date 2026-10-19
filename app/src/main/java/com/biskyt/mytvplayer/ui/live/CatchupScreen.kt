@@ -39,6 +39,7 @@ import com.biskyt.mytvplayer.ui.common.PillButton
 import com.biskyt.mytvplayer.ui.common.Tab
 import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.TvCard
+import com.biskyt.mytvplayer.ui.common.dateFormat
 import com.biskyt.mytvplayer.ui.common.formatRuntime
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
@@ -46,9 +47,7 @@ import com.biskyt.mytvplayer.ui.theme.Palette
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import java.util.Locale
 import kotlinx.coroutines.launch
 
 /** A channel's catch-up: the programmes it showed in its catch-up days, by day (0 = today), newest first. */
@@ -82,12 +81,10 @@ class CatchupViewModel(private val c: AppContainer, private val screen: Screen.C
     }
 }
 
-private val dayFormat = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
-
 private fun dayLabel(daysAgo: Int): String = when (daysAgo) {
     0 -> "Today"
     1 -> "Yesterday"
-    else -> LocalDate.now().minusDays(daysAgo.toLong()).format(dayFormat)
+    else -> LocalDate.now().minusDays(daysAgo.toLong()).format(dateFormat)
 }
 
 @Composable
