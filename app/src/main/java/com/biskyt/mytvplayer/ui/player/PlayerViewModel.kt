@@ -11,9 +11,12 @@ import com.biskyt.mytvplayer.core.xtream.XtreamClient
 import com.biskyt.mytvplayer.data.StreamFormat
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.ui.Screen
+import com.biskyt.mytvplayer.ui.common.ItemAction
 import com.biskyt.mytvplayer.ui.common.NowNextLoader
 import com.biskyt.mytvplayer.ui.common.NumberEntry
+import com.biskyt.mytvplayer.ui.common.channelActions
 import com.biskyt.mytvplayer.ui.common.cycle
+import com.biskyt.mytvplayer.ui.common.favouriteFlash
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -38,6 +41,19 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
             c.epg.programmes(screen.playlistId, ids, from, to, details = false)
         }
 
+    /** This playlist's favourite channels, for the More menu's "Add to / Remove from favourites". */
+    private var favouriteIds by mutableStateOf(emptySet<Long>())
+
+    override fun menuActions(): List<ItemAction> {
+        val ch = channel ?: return emptyList()
+        return channelActions(ch, ch.streamId in favouriteIds) { favourite ->
+            viewModelScope.launch {
+                c.channels.setFavourite(ch.playlistId, ch.streamId, favourite)
+                flash(favouriteFlash(favourite))
+            }
+        }
+    }
+
     private var client: XtreamClient? = null
     private var ids: List<Long> = emptyList()
     private var tuneJob: Job? = null
@@ -46,6 +62,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
     private var targetStreamId: Long = screen.streamId
 
     init {
+        viewModelScope.launch { c.channels.observeFavouriteIds(screen.playlistId).collect { favouriteIds = it.toSet() } }
         viewModelScope.launch {
             startEngine()
             client = c.playlists.get(screen.playlistId)?.takeUnless { it.isM3u }?.let(c.playlists::client)

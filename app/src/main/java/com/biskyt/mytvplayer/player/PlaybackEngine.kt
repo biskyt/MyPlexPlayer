@@ -143,9 +143,13 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         player.trackSelectionParameters = params.build()
     }
 
-    /** Human-readable description of how the current audio is being output, e.g. "Passthrough · Dolby Atmos". */
-    fun audioOutputLabel(): String {
-        val f = player.audioFormat ?: return "No audio"
+    /**
+     * How the sound is played, for the options menu, e.g. "Passthrough · Dolby Atmos". Read from the selected audio track in [tracks]: when tracks change,
+     * the player's own audio format isn't known yet (the audio output starts a moment later).
+     */
+    fun audioOutputLabel(tracks: Tracks = player.currentTracks, playing: Format? = player.audioFormat): String {
+        // The format being played when known (it has the real channel count); else the chosen track's.
+        val f = playing ?: selectedAudioFormat(tracks) ?: return "No audio"
         val name = encodedName(f.sampleMimeType)
         if (name != null && settings.audioPassthrough) {
             val caps = AudioCapabilities.getCapabilities(context, AudioAttributes.DEFAULT, null)
@@ -155,6 +159,10 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         val decoded = if (name != null) "$name decoded" else "Audio"
         return if (channels > 2) "$decoded · ${channels}ch" else "$decoded · Stereo"
     }
+
+    private fun selectedAudioFormat(tracks: Tracks): Format? = tracks.groups
+        .firstOrNull { it.type == C.TRACK_TYPE_AUDIO && it.isSelected }
+        ?.let { g -> (0 until g.length).firstOrNull(g::isTrackSelected)?.let(g::getTrackFormat) }
 
     fun release() = player.release()
 

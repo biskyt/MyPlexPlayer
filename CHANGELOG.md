@@ -2,6 +2,17 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.8.5
+- Adding a TV guide is much quicker: only the new guide's programmes are loaded (and those of channels whose guide
+  changed), not every guide again. "Downloading" and "Loading programmes" now show how far they've got.
+- The daily guide update skips guides that haven't changed on their server.
+- Search results are easier to read: channel names have more room, and long names scroll while highlighted (movie
+  and series titles too). Hold OK, or press the Menu button, on a result for its options: add to favourites,
+  catch-up, change guide source, and more.
+- The player's More menu has actions for what's playing: add or remove a channel from favourites, catch-up and change
+  guide source on live TV; add to favourites and open the details or all episodes for movies and series.
+- Fixed: the player's More menu always said "No audio", even while sound was playing.
+
 ## 0.8.4
 - When a channel, film or episode won't play, the message now says why: the stream's server refused it (often because
   it only plays in its own country), the stream has gone from its address, the server didn't answer, or this TV box

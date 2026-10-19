@@ -2,6 +2,7 @@ package com.biskyt.mytvplayer.ui.common
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -65,10 +69,11 @@ fun TvCard(
     content: @Composable () -> Unit
 ) {
     val accent = LocalAccent.current
+    var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
         onLongClick = onLongClick,
-        modifier = if (onLongClick != null) modifier.onOptionsKey(onLongClick) else modifier,
+        modifier = (if (onLongClick != null) modifier.onOptionsKey(onLongClick) else modifier).onFocusChanged { focused = it.hasFocus },
         shape = ClickableSurfaceDefaults.shape(shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = ClickableSurfaceDefaults.colors(
@@ -79,8 +84,11 @@ fun TvCard(
             focusedContentColor = Palette.text
         ),
         border = ClickableSurfaceDefaults.border(focusedBorder = FocusRing)
-    ) { content() }
+    ) { CompositionLocalProvider(LocalCardFocused provides focused) { content() } }
 }
+
+/** Whether the [TvCard] around this content has focus (e.g. for [OneLine]); only readers redraw when it changes. */
+val LocalCardFocused = compositionLocalOf { false }
 
 /** Pill-shaped button. [primary] fills it with the accent colour. */
 @Composable
@@ -160,17 +168,49 @@ val POSTER_WIDTH = 124.dp
 
 /** A movie or series poster with its title and year, as in grids and search. */
 @Composable
-fun PosterCard(card: VodCard, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    TvCard(onClick = onClick, color = Palette.background, modifier = modifier) {
+fun PosterCard(card: VodCard, modifier: Modifier = Modifier, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
+    TvCard(onClick = onClick, onLongClick = onLongClick, color = Palette.background, modifier = modifier) {
         Column(Modifier.padding(6.dp).width(POSTER_WIDTH), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Poster(card.imageUrl, card.title, POSTER_WIDTH)
-            Text(
-                card.title,
-                style = MaterialTheme.typography.labelLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            OneLine(card.title, MaterialTheme.typography.labelLarge)
             Muted(card.year?.toString() ?: " ")
+        }
+    }
+}
+
+/**
+ * One line of text: cut short with "…" normally, scrolling a few times to show the rest while its [TvCard] has focus
+ * (only the focused item animates, and not for ever).
+ */
+@Composable
+fun OneLine(
+    text: String,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+    focused: Boolean = LocalCardFocused.current
+) {
+    if (focused) {
+        Text(
+            text,
+            style = style,
+            color = color,
+            maxLines = 1,
+            softWrap = false,
+            modifier = modifier.basicMarquee()
+        )
+    } else {
+        Text(text, style = style, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = modifier)
+    }
+}
+
+/** A row in an options panel ([SidePanel]): a label and, under it, what it does. */
+@Composable
+fun MenuOption(label: String, help: String? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    TvCard(onClick = onClick, modifier = modifier.fillMaxWidth(), color = Palette.surface) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Text(label, style = MaterialTheme.typography.titleMedium)
+            if (help != null) Muted(help)
         }
     }
 }

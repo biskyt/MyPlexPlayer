@@ -283,8 +283,11 @@ interface EpgDao {
     @Query("SELECT * FROM epg_source ORDER BY id")
     fun observeSources(): Flow<List<EpgSourceEntity>>
 
+    @Query("UPDATE epg_source SET lastImportAt = :at WHERE id = :id")
+    suspend fun setLastImport(id: Long, at: Long)
+
     @Query("UPDATE epg_source SET lastError = :error WHERE id = :id")
-    suspend fun setSourceError(id: Long, error: String)
+    suspend fun setSourceError(id: Long, error: String?)
 
     @Query("SELECT xmlId FROM epg_channel WHERE sourceId = :sourceId")
     suspend fun channelXmlIds(sourceId: Long): List<String>
