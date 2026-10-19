@@ -184,6 +184,10 @@ interface ChannelDao {
     @Query("SELECT COUNT(*) FROM channel WHERE playlistId = :pid AND hidden = 0")
     fun observeCount(pid: Long): Flow<Int>
 
+    /** The longest catch-up any channel offers (0 when none do): how far back the TV guide can go. */
+    @Query("SELECT COALESCE(MAX(archiveDays), 0) FROM channel WHERE playlistId = :pid AND hidden = 0")
+    suspend fun maxArchiveDays(pid: Long): Int
+
     @Query("SELECT streamId, hidden, sortOrder FROM channel WHERE playlistId = :pid AND (hidden = 1 OR sortOrder IS NOT NULL)")
     suspend fun prefs(pid: Long): List<ChannelPrefs>
 

@@ -224,6 +224,10 @@ private fun LiveControls(vm: PlayerViewModel, buttons: FocusRequester, root: Foc
         nn?.now?.let { current -> Timeline(formatTime(current.startMs), nn.progress(now), formatTime(current.stopMs)) }
         ControlsBar(vm, root) {
             PillButton("Channel guide", vm::openGuide, Modifier.focusRequester(buttons))
+            if (ch.archiveDays > 0) {
+                val nav = LocalNavigator.current
+                PillButton("Start over", { nav.replace(Screen.CatchupPlayer(ch.playlistId, ch.streamId, filter = vm.filter)) })
+            }
         }
         Muted("◀ ▶ skip · ▲ ▼ change channel · ▼ for buttons · OK hides this", Modifier.align(Alignment.CenterHorizontally))
     }

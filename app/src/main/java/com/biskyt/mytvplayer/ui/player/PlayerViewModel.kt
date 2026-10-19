@@ -28,6 +28,9 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
         private set
 
     override val isLive = true
+
+    /** The list being zapped through (kept when going to catch-up and back). */
+    val filter get() = screen.filter
     override val failureMessage = "This channel isn't playing right now. Try again later or pick another channel."
 
     val nowNext =

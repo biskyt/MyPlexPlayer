@@ -184,4 +184,38 @@ class XtreamClientTest {
         assertTrue(client.movieUrl(5, "mkv").endsWith("/movie/user%20one/p%40ss/5.mkv"))
         assertTrue(client.episodeUrl(6, "mp4").endsWith("/series/user%20one/p%40ss/6.mp4"))
     }
+
+    @Test
+    fun `catch-up listing decodes base64 text, mixed types and the server's clock`() = runTest {
+        // 18:00 server time (UTC+1) is 17:00 UTC.
+        server.enqueue(
+            MockResponse().setBody(
+                """{"epg_listings":[
+                     {"title":"TmV3cyBhdCBTaXg=","description":"VGhlIG5ld3Mu","start":"2026-10-18 18:00:00",
+                      "start_timestamp":"1792342800","stop_timestamp":1792344600,"has_archive":1},
+                     {"title":"Plain title","start":"2026-10-18 18:30:00","start_timestamp":1792344600,
+                      "stop_timestamp":"1792348200","has_archive":"0"},
+                     {"title":"bm8gdGltZXM="}
+                   ]}"""
+            )
+        )
+        val listing = client.catchupListing(42)
+        assertTrue(server.takeRequest().path!!.contains("action=get_simple_data_table&stream_id=42"))
+        assertEquals(listOf("News at Six", "Plain title"), listing.programmes.map { it.title })
+        assertEquals("The news.", listing.programmes[0].description)
+        assertEquals(listOf(true, false), listing.programmes.map { it.hasArchive })
+        assertEquals(3_600_000L, listing.serverOffsetAt(1_792_342_800_000L))
+
+        // The address starts at the server's own local time: 17:30 UTC is 18:30 there.
+        val url = client.catchupUrl(42, 1_792_344_600_000L, listing, durationMin = 95)
+        assertTrue(url, url.endsWith("/timeshift/user%20one/p%40ss/95/2026-10-18:18-30/42.ts"))
+    }
+
+    @Test
+    fun `an empty or odd catch-up listing is just empty`() = runTest {
+        server.enqueue(MockResponse().setBody("""{"epg_listings":[]}"""))
+        assertTrue(client.catchupListing(1).programmes.isEmpty())
+        server.enqueue(MockResponse().setBody("""{}"""))
+        assertTrue(client.catchupListing(1).programmes.isEmpty())
+    }
 }

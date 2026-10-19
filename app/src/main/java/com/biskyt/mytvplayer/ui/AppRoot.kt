@@ -23,7 +23,9 @@ import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.ui.guide.GuideMatchingScreen
 import com.biskyt.mytvplayer.ui.guide.GuideSourcesScreen
 import com.biskyt.mytvplayer.ui.home.HomeScreen
+import com.biskyt.mytvplayer.ui.live.CatchupScreen
 import com.biskyt.mytvplayer.ui.live.LiveScreen
+import com.biskyt.mytvplayer.ui.player.CatchupPlayerScreen
 import com.biskyt.mytvplayer.ui.player.PlayerScreen
 import com.biskyt.mytvplayer.ui.player.VodPlayerScreen
 import com.biskyt.mytvplayer.ui.search.SearchScreen
@@ -112,6 +114,8 @@ private fun ScreenContent(screen: Screen) {
         is Screen.VodPlayer -> VodPlayerScreen(screen)
         is Screen.Search -> SearchScreen(screen.query)
         is Screen.Player -> PlayerScreen(screen)
+        is Screen.Catchup -> CatchupScreen(screen)
+        is Screen.CatchupPlayer -> CatchupPlayerScreen(screen)
         Screen.Settings -> SettingsScreen()
         Screen.Playlists -> PlaylistsScreen()
         is Screen.PlaylistEdit -> PlaylistEditScreen(screen.playlistId, screen.firstRun)

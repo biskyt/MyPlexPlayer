@@ -2,6 +2,15 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.8.0
+- **Catch-up TV** on channels whose provider offers it:
+  - **Catch-up** in a channel's menu: the last few days, day by day; pick a programme to watch it.
+  - **Start over**, in the channel menu and the player: watch what's on now from its beginning.
+  - In the TV guide, press ◀ past "now" to scroll back on catch-up channels and press OK on a finished programme.
+  - Catch-up plays on from one programme into the next, like the live channel only earlier. ◀ ▶ skip, and "Watch
+    live" goes back to now.
+- The TV guide loads exactly as before: catch-up listings are only fetched when you use catch-up.
+
 ## 0.7.0
 - **Find it on demand from the TV guide**: hold OK (or press Info) on a programme.
   - **Find series** opens the series, on the episode that's on.

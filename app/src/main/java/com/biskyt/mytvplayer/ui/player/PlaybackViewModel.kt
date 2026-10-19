@@ -180,7 +180,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         engine?.player?.stop()
     }
 
-    fun onAppShown() {
+    open fun onAppShown() {
         engine?.player?.let {
             if (it.playbackState == Player.STATE_IDLE && !exit) {
                 it.prepare()
@@ -196,7 +196,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
     fun togglePlayPause() = perform(PlayerAction.TogglePlayPause)
 
-    fun seekBy(ms: Long) {
+    open fun seekBy(ms: Long) {
         val p = engine?.player ?: return
         if (!p.isCurrentMediaItemSeekable) {
             flash("Skipping isn't available here")
@@ -225,7 +225,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         hideJob?.cancel()
     }
 
-    fun retry() {
+    open fun retry() {
         resetForNewStream()
         engine?.player?.prepare()
     }

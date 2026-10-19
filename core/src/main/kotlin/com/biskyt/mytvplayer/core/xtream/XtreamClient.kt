@@ -85,6 +85,21 @@ class XtreamClient(private val http: OkHttpClient, private val credentials: Xtre
             ?: throw XtreamException("No episodes found for this series")
     }
 
+    /** A channel's catch-up listing (past days and the coming hours), fetched when catch-up is opened. */
+    suspend fun catchupListing(streamId: Long): CatchupListing = withContext(Dispatchers.IO) {
+        get(apiUrl("get_simple_data_table") { addQueryParameter("stream_id", streamId.toString()) }) {
+            json.decodeFromStream(it).toCatchupListing()
+        }
+    }
+
+    /**
+     * The channel as it was from [startMs], for [durationMin] minutes (to the present, so playback runs on from one
+     * programme into the next). [listing] gives the provider's clock.
+     */
+    fun catchupUrl(streamId: Long, startMs: Long, listing: CatchupListing, durationMin: Int): String =
+        "${credentials.base}/timeshift/${credentials.username.enc()}/${credentials.password.enc()}/" +
+            "$durationMin/${timeshiftStart(startMs, listing.serverOffsetAt(startMs))}/$streamId.ts"
+
     fun liveStreamUrl(streamId: Long, extension: String = "ts"): String = streamUrl("live", streamId, extension)
 
     fun movieUrl(streamId: Long, extension: String): String = streamUrl("movie", streamId, extension)

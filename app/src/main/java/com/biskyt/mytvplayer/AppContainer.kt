@@ -19,6 +19,7 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
 import com.biskyt.mytvplayer.data.BackupFile
 import com.biskyt.mytvplayer.data.BackupRepository
+import com.biskyt.mytvplayer.data.CatchupRepository
 import com.biskyt.mytvplayer.data.CategoryStore
 import com.biskyt.mytvplayer.data.ChannelRepository
 import com.biskyt.mytvplayer.data.EpgRepository
@@ -50,6 +51,7 @@ class AppContainer(context: Context) {
     val channels = ChannelRepository(db)
     val vod = VodRepository(db, playlists, categoryStore)
     val search = SearchRepository(db)
+    val catchup = CatchupRepository(playlists)
     val sync = SyncManager(appScope, playlists, vod, epg)
     val backup = BackupRepository(db, settings, epg, sync)
     val backupFile = BackupFile(context)

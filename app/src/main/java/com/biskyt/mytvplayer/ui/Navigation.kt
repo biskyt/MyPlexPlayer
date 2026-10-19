@@ -32,6 +32,20 @@ sealed interface Screen {
     data class Search(val query: String = "") : Screen
     data class Player(val playlistId: Long, val streamId: Long, val filter: ChannelFilter) : Screen
 
+    /** A channel's catch-up page: days on the left, the programmes that can be replayed on the right. */
+    data class Catchup(val playlistId: Long, val streamId: Long) : Screen
+
+    /**
+     * A catch-up channel as it was from [startMs] on, running on into the following programmes; null starts what's on
+     * now from its beginning ("Start over"). [filter]: the live list to return to for "Watch live".
+     */
+    data class CatchupPlayer(
+        val playlistId: Long,
+        val streamId: Long,
+        val startMs: Long? = null,
+        val filter: ChannelFilter = ChannelFilter.All
+    ) : Screen
+
     /**
      * A movie ([seriesId] null) or an episode. [fromStart] ignores any saved position; [continueSeries] (from "Carry on
      * watching") moves on to the next episode if this one was finished.

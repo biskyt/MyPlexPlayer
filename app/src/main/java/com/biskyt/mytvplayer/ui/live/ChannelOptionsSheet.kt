@@ -78,6 +78,17 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                         vm.find(ch, programme, kind) { if (nav.current === from) nav.push(it) }
                     }
                 }
+                // Catch-up channels (known from the channel itself: nothing is asked of the provider to show these).
+                if (ch.archiveDays > 0) {
+                    Option("Catch-up", "Programmes from the last ${ch.archiveDays} days") {
+                        close()
+                        nav.push(Screen.Catchup(ch.playlistId, ch.streamId))
+                    }
+                    Option("Start over", "Watch what's on from the beginning") {
+                        close()
+                        nav.push(Screen.CatchupPlayer(ch.playlistId, ch.streamId, filter = vm.filter.value))
+                    }
+                }
                 Option(if (ch.streamId in favs) "Remove from favourites" else "Add to favourites") { vm.toggleFavourite(ch) }
                 Option("Show TV guide for this channel", "Upcoming programmes") { showGuide = true }
                 Option(
