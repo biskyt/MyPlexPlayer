@@ -90,6 +90,8 @@ class EpgRepository(
 
     fun observeMatchCounts(playlistId: Long) = epg.observeMatchCounts(playlistId)
 
+    suspend fun coverage() = epg.coverage()
+
     fun pageForMatching(playlistId: Long, query: String, status: Int) = androidx.paging.Pager(androidx.paging.PagingConfig(pageSize = 40)) {
         epg.pageForMatching(playlistId, likeArg(query), status)
     }.flow
@@ -103,14 +105,17 @@ class EpgRepository(
         }
     }
 
-    suspend fun addSource(name: String, url: String): Long = epg.insertSource(
-        EpgSourceEntity(
-            name = name.ifBlank {
-                url
-            },
-            url = url.trim()
-        )
-    )
+    /** Named after its address when [name] is blank. */
+    suspend fun addSource(name: String, url: String): Long =
+        epg.insertSource(EpgSourceEntity(name = name.trim().ifEmpty { url.trim() }, url = url.trim()))
+
+    /** Adds those of [guides] not added already (by address). */
+    suspend fun addMissing(guides: List<FreeGuide>) {
+        val added = sourceUrls()
+        guides.filter { it.url !in added }.forEach { addSource(it.sourceName, it.url) }
+    }
+
+    suspend fun sourceUrls(): Set<String> = epg.sourceUrls().toHashSet()
 
     suspend fun setSourceEnabled(source: EpgSourceEntity, enabled: Boolean) = epg.upsertSource(source.copy(enabled = enabled))
 
@@ -126,45 +131,62 @@ class EpgRepository(
         changed()
     }
 
-    /** Downloads and imports every enabled source, then re-runs automatic matching for [playlistIds]. */
-    suspend fun importAll(playlistIds: List<Long>, onProgress: (String) -> Unit = {}) = withContext(Dispatchers.IO) {
-        val sources = epg.enabledSources()
-        // Everything is matched again only when a guide loads for the first time; otherwise matches are kept, and
-        // channels without one are tried again only if a guide's channel list changed.
-        var firstLoad = false
-        var guideChanged = false
-        for (s in sources) {
-            onProgress("Downloading ${s.name}…")
-            val result = runCatching {
-                download(s)
-                onProgress("Reading ${s.name}…")
-                importChannels(s)
+    /**
+     * Downloads and imports every enabled source, then re-runs automatic matching for [playlistIds]. A source that
+     * fails doesn't stop the others: returns each failed source's error, by id (also kept as its lastError). With
+     * [only], just that source is downloaded again; the others are used as last downloaded.
+     */
+    suspend fun importAll(playlistIds: List<Long>, only: Long? = null, onProgress: (String) -> Unit = {}): Map<Long, String> =
+        withContext(Dispatchers.IO) {
+            val errors = HashMap<Long, String>()
+            val sources = epg.enabledSources()
+            // Everything is matched again only when a guide loads for the first time; otherwise matches are kept, and
+            // channels without one are tried again only if a guide's channel list changed.
+            var firstLoad = false
+            var guideChanged = false
+            for (s in sources) {
+                if (only != null && s.id != only && sourceFile(s.id).exists()) continue
+                val result = load(s, onProgress)
+                result.onSuccess { count ->
+                    if (s.lastImportAt == 0L) firstLoad = true
+                    if (count != s.channelCount) guideChanged = true
+                }
+                result.exceptionOrNull()?.let { errors[s.id] = it.message ?: it.javaClass.simpleName }
             }
-            if (result.isSuccess && s.lastImportAt == 0L) firstLoad = true
-            if (result.isSuccess && result.getOrNull() != s.channelCount) guideChanged = true
-            epg.upsertSource(
-                s.copy(
-                    lastImportAt = if (result.isSuccess) clock() else s.lastImportAt,
-                    channelCount = result.getOrNull() ?: s.channelCount,
-                    lastError = result.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName }
-                )
+            onProgress("Matching channels…")
+            val scope = when {
+                firstLoad -> MatchScope.ALL
+                guideChanged -> MatchScope.RETRY
+                else -> MatchScope.NEW
+            }
+            playlistIds.forEach { autoMatch(it, scope, onProgress) }
+            releaseMatcher()
+            for (s in sources) {
+                if (!sourceFile(s.id).exists()) continue
+                onProgress("Loading programmes from ${s.name}…")
+                runCatching { importProgrammes(s.id, epg.mappedXmlIds(s.id).toHashSet()) }
+            }
+            epg.pruneProgrammes(clock() - KEEP_PAST_MS)
+            changed()
+            errors
+        }
+
+    /** Downloads one source and reads its channels: their number, or why it failed (also stored with the source). */
+    private suspend fun load(s: EpgSourceEntity, onProgress: (String) -> Unit): Result<Int> {
+        onProgress("Downloading ${s.name}…")
+        val result = runCatching {
+            download(s)
+            onProgress("Reading ${s.name}…")
+            importChannels(s)
+        }
+        epg.upsertSource(
+            s.copy(
+                lastImportAt = if (result.isSuccess) clock() else s.lastImportAt,
+                channelCount = result.getOrNull() ?: s.channelCount,
+                lastError = result.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName }
             )
-        }
-        onProgress("Matching channels…")
-        val scope = when {
-            firstLoad -> MatchScope.ALL
-            guideChanged -> MatchScope.RETRY
-            else -> MatchScope.NEW
-        }
-        playlistIds.forEach { autoMatch(it, scope, onProgress) }
-        releaseMatcher()
-        for (s in sources) {
-            if (!sourceFile(s.id).exists()) continue
-            onProgress("Loading programmes from ${s.name}…")
-            runCatching { importProgrammes(s.id, epg.mappedXmlIds(s.id).toHashSet()) }
-        }
-        epg.pruneProgrammes(clock() - KEEP_PAST_MS)
-        changed()
+        )
+        return result
     }
 
     /**
@@ -390,14 +412,13 @@ class EpgRepository(
             return
         }
         val now = clock()
-        val stamp = now
         val batch = ArrayList<ProgrammeEntity>(BATCH)
         open(sourceId).use { input ->
             parser(now - KEEP_PAST_MS, now + KEEP_FUTURE_MS).parse(input, wantProgrammes = {
                 it in xmlIds
             }, onChannel = {}, onProgramme = { p ->
                 batch += ProgrammeEntity(
-                    sourceId, p.channelId, p.startMs, p.stopMs, p.title, p.subtitle, p.description, stamp, p.kind, p.season, p.episode
+                    sourceId, p.channelId, p.startMs, p.stopMs, p.title, p.subtitle, p.description, now, p.kind, p.season, p.episode
                 )
                 if (batch.size >= BATCH) {
                     epg.insertProgrammes(batch.toList())
@@ -407,9 +428,9 @@ class EpgRepository(
         }
         if (batch.isNotEmpty()) epg.insertProgrammes(batch)
         if (onlyThese) {
-            xmlIds.chunked(MAX_SQL_ARGS).forEach { epg.deleteOlderProgrammes(sourceId, it, stamp) }
+            xmlIds.chunked(MAX_SQL_ARGS).forEach { epg.deleteOlderProgrammes(sourceId, it, now) }
         } else {
-            epg.deleteOlderProgrammes(sourceId, stamp)
+            epg.deleteOlderProgrammes(sourceId, now)
         }
     }
 

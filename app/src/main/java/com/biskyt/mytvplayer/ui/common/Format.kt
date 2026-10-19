@@ -21,7 +21,9 @@ fun formatDateTime(epochMs: Long): String = DateFormat.getDateTimeInstance(DateF
 
 // The app's words are English, so day names are too.
 private val dayFormat = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)
-private val dateFormat = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
+
+/** "Mon 19 Oct". */
+val dateFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
 
 /** When something starts, relative to [now]: "Today 20:00", "Tomorrow 06:30", "Wed 21:00" or "Wed 3 Dec 21:00". */
 fun formatDayTime(epochMs: Long, now: Long = System.currentTimeMillis()): String {

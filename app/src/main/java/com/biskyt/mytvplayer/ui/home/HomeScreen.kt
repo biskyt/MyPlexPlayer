@@ -185,12 +185,3 @@ private fun CarryOnRow(items: List<WatchProgressEntity>, onPlay: (WatchProgressE
         }
     }
 }
-
-@Composable
-fun PlaceholderScreen(tab: Tab?, message: String) {
-    TabScaffold(tab) {
-        Column(Modifier.padding(horizontal = 56.dp, vertical = 40.dp)) {
-            Text(message, style = MaterialTheme.typography.headlineSmall)
-        }
-    }
-}

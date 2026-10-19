@@ -28,6 +28,9 @@ data class PlaylistEntity(
 ) {
     val isM3u: Boolean get() = kind == KIND_M3U
 
+    /** The free iptv-org channels. */
+    val isFree: Boolean get() = server == com.biskyt.mytvplayer.data.PlaylistRepository.FREE_PLAYLIST_URL
+
     /** Channels are refreshed in the background when the last download is older than this. */
     fun isStale(now: Long = System.currentTimeMillis()) = now - lastSyncAt > 12 * 3_600_000L
 }

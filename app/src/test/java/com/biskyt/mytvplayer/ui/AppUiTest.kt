@@ -357,9 +357,20 @@ class AppUiTest {
         compose.onNode(hasText("Match channels without a guide")).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitUntil(10_000) {
             org.robolectric.shadows.ShadowLooper.idleMainLooper()
-            compose.onAllNodes(hasText("had none", substring = true) or hasText("none matched", substring = true))
+            compose.onAllNodes(hasText("No new matches found") or hasText("Found a guide for", substring = true))
                 .fetchSemanticsNodes().isNotEmpty()
         }
+        // The outcome says how many channels have a guide, not only what this run found.
+        waitFor("channel has a guide")
+    }
+
+    @Test
+    fun `guides are added from a panel offering free country guides`() {
+        show(Screen.GuideSources)
+        waitFor("Your guides")
+        compose.onNode(hasText("Add a guide")).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("Free guides by country")
+        waitFor("Your own XMLTV address")
     }
 
     @Test
