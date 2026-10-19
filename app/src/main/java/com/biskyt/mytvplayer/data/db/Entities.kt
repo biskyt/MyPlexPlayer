@@ -226,7 +226,11 @@ data class ProgrammeEntity(
     val subtitle: String?,
     val description: String?,
     /** Import run that last wrote this row; rows from older runs are deleted once an import finishes. */
-    @ColumnInfo(defaultValue = "0") val stamp: Long = 0
+    @ColumnInfo(defaultValue = "0") val stamp: Long = 0,
+    /** Series, film or neither (a ProgrammeKind constant), for "Find series" / "Find in Movies". */
+    @ColumnInfo(defaultValue = "0") val kind: Int = 0,
+    val season: Int? = null,
+    val episode: Int? = null
 )
 
 /**

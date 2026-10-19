@@ -110,7 +110,7 @@ private fun ScreenContent(screen: Screen) {
         is Screen.MovieDetails -> MovieDetailsScreen(screen)
         is Screen.SeriesDetails -> SeriesDetailsScreen(screen)
         is Screen.VodPlayer -> VodPlayerScreen(screen)
-        Screen.Search -> SearchScreen()
+        is Screen.Search -> SearchScreen(screen.query)
         is Screen.Player -> PlayerScreen(screen)
         Screen.Settings -> SettingsScreen()
         Screen.Playlists -> PlaylistsScreen()

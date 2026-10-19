@@ -246,7 +246,11 @@ data class ChannelProgramme(
     val stopMs: Long,
     val title: String,
     val subtitle: String?,
-    val description: String?
+    val description: String?,
+    /** Series, film or neither (a ProgrammeKind constant), and an episode's place in its series. */
+    val kind: Int = 0,
+    val season: Int? = null,
+    val episode: Int? = null
 )
 
 /** Mapping row joined with its guide channel name, for the matching screen. */
@@ -341,7 +345,7 @@ interface EpgDao {
     // (sourceId, xmlId, startMs) primary key; programmes are assumed to last at most MAX_PROGRAMME_MS.
     @Query(
         """SELECT m.streamId, p.startMs + m.offsetMinutes * 60000 AS startMs, p.stopMs + m.offsetMinutes * 60000 AS stopMs,
-                  p.title, p.subtitle, CASE WHEN :details THEN p.description END AS description
+                  p.title, p.subtitle, CASE WHEN :details THEN p.description END AS description, p.kind, p.season, p.episode
            FROM channel_epg_mapping m JOIN programme p ON p.sourceId = m.sourceId AND p.xmlId = m.xmlId
            WHERE m.playlistId = :pid AND m.streamId IN (:ids)
              AND p.startMs > :from - m.offsetMinutes * 60000 - $MAX_PROGRAMME_MS

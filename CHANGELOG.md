@@ -2,6 +2,12 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.7.0
+- **Find it on demand from the TV guide**: hold OK (or press Info) on a programme.
+  - **Find series** opens the series, on the episode that's on.
+  - **Find in Movies** opens the film.
+  - Anything else offers a search for its title. News and sport offer nothing.
+
 ## 0.6.0
 - **Better TV guide matching**, especially for US local channels: call signs in brackets ("NBC 4 (WNBC) NEW YORK")
   match guide names like "US - NBC WNBC NY", and state names match their abbreviations.

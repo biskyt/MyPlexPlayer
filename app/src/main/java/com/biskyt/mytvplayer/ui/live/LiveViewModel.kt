@@ -10,15 +10,21 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.core.epg.ProgrammeKind
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
+import com.biskyt.mytvplayer.data.db.CAT_MOVIE
+import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.db.ChannelEntity
+import com.biskyt.mytvplayer.data.db.ChannelProgramme
+import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.common.CategoryFilter
 import com.biskyt.mytvplayer.ui.common.NowNextLoader
 import com.biskyt.mytvplayer.ui.common.NumberEntry
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -98,6 +104,49 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
 
     /** Channel whose options sheet is open. */
     var optionsFor by mutableStateOf<ChannelEntity?>(null)
+        private set
+
+    /** The TV guide programme the options were opened on (null from the channel list). */
+    var optionsProgramme: ChannelProgramme? = null
+        private set
+
+    fun openOptions(ch: ChannelEntity, programme: ChannelProgramme? = null) {
+        optionsProgramme = programme
+        optionsFor = ch
+    }
+
+    fun closeOptions() {
+        optionsFor = null
+    }
+
+    /**
+     * What "find" can offer for a guide programme (a ProgrammeKind): a series, a film, or (unknown, or an M3U
+     * playlist, which has no movies or series) a search for its title. Null for news, sport and the like.
+     */
+    suspend fun findKind(ch: ChannelEntity, p: ChannelProgramme): Int? = when {
+        p.kind == ProgrammeKind.OTHER -> null
+        c.playlists.get(ch.playlistId)?.isM3u != false -> ProgrammeKind.UNKNOWN
+        else -> p.kind
+    }
+
+    private var findJob: Job? = null
+
+    /** Opens the programme's series (at its episode) or film, or a search for its title when the playlist doesn't have it. */
+    fun find(ch: ChannelEntity, p: ChannelProgramme, kind: Int, open: (Screen) -> Unit) {
+        if (findJob?.isActive == true) return // a second press while the first is still looking
+        findJob = viewModelScope.launch {
+            val pid = ch.playlistId
+            open(
+                when (kind) {
+                    ProgrammeKind.SERIES -> c.vod.findTitle(pid, p.title, CAT_SERIES)?.let {
+                        Screen.SeriesDetails(pid, it, p.season, p.episode)
+                    }
+                    ProgrammeKind.MOVIE -> c.vod.findTitle(pid, p.title, CAT_MOVIE)?.let { Screen.MovieDetails(pid, it) }
+                    else -> null
+                } ?: Screen.Search(p.title)
+            )
+        }
+    }
 
     /**
      * Channel to give focus to when the list or guide is shown again (after the player, or after switching view).
@@ -148,7 +197,7 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
 
     fun hide(ch: ChannelEntity) = viewModelScope.launch {
         c.channels.setHidden(ch.playlistId, ch.streamId, true)
-        optionsFor = null
+        closeOptions()
     }
 
     /** Switches between the channel list and the TV guide grid, keeping focus on the same channel. */

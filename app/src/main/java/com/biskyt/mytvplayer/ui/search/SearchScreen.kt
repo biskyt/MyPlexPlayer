@@ -63,8 +63,8 @@ import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
-class SearchViewModel(private val c: AppContainer) : ViewModel() {
-    val query = MutableStateFlow("")
+class SearchViewModel(private val c: AppContainer, initialQuery: String = "") : ViewModel() {
+    val query = MutableStateFlow(initialQuery)
 
     /** What was searched, in which playlist, and what was found (null: too short to search; see [failed]). */
     data class Found(val playlistId: Long = 0, val query: String = "", val results: SearchResults? = null, val failed: Boolean = false)
@@ -88,8 +88,8 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
 
 /** One search box for channels, TV programmes, movies and series. */
 @Composable
-fun SearchScreen() {
-    val vm = appViewModel { SearchViewModel(it) }
+fun SearchScreen(initialQuery: String = "") {
+    val vm = appViewModel { SearchViewModel(it, initialQuery) }
     val nav = LocalNavigator.current
     val query by vm.query.collectAsState()
     val found = vm.found.collectAsState().value

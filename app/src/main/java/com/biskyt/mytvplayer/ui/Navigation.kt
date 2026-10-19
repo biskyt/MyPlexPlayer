@@ -27,7 +27,9 @@ sealed interface Screen {
     data class Live(val filter: ChannelFilter? = null, val guide: Boolean = false) : Screen
     data class Movies(val filter: VodFilter = VodFilter.All) : Screen
     data class Series(val filter: VodFilter = VodFilter.All) : Screen
-    data object Search : Screen
+
+    /** [query]: already typed (e.g. a TV programme's title). */
+    data class Search(val query: String = "") : Screen
     data class Player(val playlistId: Long, val streamId: Long, val filter: ChannelFilter) : Screen
 
     /**
@@ -42,7 +44,9 @@ sealed interface Screen {
         val continueSeries: Boolean = false
     ) : Screen
     data class MovieDetails(val playlistId: Long, val streamId: Long) : Screen
-    data class SeriesDetails(val playlistId: Long, val seriesId: Long) : Screen
+
+    /** [season] and [episode] (from 1): open on that episode (found from the TV guide). */
+    data class SeriesDetails(val playlistId: Long, val seriesId: Long, val season: Int? = null, val episode: Int? = null) : Screen
     data object Settings : Screen
     data object Playlists : Screen
     data class PlaylistEdit(val playlistId: Long?, val firstRun: Boolean = false) : Screen
