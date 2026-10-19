@@ -38,12 +38,14 @@ jobs:
 
       # The upload key lives in repository secrets. Without them the build falls back to the public development key,
       # which is fine for testing but must not be used for a real release (anyone could sign an "update").
+      # Only MYTV_KEYSTORE_BASE64 and MYTV_KEYSTORE_PASSWORD are needed: the key password defaults to the keystore's
+      # (keytool uses one password for both) and the alias to "mytvplayer"; the other two secrets override them.
       - name: Set up the signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.MYTV_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.MYTV_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.MYTV_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.MYTV_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.MYTV_KEY_ALIAS || 'mytvplayer' }}
+          KEY_PASSWORD: ${{ secrets.MYTV_KEY_PASSWORD || secrets.MYTV_KEYSTORE_PASSWORD }}
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"

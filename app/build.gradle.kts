@@ -22,7 +22,8 @@ android {
 
     signingConfigs {
         // A shared, public debug key so builds from any machine (or CI) install over each other when sideloading.
-        // For distribution, set MYTV_KEYSTORE / MYTV_KEYSTORE_PASSWORD / MYTV_KEY_ALIAS / MYTV_KEY_PASSWORD.
+        // For distribution, set MYTV_KEYSTORE and MYTV_KEYSTORE_PASSWORD (MYTV_KEY_ALIAS defaults to "mytvplayer" and
+        // MYTV_KEY_PASSWORD to the keystore password, as keytool uses one password for both).
         getByName("debug") {
             storeFile = file("debug.keystore")
             storePassword = "android"
@@ -34,8 +35,8 @@ android {
             if (store != null) {
                 storeFile = file(store)
                 storePassword = System.getenv("MYTV_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("MYTV_KEY_ALIAS")
-                keyPassword = System.getenv("MYTV_KEY_PASSWORD")
+                keyAlias = System.getenv("MYTV_KEY_ALIAS") ?: "mytvplayer"
+                keyPassword = System.getenv("MYTV_KEY_PASSWORD") ?: storePassword
             } else {
                 initWith(getByName("debug"))
             }

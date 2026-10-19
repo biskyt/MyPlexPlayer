@@ -16,14 +16,14 @@ Android only installs an update if it is signed with the same key as the install
      -keyalg RSA -keysize 4096 -validity 10000
    ```
    It asks for a password and your name. **Back up the `.jks` file and the password somewhere safe.** Without them you can never update the app again.
-2. **Add four repository secrets** under GitHub › Settings › Secrets and variables › Actions › New repository secret:
+2. **Add two repository secrets** under GitHub › Settings › Secrets and variables › Actions › New repository secret:
 
    | Secret | Value |
    |---|---|
    | `MYTV_KEYSTORE_BASE64` | the output of `base64 -w0 mytvplayer-release.jks` (macOS: `base64 -i mytvplayer-release.jks`) |
-   | `MYTV_KEYSTORE_PASSWORD` | the keystore password |
-   | `MYTV_KEY_ALIAS` | `mytvplayer` |
-   | `MYTV_KEY_PASSWORD` | the key password (the same as the keystore password unless you chose a different one) |
+   | `MYTV_KEYSTORE_PASSWORD` | the password you chose |
+
+   Two more are optional, only if yours differ from the defaults: `MYTV_KEY_ALIAS` (default `mytvplayer`) and `MYTV_KEY_PASSWORD` (default: the keystore password, which is what `keytool` uses).
 
 Until these secrets exist, releases still build, but they are signed with the public development key and marked as test pre-releases.
 
