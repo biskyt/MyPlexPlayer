@@ -331,7 +331,7 @@ fun PlaylistEditScreen(id: Long?, firstRun: Boolean) {
             if (id != null) {
                 Box(Modifier.width(40.dp))
                 PillButton("Delete playlist", {
-                    vm.delete { any -> nav.reset(if (any) Screen.Home else Screen.Welcome(auto = false)) }
+                    vm.delete { any -> nav.reset(if (any) Screen.Home else Screen.Welcome) }
                 })
             }
         }

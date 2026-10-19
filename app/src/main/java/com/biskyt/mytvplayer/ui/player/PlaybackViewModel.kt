@@ -61,7 +61,12 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     private var retryJob: Job? = null
     private var messageJob: Job? = null
     private var sleepJob: Job? = null
-    private var retries = 0
+    private val retries = RetryBudget(MAX_RETRIES)
+
+    // How long the stream has played since its last failure: once it has really played a while, failures get fresh
+    // retries; one that starts and fails again straight away would otherwise retry for ever ("Loading…", blank…).
+    private var playedMs = 0L
+    private var playingSince = 0L
 
     /** Live TV zaps with up/down and has a guide; on-demand video doesn't. */
     protected abstract val isLive: Boolean
@@ -72,15 +77,19 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     private val listener = object : Player.Listener {
         override fun onIsPlayingChanged(playing: Boolean) {
             isPlaying = playing
+            val now = System.currentTimeMillis()
+            if (playing) {
+                playingSince = now
+            } else if (playingSince > 0) {
+                playedMs += now - playingSince
+                playingSince = 0
+            }
             onPlayingChanged(playing)
         }
 
         override fun onPlaybackStateChanged(state: Int) {
             buffering = state == Player.STATE_BUFFERING
-            if (state == Player.STATE_READY) {
-                error = null
-                retries = 0
-            }
+            if (state == Player.STATE_READY) error = null
             if (state == Player.STATE_ENDED) onEnded()
         }
 
@@ -92,21 +101,24 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
         override fun onPlayerError(e: PlaybackException) {
             val player = engine?.player ?: return
+            if (engine?.retryAsHls(e) == true) return
+            // Streams drop out now and then; retry a few times before showing an error.
+            if (playedSinceFailure() >= STEADY_MS) retries.reset()
+            playedMs = 0
+            playingSince = 0
+            if (!retries.take()) {
+                error = failureMessage
+                return
+            }
             if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
                 player.seekToDefaultPosition()
                 player.prepare()
                 return
             }
-            if (engine?.retryAsHls(e) == true) return
-            // Streams drop out now and then; retry a few times before showing an error.
-            if (retries < MAX_RETRIES) {
-                retries++
-                retryJob = viewModelScope.launch {
-                    delay(1_000L * retries)
-                    player.prepare()
-                }
-            } else {
-                error = failureMessage
+            retryJob?.cancel()
+            retryJob = viewModelScope.launch {
+                delay(1_000L * retries.used)
+                player.prepare()
             }
         }
     }
@@ -117,6 +129,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         mapper = KeyActionMapper(settings.skipBackSec * 1_000L, settings.skipForwardSec * 1_000L)
         return PlaybackEngine(appContext, settings).also {
             it.player.addListener(listener)
+            it.onUnsupported = { error = "This uses a stream format MyTVPlayer can't play." }
             engine = it
         }
     }
@@ -125,8 +138,12 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     protected fun resetForNewStream() {
         retryJob?.cancel()
         error = null
-        retries = 0
+        retries.reset()
+        playedMs = 0
+        playingSince = 0
     }
+
+    private fun playedSinceFailure() = playedMs + if (playingSince > 0) System.currentTimeMillis() - playingSince else 0
 
     protected open fun onPlayingChanged(playing: Boolean) = Unit
 
@@ -258,6 +275,9 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
     private companion object {
         const val MAX_RETRIES = 3
+
+        /** Having played this long (in all) since the last failure counts as working: later failures get fresh retries. */
+        const val STEADY_MS = 20_000L
         const val OVERLAY_TIMEOUT_MS = 5_000L
     }
 }
