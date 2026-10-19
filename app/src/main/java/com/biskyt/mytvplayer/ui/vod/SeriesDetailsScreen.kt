@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +41,7 @@ import com.biskyt.mytvplayer.ui.common.ProgressLine
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.formatRuntime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
+import com.biskyt.mytvplayer.ui.common.restoreFocusIf
 import com.biskyt.mytvplayer.ui.player.shortEpisodeLabel
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
@@ -47,7 +50,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class SeriesDetailsViewModel(private val c: AppContainer, private val playlistId: Long, private val seriesId: Long) : ViewModel() {
+class SeriesDetailsViewModel(
+    private val c: AppContainer,
+    private val playlistId: Long,
+    private val seriesId: Long,
+    season: Int?
+) : ViewModel() {
     var series by mutableStateOf<SeriesEntity?>(null)
         private set
     var details by mutableStateOf<SeriesDetails?>(null)
@@ -55,8 +63,11 @@ class SeriesDetailsViewModel(private val c: AppContainer, private val playlistId
     var error by mutableStateOf<String?>(null)
         private set
 
-    /** The season the user picked (until then, the one with the episode to carry on with). */
-    var season by mutableStateOf<Int?>(null)
+    /** The season asked for or picked (until then, the one with the episode to carry on with). */
+    var season by mutableStateOf(season)
+
+    /** An episode to focus when the page opens (from the TV guide), until it has had focus. */
+    var focusEpisodePending = true
 
     /** Progress per episode id. */
     val progress = c.vod.observeSeriesProgress(playlistId, seriesId).map { list -> list.associateBy { it.itemId } }
@@ -95,7 +106,7 @@ fun continueEpisode(episodes: List<EpisodeInfo>, progress: Map<Long, WatchProgre
 
 @Composable
 fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
-    val vm = appViewModel { SeriesDetailsViewModel(it, screen.playlistId, screen.seriesId) }
+    val vm = appViewModel { SeriesDetailsViewModel(it, screen.playlistId, screen.seriesId, screen.season) }
     val nav = LocalNavigator.current
     val show = vm.series ?: return
     val d = vm.details
@@ -108,13 +119,15 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
         Muted(metaLine(show.year ?: d?.info?.year, null, d?.info?.genre, show.rating ?: d?.info?.rating))
         d?.info?.plot?.let { Text(it, style = MaterialTheme.typography.bodyLarge, maxLines = 3, overflow = TextOverflow.Ellipsis) }
         val next = d?.let { continueEpisode(it.episodes, progress) }
+        // Opened for one episode (from the TV guide): focus goes to it rather than to Play.
+        val target = d?.episodes?.firstOrNull { it.season == screen.season && it.number == screen.episode }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (next != null) {
                 val started = progress.isNotEmpty()
                 PillButton(
                     (if (started) "Continue: " else "Play ") + shortEpisodeLabel(next.season, next.number),
                     { play(next) },
-                    rememberFirstFocus(next.id),
+                    if (target == null || !vm.focusEpisodePending) rememberFirstFocus(next.id) else Modifier,
                     primary = true
                 )
             }
@@ -127,7 +140,11 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
             }
             d == null -> Muted("Loading episodes…")
             d.episodes.isEmpty() -> Muted("No episodes are available for this series.")
-            else -> Episodes(vm, d, vm.season ?: next?.season ?: d.seasons.firstOrNull()?.number, progress, play)
+            else -> {
+                // A season the provider doesn't have (the guide may number them differently) shows the usual one.
+                val asked = vm.season?.takeIf { s -> d.episodes.any { it.season == s } }
+                Episodes(vm, d, asked ?: next?.season ?: d.seasons.firstOrNull()?.number, progress, target, play)
+            }
         }
     }
 }
@@ -138,6 +155,7 @@ private fun Episodes(
     d: SeriesDetails,
     season: Int?,
     progress: Map<Long, WatchProgressEntity>,
+    target: EpisodeInfo?,
     play: (EpisodeInfo) -> Unit
 ) {
     if (d.seasons.size > 1) {
@@ -148,14 +166,23 @@ private fun Episodes(
         }
     }
     val shown = remember(d, season) { d.episodes.filter { season == null || it.season == season } }
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
-        items(shown, key = { it.id }) { e -> EpisodeRow(e, progress[e.id]) { play(e) } }
+    val list = rememberLazyListState()
+    // Scrolled into view first, so the row exists to take focus.
+    LaunchedEffect(target, shown) {
+        val i = shown.indexOf(target)
+        if (vm.focusEpisodePending && i >= 0) list.scrollToItem(i)
+    }
+    LazyColumn(state = list, verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+        items(shown, key = { it.id }) { e ->
+            val focus = Modifier.restoreFocusIf(vm.focusEpisodePending && e == target) { vm.focusEpisodePending = false }
+            EpisodeRow(e, progress[e.id], focus) { play(e) }
+        }
     }
 }
 
 @Composable
-private fun EpisodeRow(e: EpisodeInfo, progress: WatchProgressEntity?, onClick: () -> Unit) {
-    TvCard(onClick = onClick, color = Palette.surfaceLow, modifier = Modifier.fillMaxWidth()) {
+private fun EpisodeRow(e: EpisodeInfo, progress: WatchProgressEntity?, modifier: Modifier, onClick: () -> Unit) {
+    TvCard(onClick = onClick, color = Palette.surfaceLow, modifier = modifier.fillMaxWidth()) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("${e.number}", style = MaterialTheme.typography.titleSmall, color = Palette.textDim, modifier = Modifier.width(36.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {

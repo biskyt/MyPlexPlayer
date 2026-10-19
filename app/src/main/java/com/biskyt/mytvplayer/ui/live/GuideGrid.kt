@@ -167,7 +167,8 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
                             if (isTarget && programmes != null) focusTarget.value = null
                         },
                         onPlay = { play(ch) },
-                        onOptions = { vm.optionsFor = ch },
+                        // The programme with focus on this row, so its options can offer to find it on demand.
+                        onOptions = { vm.openOptions(ch, focused.value?.takeIf { it.first.streamId == ch.streamId }?.second) },
                         onEdge = { dir, p -> edge(ch, dir, p) }
                     )
                 }

@@ -60,4 +60,22 @@ class MigrationTest {
             }
         }
     }
+
+    @Test
+    fun `version 3 to 4 keeps programmes, of unknown kind until the next guide update`() {
+        helper.createDatabase("migration-test-4", 3).use { db ->
+            db.execSQL(
+                "INSERT INTO programme (sourceId, xmlId, startMs, stopMs, title, subtitle, description, stamp) " +
+                    "VALUES (1, 'one.uk', 1000, 2000, 'News', NULL, NULL, 0)"
+            )
+        }
+        helper.runMigrationsAndValidate("migration-test-4", 4, true).use { db ->
+            db.query("SELECT title, kind, season FROM programme").use {
+                it.moveToFirst()
+                assertEquals("News", it.getString(0))
+                assertEquals(0, it.getInt(1))
+                assertEquals(true, it.isNull(2))
+            }
+        }
+    }
 }

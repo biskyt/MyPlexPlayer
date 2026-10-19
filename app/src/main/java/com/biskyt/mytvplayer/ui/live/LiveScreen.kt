@@ -169,7 +169,7 @@ private fun ChannelList(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
                     favourite = ch.streamId in favs,
                     nowMs = now,
                     onClick = { play(ch) },
-                    onLongClick = { vm.optionsFor = ch },
+                    onLongClick = { vm.openOptions(ch) },
                     modifier = Modifier.restoreFocusIf(wantsFocus) { vm.restoreFocusPending = false }
                         .onFocusChanged { if (it.isFocused) vm.focusMoved(ch.streamId, index) }
                 )

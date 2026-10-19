@@ -65,6 +65,20 @@ class VodRepository(private val db: AppDatabase, private val playlists: Playlist
 
     suspend fun movie(playlistId: Long, id: Long) = vod.movie(playlistId, id)
 
+    /**
+     * The movie or series ([type]) with the same title as a TV programme, if the playlist has one. Looked up by the
+     * title's longest word, so punctuation differences don't hide it, then compared in full. An all-ASCII word is
+     * preferred, as SQLite ignores case only for ASCII letters ("Élite" stored, "élite" searched).
+     */
+    suspend fun findTitle(playlistId: Long, title: String, type: String): Long? {
+        val key = VodTitles.key(title)
+        val words = key.split(' ').filter { it.isNotEmpty() }
+        val word = (words.filter { w -> w.all { it.code < 128 } }.ifEmpty { words }).maxByOrNull { it.length } ?: return null
+        val q = likeArg(word)
+        val found = if (type == CAT_MOVIE) vod.searchMovies(playlistId, q, FIND_LIMIT) else vod.searchSeries(playlistId, q, FIND_LIMIT)
+        return found.firstOrNull { VodTitles.key(it.title) == key }?.id
+    }
+
     suspend fun series(playlistId: Long, id: Long) = vod.series(playlistId, id)
 
     // --- favourites and progress ---
@@ -199,5 +213,6 @@ class VodRepository(private val db: AppDatabase, private val playlists: Playlist
         const val BATCH = 2_000
         const val DETAILS_CACHE = 20
         const val KEEP_PROGRESS = 300
+        const val FIND_LIMIT = 500
     }
 }

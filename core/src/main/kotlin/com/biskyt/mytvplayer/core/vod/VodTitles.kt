@@ -28,6 +28,17 @@ object VodTitles {
     }
 
     private val wordCodes = setOf("IT", "IN", "NO", "AL", "AR", "AF", "US")
+    private val nonWord = Regex("""[^\p{L}\p{N}]+""")
+
+    /**
+     * A title reduced for comparing a TV programme with a provider's movie or series: no tags or year, lower case,
+     * no punctuation and no leading "the" ("The Simpsons (1989)", "Simpsons" → "simpsons").
+     */
+    fun key(title: String): String {
+        // Apostrophes are dropped rather than split on, so "Grey's" and "Greys" agree.
+        val words = clean(title).title.lowercase().replace("'", "").replace("\u2019", "").split(nonWord).filter { it.isNotEmpty() }
+        return (if (words.size > 1 && words[0] == "the") words.drop(1) else words).joinToString(" ")
+    }
 
     fun clean(name: String): CleanTitle {
         // A few providers stack tags ("|EN| [4K] Title"); up to two are removed.

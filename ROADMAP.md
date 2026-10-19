@@ -2,17 +2,19 @@
 
 ## Done
 - **0.1–0.2:** Live TV (list and TV guide), player, guide matching, playlists (Xtream and M3U), free iptv-org channels, settings.
+- **0.3–0.7:**
+  - Movies and Series, with resume and "Carry on watching".
+  - Global search.
+  - Backup and restore.
+  - Better guide matching.
+  - "Find in Series / Movies" from the TV guide.
 
 ## Milestone 2: Movies, Series and search
-- Movies and Series:
-  - posters, plus optional TMDB artwork and details (can be turned off)
-  - resume where you left off, watched state and "Carry on watching"
-- Global search across channels, programmes, movies, series and episodes.
-- Catch-up / timeshift and programme reminders.
-- Backup and restore to a single JSON file.
+- Catch-up / timeshift and programme reminders (next).
+- Optional TMDB artwork and details for movies and series (can be turned off).
 - OpenSubtitles (off by default).
 
-### "Find in Series / Movies" from the TV guide
+### "Find in Series / Movies" from the TV guide (done in 0.7.0)
 In the TV guide, a programme's options menu (hold OK, or Info) offers a way to watch it on demand.
 
 - **What the menu shows:**

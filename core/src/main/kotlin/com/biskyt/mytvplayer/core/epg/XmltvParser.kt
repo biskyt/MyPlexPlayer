@@ -11,7 +11,11 @@ data class XmltvProgramme(
     val stopMs: Long,
     val title: String,
     val subtitle: String?,
-    val description: String?
+    val description: String?,
+    /** A [ProgrammeKind] constant. */
+    val kind: Int = ProgrammeKind.UNKNOWN,
+    val season: Int? = null,
+    val episode: Int? = null
 )
 
 /**
@@ -84,15 +88,27 @@ class XmltvParser(
         var title: String? = null
         var sub: String? = null
         var desc: String? = null
+        var kind = ProgrammeKind.UNKNOWN
+        var packedEpisode: Int? = null
         forEachChild(p) { tag ->
             when (tag) {
                 "title" -> p.nextText().trim().let { if (title == null) title = it }
                 "sub-title" -> p.nextText().trim().let { if (sub == null) sub = it }
                 "desc" -> p.nextText().trim().let { if (desc == null) desc = it }
+                "category" -> kind = ProgrammeKind.fold(kind, p.nextText())
+                "episode-num" -> {
+                    val system = p.getAttributeValue(null, "system")
+                    val value = p.nextText()
+                    if (packedEpisode == null) packedEpisode = ProgrammeKind.parseEpisode(system, value)
+                }
                 else -> p.skipElement()
             }
         }
-        return XmltvProgramme(channelId, start, stop, title?.ifEmpty { null } ?: "No title", sub?.ifEmpty { null }, desc?.ifEmpty { null })
+        val ep = packedEpisode
+        return XmltvProgramme(
+            channelId, start, stop, title?.ifEmpty { null } ?: "No title", sub?.ifEmpty { null }, desc?.ifEmpty { null },
+            ProgrammeKind.finish(kind, ep != null), ep?.let(ProgrammeKind::season), ep?.let(ProgrammeKind::episode)
+        )
     }
 
     /** Calls [onChild] for each direct child start tag; [onChild] must consume the child element. */

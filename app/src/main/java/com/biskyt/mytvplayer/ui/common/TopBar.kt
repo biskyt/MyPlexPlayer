@@ -90,7 +90,7 @@ fun TopBar(selected: Tab?) {
         Box(Modifier.weight(1f))
         SyncStatus()
         Clock()
-        IconPill(AppIcons.Search, "Search") { nav.push(Screen.Search) }
+        IconPill(AppIcons.Search, "Search") { nav.push(Screen.Search()) }
         IconPill(AppIcons.Settings, "Settings") { nav.push(Screen.Settings) }
         if (active != null) {
             TvCard(onClick = { nav.push(Screen.Playlists) }, shape = RoundedCornerShape(50)) {

@@ -103,7 +103,7 @@ class AppUiTest {
             Screen.Backup -> BackupScreen()
             Screen.GuideSources -> GuideSourcesScreen()
             Screen.Playlists -> PlaylistsScreen()
-            Screen.Search -> SearchScreen()
+            is Screen.Search -> SearchScreen(screen.query)
             is Screen.Movies -> VodBrowseScreen(CAT_MOVIE, screen.filter)
             is Screen.Series -> VodBrowseScreen(CAT_SERIES, screen.filter)
             is Screen.MovieDetails -> MovieDetailsScreen(screen)
@@ -147,6 +147,31 @@ class AppUiTest {
         compose.onNode(hasText("Change guide source…")).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
         assertEquals(Screen.GuideMatching(playlistId, 101), navigator.current.screen)
+    }
+
+    @Test
+    fun `a guide programme's options find its series episode, or search for its title`() {
+        runBlocking {
+            provider.nowProgramme = mapOf(
+                "one.uk" to "<title>Line of Duty</title><category>Drama</category><episode-num system=\"xmltv_ns\">0.1.</episode-num>",
+                "kite.uk" to "<title>Mystery Hour</title>"
+            )
+            app.container.epg.importAll(listOf(playlistId))
+        }
+        show(Screen.Live(guide = true))
+        compose.waitUntil(5_000) { focusedText().contains("Line of Duty") }
+        compose.onRoot().performKeyInput {
+            keyDown(Key.DirectionCenter)
+            advanceEventTime(1_500)
+            keyUp(Key.DirectionCenter)
+        }
+        waitFor("Find series")
+        compose.onNode(hasText("Find series")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(5_000) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            navigator.current.screen is Screen.SeriesDetails
+        }
+        assertEquals(Screen.SeriesDetails(playlistId, 77, season = 1, episode = 2), navigator.current.screen)
     }
 
     private fun focusedText(): String = compose.onAllNodes(isFocused()).fetchSemanticsNodes().joinToString(" | ") { node ->
@@ -225,7 +250,7 @@ class AppUiTest {
 
     @Test
     fun `search finds channels, programmes and movies, and opens what is picked`() {
-        show(Screen.Search)
+        show(Screen.Search())
         compose.waitUntil(5_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasSetTextAction()).performTextInput("one")
         waitFor("Now on one.uk") // programme

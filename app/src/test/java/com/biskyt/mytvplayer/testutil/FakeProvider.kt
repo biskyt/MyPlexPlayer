@@ -141,6 +141,9 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
         "cine.fr" to "Ciné+"
     )
 
+    /** Guide channel id to the inside of its "now" programme, replacing "Now on <id>" (e.g. a series episode). */
+    var nowProgramme = mapOf<String, String>()
+
     fun xmltv(): String = buildString {
         append("<?xml version=\"1.0\"?><tv>")
         for ((id, name) in guideChannels) {
@@ -150,7 +153,7 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
             append(
                 "<programme start=\"${t(
                     -30
-                )}\" stop=\"${t(30)}\" channel=\"$id\"><title>Now on $id</title><desc>About $id</desc></programme>"
+                )}\" stop=\"${t(30)}\" channel=\"$id\">${nowProgramme[id] ?: "<title>Now on $id</title><desc>About $id</desc>"}</programme>"
             )
             append("<programme start=\"${t(30)}\" stop=\"${t(90)}\" channel=\"$id\"><title>Next on $id</title></programme>")
         }

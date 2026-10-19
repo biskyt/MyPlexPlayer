@@ -3,6 +3,7 @@ package com.biskyt.mytvplayer.data
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.biskyt.mytvplayer.core.epg.ProgrammeKind
 import com.biskyt.mytvplayer.core.xtream.XtreamException
 import com.biskyt.mytvplayer.data.db.AppDatabase
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
@@ -420,6 +421,31 @@ class RepositoriesTest {
         provider.guideChannels = provider.guideChannels.filter { it.first != "wnbc.us" }
         epg.importAll(listOf(id))
         assertNull(db.epg().mapping(id, 104)!!.sourceId)
+    }
+
+    @Test
+    fun `guide programmes know if they are a series episode or a film, and are found on demand`() = runBlocking {
+        val id = addPlaylist()
+        playlists.syncChannels(id)
+        vod.sync(playlists.get(id)!!)
+        val p = playlists.get(id)!!
+        epg.ensureProviderSource(p, playlists.client(p).xmltvUrl())
+        provider.nowProgramme = mapOf(
+            "one.uk" to "<title>Line of Duty</title><category>Drama</category><episode-num system=\"xmltv_ns\">0.1.</episode-num>"
+        )
+        epg.importAll(listOf(id))
+        val now = System.currentTimeMillis()
+        val onNow = epg.programmes(id, listOf(101), now, now + 60_000).getValue(101).first()
+        assertEquals(Triple(ProgrammeKind.SERIES, 1, 2), Triple(onNow.kind, onNow.season, onNow.episode))
+        assertEquals(77L, vod.findTitle(id, onNow.title, CAT_SERIES))
+
+        provider.nowProgramme = mapOf("one.uk" to "<title>Dune</title><category>Movie</category>")
+        epg.importAll(listOf(id))
+        assertEquals(ProgrammeKind.MOVIE, epg.programmes(id, listOf(101), now, now + 60_000).getValue(101).first().kind)
+        assertEquals(501L, vod.findTitle(id, "Dune", CAT_MOVIE))
+        assertEquals(501L, vod.findTitle(id, "DUNE!", CAT_MOVIE)) // compared without case or punctuation
+        assertNull(vod.findTitle(id, "Dune: Part Two", CAT_MOVIE))
+        assertNull(vod.findTitle(id, "Line of Duty", CAT_MOVIE))
     }
 
     @Test

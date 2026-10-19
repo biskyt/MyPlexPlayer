@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -16,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.core.epg.ProgrammeKind
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
@@ -24,6 +26,7 @@ import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.ScheduleList
 import com.biskyt.mytvplayer.ui.common.SidePanel
 import com.biskyt.mytvplayer.ui.common.TvCard
+import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.common.numberLabel
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.common.rememberSchedule
@@ -35,7 +38,9 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
     val nav = LocalNavigator.current
     val favs by vm.favouriteIds.collectAsState()
     var showGuide by remember { mutableStateOf(false) }
-    val close = { vm.optionsFor = null }
+    val close = vm::closeOptions
+    val programme = vm.optionsProgramme
+    val findKind by produceState<Int?>(null, ch, programme) { if (programme != null) value = vm.findKind(ch, programme) }
     SidePanel(onDismiss = { if (showGuide) showGuide = false else close() }) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
@@ -44,6 +49,10 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                     Text(ch.name, style = MaterialTheme.typography.titleLarge, maxLines = 2)
                     Muted(ch.numberLabel)
                 }
+            }
+            if (programme != null) {
+                Text(programme.title, style = MaterialTheme.typography.titleMedium, maxLines = 2)
+                Muted("${formatTime(programme.startMs)} – ${formatTime(programme.stopMs)}", Modifier.padding(bottom = 4.dp))
             }
             if (showGuide) {
                 ScheduleList(rememberSchedule(ch.playlistId, ch.streamId), onSelect = {
@@ -54,6 +63,20 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                 Option("Watch", modifier = rememberFirstFocus()) {
                     close()
                     play(ch)
+                }
+                val kind = findKind
+                if (programme != null && kind != null) {
+                    val label = when (kind) {
+                        ProgrammeKind.SERIES -> "Find series"
+                        ProgrammeKind.MOVIE -> "Find in Movies"
+                        else -> "Search for \u201c${programme.title}\u201d"
+                    }
+                    Option(label, "Watch it on demand") {
+                        close()
+                        // Only if the user is still here when the lookup finishes.
+                        val from = nav.current
+                        vm.find(ch, programme, kind) { if (nav.current === from) nav.push(it) }
+                    }
                 }
                 Option(if (ch.streamId in favs) "Remove from favourites" else "Add to favourites") { vm.toggleFavourite(ch) }
                 Option("Show TV guide for this channel", "Upcoming programmes") { showGuide = true }

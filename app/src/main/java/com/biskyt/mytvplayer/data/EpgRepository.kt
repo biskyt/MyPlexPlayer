@@ -396,7 +396,9 @@ class EpgRepository(
             parser(now - KEEP_PAST_MS, now + KEEP_FUTURE_MS).parse(input, wantProgrammes = {
                 it in xmlIds
             }, onChannel = {}, onProgramme = { p ->
-                batch += ProgrammeEntity(sourceId, p.channelId, p.startMs, p.stopMs, p.title, p.subtitle, p.description, stamp)
+                batch += ProgrammeEntity(
+                    sourceId, p.channelId, p.startMs, p.stopMs, p.title, p.subtitle, p.description, stamp, p.kind, p.season, p.episode
+                )
                 if (batch.size >= BATCH) {
                     epg.insertProgrammes(batch.toList())
                     batch.clear()
