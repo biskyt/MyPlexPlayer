@@ -60,10 +60,9 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         .build()
 
     /**
-     * Called when an address can't be played at all (a stream type the player has no support for), instead of the
-     * player throwing and closing the app.
+     * Called with an address that can't be played at all (a stream type the player has no support for), instead of
+     * the player throwing and closing the app.
      */
-    /** Called with the address the player can't handle. */
     var onUnsupported: (url: String) -> Unit = {}
 
     /** True once the default subtitle choice has been applied to the current stream (the user may change it after). */

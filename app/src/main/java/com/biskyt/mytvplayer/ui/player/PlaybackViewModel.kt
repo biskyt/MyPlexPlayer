@@ -18,8 +18,7 @@ import com.biskyt.mytvplayer.core.player.RemoteKey
 import com.biskyt.mytvplayer.data.Settings
 import com.biskyt.mytvplayer.player.PlaybackEngine
 import com.biskyt.mytvplayer.player.PlaybackError
-import com.biskyt.mytvplayer.player.explainFailure
-import com.biskyt.mytvplayer.player.streamSource
+import com.biskyt.mytvplayer.player.failureReason
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -115,7 +114,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             playedMs = 0
             playingSince = 0
             if (!retries.take()) {
-                fail(failureMessage, listOfNotNull(explainFailure(e), streamSource(engine?.currentUrl)).joinToString(" "))
+                fail(failureMessage, failureReason(e, engine?.currentUrl))
                 return
             }
             if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
@@ -137,7 +136,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         mapper = KeyActionMapper(settings.skipBackSec * 1_000L, settings.skipForwardSec * 1_000L)
         return PlaybackEngine(appContext, settings).also {
             it.player.addListener(listener)
-            it.onUnsupported = { url -> fail("This uses a stream format MyTVPlayer can't play.", streamSource(url)) }
+            it.onUnsupported = { url -> fail("This uses a stream format MyTVPlayer can't play.", failureReason(null, url)) }
             engine = it
         }
     }
