@@ -19,8 +19,8 @@ import com.biskyt.mytvplayer.data.VodFilter
 
 /** Every screen in the app. Tab roots are [Home], [Live], [Movies], [Series]. */
 sealed interface Screen {
-    /** First launch ([auto] sets up the free channels straight away) or after the last playlist is deleted. */
-    data class Welcome(val auto: Boolean = true) : Screen
+    /** First launch, or after the last playlist is deleted: add a provider, the free channels, or restore a backup. */
+    data object Welcome : Screen
     data object Home : Screen
 
     /** [filter] null: the list shown last. */

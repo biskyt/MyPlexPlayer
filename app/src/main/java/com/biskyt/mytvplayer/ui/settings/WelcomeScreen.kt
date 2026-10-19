@@ -31,18 +31,14 @@ import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-/** First launch: sets up the free iptv-org channels so there is something to watch straight away. */
-class WelcomeViewModel(private val c: AppContainer, auto: Boolean) : ViewModel() {
+/** First launch: the free iptv-org channels, when the user picks them. */
+class WelcomeViewModel(private val c: AppContainer) : ViewModel() {
     var error by mutableStateOf<String?>(null)
         private set
     var working by mutableStateOf(false)
         private set
     var addedId by mutableStateOf<Long?>(null)
         private set
-
-    init {
-        if (auto) start()
-    }
 
     fun start() {
         if (working) return
@@ -64,8 +60,8 @@ class WelcomeViewModel(private val c: AppContainer, auto: Boolean) : ViewModel()
 }
 
 @Composable
-fun WelcomeScreen(auto: Boolean) {
-    val vm = appViewModel { WelcomeViewModel(it, auto) }
+fun WelcomeScreen() {
+    val vm = appViewModel { WelcomeViewModel(it) }
     val nav = LocalNavigator.current
     vm.addedId?.let { id ->
         // Next: choose which countries' channels to load (the TV's own country is preselected).
@@ -77,8 +73,9 @@ fun WelcomeScreen(auto: Boolean) {
     ) {
         Text("Welcome to MyTVPlayer", style = MaterialTheme.typography.displaySmall)
         Muted(
-            "MyTVPlayer can set up free TV channels from iptv-org, a public collection of freely available channels. " +
-                "You can add your own TV provider at any time in Settings › Playlists.",
+            "Add the TV service you subscribe to (an Xtream Codes login or an M3U playlist address), or start with free " +
+                "channels from iptv-org, a public collection of freely available channels. You can add the other at any " +
+                "time in Settings › Playlists.",
             Modifier.widthIn(max = 820.dp),
             maxLines = 3,
         )
@@ -88,19 +85,24 @@ fun WelcomeScreen(auto: Boolean) {
             error != null -> Text(error, style = MaterialTheme.typography.titleMedium, color = Palette.warning)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (!vm.working) {
-                PillButton(
-                    if (error != null) "Try again" else "Set up the free channels",
-                    vm::start,
-                    rememberFirstFocus(error),
-                    primary = true,
-                )
-            }
             PillButton(
-                "Use my own provider instead",
+                "Add my TV provider",
                 { nav.replace(Screen.PlaylistEdit(null, firstRun = true)) },
-                if (vm.working) rememberFirstFocus() else Modifier,
+                if (error == null) rememberFirstFocus() else Modifier,
+                primary = true,
             )
+            // Stays on screen while setting up, so the button pressed keeps focus.
+            PillButton(
+                when {
+                    vm.working -> "Setting up…"
+                    error != null -> "Try the free channels again"
+                    else -> "Free channels (iptv-org)"
+                },
+                vm::start,
+                if (error != null) rememberFirstFocus(error) else Modifier,
+            )
+            // After reinstalling: everything back from a backup file.
+            PillButton("Restore a backup", { nav.push(Screen.Backup) })
         }
     }
 }
