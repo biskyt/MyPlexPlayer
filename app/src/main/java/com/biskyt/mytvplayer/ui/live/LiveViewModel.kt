@@ -87,6 +87,21 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
     val categories: StateFlow<List<CategoryEntity>> = activePlaylist.flatMapLatest { c.db.categories().observeIncluded(it, CAT_LIVE) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** How many channels offer catch-up (the Catch-up list is left out when none do). */
+    val catchupCount: StateFlow<Int> = activePlaylist.flatMapLatest { c.channels.observeCatchupCount(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    /** The category whose options are open (from holding OK on it in the column). */
+    var categoryOptions by mutableStateOf<CategoryEntity?>(null)
+
+    /** Hides a category, as unticking it in Settings › Languages & categories does; its channels go at the next update. */
+    fun hideCategory(cat: CategoryEntity) = viewModelScope.launch {
+        categoryOptions = null
+        if (filter.value == ChannelFilter.Category(cat.categoryId)) filters.select(ChannelFilter.All)
+        c.db.categories().setIncluded(cat.playlistId, CAT_LIVE, listOf(cat.categoryId), false)
+        c.sync.refresh(cat.playlistId)
+    }
+
     val totalCount: StateFlow<Int> = activePlaylist.flatMapLatest { c.channels.observeCount(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 

@@ -1,6 +1,15 @@
 package com.biskyt.mytvplayer.ui.common
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.data.db.ChannelEntity
+import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 
 /** Something an options menu offers for an item: open a screen, or do something there and then. */
@@ -32,4 +41,26 @@ fun channelActions(ch: ChannelEntity, favourite: Boolean, setFavourite: (Boolean
     add(
         ItemAction.Open("Change guide source…", Screen.GuideMatching(ch.playlistId, ch.streamId), "Pick which guide data this channel uses")
     )
+}
+
+/** A side panel of what can be done with something: [actions] in order, the first with focus. */
+@Composable
+fun ItemActionsPanel(title: String, actions: List<ItemAction>, onDismiss: () -> Unit) {
+    val nav = LocalNavigator.current
+    SidePanel(onDismiss) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 2, modifier = Modifier.padding(bottom = 8.dp))
+            actions.forEachIndexed { i, a ->
+                MenuOption(a.label, a.help, if (i == 0) rememberFirstFocus() else Modifier) {
+                    when (a) {
+                        is ItemAction.Open -> {
+                            onDismiss()
+                            nav.push(a.screen)
+                        }
+                        is ItemAction.Run -> a.run()
+                    }
+                }
+            }
+        }
+    }
 }

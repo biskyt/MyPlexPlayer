@@ -1,6 +1,8 @@
 package com.biskyt.mytvplayer.ui.common
 
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -11,8 +13,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -66,19 +72,46 @@ class CategoryFilter<F>(private val scope: CoroutineScope, initial: F, private v
 data class CategoryEntry<F>(val filter: F, val label: String, val count: Int? = null)
 
 /**
- * The column of categories on the left of Live TV, Movies and Series. Moving focus onto an entry calls [onFocus]
- * (screens switch the list after a short pause); OK calls [onSelect].
+ * The column of categories on the left of Live TV, Movies and Series. Moving focus from one entry to another calls
+ * [onFocus] (screens switch the list after a short pause); OK calls [onSelect], and holding OK (or Menu) [onOptions].
+ *
+ * Coming into the column, focus goes to the selected entry. Arriving any other way (e.g. focus thrown out of a list
+ * that changed under it) never switches the list: only moving within the column does.
  */
 @Composable
-fun <F> CategoryColumn(entries: List<CategoryEntry<F>>, selected: F, onFocus: (F) -> Unit, onSelect: (F) -> Unit) {
-    LazyColumn(Modifier.width(250.dp), verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+fun <F> CategoryColumn(
+    entries: List<CategoryEntry<F>>,
+    selected: F,
+    onFocus: (F) -> Unit,
+    onSelect: (F) -> Unit,
+    onOptions: ((F) -> Unit)? = null
+) {
+    val selectedEntry = remember { FocusRequester() }
+    // Whether focus was already on an entry here: a plain flag, so moving focus never recomposes the column.
+    val inside = remember { booleanArrayOf(false) }
+    LazyColumn(
+        Modifier.width(250.dp)
+            .onFocusChanged { if (!it.hasFocus) inside[0] = false }
+            .focusProperties { onEnter = { selectedEntry.requestFocus(requestedFocusDirection) } }
+            .focusGroup(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        contentPadding = PaddingValues(bottom = 24.dp)
+    ) {
         items(entries, key = { it.label + it.filter.hashCode() }) { (f, label, count) ->
             val isSelected = f == selected
             TvCard(
                 onClick = { onSelect(f) },
+                onLongClick = onOptions?.let { { it(f) } },
                 selected = isSelected,
                 color = Palette.background,
-                modifier = Modifier.fillMaxWidth().onFocusChanged { if (it.isFocused) onFocus(f) }
+                modifier = Modifier.fillMaxWidth()
+                    .then(if (isSelected) Modifier.focusRequester(selectedEntry) else Modifier)
+                    .onFocusChanged {
+                        if (it.isFocused) {
+                            if (inside[0]) onFocus(f)
+                            inside[0] = true
+                        }
+                    }
             ) {
                 Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -92,6 +125,17 @@ fun <F> CategoryColumn(entries: List<CategoryEntry<F>>, selected: F, onFocus: (F
                     if (count != null) Text(formatCount(count), style = MaterialTheme.typography.bodySmall, color = Palette.textDim)
                 }
             }
+        }
+    }
+}
+
+/** Holding OK on a category: hide it (shown again from Settings › Languages & categories). */
+@Composable
+fun CategoryOptionsSheet(name: String, onHide: () -> Unit, onDismiss: () -> Unit) {
+    SidePanel(onDismiss) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(name, style = MaterialTheme.typography.titleLarge, maxLines = 2, modifier = Modifier.padding(bottom = 8.dp))
+            MenuOption("Hide category", "Show it again in Settings › Languages & categories", rememberFirstFocus(), onHide)
         }
     }
 }

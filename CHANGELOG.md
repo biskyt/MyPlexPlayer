@@ -2,6 +2,19 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.8.6
+- **Catch-up** has its own tab (in place of Favourites, which Home and each section already show), for playlists
+  with catch-up channels. It lists those channels; OK opens a channel's past programmes. Live TV also has a Catch-up
+  list.
+- Channels with catch-up have a small ⟲ clock mark in the channel list, the TV guide and on Home.
+- Hold OK (or press Menu) on a category in Live TV, Movies or Series to hide it. Show it again in Settings ›
+  Languages & categories.
+- Hold OK on a Home card for its options: watch, favourites, catch-up, change guide source, or take it off "Recently
+  watched" or "Carry on watching".
+- Fixed: the TV guide sometimes jumped to another category, when switching from the channel list or when scrolling
+  back through catch-up. A category now only changes when you move through the categories yourself, and moving
+  left into them lands on the one you're in.
+
 ## 0.8.5
 - Adding a TV guide is much quicker: only the new guide's programmes are loaded (and those of channels whose guide
   changed), not every guide again. "Downloading" and "Loading programmes" now show how far they've got.
