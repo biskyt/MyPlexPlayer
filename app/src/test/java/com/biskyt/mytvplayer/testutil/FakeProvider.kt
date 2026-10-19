@@ -173,6 +173,9 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
     /** Guide channel id to the inside of its "now" programme, replacing "Now on <id>" (e.g. a series episode). */
     var nowProgramme = mapOf<String, String>()
 
+    /** Guide channel id to the title of its "next" programme, replacing "Next on <id>". */
+    var nextTitle = mapOf<String, String>()
+
     /** Each channel followed by its programmes, as some joined-up guides are (against the XMLTV format). */
     var interleavedGuide = false
 
@@ -184,7 +187,11 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
                 "<programme start=\"${t(-30)}\" stop=\"${t(30)}\" channel=\"$id\">" +
                     "${nowProgramme[id] ?: "<title>Now on $id</title><desc>About $id</desc>"}</programme>"
             )
-            append("<programme start=\"${t(30)}\" stop=\"${t(90)}\" channel=\"$id\"><title>Next on $id</title></programme>")
+            append(
+                "<programme start=\"${t(
+                    30
+                )}\" stop=\"${t(90)}\" channel=\"$id\"><title>${nextTitle[id] ?: "Next on $id"}</title></programme>"
+            )
         }
         if (interleavedGuide) {
             for ((id, name) in guideChannels) {
