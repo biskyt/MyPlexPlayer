@@ -2,6 +2,16 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.8.2
+- Settings › TV guide sources is easier to use:
+  - One status box, right under the buttons, shows what's happening while a guide is added, updated or matched,
+    then says clearly how it went.
+  - Matching says how many channels already have a guide and how many still have none, not just that nothing new
+    matched.
+  - Your guides, free country guides included, are all in one list. **Add a guide** opens a panel with the free
+    guides by country (yours first) and a box for your own XMLTV address.
+- Setting up the free channels now adds the free TV guide for each country you pick, where there is one.
+
 ## 0.8.1
 - First launch asks what you'd like: add your TV provider, start with the free channels, or restore a backup.
   Nothing is set up until you choose.

@@ -4,8 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,11 +22,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -41,6 +47,7 @@ import com.biskyt.mytvplayer.core.epg.EpgCandidate
 import com.biskyt.mytvplayer.core.epg.EpgMatch
 import com.biskyt.mytvplayer.data.FreeGuide
 import com.biskyt.mytvplayer.data.FreeGuides
+import com.biskyt.mytvplayer.data.GuideCoverage
 import com.biskyt.mytvplayer.data.SyncState
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.EpgSourceEntity
@@ -52,6 +59,7 @@ import com.biskyt.mytvplayer.ui.common.AppIcons
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.PillButton
+import com.biskyt.mytvplayer.ui.common.SidePanel
 import com.biskyt.mytvplayer.ui.common.Toggle
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.TvTextField
@@ -62,6 +70,7 @@ import com.biskyt.mytvplayer.ui.common.syncLabel
 import com.biskyt.mytvplayer.ui.settings.SettingsPage
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -71,11 +80,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 // ---------------------------------------------------------------- sources
+
+/** The status panel on the guide sources page: progress while [working], then what happened. */
+data class GuideStatus(val title: String, val detail: String? = null, val working: Boolean = false, val failed: Boolean = false)
 
 class GuideSourcesViewModel(private val c: AppContainer) : ViewModel() {
     val sources = c.epg.observeSources().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -83,48 +96,98 @@ class GuideSourcesViewModel(private val c: AppContainer) : ViewModel() {
     var name by mutableStateOf("")
     var url by mutableStateOf("")
 
-    fun add() = viewModelScope.launch {
-        if (url.isBlank()) return@launch
-        c.epg.addSource(name, url)
+    /** Progress and the outcome of the last add, update or match, all shown in the one place. */
+    var status by mutableStateOf<GuideStatus?>(null)
+        private set
+
+    /** Free country guides not added yet, the TV's own country first. */
+    fun freeToAdd(sources: List<EpgSourceEntity>): List<FreeGuide> {
+        val added = sources.mapTo(HashSet()) { it.url }
+        return FreeGuides.all().filter { it.url !in added }
+    }
+
+    /** Adds the typed address; false if it can't start yet (nothing typed, or something else is running). */
+    fun add(): Boolean {
+        val u = url.trim().takeIf { it.isNotEmpty() } ?: return false
+        if (!addAndLoad(name.trim().ifEmpty { u }, u)) return false
         name = ""
         url = ""
-        c.sync.refreshGuide()
+        return true
+    }
+
+    fun addFree(g: FreeGuide) = addAndLoad(g.sourceName, g.url)
+
+    private fun addAndLoad(name: String, url: String) = run("Adding $name") {
+        val before = coverage()
+        val id = c.epg.addSource(name, url)
+        c.sync.updateGuide().exceptionOrNull()?.let { return@run failed("Couldn't load $name", it) }
+        // A guide that couldn't be downloaded or read doesn't fail the update (the others still load).
+        c.epg.observeSources().first().firstOrNull {
+            it.id == id
+        }?.lastError?.let { return@run GuideStatus("Couldn't load $name", it, failed = true) }
+        GuideStatus("$name added", coverageText(before, coverage()))
+    }
+
+    fun refresh() = run("Updating the TV guide") {
+        val before = coverage()
+        c.sync.updateGuide().exceptionOrNull()?.let { return@run failed("Couldn't update the TV guide", it) }
+        GuideStatus("TV guide updated", coverageText(before, coverage()))
+    }
+
+    fun matchMissing() = run("Matching channels without a guide") {
+        val r = c.sync.matchMissingGuides().getOrElse { return@run failed("Couldn't match channels", it) }
+        val now = coverage()
+        val title = when {
+            r.matched > 0 -> "Found a guide for ${channels(r.matched)} more"
+            now.without == 0 -> "Every channel has a guide"
+            r.checked == 0 -> "No channels left to match"
+            else -> "No new matches found"
+        }
+        GuideStatus(title, "${channels(now.withGuide)} ${have(now.withGuide)} a guide." + stillNone(now.without))
     }
 
     fun toggle(s: EpgSourceEntity) = viewModelScope.launch { c.epg.setSourceEnabled(s, !s.enabled) }
     fun remove(s: EpgSourceEntity) = viewModelScope.launch { c.epg.removeSource(s.id) }
-    fun refresh() = c.sync.refreshGuide()
 
-    /** What the last "Match channels without a guide" found. */
-    var matchResult by mutableStateOf<String?>(null)
-        private set
-
-    /** In the app's scope, so leaving the screen doesn't stop it (progress shows through the sync state). */
-    fun matchMissing() = viewModelScope.launch {
-        matchResult = null
-        val r = c.appScope.async { c.sync.matchMissingGuides() }.await() ?: return@launch
-        matchResult = when {
-            r.checked == 0 -> "Every channel already has a guide."
-            r.matched > 0 -> "Found a guide for ${formatCount(r.matched)} of ${formatCount(r.checked)} channels that had none."
-            else ->
-                "Checked ${formatCount(r.checked)} channels without a guide: none matched 90% or more. " +
-                    "You can choose guides by hand in TV guide matching."
+    /**
+     * Shows [title] as working until [work] is done, then its outcome. The work runs in the app's scope, so leaving
+     * the page doesn't stop it. Returns false, doing nothing, while something is already running.
+     */
+    @Suppress("TooGenericExceptionCaught") // e.g. full storage: shown, never allowed to crash the app
+    private fun run(title: String, work: suspend () -> GuideStatus): Boolean {
+        if (status?.working == true) return false
+        status = GuideStatus(title, working = true)
+        viewModelScope.launch {
+            status = try {
+                c.appScope.async { work() }.await()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                failed("Something went wrong", e)
+            }
         }
+        return true
     }
 
-    val freeGuides = FreeGuides.all()
-    var showAllFree by mutableStateOf(false)
+    private fun failed(title: String, e: Throwable) = GuideStatus(title, e.message, failed = true)
 
-    /** Adds a free country guide (and loads it), or removes it if it's already there. */
-    fun toggleFree(g: FreeGuide) = viewModelScope.launch {
-        val existing = sources.value.firstOrNull { it.url == g.url }
-        if (existing != null) {
-            c.epg.removeSource(existing.id)
-        } else {
-            c.epg.addSource(g.sourceName, g.url)
-            c.sync.refreshGuide()
-        }
+    private suspend fun coverage() = c.epg.coverage(c.playlists.allIds())
+
+    private fun coverageText(before: GuideCoverage, now: GuideCoverage): String {
+        val gained = now.withGuide - before.withGuide
+        val more = if (gained > 0) " (${formatCount(gained)} more than before)" else ""
+        return "${channels(now.withGuide)} ${have(now.withGuide)} a guide$more." + stillNone(now.without)
     }
+
+    private fun stillNone(n: Int): String {
+        if (n == 0) return ""
+        val them = if (n == 1) "it" else "them"
+        return " ${formatCount(n)} still ${have(n)} none: you can choose $them by hand in TV guide matching."
+    }
+
+    private fun channels(n: Int) = "${formatCount(n)} ${if (n == 1) "channel" else "channels"}"
+
+    private fun have(n: Int) = if (n == 1) "has" else "have"
 }
 
 @Composable
@@ -132,36 +195,25 @@ fun GuideSourcesScreen() {
     val vm = appViewModel { GuideSourcesViewModel(it) }
     val sources by vm.sources.collectAsState()
     val sync by vm.sync.collectAsState()
-    val busy = sync !is SyncState.Idle && sync !is SyncState.Failed
+    var adding by rememberSaveable { mutableStateOf(false) }
     SettingsPage("TV guide sources") {
         item {
             Muted("Guides are updated every day. Programmes are only stored for channels that use them, for the next 3 days.", maxLines = 2)
         }
-        // Updates run in the background and can take minutes for large guides: say what's happening.
-        syncLabel(sync)?.let { label ->
-            item {
-                Text(
-                    label,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = if (sync is SyncState.Failed) Palette.warning else LocalAccent.current.color
-                )
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                PillButton("Add a guide", { adding = true }, rememberFirstFocus(), primary = true)
+                PillButton("Update guide now", vm::refresh)
+                PillButton("Match channels without a guide", vm::matchMissing)
             }
         }
+        // Directly under the buttons, so whatever was pressed, its progress and outcome show in the same place.
+        statusPanel(vm.status, sync)
+        item { Text("Your guides", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp)) }
+        if (sources.isEmpty()) item { Muted("No guides yet. Add a free guide for your country, or your own XMLTV address.") }
         items(sources, key = { it.id }) { s ->
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                TvCard(
-                    onClick = { vm.toggle(s) },
-                    color = Palette.surfaceLow,
-                    modifier = (
-                        if (s ==
-                            sources.first()
-                        ) {
-                            rememberFirstFocus()
-                        } else {
-                            Modifier
-                        }
-                        ).weight(1f)
-                ) {
+                TvCard(onClick = { vm.toggle(s) }, color = Palette.surfaceLow, modifier = Modifier.weight(1f)) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(s.name, style = MaterialTheme.typography.titleMedium)
@@ -181,55 +233,82 @@ fun GuideSourcesScreen() {
                 if (s.playlistId == null) PillButton("Remove", { vm.remove(s) })
             }
         }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 12.dp)) {
-                Text("Add an XMLTV guide", style = MaterialTheme.typography.titleMedium)
-                val urlEdit = rememberSaveable { mutableStateOf(false) }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TvTextField(vm.name, { vm.name = it }, "Name (optional)", Modifier.weight(0.35f), onNext = { urlEdit.value = true })
-                    TvTextField(
-                        vm.url,
-                        { vm.url = it },
-                        "https://…/guide.xml.gz",
-                        Modifier.weight(0.65f),
-                        keyboardType = KeyboardType.Uri,
-                        editing = urlEdit
-                    )
-                    PillButton("Add", vm::add, primary = true)
-                }
+    }
+    if (adding) AddGuidePanel(vm, sources) { adding = false }
+}
+
+/** Progress (the running step, e.g. "Loading guide: 40%") or the outcome, in one clearly visible box. */
+private fun LazyListScope.statusPanel(status: GuideStatus?, sync: SyncState) {
+    val busy = sync !is SyncState.Idle && sync !is SyncState.Failed
+    val ours = status?.working == true
+    // A refresh started elsewhere (the daily update, a playlist) shows its progress over an earlier outcome.
+    val working = ours || busy
+    val title = when {
+        ours -> status.title
+        busy -> "Updating"
+        status != null -> status.title
+        sync is SyncState.Failed -> "The last update failed"
+        else -> return
+    }
+    val detail = if (working) syncLabel(sync) ?: "Please wait" else status?.detail ?: syncLabel(sync)
+    val failed = !working && (status?.failed ?: true)
+    item(key = "status") {
+        val colour = if (failed) Palette.warning else LocalAccent.current.color
+        Row(
+            Modifier.fillMaxWidth().height(IntrinsicSize.Min).clip(RoundedCornerShape(12.dp)).background(Palette.surfaceLow)
+                .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(Modifier.width(6.dp).fillMaxHeight().background(colour))
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(if (working) "$title…" else title, style = MaterialTheme.typography.titleMedium, color = colour)
+                detail?.let { Text(it, style = MaterialTheme.typography.bodyLarge, maxLines = 3, overflow = TextOverflow.Ellipsis) }
             }
         }
-        item {
-            Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                PillButton(if (busy) "Updating…" else "Update guide now", { if (!busy) vm.refresh() })
-                PillButton("Match channels without a guide", { if (!busy) vm.matchMissing() })
-            }
-        }
-        vm.matchResult?.let { item { Text(it, style = MaterialTheme.typography.bodyLarge) } }
-        freeGuides(vm, sources)
     }
 }
 
-/** One-press free guides by country (the TV's own country first; the rest on request). */
-private fun LazyListScope.freeGuides(vm: GuideSourcesViewModel, sources: List<EpgSourceEntity>) {
-    val added = sources.mapTo(HashSet()) { it.url }
-    item {
-        Column(Modifier.padding(top = 20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Free guides by country", style = MaterialTheme.typography.titleMedium)
-            Muted("From iptv-epg.org. Large countries can take a few minutes to load on a TV box.", maxLines = 2)
-        }
-    }
-    val shown = if (vm.showAllFree) vm.freeGuides else vm.freeGuides.take(1)
-    items(shown, key = { "free-${it.code}" }) { g ->
-        TvCard(onClick = { vm.toggleFree(g) }, color = Palette.surfaceLow, modifier = Modifier.fillMaxWidth()) {
-            Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(g.country, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                Toggle(g.url in added)
+/** Adding a guide: a free one for a country (the TV's own first), or any XMLTV address. Closes once one is added. */
+@Composable
+private fun AddGuidePanel(vm: GuideSourcesViewModel, sources: List<EpgSourceEntity>, onDismiss: () -> Unit) {
+    val free = remember(sources) { vm.freeToAdd(sources) }
+    SidePanel(onDismiss, width = 560.dp) {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item { Text("Add a guide", style = MaterialTheme.typography.headlineSmall) }
+            vm.status?.takeIf { it.working }?.let { item { Text("Wait for this to finish first: ${it.title}", color = Palette.warning) } }
+            item {
+                Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Your own XMLTV address", style = MaterialTheme.typography.titleMedium)
+                    val urlEdit = rememberSaveable { mutableStateOf(false) }
+                    TvTextField(vm.name, { vm.name = it }, "Name (optional)", Modifier.fillMaxWidth(), onNext = { urlEdit.value = true })
+                    TvTextField(vm.url, {
+                        vm.url = it
+                    }, "https://…/guide.xml.gz", Modifier.fillMaxWidth(), keyboardType = KeyboardType.Uri, editing = urlEdit)
+                    PillButton("Add this guide", {
+                        if (vm.add()) onDismiss()
+                    }, if (free.isEmpty()) rememberFirstFocus() else Modifier, primary = true)
+                }
+            }
+            item {
+                Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Free guides by country", style = MaterialTheme.typography.titleMedium)
+                    Muted("From iptv-epg.org. Large countries can take a few minutes to load on a TV box.", maxLines = 2)
+                }
+            }
+            items(free, key = { it.code }) { g ->
+                TvCard(
+                    onClick = { if (vm.addFree(g)) onDismiss() },
+                    color = Palette.surfaceLow,
+                    modifier = (if (g == free.first()) rememberFirstFocus() else Modifier).fillMaxWidth()
+                ) {
+                    Text(
+                        g.country,
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                    )
+                }
             }
         }
-    }
-    if (!vm.showAllFree) {
-        item { PillButton("Show all ${vm.freeGuides.size} countries", { vm.showAllFree = true }) }
     }
 }
 

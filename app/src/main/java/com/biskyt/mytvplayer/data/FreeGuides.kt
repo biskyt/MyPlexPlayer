@@ -25,4 +25,13 @@ object FreeGuides {
         return codes.map { FreeGuide(it, Locale("", it).getDisplayCountry(Locale.ENGLISH).ifEmpty { it.uppercase() }, "$BASE$it.xml.gz") }
             .sortedWith(compareBy<FreeGuide> { it.code != own }.thenBy { it.country })
     }
+
+    /**
+     * The guides for category groups (country codes as [com.biskyt.mytvplayer.core.epg.CategoryLanguageDetector] gives
+     * them, "UK" for Great Britain), for the countries that have one.
+     */
+    fun forGroups(groups: Collection<String?>): List<FreeGuide> {
+        val wanted = groups.mapNotNullTo(HashSet()) { g -> g?.lowercase()?.let { if (it == "uk") "gb" else it } }
+        return all().filter { it.code in wanted }
+    }
 }

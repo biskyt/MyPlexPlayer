@@ -45,7 +45,10 @@ object CategoryLanguageDetector {
             listOf(name to code, short to code)
         } +
             listOf(
-                "Turkey" to "TR", "Czech Republic" to "CZ", "Russia" to "RU", "English" to "UK", "French" to "FR",
+                "Turkey" to "TR", "Turkiye" to "TR", "Czech Republic" to "CZ", "Russia" to "RU",
+                // iptv-org's spellings, where they differ from Java's: "and" for "&", no accents.
+                "Bosnia and Herzegovina" to "BA", "Trinidad and Tobago" to "TT", "Curacao" to "CW",
+                "Republic of the Congo" to "CG", "Democratic Republic of the Congo" to "CD", "English" to "UK", "French" to "FR",
                 "German" to "DE", "Spanish" to "ES", "Italian" to "IT", "Dutch" to "NL", "Polish" to "PL",
                 "Turkish" to "TR", "Arabic" to "AR", "Greek" to "GR",
             )

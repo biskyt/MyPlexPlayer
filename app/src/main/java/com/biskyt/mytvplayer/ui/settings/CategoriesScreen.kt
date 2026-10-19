@@ -1,5 +1,7 @@
 package com.biskyt.mytvplayer.ui.settings
 
+import android.database.SQLException
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +33,8 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.core.epg.CategoryLanguageDetector
+import com.biskyt.mytvplayer.data.FreeGuides
+import com.biskyt.mytvplayer.data.PlaylistRepository
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
@@ -52,6 +56,7 @@ import com.biskyt.mytvplayer.ui.theme.Palette
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -129,9 +134,26 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
     /** Downloads again what the change affects: everything on first run or for live TV, else just movies and series. */
     fun finish(firstRun: Boolean) {
         when {
-            firstRun || CAT_LIVE in changed -> c.sync.refresh(playlistId)
+            firstRun -> c.appScope.launch {
+                // Optional: the channels still load if this fails.
+                try {
+                    addFreeGuides()
+                } catch (e: SQLException) {
+                    Log.w("Categories", "Couldn't add the free guides", e)
+                }
+                c.sync.refresh(playlistId)
+            }
+            CAT_LIVE in changed -> c.sync.refresh(playlistId)
             changed.isNotEmpty() -> c.sync.refreshVod(playlistId)
         }
+    }
+
+    /** Setting up the free channels: the free guides for the countries chosen (where there is one), before the first load. */
+    private suspend fun addFreeGuides() {
+        if (c.playlists.get(playlistId)?.server != PlaylistRepository.FREE_PLAYLIST_URL) return
+        val countries = c.db.categories().observe(playlistId, CAT_LIVE).first().filter { it.included }.map { it.lang }
+        val existing = c.epg.observeSources().first().mapTo(HashSet()) { it.url }
+        FreeGuides.forGroups(countries).filter { it.url !in existing }.forEach { c.epg.addSource(it.sourceName, it.url) }
     }
 
     /** Focus goes to the first group once, when the screen opens (not each time filtering changes the first group). */
