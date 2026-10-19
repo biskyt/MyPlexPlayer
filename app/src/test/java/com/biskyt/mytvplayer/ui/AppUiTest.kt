@@ -401,9 +401,12 @@ class AppUiTest {
             vm.menuActions().isNotEmpty()
         }
         val labels = vm.menuActions().map { it.label }
-        assertEquals(listOf("Add to favourites", "Catch-up: last 3 days", "Change guide source…"), labels)
-        assertEquals(Screen.GuideMatching(playlistId, 101), vm.menuActions().last().opens)
-        vm.menuActions().first().run!!.invoke()
+        assertEquals(listOf("Add to favourites", "Catch-up", "Change guide source…"), labels)
+        assertEquals(
+            Screen.GuideMatching(playlistId, 101),
+            (vm.menuActions().last() as com.biskyt.mytvplayer.ui.common.ItemAction.Open).screen
+        )
+        (vm.menuActions().first() as com.biskyt.mytvplayer.ui.common.ItemAction.Run).run()
         compose.waitUntil(5_000) {
             org.robolectric.shadows.ShadowLooper.idleMainLooper()
             vm.menuActions().first().label == "Remove from favourites"

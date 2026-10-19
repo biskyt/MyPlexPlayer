@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,10 +69,11 @@ fun TvCard(
     content: @Composable () -> Unit
 ) {
     val accent = LocalAccent.current
+    var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
         onLongClick = onLongClick,
-        modifier = if (onLongClick != null) modifier.onOptionsKey(onLongClick) else modifier,
+        modifier = (if (onLongClick != null) modifier.onOptionsKey(onLongClick) else modifier).onFocusChanged { focused = it.hasFocus },
         shape = ClickableSurfaceDefaults.shape(shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = ClickableSurfaceDefaults.colors(
@@ -81,8 +84,11 @@ fun TvCard(
             focusedContentColor = Palette.text
         ),
         border = ClickableSurfaceDefaults.border(focusedBorder = FocusRing)
-    ) { content() }
+    ) { CompositionLocalProvider(LocalCardFocused provides focused) { content() } }
 }
+
+/** Whether the [TvCard] around this content has focus (e.g. for [OneLine]); only readers redraw when it changes. */
+val LocalCardFocused = compositionLocalOf { false }
 
 /** Pill-shaped button. [primary] fills it with the accent colour. */
 @Composable
@@ -163,30 +169,27 @@ val POSTER_WIDTH = 124.dp
 /** A movie or series poster with its title and year, as in grids and search. */
 @Composable
 fun PosterCard(card: VodCard, modifier: Modifier = Modifier, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
-    var focused by remember { mutableStateOf(false) }
-    TvCard(
-        onClick = onClick,
-        onLongClick = onLongClick,
-        color = Palette.background,
-        modifier = modifier.onFocusChanged {
-            focused =
-                it.hasFocus
-        }
-    ) {
+    TvCard(onClick = onClick, onLongClick = onLongClick, color = Palette.background, modifier = modifier) {
         Column(Modifier.padding(6.dp).width(POSTER_WIDTH), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Poster(card.imageUrl, card.title, POSTER_WIDTH)
-            OneLine(card.title, focused, MaterialTheme.typography.labelLarge)
+            OneLine(card.title, MaterialTheme.typography.labelLarge)
             Muted(card.year?.toString() ?: " ")
         }
     }
 }
 
 /**
- * One line of text: cut short with "…" normally, scrolling to show the rest while [focused] (only the focused item
- * animates, so long lists cost nothing extra).
+ * One line of text: cut short with "…" normally, scrolling a few times to show the rest while its [TvCard] has focus
+ * (only the focused item animates, and not for ever).
  */
 @Composable
-fun OneLine(text: String, focused: Boolean, style: TextStyle, modifier: Modifier = Modifier, color: Color = Color.Unspecified) {
+fun OneLine(
+    text: String,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+    focused: Boolean = LocalCardFocused.current
+) {
     if (focused) {
         Text(
             text,
@@ -194,7 +197,7 @@ fun OneLine(text: String, focused: Boolean, style: TextStyle, modifier: Modifier
             color = color,
             maxLines = 1,
             softWrap = false,
-            modifier = modifier.basicMarquee(iterations = Int.MAX_VALUE)
+            modifier = modifier.basicMarquee()
         )
     } else {
         Text(text, style = style, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = modifier)

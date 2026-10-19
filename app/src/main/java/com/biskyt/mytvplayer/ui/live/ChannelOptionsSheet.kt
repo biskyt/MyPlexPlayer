@@ -25,6 +25,7 @@ import com.biskyt.mytvplayer.ui.common.MenuOption
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.ScheduleList
 import com.biskyt.mytvplayer.ui.common.SidePanel
+import com.biskyt.mytvplayer.ui.common.favouriteLabel
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.common.numberLabel
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
@@ -87,7 +88,7 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                         nav.push(Screen.CatchupPlayer(ch.playlistId, ch.streamId, filter = vm.filter.value))
                     }
                 }
-                MenuOption(if (ch.streamId in favs) "Remove from favourites" else "Add to favourites") { vm.toggleFavourite(ch) }
+                MenuOption(favouriteLabel(ch.streamId in favs)) { vm.toggleFavourite(ch) }
                 MenuOption("Show TV guide for this channel", "Upcoming programmes") { showGuide = true }
                 MenuOption(
                     if (vm.guideMode) "Switch to channel list" else "Switch to TV guide grid",

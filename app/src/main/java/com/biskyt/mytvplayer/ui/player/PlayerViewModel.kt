@@ -11,9 +11,12 @@ import com.biskyt.mytvplayer.core.xtream.XtreamClient
 import com.biskyt.mytvplayer.data.StreamFormat
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.ui.Screen
+import com.biskyt.mytvplayer.ui.common.ItemAction
 import com.biskyt.mytvplayer.ui.common.NowNextLoader
 import com.biskyt.mytvplayer.ui.common.NumberEntry
+import com.biskyt.mytvplayer.ui.common.channelActions
 import com.biskyt.mytvplayer.ui.common.cycle
+import com.biskyt.mytvplayer.ui.common.favouriteFlash
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -41,19 +44,14 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
     /** This playlist's favourite channels, for the More menu's "Add to / Remove from favourites". */
     private var favouriteIds by mutableStateOf(emptySet<Long>())
 
-    override fun menuActions(): List<MenuAction> {
+    override fun menuActions(): List<ItemAction> {
         val ch = channel ?: return emptyList()
-        val favourite = ch.streamId in favouriteIds
-        return buildList {
-            add(MenuAction(if (favourite) "Remove from favourites" else "Add to favourites") { setFavourite(ch, !favourite) })
-            if (ch.archiveDays > 0) add(MenuAction("Catch-up: last ${ch.archiveDays} days", Screen.Catchup(ch.playlistId, ch.streamId)))
-            add(MenuAction("Change guide source…", Screen.GuideMatching(ch.playlistId, ch.streamId)))
+        return channelActions(ch, ch.streamId in favouriteIds) { favourite ->
+            viewModelScope.launch {
+                c.channels.setFavourite(ch.playlistId, ch.streamId, favourite)
+                flash(favouriteFlash(favourite))
+            }
         }
-    }
-
-    private fun setFavourite(ch: ChannelEntity, favourite: Boolean) = viewModelScope.launch {
-        c.channels.setFavourite(ch.playlistId, ch.streamId, favourite)
-        flash(if (favourite) "Added to favourites" else "Removed from favourites")
     }
 
     private var client: XtreamClient? = null

@@ -143,9 +143,8 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         player.trackSelectionParameters = params.build()
     }
 
-    /** Human-readable description of how the current audio is being output, e.g. "Passthrough · Dolby Atmos". */
     /**
-     * How the sound is played, for the options menu. Read from the selected audio track in [tracks]: when tracks change,
+     * How the sound is played, for the options menu, e.g. "Passthrough · Dolby Atmos". Read from the selected audio track in [tracks]: when tracks change,
      * the player's own audio format isn't known yet (the audio output starts a moment later).
      */
     fun audioOutputLabel(tracks: Tracks = player.currentTracks): String {

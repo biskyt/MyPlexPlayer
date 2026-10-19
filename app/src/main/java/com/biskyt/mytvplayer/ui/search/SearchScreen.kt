@@ -23,7 +23,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -43,6 +42,7 @@ import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.AppIcons
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
+import com.biskyt.mytvplayer.ui.common.ItemAction
 import com.biskyt.mytvplayer.ui.common.MenuOption
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.OnNowLabel
@@ -53,6 +53,8 @@ import com.biskyt.mytvplayer.ui.common.SidePanel
 import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.TvTextField
+import com.biskyt.mytvplayer.ui.common.channelActions
+import com.biskyt.mytvplayer.ui.common.favouriteLabel
 import com.biskyt.mytvplayer.ui.common.formatDayTime
 import com.biskyt.mytvplayer.ui.common.isLive
 import com.biskyt.mytvplayer.ui.common.numberLabel
@@ -190,39 +192,39 @@ private fun ResultOptions(item: Picked, pid: Long, vm: SearchViewModel, onDismis
         onDismiss()
         nav.push(screen)
     }
+    val (title, main, actions) = when (item) {
+        is Picked.Channel -> {
+            val favourites by vm.favouriteChannels.collectAsState()
+            val channel by produceState<ChannelEntity?>(null, item) { value = vm.channel(pid, item.streamId) }
+            Triple(
+                item.name,
+                ItemAction.Open("Watch", Screen.Player(pid, item.streamId, ChannelFilter.All)),
+                channel?.let { ch ->
+                    channelActions(ch, ch.streamId in favourites) { vm.setChannelFavourite(pid, ch.streamId, it) }
+                }.orEmpty()
+            )
+        }
+        is Picked.Vod -> {
+            val favourite by remember(item) { vm.vodFavourite(pid, item.type, item.card.id) }.collectAsState(false)
+            val movie = item.type == CAT_MOVIE
+            Triple(
+                item.card.title,
+                ItemAction.Open(
+                    if (movie) "Open movie" else "Open series",
+                    if (movie) Screen.MovieDetails(pid, item.card.id) else Screen.SeriesDetails(pid, item.card.id)
+                ),
+                listOf(ItemAction.Run(favouriteLabel(favourite)) { vm.setVodFavourite(pid, item.type, item.card.id, !favourite) })
+            )
+        }
+    }
     SidePanel(onDismiss) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            when (item) {
-                is Picked.Channel -> {
-                    val favourites by vm.favouriteChannels.collectAsState()
-                    val channel by produceState<ChannelEntity?>(null, item) { value = vm.channel(pid, item.streamId) }
-                    val favourite = item.streamId in favourites
-                    Text(item.name, style = MaterialTheme.typography.titleLarge, maxLines = 2, modifier = Modifier.padding(bottom = 8.dp))
-                    MenuOption("Watch", modifier = rememberFirstFocus()) { open(Screen.Player(pid, item.streamId, ChannelFilter.All)) }
-                    MenuOption(if (favourite) "Remove from favourites" else "Add to favourites") {
-                        vm.setChannelFavourite(pid, item.streamId, !favourite)
-                    }
-                    channel?.takeIf { it.archiveDays > 0 }?.let { ch ->
-                        MenuOption("Catch-up", "Programmes from the last ${ch.archiveDays} days") { open(Screen.Catchup(pid, ch.streamId)) }
-                    }
-                    MenuOption("Change guide source…", "Pick which guide data this channel uses") {
-                        open(Screen.GuideMatching(pid, item.streamId))
-                    }
-                }
-                is Picked.Vod -> {
-                    val favourite by remember(item) { vm.vodFavourite(pid, item.type, item.card.id) }.collectAsState(false)
-                    val movie = item.type == CAT_MOVIE
-                    Text(
-                        item.card.title,
-                        style = MaterialTheme.typography.titleLarge,
-                        maxLines = 2,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    MenuOption(if (movie) "Open movie" else "Open series", modifier = rememberFirstFocus()) {
-                        open(if (movie) Screen.MovieDetails(pid, item.card.id) else Screen.SeriesDetails(pid, item.card.id))
-                    }
-                    MenuOption(if (favourite) "Remove from favourites" else "Add to favourites") {
-                        vm.setVodFavourite(pid, item.type, item.card.id, !favourite)
+            Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 2, modifier = Modifier.padding(bottom = 8.dp))
+            (listOf(main) + actions).forEachIndexed { i, a ->
+                MenuOption(a.label, a.help, if (i == 0) rememberFirstFocus() else Modifier) {
+                    when (a) {
+                        is ItemAction.Open -> open(a.screen)
+                        is ItemAction.Run -> a.run()
                     }
                 }
             }
@@ -244,13 +246,12 @@ private fun <T> LazyListScope.section(title: String, items: List<T>, key: (T) ->
 /** Long channel names are common ("UK: CHANNEL ONE HD FHD (backup)"): they scroll while the card is focused. */
 @Composable
 private fun ChannelCard(ch: ChannelEntity, onLongClick: () -> Unit, onClick: () -> Unit) {
-    var focused by remember { mutableStateOf(false) }
-    TvCard(onClick = onClick, onLongClick = onLongClick, modifier = Modifier.width(340.dp).onFocusChanged { focused = it.hasFocus }) {
+    TvCard(onClick = onClick, onLongClick = onLongClick, modifier = Modifier.width(340.dp)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ChannelLogo(ch.logoUrl, ch.name, 48.dp, 30.dp)
             Column {
                 Muted(ch.numberLabel)
-                OneLine(ch.name, focused, MaterialTheme.typography.labelLarge)
+                OneLine(ch.name, MaterialTheme.typography.labelLarge)
             }
         }
     }
@@ -258,20 +259,18 @@ private fun ChannelCard(ch: ChannelEntity, onLongClick: () -> Unit, onClick: () 
 
 @Composable
 private fun ProgrammeRow(p: ProgrammeHit, now: Long, onLongClick: () -> Unit, onClick: () -> Unit) {
-    var focused by remember { mutableStateOf(false) }
     TvCard(
         onClick = onClick,
         onLongClick = onLongClick,
         color = Palette.surfaceLow,
-        modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.hasFocus }
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             ChannelLogo(p.logoUrl, p.channelName, 56.dp, 34.dp)
             Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                OneLine(p.title, focused, MaterialTheme.typography.titleSmall)
+                OneLine(p.title, MaterialTheme.typography.titleSmall)
                 OneLine(
                     listOfNotNull(p.channelName, p.subtitle).joinToString(" · "),
-                    focused,
                     MaterialTheme.typography.bodyMedium,
                     color = Palette.textMuted
                 )
