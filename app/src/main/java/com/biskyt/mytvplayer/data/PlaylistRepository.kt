@@ -11,6 +11,7 @@ import com.biskyt.mytvplayer.data.db.AppDatabase
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
+import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.ChannelPrefs
 import com.biskyt.mytvplayer.data.db.KIND_M3U
@@ -143,6 +144,23 @@ class PlaylistRepository(
             testConnection(p.isM3u, p.server, p.username, p.password)
         }
         playlists.upsert(p)
+    }
+
+    /**
+     * Hides a category, as unticking it in Settings › Languages & categories does: its channels (or titles) go now,
+     * without downloading anything, and updates leave it out.
+     */
+    suspend fun hideCategory(cat: CategoryEntity) {
+        val categories = db.categories()
+        db.withTransaction {
+            categories.setIncluded(cat.playlistId, cat.type, listOf(cat.categoryId), false)
+            when (cat.type) {
+                CAT_LIVE -> db.channels().deleteCategory(cat.playlistId, cat.categoryId)
+                CAT_MOVIE -> db.vod().deleteMovieCategory(cat.playlistId, cat.categoryId)
+                else -> db.vod().deleteSeriesCategory(cat.playlistId, cat.categoryId)
+            }
+            categories.refreshCounts(cat.playlistId, cat.type)
+        }
     }
 
     suspend fun delete(id: Long) {

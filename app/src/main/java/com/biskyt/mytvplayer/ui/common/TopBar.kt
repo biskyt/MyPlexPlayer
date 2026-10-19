@@ -45,8 +45,9 @@ import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
+import kotlinx.coroutines.flow.flowOf
 
-enum class Tab(val label: String) { HOME("Home"), LIVE("Live TV"), MOVIES("Movies"), SERIES("Series"), FAVOURITES("Favourites") }
+enum class Tab(val label: String) { HOME("Home"), LIVE("Live TV"), MOVIES("Movies"), SERIES("Series"), CATCHUP("Catch-up") }
 
 /** Top bar from the agreed design: logo, tabs, clock, search, settings and the playlist switcher. */
 @Composable
@@ -58,6 +59,10 @@ fun TopBar(selected: Tab?) {
     val settings by remember { container.settings.settings }.collectAsState(initial = null)
     val playlists by remember { container.playlists.observePlaylists() }.collectAsState(initial = emptyList())
     val active = playlists.firstOrNull { it.id == settings?.activePlaylistId } ?: playlists.firstOrNull()
+
+    // Catch-up only for playlists that have some.
+    val hasCatchup by remember(active?.id) { active?.let { container.channels.observeHasCatchup(it.id) } ?: flowOf(false) }
+        .collectAsState(initial = false)
     Row(
         Modifier.padding(start = 56.dp, end = 56.dp, top = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -68,7 +73,7 @@ fun TopBar(selected: Tab?) {
             Text("TV", style = MaterialTheme.typography.titleLarge, color = accent.color)
             Text("Player", style = MaterialTheme.typography.titleLarge)
         }
-        Tab.entries.forEach { tab ->
+        Tab.entries.filter { it != Tab.CATCHUP || hasCatchup }.forEach { tab ->
             PillButton(
                 text = tab.label,
                 selected = tab == selected,
@@ -79,7 +84,7 @@ fun TopBar(selected: Tab?) {
                             Tab.LIVE -> Screen.Live()
                             Tab.MOVIES -> Screen.Movies()
                             Tab.SERIES -> Screen.Series()
-                            Tab.FAVOURITES -> Screen.Live(ChannelFilter.Favourites)
+                            Tab.CATCHUP -> Screen.Live(ChannelFilter.Catchup)
                         }
                     )
                 }

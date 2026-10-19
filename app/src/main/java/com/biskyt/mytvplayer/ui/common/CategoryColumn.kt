@@ -1,5 +1,6 @@
 package com.biskyt.mytvplayer.ui.common
 
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -9,16 +10,32 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 import kotlinx.coroutines.CoroutineScope
@@ -62,23 +79,72 @@ class CategoryFilter<F>(private val scope: CoroutineScope, initial: F, private v
     }
 }
 
-/** One entry in a category column: a fixed list (Favourites, All…) or a provider category with its size. */
-data class CategoryEntry<F>(val filter: F, val label: String, val count: Int? = null)
+/**
+ * One entry in a category column: a fixed list (Favourites, All…), or a provider [category] (which can be hidden) with
+ * its size.
+ */
+data class CategoryEntry<F>(val filter: F, val label: String, val count: Int? = null, val category: CategoryEntity? = null)
 
 /**
- * The column of categories on the left of Live TV, Movies and Series. Moving focus onto an entry calls [onFocus]
- * (screens switch the list after a short pause); OK calls [onSelect].
+ * The column of categories on the left of Live TV, Movies and Series. Moving up or down to an entry calls [onFocus]
+ * (screens switch the list after a short pause); OK calls [onSelect]. Holding OK (or Menu) on a provider category
+ * offers to hide it ([onHide]).
+ *
+ * The list follows the remote's up/down keys, not focus: focus arriving any other way (e.g. thrown out of a list that
+ * changed under it) never switches it. Coming into the column, focus goes to the selected entry.
  */
 @Composable
-fun <F> CategoryColumn(entries: List<CategoryEntry<F>>, selected: F, onFocus: (F) -> Unit, onSelect: (F) -> Unit) {
-    LazyColumn(Modifier.width(250.dp), verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
-        items(entries, key = { it.label + it.filter.hashCode() }) { (f, label, count) ->
+fun <F> CategoryColumn(
+    entries: List<CategoryEntry<F>>,
+    selected: F,
+    onFocus: (F) -> Unit,
+    onSelect: (F) -> Unit,
+    onHide: ((CategoryEntity) -> Unit)? = null
+) {
+    val selectedEntry = remember { FocusRequester() }
+    var options by remember { mutableStateOf<CategoryEntity?>(null) }
+    val state = rememberLazyListState()
+    val selectedIndex = entries.indexOfFirst { it.filter == selected }
+    fun selectedShown() = state.layoutInfo.visibleItemsInfo.any { it.index == selectedIndex }
+    // Picked some other way (remembered, or the one shown was hidden): the column shows it, ready for focus.
+    LaunchedEffect(selectedIndex) { if (selectedIndex >= 0 && !selectedShown()) state.scrollToItem(selectedIndex) }
+    var refocus by remember { mutableIntStateOf(0) }
+    LaunchedEffect(refocus) {
+        if (refocus == 0) return@LaunchedEffect
+        withFrameNanos { }
+        if (selectedShown()) runCatching { selectedEntry.requestFocus() }
+    }
+    LazyColumn(
+        Modifier.width(250.dp)
+            // Coming in, focus goes to the selected entry when it's there (else wherever it would have).
+            .focusProperties { onEnter = { if (selectedShown()) runCatching { selectedEntry.requestFocus(requestedFocusDirection) } } }
+            .focusGroup(),
+        state = state,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        contentPadding = PaddingValues(bottom = 24.dp)
+    ) {
+        itemsIndexed(entries, key = { _, e -> e.label + e.filter.hashCode() }) { i, entry ->
+            val (f, label, count) = entry
+            val category = entry.category
             val isSelected = f == selected
             TvCard(
                 onClick = { onSelect(f) },
+                onLongClick = if (onHide != null && category != null) ({ options = category }) else null,
                 selected = isSelected,
                 color = Palette.background,
-                modifier = Modifier.fillMaxWidth().onFocusChanged { if (it.isFocused) onFocus(f) }
+                modifier = Modifier.fillMaxWidth()
+                    .then(if (isSelected) Modifier.focusRequester(selectedEntry) else Modifier)
+                    .onPreviewKeyEvent { e ->
+                        if (e.type == KeyEventType.KeyDown) {
+                            val next = when (e.key) {
+                                Key.DirectionUp -> i - 1
+                                Key.DirectionDown -> i + 1
+                                else -> -1
+                            }
+                            entries.getOrNull(next)?.let { onFocus(it.filter) }
+                        }
+                        false // focus moves as usual
+                    }
             ) {
                 Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -93,6 +159,15 @@ fun <F> CategoryColumn(entries: List<CategoryEntry<F>>, selected: F, onFocus: (F
                 }
             }
         }
+    }
+    options?.let { cat ->
+        val close = { options = null }
+        val hide = ItemAction.Run("Hide category", "Show it again in Settings › Languages & categories") {
+            close()
+            onHide?.invoke(cat)
+            refocus++ // its entry goes, and focus with it
+        }
+        ItemActionsPanel(cat.name, listOf(hide), close)
     }
 }
 

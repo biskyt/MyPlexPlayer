@@ -39,7 +39,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.itemKey
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -52,6 +52,7 @@ import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Navigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.common.BatchLoader
+import com.biskyt.mytvplayer.ui.common.CatchupMark
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.TvCard
@@ -90,8 +91,7 @@ private val ChannelColumn = 250.dp
  * and focus follows on to the next/previous programme of the same channel.
  */
 @Composable
-fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
-    val items = vm.channels.collectAsLazyPagingItems()
+fun GuideGrid(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (ChannelEntity) -> Unit) {
     val container = LocalContext.current.container
     val epg = container.epg
     val nav = LocalNavigator.current
@@ -172,10 +172,11 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
                             focusTarget.value?.takeIf { it.streamId == ch.streamId || (it.streamId == null && index == 0) }?.time
                         }
                     }
-                    val programmes = rowLoader.entries[ch.streamId]
+                    val (programmes, loaded) = rowProgrammes(rowLoader.entries[ch.streamId])
                     GuideRow(
                         ch = ch,
                         programmes = programmes,
+                        loaded = loaded,
                         windowStart = windowStart,
                         now = now,
                         focusTime = focusTime,
@@ -184,7 +185,7 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
                             vm.focusMoved(ch.streamId, index)
                             // The target is done once its cell has focus with the programmes loaded (until then the
                             // placeholder holds focus, and the real cell takes it when they arrive).
-                            if (isTarget && programmes != null) focusTarget.value = null
+                            if (isTarget && loaded) focusTarget.value = null
                         },
                         onPlay = { p -> openProgramme(nav, ch, p, play) },
                         // The programme with focus on this row, so its options can offer to find it on demand.
@@ -202,6 +203,18 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
             }
         }
     }
+}
+
+/**
+ * A row's programmes, and whether they're the ones asked for ([loaded], null while loading). While a row loads another
+ * stretch of time (or catch-up, from the provider) it keeps showing what it had: the cell with focus stays, instead
+ * of focus being lost and landing elsewhere.
+ */
+@Composable
+private fun rowProgrammes(loaded: List<ChannelProgramme>?): Pair<List<ChannelProgramme>?, Boolean> {
+    val last = remember { arrayOfNulls<List<ChannelProgramme>>(1) }
+    if (loaded != null) last[0] = loaded
+    return (loaded ?: last[0]) to (loaded != null)
 }
 
 @Composable
@@ -244,6 +257,7 @@ private fun TimeHeader(windowStart: Long) {
 private fun GuideRow(
     ch: ChannelEntity,
     programmes: List<ChannelProgramme>?,
+    loaded: Boolean,
     windowStart: Long,
     now: Long,
     focusTime: Long?,
@@ -262,8 +276,9 @@ private fun GuideRow(
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 10.dp)
+                modifier = Modifier.padding(start = 10.dp).weight(1f, fill = false)
             )
+            CatchupMark(ch, Modifier.padding(start = 4.dp))
         }
         val visible =
             remember(programmes, windowStart) { programmes.orEmpty().filter { it.stopMs > windowStart && it.startMs < windowEnd } }
@@ -272,7 +287,7 @@ private fun GuideRow(
             // a pending target, which then moves to the real programme once it arrives.
             Cell(
                 null, DpPerMinute * (WINDOW_MS / 60_000f), live = true, first = true, last = true,
-                focusKey = focusTime?.let { it to programmes }, onFocus, onPlay, onOptions, onEdge,
+                focusKey = focusTime?.let { Triple(it, programmes, loaded) }, onFocus, onPlay, onOptions, onEdge,
                 if (programmes == null) "" else "No guide information"
             )
         } else {
@@ -286,7 +301,8 @@ private fun GuideRow(
                 val width = DpPerMinute * ((end - start) / 60_000f)
                 Cell(
                     p, width, p.isLive(now), i == 0, i == visible.lastIndex,
-                    focusKey = if (i == focusIndex) focusTime else null, onFocus, onPlay, onOptions, onEdge,
+                    // Asks again once the row's own programmes arrive (and the target is then done).
+                    focusKey = if (i == focusIndex) focusTime?.let { it to loaded } else null, onFocus, onPlay, onOptions, onEdge,
                     // Marks what can be replayed.
                     if (ch.archiveDays > 0 && p.stopMs <= now) "⟲ ${p.title}" else p.title
                 )
