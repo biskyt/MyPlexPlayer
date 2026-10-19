@@ -1,5 +1,6 @@
 package com.biskyt.mytvplayer.core.epg
 
+import java.util.PriorityQueue
 import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
@@ -84,15 +85,35 @@ class ChannelMatcher(candidates: List<EpgCandidate>) {
             for (e in bucket) shared.merge(e, w, Double::plus)
         }
         // Rank by the weight of the rarer shared words, then score the best few on all their words.
-        shared.entries
-            .sortedByDescending { (e, w) -> w / (q.weight + e.weight) }
-            .take(FUZZY_CANDIDATES)
-            .forEach { (e, _) ->
-                if (e.candidate in results) return@forEach
-                val score = score(q, e)
-                if (score >= MIN_SUGGESTION) results[e.candidate] = score
-            }
+        for (e in best(shared, q.weight)) {
+            if (e.candidate in results) continue
+            val score = score(q, e)
+            if (score >= MIN_SUGGESTION) results[e.candidate] = score
+        }
     }
+
+    /**
+     * The [FUZZY_CANDIDATES] entries sharing the most (by weight, relative to both names' weight), best first. Kept in
+     * a small heap rather than sorting every entry: a common word can be shared by thousands.
+     */
+    private fun best(shared: Map<Entry, Double>, queryWeight: Double): List<Entry> {
+        val heap = PriorityQueue(FUZZY_CANDIDATES + 1, byRank)
+        for ((e, w) in shared) {
+            val rank = w / (queryWeight + e.weight)
+            if (heap.size < FUZZY_CANDIDATES) {
+                heap += Ranked(e, rank)
+            } else if (rank > heap.peek().rank) {
+                heap.poll()
+                heap += Ranked(e, rank)
+            }
+        }
+        return heap.sortedByDescending { it.rank }.map { it.entry }
+    }
+
+    private class Ranked(val entry: Entry, val rank: Double)
+
+    /** Unboxed: compared a few times per shared entry, for every channel matched. */
+    private val byRank = Comparator<Ranked> { a, b -> a.rank.compareTo(b.rank) }
 
     private fun score(q: Query, e: Entry): Double {
         var common = 0.0

@@ -5,12 +5,14 @@ import com.biskyt.mytvplayer.data.db.ChannelProgramme
 import com.biskyt.mytvplayer.ui.common.NowNextLoader
 import com.biskyt.mytvplayer.ui.common.cycle
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -29,6 +31,40 @@ class NavigationAndLoaderTest {
         assertFalse(nav.pop())
         // Home (0), Live (1) and Player (2) were all removed; their saved state gets cleaned up.
         assertEquals(setOf(0, 1, 2), nav.dropped.toSet())
+    }
+
+    @Test
+    fun `the guide button opens the guide except while watching or setting up`() {
+        assertTrue(guideButtonOpensGuide(Screen.Home))
+        assertTrue(guideButtonOpensGuide(Screen.Settings))
+        assertTrue(guideButtonOpensGuide(Screen.Movies()))
+        assertFalse(guideButtonOpensGuide(Screen.Player(1, 5, ChannelFilter.All)))
+        assertFalse(guideButtonOpensGuide(Screen.Welcome))
+        assertFalse(guideButtonOpensGuide(Screen.Live())) // the live screen switches list and guide itself
+        assertFalse(guideButtonOpensGuide(Screen.Categories(1, firstRun = true)))
+        assertTrue(guideButtonOpensGuide(Screen.Categories(1)))
+    }
+
+    @Test
+    fun `now next pauses while its screen is hidden and catches up on return`() = runTest {
+        val now = 1_000_000L
+        val changes = MutableStateFlow(0)
+        var loads = 0
+        val loader = NowNextLoader(backgroundScope, changes, clock = { now }) { ids, _, _ ->
+            loads++
+            ids.associateWith { listOf(prog(it, now - 10, now + 10, "now")) }
+        }
+        loader.request(1)
+        advanceTimeBy(200)
+        runCurrent()
+        assertEquals(1, loads)
+        loader.hidden()
+        changes.value = 1
+        runCurrent()
+        assertEquals(1, loads) // nothing reloaded behind another screen
+        loader.shown()
+        runCurrent()
+        assertEquals(2, loads) // the missed guide change, on return
     }
 
     @Test

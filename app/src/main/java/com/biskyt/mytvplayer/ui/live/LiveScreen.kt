@@ -66,6 +66,7 @@ import com.biskyt.mytvplayer.ui.theme.Palette
 @Composable
 fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
     val vm = appViewModel { LiveViewModel(it, initialFilter, initialGuide) }
+    vm.nowNext.PauseWhenHidden()
     val nav = LocalNavigator.current
     val filter by vm.filter.collectAsState()
     val pid by vm.playlistId.collectAsState()

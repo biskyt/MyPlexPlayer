@@ -5,6 +5,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.produceState
+import androidx.lifecycle.compose.LifecycleStartEffect
 import com.biskyt.mytvplayer.data.db.ChannelProgramme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -86,7 +87,7 @@ data class NowNext(val now: ChannelProgramme?, val next: ChannelProgramme?) {
  * reloaded when [guideChanges] emits (a guide import finished or a channel's guide was changed).
  */
 class NowNextLoader(
-    scope: CoroutineScope,
+    private val scope: CoroutineScope,
     guideChanges: Flow<Any>? = null,
     private val clock: () -> Long = System::currentTimeMillis,
     /** Loads programmes overlapping from..to; titles are enough here, so callers can skip descriptions. */
@@ -96,16 +97,54 @@ class NowNextLoader(
     val result = load(ids, now, now + LOOKAHEAD_MS)
     ids.associateWith { id -> pick(result[id].orEmpty(), now) }
 }) {
+    /** False while the screen is in the back stack (e.g. Home under the player): nothing is reloaded then. */
+    private var visible = true
+    private var missedChange = false
+
     init {
         scope.launch {
             while (isActive) {
                 delay(60_000 - clock() % 60_000)
-                val t = clock()
-                val stale = entries.filterValues { it.isStale(t) }.keys.toList()
-                if (stale.isNotEmpty()) fetch(stale)
+                if (visible) refreshStale()
             }
         }
-        guideChanges?.let { flow -> scope.launch { flow.drop(1).collect { refreshAll() } } }
+        guideChanges?.let { flow ->
+            scope.launch { flow.drop(1).collect { if (visible) refreshAll() else missedChange = true } }
+        }
+    }
+
+    /**
+     * Call from the screen showing these rows. While it's covered by another screen (its view model kept in the back
+     * stack) or the app is in the background, the minute updates and guide reloads pause, leaving the CPU to what is
+     * on screen; on return, rows catch up.
+     */
+    @Composable
+    fun PauseWhenHidden() {
+        LifecycleStartEffect(this) {
+            shown()
+            onStopOrDispose { hidden() }
+        }
+    }
+
+    internal fun hidden() {
+        visible = false
+    }
+
+    internal fun shown() {
+        if (visible) return
+        visible = true
+        if (missedChange) {
+            missedChange = false
+            refreshAll()
+        } else {
+            scope.launch { refreshStale() }
+        }
+    }
+
+    private suspend fun refreshStale() {
+        val t = clock()
+        val stale = entries.filterValues { it.isStale(t) }.keys.toList()
+        if (stale.isNotEmpty()) fetch(stale)
     }
 
     private companion object {

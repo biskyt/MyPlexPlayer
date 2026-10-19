@@ -20,6 +20,7 @@ import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
+import com.biskyt.mytvplayer.ui.common.onGuideKey
 import com.biskyt.mytvplayer.ui.guide.GuideMatchingScreen
 import com.biskyt.mytvplayer.ui.guide.GuideSourcesScreen
 import com.biskyt.mytvplayer.ui.home.HomeScreen
@@ -95,11 +96,26 @@ fun AppRoot() {
                 else -> activity?.finish()
             }
         }
-        Box(Modifier.fillMaxSize().background(Palette.background)) {
+        Box(
+            Modifier.fillMaxSize().background(Palette.background).guideButton(nav, hasPlaylist = s.activePlaylistId != 0L)
+        ) {
             NavHost(nav) { screen -> ScreenContent(screen) }
         }
     }
 }
+
+/**
+ * The remote's Guide button opens the TV guide from anywhere a screen hasn't used it already (the channel player shows
+ * the channel's schedule). Opened on top, so Back returns to whatever was there, unchanged.
+ */
+private fun Modifier.guideButton(nav: Navigator, hasPlaylist: Boolean) =
+    onGuideKey({ hasPlaylist && guideButtonOpensGuide(nav.current.screen) }) { nav.push(Screen.Live(guide = true)) }
+
+/**
+ * Not while watching something (leaving would stop it), during set-up, or on the live screen (which switches between
+ * list and guide itself; pressed elsewhere on it, e.g. on the tabs, nothing happens).
+ */
+internal fun guideButtonOpensGuide(screen: Screen) = !screen.isPlayback && !screen.isSetup && screen !is Screen.Live
 
 @Composable
 private fun ScreenContent(screen: Screen) {

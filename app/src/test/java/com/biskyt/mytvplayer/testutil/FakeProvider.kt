@@ -172,18 +172,27 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
     /** Guide channel id to the inside of its "now" programme, replacing "Now on <id>" (e.g. a series episode). */
     var nowProgramme = mapOf<String, String>()
 
+    /** Each channel followed by its programmes, as some joined-up guides are (against the XMLTV format). */
+    var interleavedGuide = false
+
     fun xmltv(): String = buildString {
         append("<?xml version=\"1.0\"?><tv>")
-        for ((id, name) in guideChannels) {
-            append("<channel id=\"$id\"><display-name>$name</display-name></channel>")
-        }
-        for ((id, _) in guideChannels) {
+        fun channel(id: String, name: String) = append("<channel id=\"$id\"><display-name>$name</display-name></channel>")
+        fun programmes(id: String) {
             append(
-                "<programme start=\"${t(
-                    -30
-                )}\" stop=\"${t(30)}\" channel=\"$id\">${nowProgramme[id] ?: "<title>Now on $id</title><desc>About $id</desc>"}</programme>"
+                "<programme start=\"${t(-30)}\" stop=\"${t(30)}\" channel=\"$id\">" +
+                    "${nowProgramme[id] ?: "<title>Now on $id</title><desc>About $id</desc>"}</programme>"
             )
             append("<programme start=\"${t(30)}\" stop=\"${t(90)}\" channel=\"$id\"><title>Next on $id</title></programme>")
+        }
+        if (interleavedGuide) {
+            for ((id, name) in guideChannels) {
+                channel(id, name)
+                programmes(id)
+            }
+        } else {
+            for ((id, name) in guideChannels) channel(id, name)
+            for ((id, _) in guideChannels) programmes(id)
         }
         append("</tv>")
     }
