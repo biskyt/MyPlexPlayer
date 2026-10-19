@@ -107,12 +107,17 @@ class ProgrammeKindTest {
         val skipped = guide("categorx", "episode-nux")
         val read = guide("category", "episode-num")
         assertEquals(skipped.size, read.size)
-        repeat(3) {
+        repeat(5) {
             time(skipped)
             time(read)
         }
-        val before = (1..5).minOf { time(skipped) }
-        val after = (1..5).minOf { time(read) }
+        // Alternated and the best of many, so a busy shared build machine evens out between the two.
+        var before = Long.MAX_VALUE
+        var after = Long.MAX_VALUE
+        repeat(12) {
+            before = minOf(before, time(skipped))
+            after = minOf(after, time(read))
+        }
         println("Parsing $PROGRAMMES programmes: ${before / 1_000_000} ms skipping the tags, ${after / 1_000_000} ms reading them")
         // Generous, so a busy build machine doesn't fail it; the printed numbers are the real measure.
         assertTrue("reading ${after / 1_000_000} ms vs skipping ${before / 1_000_000} ms", after < before * 1.3)
