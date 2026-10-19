@@ -1,0 +1,70 @@
+package com.biskyt.mytvplayer.core.xtream
+
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.Base64
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+
+/** A programme in a channel's catch-up listing. */
+data class CatchupProgramme(
+    val startMs: Long,
+    val stopMs: Long,
+    val title: String,
+    val description: String?,
+    /** Whether the provider can replay it. */
+    val hasArchive: Boolean,
+    /** The provider's clock offset from UTC at this programme (from its local start time), if it sent one. */
+    val serverOffsetMs: Long? = null
+)
+
+/**
+ * A channel's catch-up listing, by start time. The provider's clock offset is worked out from the listing itself (its
+ * local start times beside the epoch ones), so timeshift addresses can be built for any moment without knowing the
+ * server's time zone, and across a clock change.
+ */
+data class CatchupListing(val programmes: List<CatchupProgramme>) {
+    /** The provider's offset from UTC at [t]: that of the programme then (or the nearest one). */
+    fun serverOffsetAt(t: Long): Long =
+        (programmes.lastOrNull { it.startMs <= t && it.serverOffsetMs != null } ?: programmes.firstOrNull { it.serverOffsetMs != null })
+            ?.serverOffsetMs ?: 0
+}
+
+private val serverTime = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+private val timeshiftTime = DateTimeFormatter.ofPattern("yyyy-MM-dd:HH-mm")
+
+/** The `get_simple_data_table` response: `{"epg_listings": [...]}`; titles and descriptions are base64. */
+internal fun JsonElement.toCatchupListing(): CatchupListing {
+    val items = ((this as? JsonObject)?.get("epg_listings") as? JsonArray).orEmpty()
+    val programmes = items.mapNotNull { el ->
+        val o = el as? JsonObject ?: return@mapNotNull null
+        val start = o.long("start_timestamp")?.times(1000) ?: return@mapNotNull null
+        val stop = o.long("stop_timestamp")?.times(1000) ?: return@mapNotNull null
+        CatchupProgramme(
+            startMs = start,
+            stopMs = stop,
+            title = o.str("title")?.let(::decodeText)?.trim()?.ifEmpty { null } ?: "No title",
+            description = o.str("description")?.let(::decodeText)?.trim()?.ifEmpty { null },
+            hasArchive = o.bool("has_archive"),
+            serverOffsetMs = o.str("start")?.let { local -> serverLocalMs(local)?.minus(start) }
+        )
+    }
+    // Providers sometimes list a programme twice.
+    return CatchupListing(programmes.distinctBy { it.startMs }.sortedBy { it.startMs })
+}
+
+/** A server-local "2026-10-18 18:00:00" read as if it were UTC, so subtracting the real epoch gives the offset. */
+private fun serverLocalMs(local: String): Long? =
+    runCatching { LocalDateTime.parse(local.trim(), serverTime).toInstant(ZoneOffset.UTC).toEpochMilli() }.getOrNull()
+
+/** Providers send base64; a few send plain text, which is kept as it is. */
+internal fun decodeText(s: String): String = runCatching { String(Base64.getDecoder().decode(s.trim()), Charsets.UTF_8) }
+    .getOrNull()?.takeIf { decoded -> decoded.none { it == '\uFFFD' || (it.isISOControl() && it != '\n' && it != '\r' && it != '\t') } }
+    ?: s
+
+/** The server-local "yyyy-MM-dd:HH-mm" a timeshift address starts at, for the moment [startMs]. */
+internal fun timeshiftStart(startMs: Long, serverOffsetMs: Long): String =
+    LocalDateTime.ofInstant(Instant.ofEpochMilli(startMs + serverOffsetMs), ZoneOffset.UTC).format(timeshiftTime)

@@ -20,14 +20,40 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
 
     /** stream id, number, name, category id, provider epg id */
     var streams = listOf(
-        Stream(101, 1, "UK: CHANNEL ONE HD", "1", "one.uk"),
+        Stream(101, 1, "UK: CHANNEL ONE HD", "1", "one.uk", archiveDays = 3),
         Stream(102, 2, "UK: ARENA SPRTS 1 FHD", "2", null),
         Stream(103, 3, "UK: KITE KIDZ", "1", null),
         Stream(201, 201, "FR: CINE PLUS", "3", null),
         Stream(301, 301, "AR: NEWS 24", "4", null),
     )
 
-    data class Stream(val id: Long, val num: Int, val name: String, val cat: String, val epgId: String?)
+    data class Stream(val id: Long, val num: Int, val name: String, val cat: String, val epgId: String?, val archiveDays: Int = 0)
+
+    /**
+     * Catch-up listing for any channel (times from now, in hours): one from yesterday, one earlier today, one on now,
+     * one too old to replay and one the provider didn't keep. Server time is UTC.
+     */
+    fun catchupListing(): String {
+        val hour = 3_600_000L
+        fun entry(title: String, fromHours: Double, toHours: Double, archive: Int): String {
+            val start = now + (fromHours * hour).toLong()
+            val stop = now + (toHours * hour).toLong()
+            val local = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }.format(Date(start))
+            val b64 = { s: String -> java.util.Base64.getEncoder().encodeToString(s.toByteArray()) }
+            return """{"title":"${b64(title)}","description":"${b64("About $title")}","start":"$local",""" +
+                """"start_timestamp":"${start / 1000}","stop_timestamp":"${stop / 1000}","has_archive":$archive}"""
+        }
+        return listOf(
+            entry("Long Ago", -24.0 * 10, -24.0 * 10 + 1, 1),
+            entry("Yesterday Show", -26.0, -25.0, 1),
+            entry("Not Kept", -4.0, -3.0, 0),
+            entry("Earlier Today", -2.0, -1.0, 1),
+            entry("On Now", -0.5, 0.5, 1),
+            entry("Later", 0.5, 1.5, 0)
+        ).joinToString(",", """{"epg_listings":[""", "]}")
+    }
 
     var movieCategories = listOf("10" to "UK | MOVIES", "11" to "FR | FILMS", "12" to "ACTION")
 
@@ -81,10 +107,12 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
                 MockResponse().setBody(
                     list.joinToString(",", "[", "]") {
                         """{"num":${it.num},"name":"${it.name}","stream_id":${it.id},"category_id":"${it.cat}",""" +
-                            """"stream_icon":"","epg_channel_id":${it.epgId?.let { e -> "\"$e\"" } ?: "null"},"tv_archive":0}"""
+                            """"stream_icon":"","epg_channel_id":${it.epgId?.let { e -> "\"$e\"" } ?: "null"},""" +
+                            """"tv_archive":${if (it.archiveDays > 0) 1 else 0},"tv_archive_duration":"${it.archiveDays}"}"""
                     },
                 )
             }
+            url.queryParameter("action") == "get_simple_data_table" -> MockResponse().setBody(catchupListing())
             else -> vodResponse(url) ?: MockResponse().setResponseCode(404)
         }
     }

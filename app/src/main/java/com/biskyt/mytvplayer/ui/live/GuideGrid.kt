@@ -43,9 +43,14 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.ChannelProgramme
+import com.biskyt.mytvplayer.data.db.PlaylistEntity
+import com.biskyt.mytvplayer.ui.LocalNavigator
+import com.biskyt.mytvplayer.ui.Navigator
+import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.common.BatchLoader
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
 import com.biskyt.mytvplayer.ui.common.Muted
@@ -57,7 +62,12 @@ import com.biskyt.mytvplayer.ui.common.numberLabel
 import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private const val HALF_HOUR = 30 * 60_000L
 private const val HOUR = 2 * HALF_HOUR
@@ -67,6 +77,7 @@ private const val WINDOW_MS = 5 * HALF_HOUR // 2.5 hours on screen
 // chunk and moving it by an hour usually needs no new query (and no rows blanking while they reload).
 private const val CHUNK_STEP = 3 * HOUR
 private const val CHUNK_MS = 6 * HOUR
+private const val DAY_MS = 24 * HOUR
 
 /** Where focus should land: the programme on [time] in channel [streamId] (null = the first row). */
 private data class GuideFocus(val streamId: Long?, val time: Long)
@@ -81,7 +92,9 @@ private val ChannelColumn = 250.dp
 @Composable
 fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
     val items = vm.channels.collectAsLazyPagingItems()
-    val epg = LocalContext.current.container.epg
+    val container = LocalContext.current.container
+    val epg = container.epg
+    val nav = LocalNavigator.current
     val scope = rememberCoroutineScope()
     var windowStart by remember { mutableLongStateOf(System.currentTimeMillis() / HALF_HOUR * HALF_HOUR) }
     val guideVersion by epg.changes.collectAsState()
@@ -94,6 +107,11 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
                 .let { r -> ids.associateWith { r[it].orEmpty() } }
         }
     }
+    // Catch-up (see GuideCatchup): only once the user scrolls back before now.
+    val playlistId by vm.playlistId.collectAsState()
+    val catchup = remember(playlistId) { GuideCatchup(container, scope, playlistId) }
+    val scrolledBack = windowStart < System.currentTimeMillis() / HALF_HOUR * HALF_HOUR
+    val catchupLoader = remember(chunkStart, scrolledBack) { if (scrolledBack) catchup.loader(chunkStart, chunkStart + CHUNK_MS) else null }
     // After a guide update, reload the rows already shown (keeping them on screen meanwhile).
     LaunchedEffect(guideVersion) { loader.refreshAll() }
     // Read only inside FocusedInfo, so moving focus around the grid doesn't recompose the grid itself.
@@ -114,17 +132,14 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
      * (e.g. left to the categories).
      */
     fun edge(ch: ChannelEntity, dir: Int, p: ChannelProgramme?): Boolean {
-        val target = if (dir > 0) p?.stopMs ?: (windowStart + WINDOW_MS) else (p?.startMs ?: windowStart) - 1
-        val wanted = if (dir > 0) {
-            maxOf(windowStart + HOUR, target / HALF_HOUR * HALF_HOUR - WINDOW_MS + HALF_HOUR)
-        } else {
-            minOf(windowStart - HOUR, target / HALF_HOUR * HALF_HOUR)
+        if (dir < 0 && catchup.needsLookup(windowStart)) {
+            // First time back past now: find out whether any channel has catch-up, then carry on.
+            scope.launch { if (catchup.lookUpDays() > 0) edge(ch, dir, p) }
+            return true
         }
-        val now = System.currentTimeMillis() / HALF_HOUR * HALF_HOUR
-        val next = wanted.coerceIn(now, now + 3 * 24 * 3_600_000L)
-        if (next == windowStart) return false
+        val (next, target) = nextWindow(windowStart, dir, p, catchup.days ?: 0) ?: return false
         windowStart = next
-        focusTarget.value = GuideFocus(ch.streamId, target.coerceIn(next, next + WINDOW_MS - 1))
+        focusTarget.value = GuideFocus(ch.streamId, target)
         return true
     }
 
@@ -145,14 +160,19 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
             ) {
                 items(count = items.itemCount, key = items.itemKey { it.streamId }) { index ->
                     val ch = items[index] ?: return@items
-                    LaunchedEffect(ch.streamId, loader) { loader.request(ch.streamId) }
+                    // In the past, catch-up channels' programmes come from the provider.
+                    val rowLoader = if (catchupLoader != null && ch.archiveDays > 0) catchupLoader else loader
+                    LaunchedEffect(ch.streamId, rowLoader) {
+                        if (rowLoader === catchupLoader) catchup.rows[ch.streamId] = ch
+                        rowLoader.request(ch.streamId)
+                    }
                     // Derived per row, so a new target only recomposes the row it concerns.
                     val focusTime by remember(ch.streamId, index) {
                         derivedStateOf {
                             focusTarget.value?.takeIf { it.streamId == ch.streamId || (it.streamId == null && index == 0) }?.time
                         }
                     }
-                    val programmes = loader.entries[ch.streamId]
+                    val programmes = rowLoader.entries[ch.streamId]
                     GuideRow(
                         ch = ch,
                         programmes = programmes,
@@ -166,7 +186,7 @@ fun GuideGrid(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
                             // placeholder holds focus, and the real cell takes it when they arrive).
                             if (isTarget && programmes != null) focusTarget.value = null
                         },
-                        onPlay = { play(ch) },
+                        onPlay = { p -> openProgramme(nav, ch, p, play) },
                         // The programme with focus on this row, so its options can offer to find it on demand.
                         onOptions = { vm.openOptions(ch, focused.value?.takeIf { it.first.streamId == ch.streamId }?.second) },
                         onEdge = { dir, p -> edge(ch, dir, p) }
@@ -228,7 +248,7 @@ private fun GuideRow(
     now: Long,
     focusTime: Long?,
     onFocus: (ChannelProgramme?, isTarget: Boolean) -> Unit,
-    onPlay: () -> Unit,
+    onPlay: (ChannelProgramme?) -> Unit,
     onOptions: () -> Unit,
     onEdge: (Int, ChannelProgramme?) -> Boolean
 ) {
@@ -266,7 +286,9 @@ private fun GuideRow(
                 val width = DpPerMinute * ((end - start) / 60_000f)
                 Cell(
                     p, width, p.isLive(now), i == 0, i == visible.lastIndex,
-                    focusKey = if (i == focusIndex) focusTime else null, onFocus, onPlay, onOptions, onEdge, p.title
+                    focusKey = if (i == focusIndex) focusTime else null, onFocus, onPlay, onOptions, onEdge,
+                    // Marks what can be replayed.
+                    if (ch.archiveDays > 0 && p.stopMs <= now) "⟲ ${p.title}" else p.title
                 )
                 cursor = end
             }
@@ -284,7 +306,7 @@ private fun Cell(
     /** Non-null when this cell should take focus; a new value asks again. */
     focusKey: Any?,
     onFocus: (ChannelProgramme?, isTarget: Boolean) -> Unit,
-    onPlay: () -> Unit,
+    onPlay: (ChannelProgramme?) -> Unit,
     onOptions: () -> Unit,
     onEdge: (Int, ChannelProgramme?) -> Boolean,
     title: String
@@ -298,7 +320,7 @@ private fun Cell(
         }
     }
     TvCard(
-        onClick = onPlay,
+        onClick = { onPlay(p) },
         onLongClick = onOptions,
         color = if (live) Palette.surface else Palette.surfaceLow,
         modifier = Modifier.width(width).fillMaxHeight().padding(horizontal = 2.dp)
@@ -324,4 +346,73 @@ private fun Cell(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 18.dp)
         )
     }
+}
+
+/** OK on a programme: a finished one on a catch-up channel is replayed; anything else plays the channel live. */
+private fun openProgramme(nav: Navigator, ch: ChannelEntity, p: ChannelProgramme?, play: (ChannelEntity) -> Unit) {
+    val start = p?.takeIf { ch.archiveDays > 0 && it.stopMs <= System.currentTimeMillis() }?.startMs
+    if (start != null) nav.push(Screen.CatchupPlayer(ch.playlistId, ch.streamId, start)) else play(ch)
+}
+
+/**
+ * The TV guide's past, which is only ever loaded on request so the guide's normal loading never touches the provider:
+ * how far back it may go is looked up the first time the user presses left at "now", and past programmes of catch-up
+ * channels are fetched from the provider only for rows on screen while the window is in the past.
+ */
+private class GuideCatchup(private val c: AppContainer, private val scope: CoroutineScope, private val playlistId: Long) {
+    /** The longest catch-up in the playlist, once looked up. */
+    var days by mutableStateOf<Int?>(null)
+        private set
+
+    /** The catch-up channels on screen, by stream id (the loader only gets ids). */
+    val rows = HashMap<Long, ChannelEntity>()
+
+    /** Going back from [windowStart]: true the first time it would pass now, before [days] is known. */
+    fun needsLookup(windowStart: Long) = days == null && windowStart <= System.currentTimeMillis() / HALF_HOUR * HALF_HOUR
+
+    suspend fun lookUpDays(): Int = c.db.channels().maxArchiveDays(playlistId).also { days = it }
+
+    fun loader(from: Long, to: Long) = BatchLoader<List<ChannelProgramme>>(scope) { ids ->
+        val p = c.playlists.get(playlistId)
+        // Side by side: a slow provider costs one round trip for the rows on screen, not one per row.
+        coroutineScope { ids.map { id -> async { id to programmes(p, id, from, to) } }.awaitAll().toMap() }
+    }
+
+    private suspend fun programmes(p: PlaylistEntity?, id: Long, from: Long, to: Long): List<ChannelProgramme> {
+        val ch = rows[id]
+        val listing = if (p == null || ch == null) {
+            null
+        } else {
+            try {
+                c.catchup.listing(p, ch)
+            } catch (_: java.io.IOException) {
+                null
+            }
+        }
+        // The provider didn't answer: the row keeps what the downloaded guide has.
+        if (ch == null || listing == null) return c.epg.programmes(playlistId, listOf(id), from, to, details = false)[id].orEmpty()
+        // What can be replayed, plus what's on now and later (the rest isn't offered).
+        val now = System.currentTimeMillis()
+        return (c.catchup.playable(listing, ch) + listing.programmes.filter { it.stopMs > now })
+            .distinctBy { it.startMs }
+            .filter { it.stopMs > from && it.startMs < to }
+            .sortedBy { it.startMs }
+            .map { ChannelProgramme(id, it.startMs, it.stopMs, it.title, null, it.description) }
+    }
+}
+
+/**
+ * The window after moving past its edge from [p] in direction [dir]: at least an hour, and far enough to show the
+ * time just beyond [p]; with the time focus goes to. Null at the limits (now minus [catchupDays], three days ahead).
+ */
+private fun nextWindow(windowStart: Long, dir: Int, p: ChannelProgramme?, catchupDays: Int): Pair<Long, Long>? {
+    val target = if (dir > 0) p?.stopMs ?: (windowStart + WINDOW_MS) else (p?.startMs ?: windowStart) - 1
+    val wanted = if (dir > 0) {
+        maxOf(windowStart + HOUR, target / HALF_HOUR * HALF_HOUR - WINDOW_MS + HALF_HOUR)
+    } else {
+        minOf(windowStart - HOUR, target / HALF_HOUR * HALF_HOUR)
+    }
+    val now = System.currentTimeMillis() / HALF_HOUR * HALF_HOUR
+    val next = wanted.coerceIn(now - catchupDays * DAY_MS, now + 3 * DAY_MS)
+    return if (next == windowStart) null else next to target.coerceIn(next, next + WINDOW_MS - 1)
 }

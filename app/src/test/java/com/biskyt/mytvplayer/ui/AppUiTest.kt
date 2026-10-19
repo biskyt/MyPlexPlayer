@@ -31,6 +31,7 @@ import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.guide.GuideMatchingScreen
 import com.biskyt.mytvplayer.ui.guide.GuideSourcesScreen
 import com.biskyt.mytvplayer.ui.home.HomeScreen
+import com.biskyt.mytvplayer.ui.live.CatchupScreen
 import com.biskyt.mytvplayer.ui.live.LiveScreen
 import com.biskyt.mytvplayer.ui.search.SearchScreen
 import com.biskyt.mytvplayer.ui.settings.AppearanceScreen
@@ -111,6 +112,8 @@ class AppUiTest {
             is Screen.VodPlayer -> Text("VOD ${screen.itemId} ${screen.seriesId}")
             // The real player needs video hardware; a marker is enough to see where navigation went.
             is Screen.Player -> Text("PLAYER ${screen.streamId}")
+            is Screen.CatchupPlayer -> Text("CATCHUP ${screen.streamId} ${screen.startMs}")
+            is Screen.Catchup -> CatchupScreen(screen)
             else -> Text(screen.toString())
         }
     }
@@ -172,6 +175,52 @@ class AppUiTest {
             navigator.current.screen is Screen.SeriesDetails
         }
         assertEquals(Screen.SeriesDetails(playlistId, 77, season = 1, episode = 2), navigator.current.screen)
+    }
+
+    @Test
+    fun `catch-up channels offer catch-up and start over, and the page replays a past programme`() {
+        show(Screen.Live())
+        waitFor("UK: CHANNEL ONE HD")
+        compose.onRoot().performKeyInput {
+            keyDown(Key.DirectionCenter)
+            advanceEventTime(1_500)
+            keyUp(Key.DirectionCenter)
+        }
+        waitFor("Start over")
+        compose.onNode(hasText("Catch-up")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+        assertEquals(Screen.Catchup(playlistId, 101), navigator.current.screen)
+        waitFor("Earlier Today")
+        assertTrue(compose.onAllNodes(hasText("Not Kept")).fetchSemanticsNodes().isEmpty())
+        compose.onNode(hasText("Earlier Today")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+        assertTrue(navigator.current.screen.toString(), navigator.current.screen is Screen.CatchupPlayer)
+
+        // A channel without catch-up offers neither.
+        compose.runOnUiThread { navigator.reset(Screen.Live()) }
+        waitFor("UK: ARENA SPRTS 1 FHD")
+        press(Key.DirectionDown)
+        compose.onRoot().performKeyInput {
+            keyDown(Key.DirectionCenter)
+            advanceEventTime(1_500)
+            keyUp(Key.DirectionCenter)
+        }
+        waitFor("Hide channel")
+        assertTrue(compose.onAllNodes(hasText("Start over")).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun `the guide asks for catch-up only when scrolled into the past`() {
+        show(Screen.Live(guide = true))
+        compose.waitUntil(5_000) { focusedText().contains("Now on one.uk") }
+        assertTrue(provider.requests.none { it.endsWith("get_simple_data_table") })
+        // Left at "now" looks up how far back catch-up goes, then the guide moves back an hour.
+        press(Key.DirectionLeft)
+        compose.waitUntil(5_000) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            compose.onAllNodes(hasText("Earlier Today", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+        assertTrue(provider.requests.any { it.endsWith("get_simple_data_table") })
     }
 
     private fun focusedText(): String = compose.onAllNodes(isFocused()).fetchSemanticsNodes().joinToString(" | ") { node ->
