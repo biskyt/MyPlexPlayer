@@ -66,10 +66,10 @@ class CatchupPlayerViewModel(
                 val l = c.catchup.listing(p, ch)
                 listing = l
                 val start = screen.startMs ?: c.catchup.onNow(l)?.startMs
-                if (start == null) error = "There's nothing to start over on this channel right now." else open(start)
+                if (start == null) fail("There's nothing to start over on this channel right now.") else open(start)
                 startTicking()
             } catch (e: java.io.IOException) {
-                error = e.message ?: failureMessage
+                fail(e.message ?: failureMessage)
             }
         }
     }
@@ -130,7 +130,7 @@ class CatchupPlayerViewModel(
      * that ends almost at once won't do better if asked again.
      */
     override fun onEnded() {
-        if ((engine?.player?.currentPosition ?: 0) < MIN_PLAYED_MS) error = failureMessage else open(position())
+        if ((engine?.player?.currentPosition ?: 0) < MIN_PLAYED_MS) fail(failureMessage) else open(position())
     }
 
     // Coming back to the app, or trying again after an error, carries on from where playback was (the same address

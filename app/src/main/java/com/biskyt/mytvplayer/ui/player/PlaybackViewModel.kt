@@ -17,6 +17,8 @@ import com.biskyt.mytvplayer.core.player.PlayerAction
 import com.biskyt.mytvplayer.core.player.RemoteKey
 import com.biskyt.mytvplayer.data.Settings
 import com.biskyt.mytvplayer.player.PlaybackEngine
+import com.biskyt.mytvplayer.player.PlaybackError
+import com.biskyt.mytvplayer.player.failureReason
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -34,8 +36,13 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         private set
     var buffering by mutableStateOf(true)
         private set
-    var error by mutableStateOf<String?>(null)
-        protected set
+    var error by mutableStateOf<PlaybackError?>(null)
+        private set
+
+    /** Stops on an error: [message] says what happened and what to do, [reason] why (when known). */
+    protected fun fail(message: String, reason: String? = null) {
+        error = PlaybackError(message, reason)
+    }
     var message by mutableStateOf<String?>(null)
         private set
     var tracks by mutableStateOf(Tracks.EMPTY)
@@ -107,7 +114,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             playedMs = 0
             playingSince = 0
             if (!retries.take()) {
-                error = failureMessage
+                fail(failureMessage, failureReason(e, engine?.currentUrl))
                 return
             }
             if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
@@ -129,7 +136,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         mapper = KeyActionMapper(settings.skipBackSec * 1_000L, settings.skipForwardSec * 1_000L)
         return PlaybackEngine(appContext, settings).also {
             it.player.addListener(listener)
-            it.onUnsupported = { error = "This uses a stream format MyTVPlayer can't play." }
+            it.onUnsupported = { url -> fail("This uses a stream format MyTVPlayer can't play.", failureReason(null, url)) }
             engine = it
         }
     }

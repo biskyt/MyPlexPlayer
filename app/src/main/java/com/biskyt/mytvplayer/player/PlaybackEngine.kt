@@ -60,10 +60,10 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         .build()
 
     /**
-     * Called when an address can't be played at all (a stream type the player has no support for), instead of the
-     * player throwing and closing the app.
+     * Called with an address that can't be played at all (a stream type the player has no support for), instead of
+     * the player throwing and closing the app.
      */
-    var onUnsupported: () -> Unit = {}
+    var onUnsupported: (url: String) -> Unit = {}
 
     /** True once the default subtitle choice has been applied to the current stream (the user may change it after). */
     private var subtitlesApplied = false
@@ -71,6 +71,9 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
     // URLs whose format was worked out from the address and turned out to be HLS (some M3U links don't say).
     private val hlsUrls = HashSet<String>()
     private var current: String? = null
+
+    /** The current stream's address. */
+    val currentUrl: String? get() = current
     private var currentInferred = false
 
     /**
@@ -101,7 +104,7 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         player.stop()
         player.clearMediaItems()
         current = null
-        onUnsupported()
+        onUnsupported(item.localConfiguration?.uri?.toString().orEmpty())
         false
     }
 
