@@ -41,8 +41,10 @@ import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 import java.io.IOException
 import java.text.DateFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import java.util.Date
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -147,10 +149,17 @@ fun PlaylistsScreen() {
  * "Expires 12 Mar 2027" from the provider's expiry date (seconds), and whether it's soon or past (shown as a warning).
  * Null when there's none: free playlists, and providers that don't say.
  */
-internal fun expiry(expiresAtSec: Long?, now: Long = System.currentTimeMillis()): Pair<String, Boolean>? {
+internal fun expiry(
+    expiresAtSec: Long?,
+    now: Long = System.currentTimeMillis(),
+    zone: ZoneId = ZoneId.systemDefault()
+): Pair<String, Boolean>? {
     val at = expiresAtSec?.takeIf { it > 0 }?.times(1000) ?: return null
     val date = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(at))
-    val days = TimeUnit.MILLISECONDS.toDays(at - now)
+
+    // Calendar days, as the date shown: tomorrow is "in 1 day" at any time of day.
+    fun day(ms: Long) = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
+    val days = ChronoUnit.DAYS.between(day(now), day(at))
     return when {
         at <= now -> "Expired on $date" to true
         days < 1 -> "Expires today ($date)" to true

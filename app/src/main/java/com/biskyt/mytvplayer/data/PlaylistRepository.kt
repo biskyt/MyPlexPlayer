@@ -20,7 +20,9 @@ import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
@@ -56,12 +58,19 @@ class PlaylistRepository(
      * Reads the account's expiry date and connection limit, from an Xtream login or from an Xtream panel's M3U link
      * (`…/get.php?username=…&password=…`). Optional: if it fails, what was known is kept.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException") // any failure (network, odd answers) leaves it as it was
     private suspend fun refreshAccount(p: PlaylistEntity) {
         val client = if (p.isM3u) xtreamLoginIn(p.server)?.let { (server, user, pass) -> client(server, user, pass) } else client(p)
-        val account = runCatching { client?.account() }.getOrNull() ?: return
-        playlists.get(p.id)?.let {
-            playlists.upsert(it.copy(expiresAt = account.expiresAtEpochSec, maxConnections = account.maxConnections))
+        // A plain M3U link has no account (e.g. one that used to be a provider's link): nothing to show.
+        if (client == null) return playlists.setAccount(p.id, null, null)
+        val account = try {
+            client.account()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return
         }
+        playlists.setAccount(p.id, account.expiresAtEpochSec, account.maxConnections)
     }
 
     /** Checks the login works; throws XtreamException with a readable message otherwise. */
@@ -170,8 +179,14 @@ class PlaylistRepository(
      */
     suspend fun syncChannels(playlistId: Long, onProgress: (Int) -> Unit = {}): Int {
         val p = playlists.get(playlistId) ?: return 0
-        refreshAccount(p)
-        if (p.isM3u) return syncM3u(p, onProgress)
+        // Alongside the download: a slow account answer mustn't hold up the channels.
+        return coroutineScope {
+            launch { refreshAccount(p) }
+            if (p.isM3u) syncM3u(p, onProgress) else syncXtream(p, playlistId, onProgress)
+        }
+    }
+
+    private suspend fun syncXtream(p: PlaylistEntity, playlistId: Long, onProgress: (Int) -> Unit): Int {
         val client = client(p)
         refreshCategories(playlistId)
         val out = ChannelWriter(playlistId, onProgress)
@@ -259,7 +274,7 @@ class PlaylistRepository(
                 channels.deleteStale(playlistId, stamp)
                 categories.refreshCounts(playlistId, CAT_LIVE)
             }
-            playlists.get(playlistId)?.let { playlists.upsert(it.copy(lastSyncAt = stamp)) }
+            playlists.setLastSync(playlistId, stamp)
             return batch.count
         }
     }
@@ -327,10 +342,6 @@ class PlaylistRepository(
     }
 
     companion object {
-        /**
-         * Free, legal, no-sign-up channels collected by iptv-org (github.com/iptv-org/iptv), grouped by country so the
-         * language filter can pick the TV's own country. Set up on first launch; users can add their own providers.
-         */
         /** The server, user name and password in an Xtream panel's M3U link (`http://host:port/get.php?username=…`). */
         fun xtreamLoginIn(m3uUrl: String): Triple<String, String, String>? {
             val url = m3uUrl.trim().toHttpUrlOrNull()?.takeIf { it.pathSegments.lastOrNull() == "get.php" } ?: return null
@@ -340,6 +351,10 @@ class PlaylistRepository(
             return Triple(server, user, pass)
         }
 
+        /**
+         * Free, legal, no-sign-up channels collected by iptv-org (github.com/iptv-org/iptv), grouped by country so the
+         * language filter can pick the TV's own country. Set up on first launch; users can add their own providers.
+         */
         const val FREE_PLAYLIST_URL = "https://iptv-org.github.io/iptv/index.country.m3u"
         const val FREE_PLAYLIST_NAME = "Free TV (iptv-org)"
         private const val REUSE_DOWNLOAD_MS = 10 * 60_000L

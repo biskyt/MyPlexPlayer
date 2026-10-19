@@ -16,6 +16,12 @@ interface PlaylistDao {
     @Query("SELECT * FROM playlist WHERE id = :id")
     suspend fun get(id: Long): PlaylistEntity?
 
+    @Query("UPDATE playlist SET expiresAt = :expiresAt, maxConnections = :maxConnections WHERE id = :id")
+    suspend fun setAccount(id: Long, expiresAt: Long?, maxConnections: Int?)
+
+    @Query("UPDATE playlist SET lastSyncAt = :at WHERE id = :id")
+    suspend fun setLastSync(id: Long, at: Long)
+
     @Query("SELECT * FROM playlist ORDER BY id")
     suspend fun all(): List<PlaylistEntity>
 

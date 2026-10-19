@@ -14,6 +14,10 @@ data class PlaybackError(val message: String, val reason: String? = null)
 /** "Stream from lb.example.net.", naming where a stream comes from (lenient, like the player, about odd addresses). */
 fun streamSource(url: String?): String? = url?.let { android.net.Uri.parse(it).host }?.let { "Stream from $it." }
 
+/** Why a stream didn't play ([e], when the player said) and where it comes from, as one line; null if neither is known. */
+fun failureReason(e: PlaybackException?, url: String?): String? =
+    listOfNotNull(e?.let(::explainFailure), streamSource(url)).joinToString(" ").ifEmpty { null }
+
 /**
  * Why a stream didn't play, in words for the viewer: whether the stream itself is unavailable (its server refused,
  * it's gone, it didn't answer) or this TV box can't play what it sent (its format, its encryption).
@@ -37,7 +41,7 @@ fun explainFailure(e: PlaybackException): String {
         e.errorCode in DECODING -> "This TV box can't decode the stream's ${decoderFormat(e) ?: "video or audio"}."
         e.errorCode in PARSING -> "The stream sent data MyTVPlayer can't read (an unsupported or damaged format)."
         e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW -> "The stream kept falling behind its live point."
-        e.errorCode in NETWORK -> "The stream stopped arriving: the connection to its server failed."
+        e.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED -> "The stream stopped arriving: the connection to its server failed."
         else -> "The player couldn't play it (${e.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' ')})."
     }
 }
@@ -66,8 +70,6 @@ private fun Throwable.causes(): Sequence<Throwable> = generateSequence(this) { i
 private const val MAX_CAUSES = 10
 
 private val DRM = PlaybackException.ERROR_CODE_DRM_UNSPECIFIED..PlaybackException.ERROR_CODE_DRM_LICENSE_EXPIRED
-
-private val NETWORK = PlaybackException.ERROR_CODE_IO_UNSPECIFIED..PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE
 
 private val AUDIO_OUTPUT = setOf(
     PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED,
