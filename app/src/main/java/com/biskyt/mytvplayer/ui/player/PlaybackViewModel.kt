@@ -17,6 +17,7 @@ import com.biskyt.mytvplayer.core.player.PlayerAction
 import com.biskyt.mytvplayer.core.player.RemoteKey
 import com.biskyt.mytvplayer.data.Settings
 import com.biskyt.mytvplayer.player.PlaybackEngine
+import com.biskyt.mytvplayer.player.explainFailure
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -36,6 +37,10 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         private set
     var error by mutableStateOf<String?>(null)
         protected set
+
+    /** Why it isn't playing, when the player said ([error] is what to do about it). */
+    var errorReason by mutableStateOf<String?>(null)
+        private set
     var message by mutableStateOf<String?>(null)
         private set
     var tracks by mutableStateOf(Tracks.EMPTY)
@@ -107,6 +112,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             playedMs = 0
             playingSince = 0
             if (!retries.take()) {
+                errorReason = listOfNotNull(explainFailure(e), engine?.currentHost?.let { "Stream from $it." }).joinToString(" ")
                 error = failureMessage
                 return
             }
@@ -129,7 +135,10 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         mapper = KeyActionMapper(settings.skipBackSec * 1_000L, settings.skipForwardSec * 1_000L)
         return PlaybackEngine(appContext, settings).also {
             it.player.addListener(listener)
-            it.onUnsupported = { error = "This uses a stream format MyTVPlayer can't play." }
+            it.onUnsupported = {
+                errorReason = it.currentHost?.let { host -> "Stream from $host." }
+                error = "This uses a stream format MyTVPlayer can't play."
+            }
             engine = it
         }
     }
@@ -138,6 +147,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     protected fun resetForNewStream() {
         retryJob?.cancel()
         error = null
+        errorReason = null
         retries.reset()
         playedMs = 0
         playingSince = 0

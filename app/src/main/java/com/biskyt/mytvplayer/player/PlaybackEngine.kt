@@ -71,6 +71,9 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
     // URLs whose format was worked out from the address and turned out to be HLS (some M3U links don't say).
     private val hlsUrls = HashSet<String>()
     private var current: String? = null
+
+    /** The server the current stream comes from, e.g. "lb.example.net". */
+    val currentHost: String? get() = current?.let { runCatching { java.net.URI(it).host }.getOrNull() }
     private var currentInferred = false
 
     /**

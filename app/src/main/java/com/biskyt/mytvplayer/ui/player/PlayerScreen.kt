@@ -312,6 +312,7 @@ private fun ErrorBox(text: String, vm: PlaybackViewModel) {
             modifier = Modifier.width(560.dp)
         ) {
             Text(text, style = MaterialTheme.typography.titleLarge)
+            vm.errorReason?.let { Muted(it, maxLines = 4) }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 PillButton("Try again", vm::retry, retry, primary = true)
                 PillButton("Back", vm::stop)
