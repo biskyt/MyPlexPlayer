@@ -41,6 +41,9 @@ import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 import java.io.IOException
 import java.text.DateFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import java.util.Date
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -107,6 +110,13 @@ fun PlaylistsScreen() {
                         Column(Modifier.padding(start = 14.dp).weight(1f)) {
                             Text(p.name, style = MaterialTheme.typography.titleMedium)
                             Muted(playlistDetails(p))
+                            expiry(p.expiresAt)?.let { (text, soon) ->
+                                Text(
+                                    text,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (soon) Palette.warning else Palette.textMuted
+                                )
+                            }
                         }
                         if (isActive) Text("IN USE", style = MaterialTheme.typography.labelMedium, color = accent.color)
                     }
@@ -135,9 +145,33 @@ fun PlaylistsScreen() {
     }
 }
 
+/**
+ * "Expires 12 Mar 2027" from the provider's expiry date (seconds), and whether it's soon or past (shown as a warning).
+ * Null when there's none: free playlists, and providers that don't say.
+ */
+internal fun expiry(
+    expiresAtSec: Long?,
+    now: Long = System.currentTimeMillis(),
+    zone: ZoneId = ZoneId.systemDefault()
+): Pair<String, Boolean>? {
+    val at = expiresAtSec?.takeIf { it > 0 }?.times(1000) ?: return null
+    val date = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(at))
+
+    // Calendar days, as the date shown: tomorrow is "in 1 day" at any time of day.
+    fun day(ms: Long) = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
+    val days = ChronoUnit.DAYS.between(day(now), day(at))
+    return when {
+        at <= now -> "Expired on $date" to true
+        days < 1 -> "Expires today ($date)" to true
+        days <= EXPIRY_WARNING_DAYS -> "Expires $date, in $days ${if (days == 1L) "day" else "days"}" to true
+        else -> "Expires $date" to false
+    }
+}
+
+private const val EXPIRY_WARNING_DAYS = 14
+
 private fun playlistDetails(p: PlaylistEntity): String {
     val parts = mutableListOf(if (p.isM3u) "M3U" else "Xtream")
-    p.expiresAt?.takeIf { it > 0 }?.let { parts += "expires ${DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(it * 1000))}" }
     if (p.lastSyncAt > 0) parts += "updated ${formatDateTime(p.lastSyncAt)}"
     return parts.joinToString(" · ")
 }
