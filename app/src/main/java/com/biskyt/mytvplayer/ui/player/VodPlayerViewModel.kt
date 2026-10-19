@@ -9,6 +9,8 @@ import androidx.lifecycle.viewModelScope
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.core.player.OverlayState
 import com.biskyt.mytvplayer.core.xtream.EpisodeInfo
+import com.biskyt.mytvplayer.data.db.CAT_MOVIE
+import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.data.db.PlaylistEntity
 import com.biskyt.mytvplayer.data.db.VOD_EPISODE
 import com.biskyt.mytvplayer.data.db.VOD_MOVIE
@@ -58,7 +60,33 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         val episode: EpisodeInfo? = null
     )
 
+    /** The movie, or the series of the episode: what "Add to favourites" applies to. */
+    private val favouriteType = if (screen.seriesId == null) CAT_MOVIE else CAT_SERIES
+    private val favouriteId = screen.seriesId ?: screen.itemId
+    private var favourite by mutableStateOf(false)
+
+    override fun menuActions(): List<MenuAction> {
+        val series = screen.seriesId
+        val what = if (series == null) "movie" else "series"
+        return listOf(
+            MenuAction(if (favourite) "Remove $what from favourites" else "Add $what to favourites") {
+                val add = !favourite
+                viewModelScope.launch {
+                    c.vod.setFavourite(screen.playlistId, favouriteType, favouriteId, add)
+                    flash(if (add) "Added to favourites" else "Removed from favourites")
+                }
+            },
+            if (series == null) {
+                MenuAction("About this movie", Screen.MovieDetails(screen.playlistId, screen.itemId))
+            } else {
+                val episode = current?.episode
+                MenuAction("All episodes", Screen.SeriesDetails(screen.playlistId, series, episode?.season, episode?.number))
+            }
+        )
+    }
+
     init {
+        viewModelScope.launch { c.vod.observeFavourite(screen.playlistId, favouriteType, favouriteId).collect { favourite = it } }
         viewModelScope.launch {
             startEngine()
             val p = c.playlists.get(screen.playlistId) ?: return@launch stop()

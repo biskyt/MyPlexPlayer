@@ -38,6 +38,24 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
             c.epg.programmes(screen.playlistId, ids, from, to, details = false)
         }
 
+    /** This playlist's favourite channels, for the More menu's "Add to / Remove from favourites". */
+    private var favouriteIds by mutableStateOf(emptySet<Long>())
+
+    override fun menuActions(): List<MenuAction> {
+        val ch = channel ?: return emptyList()
+        val favourite = ch.streamId in favouriteIds
+        return buildList {
+            add(MenuAction(if (favourite) "Remove from favourites" else "Add to favourites") { setFavourite(ch, !favourite) })
+            if (ch.archiveDays > 0) add(MenuAction("Catch-up: last ${ch.archiveDays} days", Screen.Catchup(ch.playlistId, ch.streamId)))
+            add(MenuAction("Change guide source…", Screen.GuideMatching(ch.playlistId, ch.streamId)))
+        }
+    }
+
+    private fun setFavourite(ch: ChannelEntity, favourite: Boolean) = viewModelScope.launch {
+        c.channels.setFavourite(ch.playlistId, ch.streamId, favourite)
+        flash(if (favourite) "Added to favourites" else "Removed from favourites")
+    }
+
     private var client: XtreamClient? = null
     private var ids: List<Long> = emptyList()
     private var tuneJob: Job? = null
@@ -46,6 +64,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
     private var targetStreamId: Long = screen.streamId
 
     init {
+        viewModelScope.launch { c.channels.observeFavouriteIds(screen.playlistId).collect { favouriteIds = it.toSet() } }
         viewModelScope.launch {
             startEngine()
             client = c.playlists.get(screen.playlistId)?.takeUnless { it.isM3u }?.let(c.playlists::client)

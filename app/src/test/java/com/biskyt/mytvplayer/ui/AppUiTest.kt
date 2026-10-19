@@ -7,10 +7,12 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performSemanticsAction
@@ -45,6 +47,7 @@ import com.biskyt.mytvplayer.ui.vod.MovieDetailsScreen
 import com.biskyt.mytvplayer.ui.vod.SeriesDetailsScreen
 import com.biskyt.mytvplayer.ui.vod.VodBrowseScreen
 import com.github.takahirom.roborazzi.captureRoboImage
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -317,6 +320,23 @@ class AppUiTest {
     }
 
     @Test
+    fun `a search result's options add it to favourites and open catch-up`() {
+        show(Screen.Search("one"))
+        waitFor("UK: CHANNEL ONE HD")
+        // Holding OK on the channel card (its long click) opens the options.
+        compose.onAllNodes(hasText("UK: CHANNEL ONE HD", substring = true) and hasClickAction(), useUnmergedTree = false)
+            .onFirst().performSemanticsAction(SemanticsActions.OnLongClick)
+        waitFor("Add to favourites")
+        compose.onNode(hasText("Add to favourites")).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("Remove from favourites")
+        runBlocking { assertTrue(101L in app.container.channels.observeFavouriteIds(playlistId).first()) }
+        waitFor("Catch-up")
+        compose.onNode(hasText("Catch-up")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+        assertEquals(Screen.Catchup(playlistId, 101), navigator.current.screen)
+    }
+
+    @Test
     fun `backup saves to Downloads and restores after confirming`() {
         show(Screen.Backup)
         waitFor("No backup on this TV yet.")
@@ -371,6 +391,24 @@ class AppUiTest {
         compose.onNode(hasText("Add a guide")).performSemanticsAction(SemanticsActions.OnClick)
         waitFor("Free guides by country")
         waitFor("Your own XMLTV address")
+    }
+
+    @Test
+    fun `the live player's More menu adds to favourites and opens catch-up and the guide source`() {
+        val vm = com.biskyt.mytvplayer.ui.player.PlayerViewModel(app.container, app, Screen.Player(playlistId, 101, ChannelFilter.All))
+        compose.waitUntil(5_000) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            vm.menuActions().isNotEmpty()
+        }
+        val labels = vm.menuActions().map { it.label }
+        assertEquals(listOf("Add to favourites", "Catch-up: last 3 days", "Change guide source…"), labels)
+        assertEquals(Screen.GuideMatching(playlistId, 101), vm.menuActions().last().opens)
+        vm.menuActions().first().run!!.invoke()
+        compose.waitUntil(5_000) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            vm.menuActions().first().label == "Remove from favourites"
+        }
+        vm.engine?.release()
     }
 
     @Test

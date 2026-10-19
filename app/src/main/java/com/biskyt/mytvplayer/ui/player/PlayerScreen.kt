@@ -162,6 +162,8 @@ internal fun PlayerFrame(
         extras()
     }
     vm.sheet?.let { PlayerSheet(it, vm) }
+    // Back from a screen opened from the More menu.
+    LaunchedEffect(Unit) { vm.onScreenShown() }
     LaunchedEffect(vm.overlay, vm.sheet) { if (vm.sheet == null && vm.overlay != OverlayState.GUIDE) runCatching { root.requestFocus() } }
 }
 
