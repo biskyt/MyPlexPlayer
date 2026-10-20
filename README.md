@@ -1,6 +1,6 @@
 # MyTVPlayer
 
-A free, open-source IPTV player for Android TV (Android 11+), built for low-powered TV boxes and for people who
+A free, open-source IPTV player for Android TV and Fire TV (Android 9+), built for low-powered TV boxes and for people who
 just want to find their programmes and press play. No ads, no tracking, every feature free. GPL-3.0.
 
 ![Live TV](app/screenshots/live-list.png)
