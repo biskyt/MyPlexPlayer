@@ -26,9 +26,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -168,7 +170,7 @@ internal fun PlayerFrame(
     LaunchedEffect(vm.overlay, vm.sheet) { if (vm.sheet == null && vm.overlay != OverlayState.GUIDE) runCatching { root.requestFocus() } }
 }
 
-/** Remote keys on the video: left/right skip, up/down zap, down with controls showing moves into the buttons. */
+/** Remote keys on the video: left/right skip (and scrub, held), down with controls showing moves into the buttons. */
 private fun handleKey(e: KeyEvent, vm: PlaybackViewModel, buttons: FocusRequester): Boolean {
     if (vm.overlay == OverlayState.CONTROLS && e.key == Key.DirectionDown) {
         return runCatching { buttons.requestFocus() }.isSuccess
@@ -191,7 +193,7 @@ private fun handleKey(e: KeyEvent, vm: PlaybackViewModel, buttons: FocusRequeste
         Key.ChannelDown, Key.PageDown -> RemoteKey.CHANNEL_DOWN
         else -> null
     }
-    if (key != null) return vm.onKey(key)
+    if (key != null) return vm.onKey(key, repeat = e.nativeKeyEvent.repeatCount)
     val digit = e.key.digit() ?: return false
     return vm.onKey(RemoteKey.DIGIT, digit)
 }
@@ -234,7 +236,7 @@ private fun LiveControls(vm: PlayerViewModel, buttons: FocusRequester, root: Foc
                 PillButton("Start over", { nav.replace(Screen.CatchupPlayer(ch.playlistId, ch.streamId, filter = vm.filter)) })
             }
         }
-        Muted("◀ ▶ skip · ▲ ▼ change channel · ▼ for buttons · OK hides this", Modifier.align(Alignment.CenterHorizontally))
+        Muted("◀ ▶ skip · CH + − change channel · ▼ for buttons · OK hides this", Modifier.align(Alignment.CenterHorizontally))
     }
 }
 
@@ -252,12 +254,24 @@ internal fun ControlsPanel(content: @Composable ColumnScope.() -> Unit) {
     }
 }
 
-/** Start time, progress bar, end time. */
+/** Start time, progress bar, end time; while scrubbing, a marker at [scrub] (the same scale as [fraction]). */
 @Composable
-internal fun Timeline(start: String, fraction: Float, end: String) {
+internal fun Timeline(start: String, fraction: Float, end: String, scrub: Float? = null) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         Muted(start)
-        ProgressLine(fraction, Modifier.weight(1f), height = 6.dp)
+        Box(Modifier.weight(1f)) {
+            ProgressLine(fraction, height = 6.dp)
+            if (scrub != null) {
+                val accent = LocalAccent.current.color
+                Box(
+                    Modifier.matchParentSize().drawBehind {
+                        val center = Offset(size.width * scrub.coerceIn(0f, 1f), size.height / 2)
+                        drawCircle(accent, radius = 11.dp.toPx(), center = center)
+                        drawCircle(Color.White, radius = 6.dp.toPx(), center = center)
+                    }
+                )
+            }
+        }
         Muted(end)
     }
 }

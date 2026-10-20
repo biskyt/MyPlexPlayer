@@ -15,6 +15,7 @@ import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
+import com.biskyt.mytvplayer.data.db.CategoryCount
 import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.ChannelProgramme
@@ -45,6 +46,9 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
     private val activePlaylist = c.settings.activePlaylistId
     val playlistId: StateFlow<Long> = activePlaylist.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
 
+    /** Opened from the Catch-up tab: the categories are those with catch-up channels, and OK opens past programmes. */
+    val catchupMode = initialFilter?.isCatchup == true
+
     /** Whether the user has picked a list here yet (the remembered one mustn't replace their choice). */
     private var picked = false
 
@@ -65,14 +69,14 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
                 remembered is ChannelFilter.Category &&
                     c.db.categories().observeIncluded(activePlaylist.first(), CAT_LIVE).first().none { it.categoryId == remembered.id }
                 ) ||
-                remembered == ChannelFilter.Catchup // opened from its own tab, not remembered
+                remembered.isCatchup // opened from its own tab, not remembered
             if (initialFilter == null && !gone && !picked) {
                 filters.select(remembered)
                 picked = false
             }
             // Remembered once the user settles on a list (not for every category passed on the way).
             // Not Catch-up: the Live TV tab opens on live lists (Catch-up has its own tab).
-            filter.drop(1).debounce(SAVE_AFTER_MS).filter { it != ChannelFilter.Catchup }.collect { f ->
+            filter.drop(1).debounce(SAVE_AFTER_MS).filter { !it.isCatchup }.collect { f ->
                 if (f.key != saved) {
                     saved = f.key
                     c.settings.update { it.copy(lastLiveFilter = f.key) }
@@ -92,8 +96,9 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** How many channels offer catch-up (the Catch-up list is left out when none do). */
-    val catchupCount: StateFlow<Int> = activePlaylist.flatMapLatest { c.channels.observeCatchupCount(it) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    /** The categories with catch-up channels (the Catch-up tab's column). */
+    val catchupCategories: StateFlow<List<CategoryCount>> = activePlaylist.flatMapLatest { c.channels.observeCatchupCategories(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Hides a category (from its options in the column); if it's the one shown, All channels shows instead. */
     fun hideCategory(cat: CategoryEntity) = viewModelScope.launch {
