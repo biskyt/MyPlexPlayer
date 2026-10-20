@@ -9,10 +9,10 @@
   - Better guide matching.
   - "Find in Series / Movies" from the TV guide.
 - **0.8:** Catch-up TV: per-channel catch-up page, Start over, and past programmes in the TV guide (Xtream).
+- **0.9:** Movies and series from M3U playlists, M3U catch-up, and provider M3U links added as logins.
 
 ## Milestone 2: Movies, Series and search
 - Programme reminders.
-- Catch-up for M3U playlists that declare it.
 - Optional TMDB artwork and details for movies and series (can be turned off).
 - OpenSubtitles (off by default).
 

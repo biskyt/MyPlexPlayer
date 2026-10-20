@@ -54,14 +54,19 @@ cropped ([credits, with each image's author and licence](app/src/test/resources/
 - A **Catch-up** tab lists those channels by category; a small ⟲ mark shows them everywhere else too.
 - Browse the last few days, day by day, or scroll back in the TV guide and pick a finished programme.
 - **Start over** watches what's on now from its beginning.
+- Works with Xtream Codes accounts, and with M3U playlists that declare catch-up on their channels (`catchup`,
+  `catchup-days`, `catchup-source`). M3U catch-up is offered in hour-long slots.
 
 ### Movies and series
 | | |
 |---|---|
 | ![Movie details](store/screenshots/7-movie-details.png) | ![Series details](store/screenshots/8-series-details.png) |
 
+- From Xtream Codes accounts, or from an M3U playlist's own movies and series playlists (one playlist holding both is
+  fine: episodes like "Show S01E02" go to Series, the rest to Movies).
 - Browse by category with posters, filter by title, and see what's recently added.
-- Details pages with plot, cast and running time, and every season and episode of a series.
+- Details pages with plot, cast and running time (where the provider gives them), and every season and episode of a
+  series.
 - Movies and episodes **resume where you left off**, the next episode starts on its own, and **Carry on watching**
   on Home takes you straight back.
 - From a programme in the TV guide, **Find series** or **Find in Movies** to watch it on demand.

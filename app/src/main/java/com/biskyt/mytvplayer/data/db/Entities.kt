@@ -203,7 +203,7 @@ data class ChannelEntity(
     val categoryId: String,
     val logoUrl: String?,
     val providerEpgId: String?,
-    /** Catch-up days offered by the provider (used by catch-up TV in the next update). */
+    /** Catch-up days offered by the provider (0: no catch-up). */
     val archiveDays: Int,
     val hidden: Boolean = false,
     val sortOrder: Int? = null,
@@ -212,7 +212,10 @@ data class ChannelEntity(
     /** M3U channels carry their own URL (and sometimes required HTTP headers); Xtream URLs are built from the login. */
     val streamUrl: String? = null,
     val userAgent: String? = null,
-    val referrer: String? = null
+    val referrer: String? = null,
+    /** M3U catch-up: how the archive's address is made (see M3uCatchup), and the playlist's address template. */
+    val catchupType: String? = null,
+    val catchupSource: String? = null
 )
 
 @Entity(tableName = "favourite", primaryKeys = ["playlistId", "streamId"])

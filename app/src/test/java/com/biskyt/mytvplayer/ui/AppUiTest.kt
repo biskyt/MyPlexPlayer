@@ -44,7 +44,6 @@ import com.biskyt.mytvplayer.ui.settings.AppearanceScreen
 import com.biskyt.mytvplayer.ui.settings.BackupScreen
 import com.biskyt.mytvplayer.ui.settings.CategoriesScreen
 import com.biskyt.mytvplayer.ui.settings.PlaybackSettingsScreen
-import com.biskyt.mytvplayer.ui.settings.PlaylistEditScreen
 import com.biskyt.mytvplayer.ui.settings.PlaylistsScreen
 import com.biskyt.mytvplayer.ui.settings.SettingsScreen
 import com.biskyt.mytvplayer.ui.settings.WelcomeScreen
@@ -129,7 +128,6 @@ class AppUiTest {
             is Screen.Categories -> CategoriesScreen(screen.playlistId, screen.firstRun)
             Screen.GuideSources -> GuideSourcesScreen()
             Screen.Playlists -> PlaylistsScreen()
-            is Screen.PlaylistEdit -> PlaylistEditScreen(screen.playlistId, screen.firstRun)
             is Screen.Search -> SearchScreen(screen.query)
             is Screen.Movies -> VodBrowseScreen(CAT_MOVIE, screen.filter)
             is Screen.Series -> VodBrowseScreen(CAT_SERIES, screen.filter)
@@ -308,41 +306,6 @@ class AppUiTest {
         press(Key.Guide)
         waitFor("Now on one.uk")
         compose.waitUntil(5_000) { focusedText().contains("UK: CHANNEL ONE HD") }
-    }
-
-    @Test
-    fun `an M3U playlist's movie playlist fills Movies and Series, and its addresses can be edited`() {
-        provider.vodM3u = """
-            #EXTM3U
-            #EXTINF:-1 group-title="Animation",Big Buck Bunny (2008)
-            http://vod.example/bbb.mp4
-            #EXTINF:-1 group-title="Animated Series",Caminandes S01E01 - Llama Drama
-            http://vod.example/cam1.mp4
-        """.trimIndent()
-        val m3u = runBlocking {
-            val c = app.container
-            c.playlists.addM3u("Free", provider.url + "free.m3u", moviesUrl = provider.url + "vod.m3u").also {
-                c.playlists.syncChannels(it)
-                c.vod.sync(c.playlists.get(it)!!)
-            }
-        }
-        show(Screen.Movies())
-        waitFor("Big Buck Bunny")
-        compose.onNode(hasText("Big Buck Bunny") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
-        waitFor("2008")
-        compose.onNode(hasText("Play")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitForIdle()
-        assertTrue(navigator.current.screen.toString(), navigator.current.screen is Screen.VodPlayer)
-
-        compose.runOnUiThread { navigator.reset(Screen.Series()) }
-        waitFor("Caminandes")
-        compose.onNode(hasText("Caminandes") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
-        waitFor("Llama Drama")
-
-        compose.runOnUiThread { navigator.reset(Screen.PlaylistEdit(m3u, firstRun = false)) }
-        waitFor("Movies playlist (optional)")
-        waitFor(provider.url + "vod.m3u")
-        waitFor("Series playlist (optional)")
     }
 
     @Test

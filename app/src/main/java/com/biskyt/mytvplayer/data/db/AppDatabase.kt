@@ -13,7 +13,8 @@ import androidx.room.RoomDatabase
     // 3: movies and series (category.type; movie, series, watch_progress, vod_favourite).
     // 4: what a programme is (programme.kind, season, episode).
     // 5: an index for catch-up channels.
-    // 6: M3U movies and series (playlist.moviesUrl/seriesUrl/vodFeedHash; movie.streamUrl; episode).
+    // 6: M3U movies and series (playlist.moviesUrl/seriesUrl/vodFeedHash; movie.streamUrl; episode) and catch-up
+    //    (channel.catchupType/catchupSource).
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),

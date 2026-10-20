@@ -663,4 +663,41 @@ class RepositoriesTest {
         assertEquals(0, db.vod().searchMovies(id, "%", 10).size)
         assertEquals(2, db.vod().searchSeries(id, "%", 10).size)
     }
+
+    @Test
+    fun `M3U channels that declare catch-up get hourly slots and their archive's address`() = runBlocking {
+        provider.m3u = """
+            #EXTM3U
+            #EXTINF:-1 tvg-id="One.uk" catchup="shift" catchup-days="3" group-title="United Kingdom",Channel One
+            http://stream.example/one.m3u8
+            #EXTINF:-1 tvg-id="Two.uk" catchup="append" catchup-source="?start={utc}&end={utcend}" group-title="United Kingdom",Channel Two
+            http://stream.example/two.m3u8
+            #EXTINF:-1 tvg-id="Odd.uk" catchup="vod" catchup-days="5" group-title="United Kingdom",Odd One
+            http://stream.example/odd.m3u8
+            #EXTINF:-1 tvg-id="Plain.uk" group-title="United Kingdom",Plain
+            http://stream.example/plain.m3u8
+        """.trimIndent()
+        val id = playlists.addM3u("Free", provider.url + "free.m3u")
+        playlists.syncChannels(id)
+        val p = playlists.get(id)!!
+        val all = db.channels().search(id, "", 10).associateBy { it.name }
+        assertEquals(3, all.getValue("Channel One").archiveDays)
+        assertEquals(7, all.getValue("Channel Two").archiveDays) // no days given: a week
+        assertEquals(0, all.getValue("Odd One").archiveDays) // a kind of catch-up it can't play
+        assertEquals(0, all.getValue("Plain").archiveDays)
+
+        val now = 1_714_588_200_000L // 2024-05-01 18:30 UTC
+        val catchup = CatchupRepository(playlists) { now }
+        val one = all.getValue("Channel One")
+        val listing = catchup.listing(p, one)
+        // Three days of hours, from the first that starts within them to the one on now.
+        assertEquals(3 * 24, catchup.playable(listing, one).size)
+        val start = listing.programmes.last().startMs
+        assertEquals("http://stream.example/one.m3u8?utc=${start / 1000}&lutc=${now / 1000}", catchup.url(p, one, listing, start))
+        val two = all.getValue("Channel Two")
+        assertEquals(
+            "http://stream.example/two.m3u8?start=${start / 1000}&end=${now / 1000 + 60}",
+            catchup.url(p, two, catchup.listing(p, two), start)
+        )
+    }
 }

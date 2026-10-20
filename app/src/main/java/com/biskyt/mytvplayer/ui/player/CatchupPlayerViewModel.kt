@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewModelScope
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.core.m3u.M3uCatchup
 import com.biskyt.mytvplayer.core.player.OverlayState
 import com.biskyt.mytvplayer.core.xtream.CatchupListing
 import com.biskyt.mytvplayer.core.xtream.CatchupProgramme
@@ -63,7 +64,7 @@ class CatchupPlayerViewModel(
             playlist = p
             channel = ch
             try {
-                val l = c.catchup.listing(p, ch)
+                val l = c.catchup.listing(p, ch).let { if (p.isM3u) withGuide(p, ch, it) else it }
                 listing = l
                 val start = screen.startMs ?: c.catchup.onNow(l)?.startMs
                 if (start == null) fail("There's nothing to start over on this channel right now.") else open(start)
@@ -74,6 +75,19 @@ class CatchupPlayerViewModel(
         }
     }
 
+    /**
+     * M3U catch-up has only hour-long slots; the TV guide's programmes, where it has them, take their place, so the
+     * title, "Start over" and "from the start" follow the real programmes.
+     */
+    private suspend fun withGuide(p: PlaylistEntity, ch: ChannelEntity, l: CatchupListing): CatchupListing {
+        val now = clock()
+        val oldest = now - ch.archiveDays * CatchupRepository.DAY_MS
+        val guide = c.epg.programmes(p.id, listOf(ch.streamId), oldest, now, details = false)[ch.streamId].orEmpty()
+            .filter { it.startMs >= oldest }
+            .map { CatchupProgramme(it.startMs, it.stopMs, it.title, it.description, hasArchive = true) }
+        return M3uCatchup.withProgrammes(l, guide)
+    }
+
     /** Where playback is now. */
     private fun position(): Long = openedAt + (engine?.player?.currentPosition ?: 0)
 
@@ -81,15 +95,24 @@ class CatchupPlayerViewModel(
         val p = playlist ?: return
         val ch = channel ?: return
         val l = listing ?: return
-        if (startMs >= clock() - LIVE_MARGIN_MS) {
-            watchLive()
-            return
-        }
+        if (startMs >= clock() - LIVE_MARGIN_MS) watchLive() else play(p, ch, l, startMs)
+    }
+
+    private fun play(p: PlaylistEntity, ch: ChannelEntity, l: CatchupListing, startMs: Long) {
         openedAt = startMs
         at = startMs
         programme = programmeAt(startMs)
         resetForNewStream()
-        engine?.play(c.catchup.url(p, ch, l, startMs), hls = false)
+        // An M3U channel whose catch-up address can't be made: say so, as for any stream that won't play.
+        val url = try {
+            c.catchup.url(p, ch, l, startMs)
+        } catch (e: java.io.IOException) {
+            return fail(e.message ?: failureMessage)
+        }
+        // Xtream archives are MPEG-TS; M3U ones may be either (told by the address when it can), and may need the
+        // channel's headers.
+        val hls = if (p.isM3u) M3uCatchup.isHls(url, ch.streamUrl.orEmpty(), ch.catchupType.orEmpty()) else false
+        engine?.play(url, hls = hls, userAgent = ch.userAgent, referrer = ch.referrer)
         showControls()
     }
 
