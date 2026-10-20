@@ -1,6 +1,8 @@
 package com.biskyt.mytvplayer.data
 
 import androidx.room.withTransaction
+import com.biskyt.mytvplayer.core.m3u.M3uCatchup
+import com.biskyt.mytvplayer.core.m3u.M3uEntry
 import com.biskyt.mytvplayer.core.m3u.M3uParser
 import com.biskyt.mytvplayer.core.xtream.XtreamCategory
 import com.biskyt.mytvplayer.core.xtream.XtreamClient
@@ -109,10 +111,35 @@ class PlaylistRepository(
         Result.failure(Exception((e as? IOException)?.message ?: "Couldn't set up the free channels", e))
     }
 
-    /** Saves a new M3U playlist (after checking it can be downloaded and read) and makes it the active one. */
-    suspend fun addM3u(name: String, url: String): Long {
+    /**
+     * Saves a new M3U playlist (after checking it can be downloaded and read) and makes it the active one, with
+     * optional movie and series playlists. A provider's M3U link (`…/get.php?username=…`) is added as its login
+     * instead, which brings the provider's movies, series and catch-up; if the panel won't answer logins, as a playlist.
+     */
+    suspend fun addM3u(name: String, url: String, moviesUrl: String? = null, seriesUrl: String? = null): Long {
+        // Only a plain link, with no movie or series playlists of its own: one asking for another stream format or
+        // a selection of channels stays the playlist it is, as before.
+        val plainLink = moviesUrl.isNullOrBlank() && seriesUrl.isNullOrBlank() && isPlainPanelLink(url)
+        if (plainLink) {
+            xtreamLoginIn(url)?.let { (server, user, pass) ->
+                try {
+                    return add(name, server, user, pass)
+                } catch (_: IOException) {
+                    // Not every panel answers logins as well as playlists: carry on with the playlist.
+                }
+            }
+        }
         val remote = withM3u(url.trim()) { file -> m3uGroups(file) }
-        return insertAndActivate(PlaylistEntity(name = name, kind = KIND_M3U, server = url.trim(), username = "", password = ""), remote)
+        val p = PlaylistEntity(
+            name = name,
+            kind = KIND_M3U,
+            server = url.trim(),
+            username = "",
+            password = "",
+            moviesUrl = moviesUrl?.trim()?.ifEmpty { null },
+            seriesUrl = seriesUrl?.trim()?.ifEmpty { null }
+        )
+        return insertAndActivate(p, remote)
     }
 
     private suspend fun insertAndActivate(p: PlaylistEntity, remote: List<XtreamCategory>): Long {
@@ -172,6 +199,7 @@ class PlaylistRepository(
             playlists.deleteMappings(id)
             playlists.deleteMovies(id)
             playlists.deleteSeries(id)
+            playlists.deleteEpisodes(id)
             playlists.deleteProgress(id)
             playlists.deleteVodFavourites(id)
             playlists.delete(id)
@@ -248,17 +276,19 @@ class PlaylistRepository(
             M3uParser.parse(reader) { e ->
                 index++
                 // Ids are given to every entry, so a duplicate's id doesn't depend on which groups are included.
-                var id = stableId("${e.tvgId.orEmpty()}|${e.name}")
-                while (!ids.add(id)) id = stableId("$id#") // same channel listed twice
-                val group = e.group ?: OTHER_GROUP
+                val id = uniqueId("${e.tvgId.orEmpty()}|${e.name}", ids)
+                val group = groupOf(e)
                 groups += group
                 if (!include.getOrPut(group) { categoryStore.langOf(group, groupByName = true) in wanted }) return@parse
+                val catchup = M3uCatchup.typeFor(e.catchup, e.catchupSource, e.url)
                 out.add(
                     ChannelEntity(
                         playlistId = p.id, streamId = id, number = e.number ?: index, name = e.name, categoryId = group,
-                        logoUrl = e.logo, providerEpgId = e.tvgId?.substringBefore('@'), archiveDays = 0,
+                        logoUrl = e.logo, providerEpgId = e.tvgId?.substringBefore('@'),
+                        archiveDays = if (catchup == null) 0 else M3uCatchup.daysFor(e.catchupDays),
                         hidden = out.hidden(id), sortOrder = out.sortOrder(id), syncStamp = out.stamp,
-                        streamUrl = e.url, userAgent = e.userAgent, referrer = e.referrer
+                        streamUrl = e.url, userAgent = e.userAgent, referrer = e.referrer,
+                        catchupType = catchup, catchupSource = e.catchupSource
                     )
                 )
             }
@@ -302,7 +332,7 @@ class PlaylistRepository(
      * instead, so adding a playlist and then loading its channels downloads it once. Each download goes to its own
      * temp file and is then swapped in whole, so concurrent readers never see a half-written file.
      */
-    private suspend fun <T> withM3u(url: String, reuse: Boolean = false, block: suspend (File) -> T): T = withContext(Dispatchers.IO) {
+    suspend fun <T> withM3u(url: String, reuse: Boolean = false, block: suspend (File) -> T): T = withContext(Dispatchers.IO) {
         workDir.mkdirs()
         val now = System.currentTimeMillis()
         // Old copies are only deleted well after they stop being reused, so a slow reader never loses its file.
@@ -345,12 +375,19 @@ class PlaylistRepository(
     /** Distinct group titles in playlist order; channels without one go under "Other". */
     private suspend fun m3uGroups(file: File): List<XtreamCategory> {
         val groups = LinkedHashSet<String>()
-        file.bufferedReader().use { reader -> M3uParser.parse(reader) { groups += it.group ?: OTHER_GROUP } }
+        file.bufferedReader().use { reader -> M3uParser.parse(reader) { groups += groupOf(it) } }
         return groups.map { XtreamCategory(it, it) }
     }
 
-    /** 64-bit FNV-1a hash, kept positive: a stable channel id from text. */
-    private fun stableId(key: String): Long {
+    /** A [stableId] not yet in [taken] (which it's added to): the same name listed twice gets a second id. */
+    fun uniqueId(key: String, taken: MutableSet<Long>): Long {
+        var id = stableId(key)
+        while (!taken.add(id)) id = stableId("$id#")
+        return id
+    }
+
+    /** 64-bit FNV-1a hash, kept positive: a stable channel (or M3U movie or episode) id from text. */
+    fun stableId(key: String): Long {
         var h = -0x340d631b7bdddcdbL
         for (c in key) {
             h = h xor c.code.toLong()
@@ -360,6 +397,14 @@ class PlaylistRepository(
     }
 
     companion object {
+        /** A panel link with nothing beyond the login and the usual playlist type and output (MPEG-TS, like logins play). */
+        internal fun isPlainPanelLink(m3uUrl: String): Boolean {
+            val url = m3uUrl.trim().toHttpUrlOrNull() ?: return false
+            val allowed = setOf("username", "password", "type", "output")
+            return url.queryParameterNames.all { it in allowed } &&
+                url.queryParameter("output").let { it == null || it == "ts" || it == "mpegts" }
+        }
+
         /** The server, user name and password in an Xtream panel's M3U link (`http://host:port/get.php?username=…`). */
         fun xtreamLoginIn(m3uUrl: String): Triple<String, String, String>? {
             val url = m3uUrl.trim().toHttpUrlOrNull()?.takeIf { it.pathSegments.lastOrNull() == "get.php" } ?: return null
@@ -380,5 +425,8 @@ class PlaylistRepository(
 
         private const val BATCH = 500
         private const val OTHER_GROUP = "Other"
+
+        /** An M3U entry's group; entries without one go under "Other". */
+        fun groupOf(e: M3uEntry) = e.group ?: OTHER_GROUP
     }
 }

@@ -2,6 +2,22 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.9.0
+- **Movies and series from M3U playlists**: when adding or editing an M3U playlist, give its movies playlist and/or
+  series playlist (both optional). One playlist with both works: episodes named like "Show S01E02" go to Series,
+  grouped by show and season, and the rest to Movies. They work like a provider's: categories, favourites, resume and
+  "Carry on watching". M3U playlists don't say more than a title and picture, so there's no plot or cast.
+- **Catch-up on M3U channels** that declare it in their playlist (`catchup`, `catchup-days`, `catchup-source`): the
+  Catch-up tab, the ⟲ mark and the TV guide's past work as for Xtream channels, with the past in hour-long slots.
+  "Start over" goes back to the start of the programme on now, if the TV guide has it.
+- Adding a provider's M3U link (`…/get.php?username=…&password=…`) adds it with its login instead, so its movies,
+  series and catch-up come too. Links that ask for another stream format or a selection of channels stay playlists.
+- Fixed: subtitles never appeared on screen. Text and picture (DVB) subtitles now show over the video.
+- Picture options do what they say: Fit, Zoom to fill (crops to fill the screen), Stretch, and now 16:9 and 4:3 for
+  channels whose picture is the wrong shape.
+- Choosing an audio or subtitle track now says what's playing a moment later (or that the channel wouldn't switch).
+- Fixed: an audio or subtitle choice could carry over to the next channel, or stop applying after a reconnect.
+
 ## 0.8.9
 - Settings now ends with **Support MyTVPlayer**: Ko-fi and GitHub Sponsors. Each shows a QR code to scan with your
   phone (and can open the page on the TV, if it has a browser).

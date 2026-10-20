@@ -82,6 +82,12 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
      */
     fun play(url: String, hls: Boolean?, userAgent: String? = null, referrer: String? = null) {
         subtitlesApplied = false
+        // A track chosen on the last stream mustn't carry over (or quietly match a different one on this).
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+            .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+            .build()
         current = url
         currentInferred = hls == null && url !in hlsUrls
         http.setUserAgent(userAgent ?: DEFAULT_USER_AGENT)
@@ -131,6 +137,10 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         val (group, index) = choice?.let { options[it.id.toInt()] } ?: (null to 0)
         selectTrack(C.TRACK_TYPE_TEXT, group, index)
     }
+
+    /** Whether track [index] of [group] is the one playing, in the player's current tracks. */
+    fun isPlaying(group: Tracks.Group, index: Int): Boolean =
+        player.currentTracks.groups.any { it.mediaTrackGroup == group.mediaTrackGroup && it.isTrackSelected(index) }
 
     /** Selects a track of [type] (audio or text); null turns that type off. */
     fun selectTrack(type: Int, group: Tracks.Group?, index: Int) {

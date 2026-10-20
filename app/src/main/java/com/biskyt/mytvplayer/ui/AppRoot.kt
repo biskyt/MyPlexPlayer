@@ -16,10 +16,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
+import com.biskyt.mytvplayer.data.db.PlaylistEntity
 import com.biskyt.mytvplayer.ui.common.onGuideKey
 import com.biskyt.mytvplayer.ui.guide.GuideMatchingScreen
 import com.biskyt.mytvplayer.ui.guide.GuideSourcesScreen
@@ -44,7 +46,6 @@ import com.biskyt.mytvplayer.ui.theme.Palette
 import com.biskyt.mytvplayer.ui.vod.MovieDetailsScreen
 import com.biskyt.mytvplayer.ui.vod.SeriesDetailsScreen
 import com.biskyt.mytvplayer.ui.vod.VodBrowseScreen
-import kotlinx.coroutines.flow.first
 
 @Composable
 fun AppRoot() {
@@ -72,10 +73,7 @@ fun AppRoot() {
                     if (playlist.id != s.activePlaylistId) container.settings.update { it.copy(activePlaylistId = playlist.id) }
                     when {
                         playlist.isStale() -> container.sync.refresh(playlist.id)
-                        // Movies and series not loaded yet (e.g. just updated from a version without them).
-                        !playlist.isM3u &&
-                            container.vod.observeCount(CAT_MOVIE, playlist.id).first() == 0 &&
-                            container.vod.observeCount(CAT_SERIES, playlist.id).first() == 0 -> container.sync.refreshVod(playlist.id)
+                        needsVod(container, playlist) -> container.sync.refreshVod(playlist.id)
                     }
                     if (s.startOnLastChannel && s.lastChannelId != 0L && container.channels.get(playlist.id, s.lastChannelId) != null) {
                         nav.push(Screen.Player(playlist.id, s.lastChannelId, ChannelFilter.All))
@@ -115,6 +113,12 @@ private fun Modifier.guideButton(nav: Navigator, hasPlaylist: Boolean) =
  * Not while watching something (leaving would stop it), during set-up, or on the live screen (which switches between
  * list and guide itself; pressed elsewhere on it, e.g. on the tabs, nothing happens).
  */
+/**
+ * Movies and series not loaded yet (e.g. just updated from a version without them). M3U ones only if never loaded:
+ * with every category unticked there are rightly none.
+ */
+private suspend fun needsVod(c: AppContainer, p: PlaylistEntity) = p.hasVod && (!p.isM3u || p.vodFeedHash == null) && !c.vod.hasTitles(p.id)
+
 internal fun guideButtonOpensGuide(screen: Screen) = !screen.isPlayback && !screen.isSetup && screen !is Screen.Live
 
 @Composable

@@ -33,13 +33,15 @@ sealed interface VodFilter {
 }
 
 /**
- * Movies and series (Xtream playlists only): the light lists are stored for fast paging and filtering; details and
- * episodes are fetched when a title is opened and kept briefly in memory. [type] arguments are CAT_MOVIE or CAT_SERIES,
- * which double as the favourite kinds.
+ * Movies and series, from an Xtream account or an M3U playlist's movie and series playlists. The light lists are
+ * stored for fast paging and filtering. Xtream details and episodes are fetched when a title is opened and kept
+ * briefly in memory; M3U episodes are stored with their series, and M3U titles have no further details. [type]
+ * arguments are CAT_MOVIE or CAT_SERIES, which double as the favourite kinds.
  */
 class VodRepository(private val db: AppDatabase, private val playlists: PlaylistRepository, private val categoryStore: CategoryStore) {
     private val vod = db.vod()
     private val categories = db.categories()
+    private val m3u = M3uVod(db, playlists, categoryStore)
 
     // maxSize drops pages scrolled far away, so browsing tens of thousands of titles doesn't keep them all.
     private val paging = PagingConfig(pageSize = 48, prefetchDistance = 24, initialLoadSize = 72, enablePlaceholders = true, maxSize = 300)
@@ -57,6 +59,9 @@ class VodRepository(private val db: AppDatabase, private val playlists: Playlist
             }
         }.flow
     }
+
+    /** Whether the playlist has any movies or series loaded. */
+    suspend fun hasTitles(playlistId: Long) = vod.titleCount(playlistId) > 0
 
     fun observeCount(type: String, playlistId: Long) =
         if (type == CAT_MOVIE) vod.observeMovieCount(playlistId) else vod.observeSeriesCount(playlistId)
@@ -121,24 +126,35 @@ class VodRepository(private val db: AppDatabase, private val playlists: Playlist
     private val movieDetails = LruCache<String, VodDetails>(DETAILS_CACHE)
     private val seriesDetails = LruCache<String, SeriesDetails>(DETAILS_CACHE)
 
-    suspend fun movieDetails(p: PlaylistEntity, streamId: Long): VodDetails =
+    suspend fun movieDetails(p: PlaylistEntity, streamId: Long): VodDetails = if (p.isM3u) {
+        M3uVod.NO_DETAILS
+    } else {
         movieDetails["${p.id}:$streamId"] ?: playlists.client(p).movieDetails(streamId).also { movieDetails.put("${p.id}:$streamId", it) }
+    }
 
-    suspend fun seriesDetails(p: PlaylistEntity, seriesId: Long): SeriesDetails = seriesDetails["${p.id}:$seriesId"]
-        ?: playlists.client(p).seriesDetails(seriesId).also { seriesDetails.put("${p.id}:$seriesId", it) }
+    suspend fun seriesDetails(p: PlaylistEntity, seriesId: Long): SeriesDetails = if (p.isM3u) {
+        m3u.seriesDetails(p.id, seriesId)
+    } else {
+        seriesDetails["${p.id}:$seriesId"]
+            ?: playlists.client(p).seriesDetails(seriesId).also { seriesDetails.put("${p.id}:$seriesId", it) }
+    }
 
-    fun movieUrl(p: PlaylistEntity, streamId: Long, extension: String) = playlists.client(p).movieUrl(streamId, extension)
+    suspend fun movieUrl(p: PlaylistEntity, m: MovieEntity): String = m.streamUrl ?: playlists.client(p).movieUrl(m.streamId, m.extension)
 
-    fun episodeUrl(p: PlaylistEntity, episodeId: Long, extension: String) = playlists.client(p).episodeUrl(episodeId, extension)
+    suspend fun episodeUrl(p: PlaylistEntity, episodeId: Long, extension: String): String = if (p.isM3u) {
+        m3u.episodeUrl(p.id, episodeId)
+    } else {
+        playlists.client(p).episodeUrl(episodeId, extension)
+    }
 
     // --- sync ---
 
     /**
-     * Downloads the movie and series lists of an Xtream playlist, only for included categories (by default those of
-     * the TV's language/country, like live TV). M3U playlists have no separate movie or series lists.
+     * Downloads the movie and series lists, only for included categories (by default those of the TV's
+     * language/country, like live TV): from the Xtream account, or an M3U playlist's movie and series playlists.
      */
     suspend fun sync(p: PlaylistEntity, onProgress: (Int) -> Unit = {}) {
-        if (p.isM3u) return
+        if (p.isM3u) return m3u.sync(p, onProgress)
         val client = playlists.client(p)
         var failure: java.io.IOException? = null
 

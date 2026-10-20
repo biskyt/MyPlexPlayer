@@ -70,8 +70,9 @@ class SyncManager(
     fun refreshVod(playlistId: Long): Job = scope.launch { guarded("Couldn't load movies and series") { syncVod(playlistId) } }
 
     private suspend fun syncVod(playlistId: Long) {
-        val p = playlists.get(playlistId)?.takeUnless { it.isM3u } ?: return
-        _state.value = SyncState.Vod(0)
+        val p = playlists.get(playlistId) ?: return
+        // An M3U playlist without movie or series playlists still syncs: to clear any it had before.
+        if (p.hasVod) _state.value = SyncState.Vod(0)
         vod.sync(p) { _state.value = SyncState.Vod(it) }
     }
 

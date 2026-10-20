@@ -57,4 +57,22 @@ class M3uParserTest {
         assertEquals(emptyList<String>(), M3uParser.headerGuideUrls("#EXTM3U"))
         assertEquals(listOf("http://g"), M3uParser.headerGuideUrls("#EXTM3U url-tvg=\"http://g\""))
     }
+
+    @Test
+    fun `catch-up declared in the header applies to channels that don't declare their own`() = runBlocking {
+        val playlist = """
+            #EXTM3U catchup="shift" catchup-days="5"
+            #EXTINF:-1 tvg-id="a",Inherits
+            http://a.m3u8
+            #EXTINF:-1 catchup="append" catchup-source="?s={utc}",Own
+            http://b.m3u8
+            #EXTINF:-1 tvg-rec="3",Own days only
+            http://c.m3u8
+        """.trimIndent()
+        val entries = mutableListOf<M3uEntry>()
+        M3uParser.parse(playlist.reader().buffered()) { entries += it }
+        assertEquals(Triple("shift", 5, null), entries[0].let { Triple(it.catchup, it.catchupDays, it.catchupSource) })
+        assertEquals(Triple("append", null, "?s={utc}"), entries[1].let { Triple(it.catchup, it.catchupDays, it.catchupSource) })
+        assertEquals(Triple(null, 3, null), entries[2].let { Triple(it.catchup, it.catchupDays, it.catchupSource) })
+    }
 }

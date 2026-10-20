@@ -111,7 +111,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         val m = c.vod.movie(p.id, screen.itemId) ?: return stop()
         title = m.title
         subtitle = m.year?.toString().orEmpty()
-        play(p, Playing(VOD_MOVIE, m.streamId, m.title, m.posterUrl), c.vod.movieUrl(p, m.streamId, m.extension), screen.fromStart)
+        play(p, Playing(VOD_MOVIE, m.streamId, m.title, m.posterUrl), c.vod.movieUrl(p, m), screen.fromStart)
     }
 
     /** [continueSeries]: coming from "Carry on watching", where [episodeId] may be one already finished: play the next. */

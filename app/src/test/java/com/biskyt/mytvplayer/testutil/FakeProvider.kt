@@ -43,6 +43,13 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
     /** Images served at /art/<name> (logos and posters for the store screenshots), by name. */
     var images: (String) -> ByteArray? = { null }
 
+    /** M3U movie and series playlists, served at /vod.m3u and /series.m3u. */
+    var vodM3u = ""
+    var seriesM3u = ""
+
+    /** A panel that serves M3U playlists but refuses Xtream logins. */
+    var loginsRefused = false
+
     /** The address of an image served at /art/<name>. */
     fun art(name: String) = "${url}art/$name"
 
@@ -131,6 +138,9 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
         val early = when {
             url.encodedPath == "/free.m3u" -> MockResponse().setBody(m3u)
             url.encodedPath == "/not-a-playlist" -> MockResponse().setBody("<html>hello</html>")
+            url.encodedPath == "/vod.m3u" -> MockResponse().setBody(vodM3u)
+            url.encodedPath == "/series.m3u" -> MockResponse().setBody(seriesM3u)
+            loginsRefused && url.encodedPath.endsWith("player_api.php") -> MockResponse().setResponseCode(403)
             url.encodedPath.startsWith("/art/") ->
                 images(url.encodedPath.removePrefix("/art/"))?.let { MockResponse().setBody(Buffer().write(it)) }
                     ?: MockResponse().setResponseCode(404)

@@ -49,7 +49,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
-import androidx.media3.ui.compose.modifiers.resizeWithContentScale
 import androidx.media3.ui.compose.state.rememberPresentationState
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
@@ -153,8 +152,11 @@ internal fun PlayerFrame(
             PlayerSurface(
                 player = engine.player,
                 surfaceType = SURFACE_TYPE_SURFACE_VIEW,
-                modifier = Modifier.align(Alignment.Center).resizeWithContentScale(vm.contentScale, presentation.videoSizeDp)
+                modifier = Modifier.picture(vm.picture, presentation.videoSizeDp)
             )
+            // Over the picture's area, so picture subtitles land where the stream puts them; within the screen, so a
+            // zoomed picture doesn't push them off it.
+            Subtitles(engine.player, Modifier.picture(vm.picture, presentation.videoSizeDp, onScreen = true))
         }
         if (vm.buffering && vm.error == null) {
             Text("Loading…", style = MaterialTheme.typography.titleLarge, modifier = Modifier.align(Alignment.Center))
