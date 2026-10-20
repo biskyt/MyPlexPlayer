@@ -15,8 +15,8 @@ android {
         applicationId = "com.biskyt.mytvplayer"
         minSdk = 28
         targetSdk = 36
-        versionCode = 23
-        versionName = "0.8.8"
+        versionCode = 24
+        versionName = "0.8.9"
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
     }
 
@@ -127,6 +127,8 @@ dependencies {
     implementation(libs.datastore.preferences)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    // QR codes for the support links (the core encoder only; no camera or Android parts).
+    implementation(libs.zxing.core)
 
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
