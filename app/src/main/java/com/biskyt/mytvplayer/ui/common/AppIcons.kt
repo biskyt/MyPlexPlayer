@@ -87,6 +87,25 @@ object AppIcons {
         close()
     }
 
+    /** A cup of coffee (Ko-fi's "buy me a coffee"). */
+    val Cup = icon("cup", false) {
+        moveTo(4f, 9f)
+        horizontalLineTo(16f)
+        verticalLineTo(14f)
+        curveTo(16f, 17.3f, 13.3f, 20f, 10f, 20f)
+        curveTo(6.7f, 20f, 4f, 17.3f, 4f, 14f)
+        close()
+        moveTo(16f, 10.5f)
+        horizontalLineTo(17.5f)
+        curveTo(19f, 10.5f, 20.2f, 11.7f, 20.2f, 13.2f)
+        curveTo(20.2f, 14.7f, 19f, 15.9f, 17.5f, 15.9f)
+        horizontalLineTo(16f)
+        moveTo(8f, 3.5f)
+        verticalLineTo(5.5f)
+        moveTo(12f, 3.5f)
+        verticalLineTo(5.5f)
+    }
+
     /** A clock with a backwards arrow: past programmes can be watched again. */
     val Catchup = icon("catchup", false) {
         moveTo(5f, 12f)

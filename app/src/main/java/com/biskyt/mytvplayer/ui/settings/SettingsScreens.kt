@@ -231,9 +231,18 @@ fun AboutScreen() {
         )
     }
     fun mb(bytes: Long) = android.text.format.Formatter.formatShortFileSize(context, bytes)
+    val nav = LocalNavigator.current
     SettingsPage("About") {
         item { Text("MyTVPlayer ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleLarge) }
-        item { Muted("Free and open source (GPL-3.0). No ads, no tracking. Made by biskyt.", maxLines = 2) }
+        item { Muted("Free and open source (GPL 3.0). Made by biskyt.", maxLines = 2) }
+        item {
+            SettingRow(
+                "Open source licences",
+                "The libraries and font the app is built with",
+                { nav.push(Screen.Licences) },
+                rememberFirstFocus()
+            )
+        }
         item {
             Column(Modifier.width(700.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Storage", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
@@ -246,12 +255,6 @@ fun AboutScreen() {
                 )
             }
         }
-        item {
-            Muted(
-                "Font: Nunito (SIL Open Font License). Playback: AndroidX Media3, FFmpeg (LGPL).",
-                maxLines = 2,
-                modifier = Modifier.padding(top = 16.dp)
-            )
-        }
+        item { SupportSection() }
     }
 }
