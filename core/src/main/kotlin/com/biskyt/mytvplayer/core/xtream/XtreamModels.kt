@@ -62,9 +62,20 @@ internal fun JsonElement.toLiveStream(): XtreamLiveStream? {
         categoryId = o.str("category_id") ?: "",
         logoUrl = o.str("stream_icon"),
         epgChannelId = o.str("epg_channel_id"),
-        archiveDays = if (o.bool("tv_archive")) o.int("tv_archive_duration") ?: 0 else 0
+        archiveDays = archiveDays(o)
     )
 }
+
+/**
+ * How many days of catch-up a channel keeps: 0 without. Some panels mark a channel as having it without saying for how
+ * long: it's then taken as a week (the catch-up page lists only what the provider actually kept).
+ */
+private fun archiveDays(o: JsonObject): Int {
+    if (!o.bool("tv_archive")) return 0
+    return o.int("tv_archive_duration")?.takeIf { it > 0 } ?: DEFAULT_ARCHIVE_DAYS
+}
+
+private const val DEFAULT_ARCHIVE_DAYS = 7
 
 internal fun JsonElement.toAccount(): XtreamAccount? {
     val info = (this as? JsonObject)?.get("user_info") as? JsonObject ?: return null

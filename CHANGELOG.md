@@ -2,6 +2,17 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.8.7
+- While watching, up and down show the controls; the remote's channel buttons change channel. To change channel with
+  up and down as before, turn on Settings › Playback › **Change channel with up and down**.
+- Scrub through movies, episodes and catch-up: hold ◀ or ▶ and a marker runs along the play bar, faster the longer
+  you hold; playback jumps there when you let go. A single press still skips.
+- The Catch-up tab lists its channels by category (e.g. UK and US separately), with "All catch-up" at the top.
+- Channels whose provider marks them as having catch-up without saying for how long now show as catch-up channels
+  (taken as a week).
+- Back in the channel list or TV guide goes up to the filter box; Back again leaves.
+- Settings › Appearance: the custom colour bar is gone (it didn't work); pick one of the preset colours.
+
 ## 0.8.6
 - **Catch-up** has its own tab (in place of Favourites, which Home and each section already show), for playlists
   with catch-up channels. It lists those channels; OK opens a channel's past programmes. Live TV also has a Catch-up

@@ -1,5 +1,6 @@
 package com.biskyt.mytvplayer.ui.live
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,10 +20,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -76,9 +81,9 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
         vm.focusStreamId = ch.streamId
         nav.push(Screen.Player(pid, ch.streamId, filter))
     }
-    // In the Catch-up list, OK opens the channel's past programmes (Watch, in its options, plays it live).
+    // In the Catch-up lists, OK opens the channel's past programmes (Watch, in its options, plays it live).
     val open: (ChannelEntity) -> Unit = { ch ->
-        if (filter == ChannelFilter.Catchup) {
+        if (vm.catchupMode) {
             vm.focusStreamId = ch.streamId
             nav.push(Screen.Catchup(ch.playlistId, ch.streamId))
         } else {
@@ -88,7 +93,7 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
 
     LaunchedEffect(Unit) { vm.restoreFocusPending = true }
 
-    TabScaffold(if (filter == ChannelFilter.Catchup) Tab.CATCHUP else Tab.LIVE) {
+    TabScaffold(if (vm.catchupMode) Tab.CATCHUP else Tab.LIVE) {
         Row(
             Modifier.fillMaxSize().padding(horizontal = 56.dp).onPreviewKeyEvent { e ->
                 // 0–9 on the remote jumps straight to that channel number; the Guide button switches list/guide.
@@ -111,10 +116,13 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
         ) {
             LiveCategories(vm, filter)
             Column(Modifier.weight(1f)) {
-                ListHeader(vm, filter)
+                val filterBox = remember { FocusRequester() }
+                ListHeader(vm, filter, Modifier.focusRequester(filterBox))
                 // One paged list for both views, so the one switched to has its rows (and somewhere for focus) at once.
                 val items = vm.channels.collectAsLazyPagingItems()
-                if (vm.guideMode) GuideGrid(vm, items, play) else ChannelList(vm, items, open)
+                BackToFilter(filterBox) {
+                    if (vm.guideMode) GuideGrid(vm, items, play) else ChannelList(vm, items, open)
+                }
             }
         }
     }
@@ -124,39 +132,62 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
     }
 }
 
+/** Back with focus in [content] (the list or guide) goes up to the filter box; anywhere else it leaves Live TV. */
+@Composable
+private fun BackToFilter(filterBox: FocusRequester, content: @Composable () -> Unit) {
+    var inside by remember { mutableStateOf(false) }
+    BackHandler(enabled = inside) { runCatching { filterBox.requestFocus() } }
+    Box(Modifier.onFocusChanged { inside = it.hasFocus }) { content() }
+}
+
 @Composable
 private fun LiveCategories(vm: LiveViewModel, selected: ChannelFilter) {
+    if (vm.catchupMode) return CatchupCategories(vm, selected)
     val categories by vm.categories.collectAsState()
-    val catchup by vm.catchupCount.collectAsState()
-    val entries = remember(categories, catchup) {
-        listOfNotNull<CategoryEntry<ChannelFilter>>(
+    val entries = remember(categories) {
+        listOf<CategoryEntry<ChannelFilter>>(
             CategoryEntry(ChannelFilter.Favourites, "Favourites"),
             CategoryEntry(ChannelFilter.Recent, "Recently watched"),
-            CategoryEntry<ChannelFilter>(ChannelFilter.Catchup, "Catch-up", catchup).takeIf { catchup > 0 },
             CategoryEntry(ChannelFilter.All, "All channels")
         ) + categories.map { CategoryEntry<ChannelFilter>(ChannelFilter.Category(it.categoryId), it.name, it.channelCount, it) }
     }
     CategoryColumn(entries, selected, vm.filters::focus, vm.filters::select, vm::hideCategory)
 }
 
+/** The Catch-up tab's column: all catch-up channels, then each category that has some. */
 @Composable
-private fun ListHeader(vm: LiveViewModel, filter: ChannelFilter) {
-    val categories by vm.categories.collectAsState()
-    val total by vm.totalCount.collectAsState()
-    val catchup by vm.catchupCount.collectAsState()
-    val favs by vm.favouriteIds.collectAsState()
+private fun CatchupCategories(vm: LiveViewModel, selected: ChannelFilter) {
+    val categories by vm.catchupCategories.collectAsState()
+    val entries = remember(categories) {
+        listOf<CategoryEntry<ChannelFilter>>(CategoryEntry(ChannelFilter.Catchup, "All catch-up", categories.sumOf { it.count })) +
+            categories.map { CategoryEntry<ChannelFilter>(ChannelFilter.CatchupCategory(it.categoryId), it.name, it.count) }
+    }
+    CategoryColumn(entries, selected, vm.filters::focus, vm.filters::select)
+}
+
+@Composable
+private fun ListHeader(vm: LiveViewModel, filter: ChannelFilter, filterModifier: Modifier) {
     val query by vm.query.collectAsState()
-    val (title, count) = when (filter) {
-        ChannelFilter.All -> "All channels" to total
-        ChannelFilter.Favourites -> "Favourites" to favs.size
-        ChannelFilter.Recent -> "Recently watched" to null
-        ChannelFilter.Catchup -> "Catch-up" to catchup
-        is ChannelFilter.Category -> categories.firstOrNull { it.categoryId == filter.id }.let {
-            (it?.name ?: "Channels") to
-                it?.channelCount
+    // Each tab reads only its own category list.
+    val (title, count) = if (vm.catchupMode) {
+        val categories by vm.catchupCategories.collectAsState()
+        val shown = (filter as? ChannelFilter.CatchupCategory)?.let { f -> categories.firstOrNull { it.categoryId == f.id } }
+        (shown?.name ?: "Catch-up") to (shown?.count ?: categories.sumOf { it.count })
+    } else {
+        val categories by vm.categories.collectAsState()
+        val total by vm.totalCount.collectAsState()
+        val favs by vm.favouriteIds.collectAsState()
+        when (filter) {
+            ChannelFilter.All -> "All channels" to total
+            ChannelFilter.Favourites -> "Favourites" to favs.size
+            is ChannelFilter.Category -> categories.firstOrNull { it.categoryId == filter.id }.let {
+                (it?.name ?: "Channels") to
+                    it?.channelCount
+            }
+            else -> "Recently watched" to null
         }
     }
-    ListHeader(title, count, query, { vm.query.value = it }, "Filter by name or number") {
+    ListHeader(title, count, query, { vm.query.value = it }, "Filter by name or number", filterModifier) {
         Row(Modifier.clip(RoundedCornerShape(12.dp)).background(Palette.surface).padding(4.dp)) {
             PillButton("List", { vm.showGuide(false) }, primary = !vm.guideMode)
             PillButton("TV guide", { vm.showGuide(true) }, primary = vm.guideMode)

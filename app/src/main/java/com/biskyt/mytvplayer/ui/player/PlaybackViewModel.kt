@@ -15,11 +15,13 @@ import com.biskyt.mytvplayer.core.player.KeyActionMapper
 import com.biskyt.mytvplayer.core.player.OverlayState
 import com.biskyt.mytvplayer.core.player.PlayerAction
 import com.biskyt.mytvplayer.core.player.RemoteKey
+import com.biskyt.mytvplayer.core.player.scrubTarget
 import com.biskyt.mytvplayer.data.Settings
 import com.biskyt.mytvplayer.player.PlaybackEngine
 import com.biskyt.mytvplayer.player.PlaybackError
 import com.biskyt.mytvplayer.player.failureReason
 import com.biskyt.mytvplayer.ui.common.ItemAction
+import com.biskyt.mytvplayer.ui.common.formatDuration
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -159,7 +161,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     /** Reads the settings and creates the engine; subclasses call this first when they start. */
     protected suspend fun startEngine(): PlaybackEngine {
         settings = c.settings.current()
-        mapper = KeyActionMapper(settings.skipBackSec * 1_000L, settings.skipForwardSec * 1_000L)
+        mapper = KeyActionMapper(settings.skipBackSec * 1_000L, settings.skipForwardSec * 1_000L, settings.zapWithUpDown)
         return PlaybackEngine(appContext, settings).also {
             it.player.addListener(listener)
             it.player.addAnalyticsListener(audioFormatListener)
@@ -170,6 +172,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
     /** Forgets the previous stream's failures before playing another. */
     protected fun resetForNewStream() {
+        cancelScrub()
         retryJob?.cancel()
         error = null
         retries.reset()
@@ -194,17 +197,18 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         overlay = OverlayState.NONE
     }
 
-    fun onKey(key: RemoteKey, digit: Int = 0): Boolean {
+    /** A remote key; [repeat] counts the repeats while it's held. */
+    fun onKey(key: RemoteKey, digit: Int = 0, repeat: Int = 0): Boolean {
         if (!::mapper.isInitialized) return false
         val action = mapper.map(key, overlay, isLive, digit)
         if (overlay != OverlayState.NONE) showControls(keepOverlay = true)
-        return perform(action)
+        return perform(action, repeat)
     }
 
-    private fun perform(action: PlayerAction): Boolean {
+    private fun perform(action: PlayerAction, repeat: Int = 0): Boolean {
         val player = engine?.player
         when (action) {
-            is PlayerAction.SeekBy -> seekBy(action.ms)
+            is PlayerAction.SeekBy -> scrub(action.ms, repeat)
             is PlayerAction.Zap -> zap(action.step)
             is PlayerAction.Digit -> typeDigit(action.value)
             PlayerAction.ToggleOverlay -> if (overlay == OverlayState.NONE) showControls() else hideOverlay()
@@ -228,6 +232,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
     /** Called when the app goes to the background / comes back: nothing is left streaming in the background. */
     open fun onAppHidden() {
+        cancelScrub()
         engine?.player?.stop()
     }
 
@@ -241,21 +246,62 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     }
 
     open fun stop() {
+        cancelScrub()
         engine?.player?.stop()
         exit = true
     }
 
     fun togglePlayPause() = perform(PlayerAction.TogglePlayPause)
 
-    open fun seekBy(ms: Long) {
-        val p = engine?.player ?: return
-        if (!p.isCurrentMediaItemSeekable) {
-            flash("Skipping isn't available here")
-            return
-        }
-        p.seekTo((p.currentPosition + ms).coerceAtLeast(0))
-        flash(if (ms < 0) "−${-ms / 1000}s" else "+${ms / 1000}s")
+    /** While skipping with ◀ ▶: where playback goes once the button rests (shown on the play bar), else null. */
+    var scrubMs by mutableStateOf<Long?>(null)
+        private set
+    private var scrubJob: Job? = null
+
+    /**
+     * The span skipping moves within, and where playback is now; null where it can't skip (e.g. most live TV).
+     * On demand: the whole video.
+     */
+    protected open fun scrubBounds(): Pair<LongRange, Long>? {
+        val p = engine?.player ?: return null
+        if (!p.isCurrentMediaItemSeekable) return null
+        // Short of the very end, which would end it (and close a film); unknown length: unbounded.
+        val end = p.duration.takeIf { it > 0 }?.let { (it - END_MARGIN_MS).coerceAtLeast(0) } ?: Long.MAX_VALUE
+        return 0L..end to p.currentPosition
     }
+
+    /** Plays from [ms] (a point within [scrubBounds]). */
+    protected open fun playFrom(ms: Long) {
+        engine?.player?.seekTo(ms)
+    }
+
+    /**
+     * ◀ ▶: moves the point to play from by [ms] (faster while held, [repeat]), shown on the play bar; playback only
+     * jumps there once the button rests, so scrubbing through a film doesn't reload the stream at every step.
+     */
+    private fun scrub(ms: Long, repeat: Int) {
+        val (range, now) = scrubBounds() ?: return flash("Skipping isn't available here")
+        val target = scrubTarget(scrubMs ?: now, ms, repeat, range)
+        scrubMs = target
+        val offset = target - now
+        flash((if (offset < 0) "−" else "+") + formatDuration(kotlin.math.abs(offset)))
+        if (overlay == OverlayState.NONE) showControls()
+        scrubJob?.cancel()
+        scrubJob = viewModelScope.launch {
+            delay(SCRUB_SETTLE_MS)
+            scrubMs = null
+            playFrom(target)
+        }
+    }
+
+    /** Forgets a scrub not yet played from (another stream, starting over, leaving). */
+    protected fun cancelScrub() {
+        scrubJob?.cancel()
+        scrubMs = null
+    }
+
+    /** Whether up and down change channel (else only the channel buttons do), for the controls' hint. */
+    val upDownZaps: Boolean get() = ::settings.isInitialized && settings.zapWithUpDown
 
     fun showControls(keepOverlay: Boolean = false) {
         if (!keepOverlay || overlay == OverlayState.NONE) overlay = OverlayState.CONTROLS
@@ -315,5 +361,11 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         /** Having played this long (in all) since the last failure counts as working: later failures get fresh retries. */
         const val STEADY_MS = 20_000L
         const val OVERLAY_TIMEOUT_MS = 5_000L
+
+        /** How long ◀ ▶ rest before playback jumps to where they scrubbed to. */
+        const val SCRUB_SETTLE_MS = 700L
+
+        /** Scrubbing stops this far before the end of a video. */
+        const val END_MARGIN_MS = 5_000L
     }
 }

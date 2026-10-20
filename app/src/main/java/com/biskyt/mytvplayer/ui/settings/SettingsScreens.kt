@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -18,7 +17,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -26,13 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -173,6 +165,13 @@ fun PlaybackSettingsScreen() {
                 Toggle(s.startOnLastChannel)
             }
         }
+        item {
+            SettingRow("Change channel with up and down", "Otherwise only the channel buttons do, and up or down shows the controls", {
+                vm.update { it.copy(zapWithUpDown = !it.zapWithUpDown) }
+            }) {
+                Toggle(s.zapWithUpDown)
+            }
+        }
     }
 }
 
@@ -213,52 +212,10 @@ fun AppearanceScreen() {
                 }
             }
         }
-        HueSlider(s.accent) { argb -> vm.update { it.copy(accent = argb) } }
         SettingRow("Large text", "Bigger text is easier to read from the sofa", {
             vm.update { it.copy(largeText = !it.largeText) }
         }) { Toggle(s.largeText) }
     }
-}
-
-/** Custom colour: left/right moves around the colour wheel and the whole app updates immediately. */
-@Composable
-private fun HueSlider(current: Int, onChange: (Int) -> Unit) {
-    val hue = remember(current) { hueOf(current) }
-    TvCard(
-        onClick = {},
-        color = Palette.surface,
-        modifier = Modifier.fillMaxWidth().onPreviewKeyEvent { e ->
-            if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-            when (e.key) {
-                Key.DirectionLeft -> {
-                    onChange(AccentPalette.fromHue(hue - 10f))
-                    true
-                }
-                Key.DirectionRight -> {
-                    onChange(AccentPalette.fromHue(hue + 10f))
-                    true
-                }
-                else -> false
-            }
-        }
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row {
-                Text("Custom colour", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                Muted("◀ ▶ to change")
-            }
-            Box(
-                Modifier.fillMaxWidth().height(16.dp).clip(RoundedCornerShape(8.dp))
-                    .background(Brush.horizontalGradient((0..6).map { Color(AccentPalette.fromHue(it * 60f)) }))
-            )
-        }
-    }
-}
-
-private fun hueOf(argb: Int): Float {
-    val hsv = FloatArray(3)
-    android.graphics.Color.colorToHSV(argb, hsv)
-    return hsv[0]
 }
 
 @Composable

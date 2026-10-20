@@ -168,7 +168,7 @@ internal fun PlayerFrame(
     LaunchedEffect(vm.overlay, vm.sheet) { if (vm.sheet == null && vm.overlay != OverlayState.GUIDE) runCatching { root.requestFocus() } }
 }
 
-/** Remote keys on the video: left/right skip, up/down zap, down with controls showing moves into the buttons. */
+/** Remote keys on the video: left/right skip (and scrub, held), down with controls showing moves into the buttons. */
 private fun handleKey(e: KeyEvent, vm: PlaybackViewModel, buttons: FocusRequester): Boolean {
     if (vm.overlay == OverlayState.CONTROLS && e.key == Key.DirectionDown) {
         return runCatching { buttons.requestFocus() }.isSuccess
@@ -191,7 +191,7 @@ private fun handleKey(e: KeyEvent, vm: PlaybackViewModel, buttons: FocusRequeste
         Key.ChannelDown, Key.PageDown -> RemoteKey.CHANNEL_DOWN
         else -> null
     }
-    if (key != null) return vm.onKey(key)
+    if (key != null) return vm.onKey(key, repeat = e.nativeKeyEvent.repeatCount)
     val digit = e.key.digit() ?: return false
     return vm.onKey(RemoteKey.DIGIT, digit)
 }
@@ -234,7 +234,10 @@ private fun LiveControls(vm: PlayerViewModel, buttons: FocusRequester, root: Foc
                 PillButton("Start over", { nav.replace(Screen.CatchupPlayer(ch.playlistId, ch.streamId, filter = vm.filter)) })
             }
         }
-        Muted("◀ ▶ skip · ▲ ▼ change channel · ▼ for buttons · OK hides this", Modifier.align(Alignment.CenterHorizontally))
+        Muted(
+            "◀ ▶ skip · ${if (vm.upDownZaps) "▲ ▼" else "CH + −"} change channel · ▼ for buttons · OK hides this",
+            Modifier.align(Alignment.CenterHorizontally)
+        )
     }
 }
 
@@ -252,12 +255,12 @@ internal fun ControlsPanel(content: @Composable ColumnScope.() -> Unit) {
     }
 }
 
-/** Start time, progress bar, end time. */
+/** Start time, progress bar, end time; while scrubbing, a marker at [scrub] (the same scale as [fraction]). */
 @Composable
-internal fun Timeline(start: String, fraction: Float, end: String) {
+internal fun Timeline(start: String, fraction: Float, end: String, scrub: Float? = null) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         Muted(start)
-        ProgressLine(fraction, Modifier.weight(1f), height = 6.dp)
+        ProgressLine(fraction, Modifier.weight(1f), height = 6.dp, marker = scrub)
         Muted(end)
     }
 }

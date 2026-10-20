@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -136,9 +137,9 @@ fun PillButton(
     }
 }
 
-/** Thin progress bar drawn in one pass (no nested layouts). */
+/** Thin progress bar drawn in one pass (no nested layouts), with a round [marker] (e.g. while scrubbing) when given. */
 @Composable
-fun ProgressLine(fraction: Float, modifier: Modifier = Modifier, height: Dp = 5.dp) {
+fun ProgressLine(fraction: Float, modifier: Modifier = Modifier, height: Dp = 5.dp, marker: Float? = null) {
     val accent = LocalAccent.current.color
     Box(
         modifier.height(height).fillMaxWidth().drawBehind {
@@ -146,6 +147,11 @@ fun ProgressLine(fraction: Float, modifier: Modifier = Modifier, height: Dp = 5.
             drawRoundRect(Palette.track, cornerRadius = r)
             val f = fraction.coerceIn(0f, 1f)
             if (f > 0f) drawRoundRect(accent, size = Size(size.width * f, size.height), cornerRadius = r)
+            if (marker != null) {
+                val center = Offset(size.width * marker.coerceIn(0f, 1f), size.height / 2)
+                drawCircle(accent, radius = 11.dp.toPx(), center = center)
+                drawCircle(Color.White, radius = 6.dp.toPx(), center = center)
+            }
         }
     )
 }

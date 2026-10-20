@@ -179,6 +179,7 @@ fun ListHeader(
     query: String,
     onQuery: (String) -> Unit,
     placeholder: String,
+    filterModifier: Modifier = Modifier,
     trailing: @Composable RowScope.() -> Unit = {}
 ) {
     Row(
@@ -198,7 +199,7 @@ fun ListHeader(
             value = query,
             onValueChange = onQuery,
             placeholder = placeholder,
-            modifier = Modifier.weight(0.55f),
+            modifier = filterModifier.weight(0.55f),
             leading = { Icon(AppIcons.Filter, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) }
         )
         trailing()

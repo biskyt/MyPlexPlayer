@@ -35,6 +35,8 @@ data class Settings(
     val bufferSize: BufferSize = BufferSize.NORMAL,
     val streamFormat: StreamFormat = StreamFormat.TS,
     val startOnLastChannel: Boolean = false,
+    /** Up and down on the remote change channel while watching (else only the channel buttons do). */
+    val zapWithUpDown: Boolean = false,
     val lastChannelId: Long = 0,
     val accent: Int = AccentPalette.DEFAULT,
     val largeText: Boolean = false,
@@ -57,6 +59,7 @@ class SettingsRepository(private val context: Context) {
         val buffer = stringPreferencesKey("buffer")
         val format = stringPreferencesKey("stream_format")
         val startLast = booleanPreferencesKey("start_last")
+        val zapUpDown = booleanPreferencesKey("zap_up_down")
         val lastChannel = longPreferencesKey("last_channel")
         val accent = intPreferencesKey("accent")
         val largeText = booleanPreferencesKey("large_text")
@@ -82,6 +85,7 @@ class SettingsRepository(private val context: Context) {
             bufferSize = enumOr(this[K.buffer], d.bufferSize),
             streamFormat = enumOr(this[K.format], d.streamFormat),
             startOnLastChannel = this[K.startLast] ?: d.startOnLastChannel,
+            zapWithUpDown = this[K.zapUpDown] ?: d.zapWithUpDown,
             lastChannelId = this[K.lastChannel] ?: d.lastChannelId,
             accent = this[K.accent] ?: d.accent,
             largeText = this[K.largeText] ?: d.largeText,
@@ -101,6 +105,7 @@ class SettingsRepository(private val context: Context) {
             prefs[K.buffer] = s.bufferSize.name
             prefs[K.format] = s.streamFormat.name
             prefs[K.startLast] = s.startOnLastChannel
+            prefs[K.zapUpDown] = s.zapWithUpDown
             prefs[K.lastChannel] = s.lastChannelId
             prefs[K.accent] = s.accent
             prefs[K.largeText] = s.largeText
