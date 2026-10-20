@@ -23,6 +23,9 @@ on low-powered TV boxes and sticks, and to make it easy to find something to wat
 | ![Live TV](store/screenshots/2-live-tv.png) | ![TV guide](store/screenshots/3-tv-guide.png) |
 | ![Catch-up](store/screenshots/4-catch-up.png) | ![Movies](store/screenshots/5-movies.png) |
 
+<sub>Demo channels and logos are invented. Movies and series: the Blender Foundation's open movies, CC BY 3.0/4.0,
+cropped ([credits, with each image's author and licence](app/src/test/resources/demo-art/CREDITS.md)).</sub>
+
 ## Features
 
 ### Live TV and the TV guide
@@ -53,6 +56,10 @@ on low-powered TV boxes and sticks, and to make it easy to find something to wat
 - **Start over** watches what's on now from its beginning.
 
 ### Movies and series
+| | |
+|---|---|
+| ![Movie details](store/screenshots/7-movie-details.png) | ![Series details](store/screenshots/8-series-details.png) |
+
 - Browse by category with posters, filter by title, and see what's recently added.
 - Details pages with plot, cast and running time, and every season and episode of a series.
 - Movies and episodes **resume where you left off**, the next episode starts on its own, and **Carry on watching**
