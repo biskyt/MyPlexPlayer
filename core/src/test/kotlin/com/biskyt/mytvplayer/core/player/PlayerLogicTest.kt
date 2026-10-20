@@ -25,7 +25,8 @@ class PlayerLogicTest {
         val zapper = KeyActionMapper(10_000, 30_000, upDownZaps = true)
         assertEquals(PlayerAction.Zap(-1), zapper.map(RemoteKey.UP, NONE, isLive = true))
         assertEquals(PlayerAction.Zap(1), zapper.map(RemoteKey.DOWN, NONE, isLive = true))
-        assertEquals(PlayerAction.None, zapper.map(RemoteKey.DOWN, CONTROLS, isLive = true))
+        assertEquals(PlayerAction.Zap(1), zapper.map(RemoteKey.DOWN, CONTROLS, isLive = true)) // with the controls up too
+        assertEquals(PlayerAction.None, mapper.map(RemoteKey.DOWN, CONTROLS, isLive = true))
         assertEquals(PlayerAction.ToggleOverlay, zapper.map(RemoteKey.UP, NONE, isLive = false))
     }
 
@@ -44,6 +45,14 @@ class PlayerLogicTest {
         assertEquals(PlayerAction.HideOverlay, mapper.map(RemoteKey.BACK, CONTROLS, isLive = true))
         assertEquals(PlayerAction.StopAndExit, mapper.map(RemoteKey.BACK, NONE, isLive = true))
         assertEquals(PlayerAction.StopAndExit, mapper.map(RemoteKey.STOP, GUIDE, isLive = true))
+    }
+
+    @Test
+    fun `the media buttons work with the guide panel open`() {
+        assertEquals(PlayerAction.SeekBy(30_000), mapper.map(RemoteKey.FAST_FORWARD, GUIDE, isLive = true))
+        assertEquals(PlayerAction.SeekBy(-10_000), mapper.map(RemoteKey.REWIND, GUIDE, isLive = true))
+        assertEquals(PlayerAction.TogglePlayPause, mapper.map(RemoteKey.PLAY_PAUSE, GUIDE, isLive = true))
+        assertEquals(PlayerAction.None, mapper.map(RemoteKey.CHANNEL_UP, GUIDE, isLive = true))
     }
 
     @Test

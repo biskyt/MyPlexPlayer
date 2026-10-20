@@ -29,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -93,34 +94,35 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
 
     LaunchedEffect(Unit) { vm.restoreFocusPending = true }
 
-    TabScaffold(if (vm.catchupMode) Tab.CATCHUP else Tab.LIVE) {
-        Row(
-            Modifier.fillMaxSize().padding(horizontal = 56.dp).onPreviewKeyEvent { e ->
-                // 0–9 on the remote jumps straight to that channel number; the Guide button switches list/guide.
-                val digit = e.key.digit()
-                when {
-                    e.type != KeyEventType.KeyDown -> e.key.isGuide()
-                    digit != null -> {
-                        vm.playNumber = play
-                        vm.numberEntry.type(digit)
-                        true
-                    }
-                    e.key.isGuide() -> {
-                        vm.showGuide(!vm.guideMode)
-                        true
-                    }
-                    else -> false
+    TabScaffold(
+        if (vm.catchupMode) Tab.CATCHUP else Tab.LIVE,
+        // Anywhere on the screen, the tabs included (else the TV would take the Guide button for its own guide): 0–9
+        // on the remote jumps straight to that channel number; the Guide button switches list/guide.
+        Modifier.onPreviewKeyEvent { e ->
+            val digit = e.key.digit()
+            when {
+                e.type != KeyEventType.KeyDown -> e.key.isGuide()
+                digit != null -> {
+                    vm.playNumber = play
+                    vm.numberEntry.type(digit)
+                    true
                 }
-            },
-            horizontalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
+                e.key.isGuide() -> {
+                    vm.showGuide(!vm.guideMode)
+                    true
+                }
+                else -> false
+            }
+        }
+    ) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 56.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             LiveCategories(vm, filter)
             Column(Modifier.weight(1f)) {
                 val filterBox = remember { FocusRequester() }
                 ListHeader(vm, filter, Modifier.focusRequester(filterBox))
                 // One paged list for both views, so the one switched to has its rows (and somewhere for focus) at once.
                 val items = vm.channels.collectAsLazyPagingItems()
-                BackToFilter(filterBox) {
+                BackToFilter(filterBox, atTop = { vm.guideMode && vm.focusIndex == 0 }) {
                     if (vm.guideMode) GuideGrid(vm, items, play) else ChannelList(vm, items, open)
                 }
             }
@@ -132,12 +134,19 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
     }
 }
 
-/** Back with focus in [content] (the list or guide) goes up to the filter box; anywhere else it leaves Live TV. */
+/**
+ * Back with focus in [content] (the list or guide) goes up to the filter box, as does up from the guide's first row
+ * ([atTop]; the guide's own focus handling could keep it there); anywhere else Back leaves Live TV.
+ */
 @Composable
-private fun BackToFilter(filterBox: FocusRequester, content: @Composable () -> Unit) {
+private fun BackToFilter(filterBox: FocusRequester, atTop: () -> Boolean, content: @Composable () -> Unit) {
     var inside by remember { mutableStateOf(false) }
     BackHandler(enabled = inside) { runCatching { filterBox.requestFocus() } }
-    Box(Modifier.onFocusChanged { inside = it.hasFocus }) { content() }
+    Box(
+        Modifier.onFocusChanged { inside = it.hasFocus }.onPreviewKeyEvent { e ->
+            e.type == KeyEventType.KeyDown && e.key == Key.DirectionUp && atTop() && runCatching { filterBox.requestFocus() }.isSuccess
+        }
+    ) { content() }
 }
 
 @Composable

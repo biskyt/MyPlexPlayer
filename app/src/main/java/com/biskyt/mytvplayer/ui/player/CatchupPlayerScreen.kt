@@ -6,7 +6,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.tv.material3.MaterialTheme
@@ -53,10 +52,10 @@ private fun CatchupControls(vm: CatchupPlayerViewModel, buttons: FocusRequester,
             fun fraction(t: Long) = ((t - p.startMs).toFloat() / (p.stopMs - p.startMs).coerceAtLeast(1)).coerceIn(0f, 1f)
             Timeline(formatTime(p.startMs), fraction(vm.at), formatTime(p.stopMs), scrub?.let(::fraction))
         }
-        ControlsBar(vm, root) {
-            PillButton("From the start", vm::fromStart, Modifier.focusRequester(buttons))
+        ControlsBar(vm, buttons, root) {
+            PillButton("From the start", vm::fromStart)
             PillButton("Watch live", vm::watchLive)
         }
-        Muted("◀ ▶ skip (hold to scrub) · ▼ for buttons · Back to stop", Modifier.align(Alignment.CenterHorizontally))
+        Muted("▲ then ◀ ▶ to skip (hold to scrub) · Back hides this", Modifier.align(Alignment.CenterHorizontally))
     }
 }
