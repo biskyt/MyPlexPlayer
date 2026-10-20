@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.8.9
+- Settings now ends with **Support MyTVPlayer**: Ko-fi and GitHub Sponsors. Each shows a QR code to scan with your
+  phone (and can open the page on the TV, if it has a browser).
+
 ## 0.8.8
 - Runs on Android 9 and 10 as well as 11+, so older Fire TVs on Fire OS 7 (Fire TV Stick Lite, HD and 3rd gen, Cube
   2nd gen, many Fire TV televisions) and older Android TV boxes can install it.
