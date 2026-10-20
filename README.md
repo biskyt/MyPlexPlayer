@@ -5,32 +5,77 @@ _This work is free, with no ads and no tracking. If you find it useful, you can 
 
 # MyTVPlayer
 
-A free, open-source IPTV player for Android TV and Fire TV (Android 9+), built for low-powered TV boxes and for people who
-just want to find their programmes and press play. No ads, no tracking, every feature free. GPL-3.0.
+A fast, free and open-source IPTV player for Android TV and Fire TV (Android 9 and later). It's built to feel quick
+on low-powered TV boxes and sticks, and to make it easy to find something to watch and press play.
 
-![Live TV](app/screenshots/live-list.png)
+- **Fast**, even on budget boxes, with channel lists of thousands.
+- **Excellent TV guide matching**, with simple manual overrides when you want them.
+- **Small**: an 8 MB download.
+- **No ads, no tracking, no accounts.** Every feature is free.
+- **Your own provider or free channels**: add your IPTV provider's Xtream Codes login or M3U playlist, or start
+  straight away with the free [iptv-org](https://github.com/iptv-org/iptv) channels, which are built in.
+- **Movies, series and catch-up TV**, for providers that offer them.
 
-## What it does (first release)
+![Home](store/screenshots/1-home.png)
 
-- **Xtream Codes playlists**: add as many as you like, edit login details any time, switch from the top bar.
-- **Languages & categories**: categories are grouped by language/country (detected from names like `UK |`, `FR:`);
-  only the ones you tick are downloaded, so huge provider lists stay fast.
-- **Live TV list** with logos and now/next, a category column, filter by name or number, and number keys to jump to a
-  channel. Moving through the list never changes channel; OK plays.
-- **Full TV guide grid** (List | TV guide switch).
-- **TV guide matching**: add extra XMLTV guides and choose, per channel, which guide channel it uses (with suggestions
-  for misspelt provider names and a time shift). Your choices survive playlist updates. Hold OK on any channel →
-  *Change guide source…*.
-- **Player**: now/next and controls on OK, channel guide in a side panel without stopping the picture, ◀ ▶ skip
-  (configurable, default 10 s / 30 s), ▲ ▼ change channel, Back stops.
-- **Audio passthrough** on by default (Dolby / DTS / Atmos to your soundbar or TV), FFmpeg audio fallback when off.
-- **Subtitles**: forced-only in the TV's language by default; off / always available.
-- **Appearance**: any accent colour (default mint), large text.
-- **Storage managed automatically**: only programmes for channels you use are kept (3 days), channel logos are capped
-  at 30 MB, and the database is compacted when needed.
+| | |
+|---|---|
+| ![Live TV](store/screenshots/2-live-tv.png) | ![TV guide](store/screenshots/3-tv-guide.png) |
+| ![Catch-up](store/screenshots/4-catch-up.png) | ![Movies](store/screenshots/5-movies.png) |
 
-Coming next: movies & series with posters and resume, global search, catch-up, reminders, backup & restore
-(see [ROADMAP.md](ROADMAP.md)).
+## Features
+
+### Live TV and the TV guide
+- **Channel list** with logos and what's on now and next, or a **full TV guide grid**: switch between them with one
+  press.
+- **Categories grouped by country and language** (from names like `UK |` or `FR:`). Pick the ones you want and only
+  those are downloaded, so even very large playlists stay quick. Hide any category you don't need.
+- **Filter by name or number**, or type a channel number on the remote to jump straight to it.
+- **Home** shows your favourite channels with what's on now, recently watched channels and what you're part-way
+  through.
+- **Search** everything at once: channels, what's on TV now and later, movies and series.
+- The remote's **Guide** button opens the TV guide from anywhere.
+
+### TV guide matching
+![TV guide matching](store/screenshots/6-guide-matching.png)
+
+- Channels are matched to their guide automatically, including tricky names: misspellings, "HD/FHD" tags, US call
+  signs and state names.
+- Add your provider's guide, free guides for 75 countries ([iptv-epg.org](https://iptv-epg.org)) or any XMLTV
+  address.
+- **Manual overrides**: for any channel, pick its guide from ranked suggestions or search every guide channel, and
+  set a time shift. Your choices are kept when the playlist updates.
+- **Match channels without a guide** finds guides for the channels that still have none.
+
+### Catch-up TV
+- A **Catch-up** tab lists those channels by category; a small ⟲ mark shows them everywhere else too.
+- Browse the last few days, day by day, or scroll back in the TV guide and pick a finished programme.
+- **Start over** watches what's on now from its beginning.
+
+### Movies and series
+- Browse by category with posters, filter by title, and see what's recently added.
+- Details pages with plot, cast and running time, and every season and episode of a series.
+- Movies and episodes **resume where you left off**, the next episode starts on its own, and **Carry on watching**
+  on Home takes you straight back.
+- From a programme in the TV guide, **Find series** or **Find in Movies** to watch it on demand.
+
+### Playback
+- Now and next, and the controls, on OK. The channel's guide opens in a side panel without stopping the picture.
+- Skip back and forward (10 s / 30 s by default), or hold ◀ ▶ to scrub along the play bar.
+- **Audio passthrough** of Dolby, DTS and Atmos to your soundbar or TV, with a software fallback.
+- **Subtitles**: forced subtitles in your TV's language by default, or always available, or off.
+- When something won't play, a clear message says why.
+
+### And more
+- **Several playlists**: add as many as you like and switch between them from the top bar. Settings shows when a
+  provider's subscription expires.
+- **Backup and restore** of your playlists, choices, favourites, guide matching and progress, to a file you can
+  copy to another TV.
+- **Appearance**: preset accent colours and large text.
+- **Looks after its own storage**: only the guide for channels you use is kept, logos are capped and the database is
+  kept compact.
+
+What's planned is in [ROADMAP.md](ROADMAP.md); what's changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Install on your TV (sideload)
 
@@ -49,7 +94,8 @@ Requires JDK 17+ and the Android SDK (platform 36).
 ./gradlew assembleRelease          # app/build/outputs/apk/release/app-release.apk
 ./gradlew :core:test testDebugUnitTest   # unit, Robolectric and UI tests
 ./gradlew ktlintCheck detekt lintDebug   # style and static checks
-./gradlew recordRoborazziDebug     # refresh the screenshots in app/screenshots
+./gradlew recordRoborazziDebug     # refresh the test screenshots in app/screenshots
+./gradlew :app:recordRoborazziDebug --tests '*StoreAssetsTest*' -PstoreAssets   # store/ (README and store listings)
 ```
 
 Project layout: `core/` is plain Kotlin (Xtream client, XMLTV parser, guide matching, player key logic) with fast JVM
