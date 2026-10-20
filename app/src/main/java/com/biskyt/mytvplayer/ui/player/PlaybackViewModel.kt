@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.PlaybackException
@@ -52,7 +51,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         private set
     var audioLabel by mutableStateOf("")
         private set
-    var contentScale by mutableStateOf(ContentScale.Fit)
+    var picture by mutableStateOf(PictureMode.FIT)
     var sleepMinutes by mutableStateOf(0)
         private set
 
@@ -339,7 +338,24 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         }
     }
 
-    protected fun flash(text: String) {
+    private var trackJob: Job? = null
+
+    /**
+     * Plays track [index] of [group] ([type]: audio or subtitles, called [what] and [label]), then says whether it
+     * is: what's shown is what the player did, not just what was asked.
+     */
+    fun chooseTrack(type: Int, what: String, group: Tracks.Group, index: Int, label: String) {
+        val engine = engine ?: return
+        engine.selectTrack(type, group, index)
+        trackJob?.cancel()
+        trackJob = viewModelScope.launch {
+            delay(TRACK_CHECK_MS)
+            flash(if (engine.isPlaying(group, index)) "$what: $label" else "Couldn't switch the ${what.lowercase()} to $label")
+        }
+    }
+
+    /** Shows [text] over the video for a moment. */
+    fun flash(text: String) {
         message = text
         messageJob?.cancel()
         messageJob = viewModelScope.launch {
@@ -356,6 +372,8 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     }
 
     private companion object {
+        /** How long a track change is given to take effect before saying how it went. */
+        const val TRACK_CHECK_MS = 1_500L
         const val MAX_RETRIES = 3
 
         /** Having played this long (in all) since the last failure counts as working: later failures get fresh retries. */
