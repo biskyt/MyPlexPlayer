@@ -1,6 +1,7 @@
-# Google Play listing
+# Store listings
 
-Everything for the MyTVPlayer store listing: graphics, screenshots and the text to paste in.
+Everything for MyTVPlayer's Google Play and Amazon Appstore (Fire TV) listings: graphics, screenshots and the text to
+paste in.
 
 ## Graphics
 
@@ -10,6 +11,17 @@ Everything for the MyTVPlayer store listing: graphics, screenshots and the text 
 | `graphics/feature-graphic-1024x500.png` | Feature graphic | 1024 × 500, 24-bit PNG |
 | `graphics/tv-banner-1280x720.png` | Android TV banner | 1280 × 720, 24-bit PNG |
 | `screenshots/*.png` | Android TV screenshots (and phone screenshots, if asked) | 1920 × 1080, 24-bit PNG |
+
+For the **Amazon Appstore** (Fire TV):
+
+| File | Amazon Developer Console field | Size |
+|---|---|---|
+| `graphics/tv-banner-1280x720.png` | Fire TV app icon | 1280 × 720 |
+| `graphics/fire-tv-background-1920x1080.png` | Background image (shown behind the app's details, so no text) | 1920 × 1080 |
+| `screenshots/*.png` | Fire TV screenshots (3 to 10), and phone/tablet ones if asked | 1920 × 1080 |
+| `graphics/amazon-icon-114.png`, `graphics/amazon-icon-512.png` | Small and large icons, if the console asks for them | 114 × 114, 512 × 512 |
+
+Every file is a 24-bit PNG (no transparency) except Play's `icon-512.png`, which is 32-bit as Play asks.
 
 They're drawn by the app itself (`app/src/test/.../ui/StoreAssetsTest.kt`), with invented channels and programmes, so
 they never show a real broadcaster or title. To make them again after the app's look changes:
@@ -32,7 +44,7 @@ they never show a real broadcaster or title. To make them again after the app's 
 
 **Full description** (4000 max):
 
-> MyTVPlayer is a fast, simple player for Android TV that brings your own IPTV service to the big screen.
+> MyTVPlayer is a fast, simple player for Android TV and Fire TV that brings your own IPTV service to the big screen.
 >
 > MyTVPlayer does not include any channels or content. Add the IPTV service you subscribe to (Xtream Codes login or
 > M3U playlist), or start with the free, public channels collected by the iptv-org project.
