@@ -159,18 +159,27 @@ interface ChannelDao {
     @Query("SELECT streamId FROM channel WHERE playlistId = :pid AND hidden = 0 AND categoryId = :cat ORDER BY position, name")
     suspend fun idsCategory(pid: Long, cat: String): List<Long>
 
+    /** Catch-up channels: all of them, or those of category [cat]. */
     @Query(
         """SELECT * FROM channel WHERE playlistId = :pid AND hidden = 0 AND archiveDays > 0
-           AND (:q = '' OR $CHANNEL_MATCH)
+           AND (:cat IS NULL OR categoryId = :cat) AND (:q = '' OR $CHANNEL_MATCH)
            ORDER BY position, name"""
     )
-    fun pageCatchup(pid: Long, q: String): PagingSource<Int, ChannelEntity>
+    fun pageCatchup(pid: Long, cat: String?, q: String): PagingSource<Int, ChannelEntity>
 
-    @Query("SELECT streamId FROM channel WHERE playlistId = :pid AND hidden = 0 AND archiveDays > 0 ORDER BY position, name")
-    suspend fun idsCatchup(pid: Long): List<Long>
+    @Query(
+        """SELECT streamId FROM channel WHERE playlistId = :pid AND hidden = 0 AND archiveDays > 0
+           AND (:cat IS NULL OR categoryId = :cat) ORDER BY position, name"""
+    )
+    suspend fun idsCatchup(pid: Long, cat: String?): List<Long>
 
-    @Query("SELECT COUNT(*) FROM channel WHERE playlistId = :pid AND hidden = 0 AND archiveDays > 0")
-    fun observeCatchupCount(pid: Long): Flow<Int>
+    @Query(
+        """SELECT c.categoryId AS categoryId, k.name AS name, COUNT(*) AS count
+           FROM channel c JOIN category k ON k.playlistId = c.playlistId AND k.type = 'live' AND k.categoryId = c.categoryId
+           WHERE c.playlistId = :pid AND c.hidden = 0 AND c.archiveDays > 0
+           GROUP BY c.categoryId ORDER BY k.sortOrder"""
+    )
+    fun observeCatchupCategories(pid: Long): Flow<List<CategoryCount>>
 
     @Query("SELECT EXISTS(SELECT 1 FROM channel WHERE playlistId = :pid AND hidden = 0 AND archiveDays > 0)")
     fun observeHasCatchup(pid: Long): Flow<Boolean>
@@ -237,6 +246,9 @@ interface ChannelDao {
     @Query("SELECT streamId, name, providerEpgId FROM channel WHERE playlistId = :pid")
     suspend fun names(pid: Long): List<ChannelName>
 }
+
+/** A category and how many of something it has. */
+data class CategoryCount(val categoryId: String, val name: String, val count: Int)
 
 data class ChannelName(val streamId: Long, val name: String, val providerEpgId: String?)
 

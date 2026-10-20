@@ -38,26 +38,6 @@ data class AccentPalette(val accent: Int, val tint: Int, val soft: Int, val onAc
             return AccentPalette(accent, tint, soft, onAccent)
         }
 
-        /** Builds a fully saturated colour from a hue in degrees, for the custom colour slider. */
-        fun fromHue(hue: Float): Int {
-            val h = ((hue % 360f) + 360f) % 360f / 60f
-            val s = 0.62f
-            val v = 0.92f
-            val c = v * s
-            val x = c * (1 - kotlin.math.abs(h % 2 - 1))
-            val (r, g, b) = when (h.toInt()) {
-                0 -> Triple(c, x, 0f)
-                1 -> Triple(x, c, 0f)
-                2 -> Triple(0f, c, x)
-                3 -> Triple(0f, x, c)
-                4 -> Triple(x, 0f, c)
-                else -> Triple(c, 0f, x)
-            }
-            val m = v - c
-            fun ch(f: Float) = ((f + m) * 255).toInt().coerceIn(0, 255)
-            return (0xFF shl 24) or (ch(r) shl 16) or (ch(g) shl 8) or ch(b)
-        }
-
         private fun relativeLuminance(r: Int, g: Int, b: Int): Double {
             fun lin(c: Int): Double = (c / 255.0).let { if (it <= 0.03928) it / 12.92 else Math.pow((it + 0.055) / 1.055, 2.4) }
             return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)

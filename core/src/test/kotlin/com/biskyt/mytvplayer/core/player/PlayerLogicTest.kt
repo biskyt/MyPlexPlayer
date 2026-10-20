@@ -18,11 +18,24 @@ class PlayerLogicTest {
     }
 
     @Test
-    fun `up and down zap only on live tv with nothing open`() {
-        assertEquals(PlayerAction.Zap(-1), mapper.map(RemoteKey.UP, NONE, isLive = true))
-        assertEquals(PlayerAction.Zap(1), mapper.map(RemoteKey.DOWN, NONE, isLive = true))
-        assertEquals(PlayerAction.None, mapper.map(RemoteKey.DOWN, CONTROLS, isLive = true))
-        assertEquals(PlayerAction.None, mapper.map(RemoteKey.UP, NONE, isLive = false))
+    fun `up and down show the controls, or zap on live tv when that's turned on`() {
+        assertEquals(PlayerAction.ToggleOverlay, mapper.map(RemoteKey.UP, NONE, isLive = true))
+        assertEquals(PlayerAction.ToggleOverlay, mapper.map(RemoteKey.DOWN, NONE, isLive = false))
+        assertEquals(PlayerAction.Zap(-1), mapper.map(RemoteKey.CHANNEL_UP, NONE, isLive = true))
+        val zapper = KeyActionMapper(10_000, 30_000, upDownZaps = true)
+        assertEquals(PlayerAction.Zap(-1), zapper.map(RemoteKey.UP, NONE, isLive = true))
+        assertEquals(PlayerAction.Zap(1), zapper.map(RemoteKey.DOWN, NONE, isLive = true))
+        assertEquals(PlayerAction.None, zapper.map(RemoteKey.DOWN, CONTROLS, isLive = true))
+        assertEquals(PlayerAction.ToggleOverlay, zapper.map(RemoteKey.UP, NONE, isLive = false))
+    }
+
+    @Test
+    fun `scrubbing steps, speeds up while held and stays within the programme`() {
+        assertEquals(40_000L, scrubTarget(10_000, 30_000, repeat = 0, 0L..100_000))
+        assertEquals(70_000L, scrubTarget(10_000, 30_000, repeat = 5, 0L..1_000_000)) // twice as fast
+        assertEquals(370_000L, scrubTarget(10_000, 30_000, repeat = 500, 0L..1_000_000)) // capped at 12×
+        assertEquals(0L, scrubTarget(5_000, -10_000, repeat = 0, 0L..100_000))
+        assertEquals(100_000L, scrubTarget(90_000, 30_000, repeat = 0, 0L..100_000))
     }
 
     @Test

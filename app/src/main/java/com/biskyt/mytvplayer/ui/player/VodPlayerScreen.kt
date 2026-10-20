@@ -36,14 +36,22 @@ private fun VodControls(vm: VodPlayerViewModel, buttons: FocusRequester, root: F
             PillButton("From the start", vm::startOver, Modifier.focusRequester(buttons))
             if (vm.nextEpisode != null) PillButton("Next episode", vm::playNext)
         }
-        Muted("◀ ▶ skip · ▼ for buttons · Back to stop", Modifier.align(Alignment.CenterHorizontally))
+        Muted("◀ ▶ skip (hold to scrub) · ▼ for buttons · Back to stop", Modifier.align(Alignment.CenterHorizontally))
     }
 }
 
 /** Its own composable, so the once-a-second time update redraws only this row. */
 @Composable
 private fun Position(vm: VodPlayerViewModel) {
-    val pos = vm.positionSec
     val dur = vm.durationSec
-    Timeline(formatDuration(pos * 1000), if (dur > 0) pos.toFloat() / dur else 0f, if (dur > 0) formatDuration(dur * 1000) else "")
+    val scrub = vm.scrubMs
+    // While scrubbing, the time shown is where playback will go.
+    val pos = scrub?.div(1000) ?: vm.positionSec
+    fun fraction(sec: Long) = if (dur > 0) sec.toFloat() / dur else 0f
+    Timeline(
+        formatDuration(pos * 1000),
+        fraction(vm.positionSec),
+        if (dur > 0) formatDuration(dur * 1000) else "",
+        scrub?.let { fraction(it / 1000) }
+    )
 }

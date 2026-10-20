@@ -34,8 +34,10 @@ fun CatchupPlayerScreen(screen: Screen.CatchupPlayer) {
 
 @Composable
 private fun CatchupControls(vm: CatchupPlayerViewModel, buttons: FocusRequester, root: FocusRequester) {
-    val p = vm.programme
-    val at = vm.at
+    // While scrubbing: the programme and time playback will go to.
+    val scrub = vm.scrubMs
+    val at = scrub ?: vm.at
+    val p = scrub?.let(vm::programmeAt) ?: vm.programme
     ControlsPanel {
         Column {
             val behind = ((System.currentTimeMillis() - at) / 1000).toInt()
@@ -48,13 +50,13 @@ private fun CatchupControls(vm: CatchupPlayerViewModel, buttons: FocusRequester,
             )
         }
         if (p != null) {
-            val fraction = ((at - p.startMs).toFloat() / (p.stopMs - p.startMs).coerceAtLeast(1)).coerceIn(0f, 1f)
-            Timeline(formatTime(p.startMs), fraction, formatTime(p.stopMs))
+            fun fraction(t: Long) = ((t - p.startMs).toFloat() / (p.stopMs - p.startMs).coerceAtLeast(1)).coerceIn(0f, 1f)
+            Timeline(formatTime(p.startMs), fraction(vm.at), formatTime(p.stopMs), scrub?.let(::fraction))
         }
         ControlsBar(vm, root) {
             PillButton("From the start", vm::fromStart, Modifier.focusRequester(buttons))
             PillButton("Watch live", vm::watchLive)
         }
-        Muted("◀ ▶ skip · ▼ for buttons · Back to stop", Modifier.align(Alignment.CenterHorizontally))
+        Muted("◀ ▶ skip (hold to scrub) · ▼ for buttons · Back to stop", Modifier.align(Alignment.CenterHorizontally))
     }
 }
