@@ -6,9 +6,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -16,6 +18,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -55,7 +60,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * The Google Play listing's graphics and screenshots, drawn from the app itself so they always match it. Only run when
+ * The Google Play and Amazon Appstore listings' graphics and screenshots, drawn from the app itself so they always match it. Only run when
  * asked: `./gradlew :app:recordRoborazziDebug --tests '*StoreAssetsTest*' -PstoreAssets`. Files go to store/ at the
  * repository root. Demo channels and programmes are invented: no real broadcaster or title appears.
  *
@@ -72,12 +77,12 @@ class StoreAssetsTest {
         categories = listOf("1" to "News", "2" to "Sport", "3" to "Kids", "4" to "Entertainment", "5" to "Documentaries")
         streams = listOf(
             FakeProvider.Stream(101, 1, "Riverside One HD", "4", "one", archiveDays = 7),
-            FakeProvider.Stream(102, 2, "Northbridge News", "1", "news"),
+            FakeProvider.Stream(102, 2, "Northbridge News", "1", "news", archiveDays = 3),
             FakeProvider.Stream(103, 3, "Harbour Sport 1", "2", "sport1", archiveDays = 3),
             FakeProvider.Stream(104, 4, "Harbour Sport 2", "2", "sport2"),
-            FakeProvider.Stream(105, 5, "Little Sky Kids", "3", "kids"),
-            FakeProvider.Stream(106, 6, "Lantern Drama", "4", "drama"),
-            FakeProvider.Stream(107, 7, "Atlas Documentary", "5", "docs"),
+            FakeProvider.Stream(105, 5, "Little Sky Kids", "3", "kids", archiveDays = 2),
+            FakeProvider.Stream(106, 6, "Lantern Drama", "4", "drama", archiveDays = 7),
+            FakeProvider.Stream(107, 7, "Atlas Documentary", "5", "docs", archiveDays = 7),
             FakeProvider.Stream(108, 8, "Meadow Comedy", "4", "comedy"),
         )
         guideChannels = listOf(
@@ -148,7 +153,7 @@ class StoreAssetsTest {
         val navigator = Navigator(start)
         compose.setContent { MyTvTheme { NavHost(remember { navigator }) { Screens(it) } } }
         runCatching { waitFor(ready) }.onFailure {
-            compose.onRoot().captureRoboImage("/tmp/claude-0/-home-user/0abf9b51-1657-5eae-875f-1c39214c859f/scratchpad/stuck-$name.png")
+            compose.onRoot().captureRoboImage("build/store-assets/stuck-$name.png")
             throw AssertionError("'$ready' not shown on $name", it)
         }
         compose.waitForIdle()
@@ -171,7 +176,8 @@ class StoreAssetsTest {
 
     @Test fun tvGuide() = screenshot("3-tv-guide", Screen.Live(ChannelFilter.All, guide = true), "World Tonight")
 
-    @Test fun favourites() = screenshot("4-favourites", Screen.Live(ChannelFilter.Favourites), "Paper Boats")
+    // Its last row, so the list has all its channels.
+    @Test fun catchup() = screenshot("4-catch-up", Screen.Live(ChannelFilter.Catchup), "Wild Rivers")
 
     @Test fun icon() = graphic("icon-512", 256.dp, 256.dp) { Icon() }
 
@@ -179,7 +185,14 @@ class StoreAssetsTest {
 
     @Test fun tvBanner() = graphic("tv-banner-1280x720", 640.dp, 360.dp) { Banner() }
 
-    /** [width] × [height] in dp, each exactly 2 px: half the pixel size Play asks for. */
+    // Amazon's small and large icons, if the console asks for them (it wants no transparency).
+    @Test fun amazonIconSmall() = graphic("amazon-icon-114", 57.dp, 57.dp) { Icon() }
+
+    @Test fun amazonIconLarge() = graphic("amazon-icon-512", 256.dp, 256.dp) { Icon() }
+
+    @Test fun fireTvBackground() = graphic("fire-tv-background-1920x1080", 960.dp, 540.dp) { Background() }
+
+    /** [width] × [height] in dp, each exactly 2 px: half the pixel size the store asks for. */
     private fun graphic(name: String, width: Dp, height: Dp, content: @Composable () -> Unit) {
         compose.setContent {
             // The app scales itself to the TV; here every dp is exactly 2 px.
@@ -190,7 +203,7 @@ class StoreAssetsTest {
             }
         }
         compose.onNodeWithTag(name).captureRoboImage("$OUT/graphics/$name.png")
-        // The icon may be transparent; Play wants the others without (24-bit).
+        // Play's icon may be transparent; everything else (Amazon's icons too) is without (24-bit).
         if (name != "icon-512") flatten("$OUT/graphics/$name.png")
     }
 
@@ -239,6 +252,43 @@ class StoreAssetsTest {
         }
     }
 
+    /**
+     * Amazon's Fire TV background: shown behind the app's details, which sit on the left, so it has no text. A soft glow
+     * of the accent colour over the app's dark ground, with a few rows of a TV guide on the right (the one on now lit).
+     */
+    @Composable
+    private fun Background() {
+        val glow = Accent.copy(alpha = 0.28f)
+        Box(
+            Modifier.fillMaxSize().background(Palette.background).drawBehind {
+                val center = Offset(size.width * 0.78f, size.height * 0.28f)
+                drawRect(Brush.radialGradient(listOf(glow, Color.Transparent), center, size.width * 0.68f))
+            }
+        ) {
+            Column(
+                Modifier.align(Alignment.CenterEnd).padding(end = 48.dp).width(430.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                GuideRows.forEachIndexed { row, cells -> GuideRow(cells, onNow = row == LIT_ROW) }
+            }
+        }
+    }
+
+    /** One row of programme blocks; [cells] are their widths in tenths of the row, and the first is on now. */
+    @Composable
+    private fun GuideRow(cells: List<Int>, onNow: Boolean) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            cells.forEachIndexed { i, width ->
+                val colour = when {
+                    i == 0 && onNow -> Accent.copy(alpha = 0.55f)
+                    i == 0 -> Palette.surface.copy(alpha = 0.9f)
+                    else -> Palette.surface.copy(alpha = 0.6f)
+                }
+                Box(Modifier.weight(width.toFloat()).height(46.dp).clip(RoundedCornerShape(12.dp)).background(colour))
+            }
+        }
+    }
+
     /** "MyTVPlayer" with "TV" in the accent colour, as in the app's top bar. */
     @Composable
     private fun Wordmark(size: Int) {
@@ -252,6 +302,10 @@ class StoreAssetsTest {
 
     private companion object {
         const val OUT = "../store"
+
+        /** The Fire TV background's guide: programme widths per row, in tenths. */
+        val GuideRows = listOf(listOf(4, 6), listOf(7, 3), listOf(3, 3, 4), listOf(5, 5), listOf(6, 4), listOf(2, 5, 3))
+        const val LIT_ROW = 2
         val Accent = Color(AccentPalette.DEFAULT)
     }
 }
