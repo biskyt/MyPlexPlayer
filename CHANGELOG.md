@@ -2,6 +2,12 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.8.8
+- Runs on Android 9 and 10 as well as 11+, so older Fire TVs on Fire OS 7 (Fire TV Stick Lite, HD and 3rd gen, Cube
+  2nd gen, many Fire TV televisions) and older Android TV boxes can install it.
+- On Android 9, Settings › Backup & restore asks for permission to use the Download folder, so it can save the backup
+  there and find one already there (it's never replaced without asking).
+
 ## 0.8.7
 - While watching, up and down show the controls; the remote's channel buttons change channel. To change channel with
   up and down as before, turn on Settings › Playback › **Change channel with up and down**.
