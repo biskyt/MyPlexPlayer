@@ -5,7 +5,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.tv.material3.MaterialTheme
@@ -32,11 +31,11 @@ private fun VodControls(vm: VodPlayerViewModel, buttons: FocusRequester, root: F
             Text(vm.title, style = MaterialTheme.typography.displaySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Position(vm)
-        ControlsBar(vm, root) {
-            PillButton("From the start", vm::startOver, Modifier.focusRequester(buttons))
+        ControlsBar(vm, buttons, root) {
+            PillButton("From the start", vm::startOver)
             if (vm.nextEpisode != null) PillButton("Next episode", vm::playNext)
         }
-        Muted("◀ ▶ skip (hold to scrub) · ▼ for buttons · Back to stop", Modifier.align(Alignment.CenterHorizontally))
+        Muted("▲ then ◀ ▶ to skip (hold to scrub) · Back hides this", Modifier.align(Alignment.CenterHorizontally))
     }
 }
 

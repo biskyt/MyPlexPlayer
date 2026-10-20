@@ -41,7 +41,7 @@ fun GuidePanel(vm: PlayerViewModel) {
     val ch = vm.guideChannel ?: return
     SidePanel(onDismiss = vm::closeGuide, dim = false) {
         Column(
-            Modifier.onPreviewKeyEvent { e ->
+            Modifier.mediaKeys(vm).onPreviewKeyEvent { e ->
                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (e.key) {
                     Key.DirectionLeft -> {
@@ -80,7 +80,7 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
     val close = { vm.sheet = null }
     SidePanel(onDismiss = close, dim = false) {
         val first = rememberFirstFocus()
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(Modifier.mediaKeys(vm), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             when (sheet) {
                 PlaybackViewModel.Sheet.AUDIO -> {
                     item { Header("Audio", vm.audioLabel) }

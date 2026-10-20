@@ -177,7 +177,8 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
         }
 
     // Position of [focusStreamId] in the list, when known (it isn't for a channel picked by number).
-    private var focusIndex: Int? = null
+    var focusIndex: Int? = null
+        private set
 
     /** Called as focus moves in the list or guide. */
     fun focusMoved(streamId: Long, index: Int) {
