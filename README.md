@@ -1,3 +1,8 @@
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/biskyt) [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?style=for-the-badge&logo=github-sponsors&logoColor=white)](https://github.com/sponsors/biskyt)
+
+_This work is free, with no ads and no tracking. If you find it useful, you can support its development by buying me a coffee with the links above._
+
+
 # MyTVPlayer
 
 A free, open-source IPTV player for Android TV and Fire TV (Android 9+), built for low-powered TV boxes and for people who
