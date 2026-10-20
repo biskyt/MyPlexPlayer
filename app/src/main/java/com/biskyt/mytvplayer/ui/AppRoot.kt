@@ -118,7 +118,7 @@ private fun Modifier.guideButton(nav: Navigator, hasPlaylist: Boolean) =
 internal fun guideButtonOpensGuide(screen: Screen) = !screen.isPlayback && !screen.isSetup && screen !is Screen.Live
 
 @Composable
-private fun ScreenContent(screen: Screen) {
+internal fun ScreenContent(screen: Screen) {
     when (screen) {
         Screen.Welcome -> WelcomeScreen()
         Screen.Home -> HomeScreen()

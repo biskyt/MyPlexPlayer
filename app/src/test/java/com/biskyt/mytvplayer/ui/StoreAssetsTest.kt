@@ -25,11 +25,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -41,10 +44,9 @@ import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.core.ui.AccentPalette
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
+import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.testutil.FakeProvider
 import com.biskyt.mytvplayer.testutil.TestApp
-import com.biskyt.mytvplayer.ui.home.HomeScreen
-import com.biskyt.mytvplayer.ui.live.LiveScreen
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import com.biskyt.mytvplayer.ui.theme.Palette
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -116,8 +118,19 @@ class StoreAssetsTest {
             "docs" to "Night Skies",
             "comedy" to "Open Mic"
         )
-        movieCategories = emptyList()
-        movies = emptyList()
+        movieCategories = listOf("30" to "Drama", "31" to "Family", "32" to "Documentary")
+        movies = listOf(
+            Triple(801L, "The Quiet Harbour (2023)", "30"),
+            Triple(802L, "Northern Lights Express (2022)", "31"),
+            Triple(803L, "A Summer of Kites (2021)", "31"),
+            Triple(804L, "The Last Lighthouse (2020)", "30"),
+            Triple(805L, "Salt and Stone (2024)", "32"),
+            Triple(806L, "Midnight Bakery (2019)", "30"),
+            Triple(807L, "Paper Planets (2023)", "31"),
+            Triple(808L, "Rivers of the North (2022)", "32"),
+            Triple(809L, "The Long Way Home (2018)", "30"),
+            Triple(810L, "Clockwork Garden (2024)", "31"),
+        )
         seriesCategories = emptyList()
         series = emptyList()
     }
@@ -149,25 +162,17 @@ class StoreAssetsTest {
         compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty()
     }
 
-    private fun screenshot(name: String, start: Screen, ready: String) {
+    private fun screenshot(name: String, start: Screen, ready: String, then: () -> Unit = {}) {
         val navigator = Navigator(start)
-        compose.setContent { MyTvTheme { NavHost(remember { navigator }) { Screens(it) } } }
+        compose.setContent { MyTvTheme { NavHost(remember { navigator }) { ScreenContent(it) } } }
         runCatching { waitFor(ready) }.onFailure {
             compose.onRoot().captureRoboImage("build/store-assets/stuck-$name.png")
             throw AssertionError("'$ready' not shown on $name", it)
         }
+        then()
         compose.waitForIdle()
         compose.onRoot().captureRoboImage("$OUT/screenshots/$name.png")
         flatten("$OUT/screenshots/$name.png")
-    }
-
-    @Composable
-    private fun Screens(screen: Screen) {
-        when (screen) {
-            Screen.Home -> HomeScreen()
-            is Screen.Live -> LiveScreen(screen.filter, screen.guide)
-            else -> Text(screen.toString())
-        }
     }
 
     @Test fun home() = screenshot("1-home", Screen.Home, "The Garden Planners")
@@ -178,6 +183,28 @@ class StoreAssetsTest {
 
     // Its last row, so the list has all its channels.
     @Test fun catchup() = screenshot("4-catch-up", Screen.Live(ChannelFilter.Catchup), "Wild Rivers")
+
+    @Test fun movies() {
+        runBlocking {
+            val c = app.container
+            c.db.categories().setIncluded(playlistId, CAT_MOVIE, provider.movieCategories.map { it.first }, true)
+            c.vod.sync(c.playlists.get(playlistId)!!)
+        }
+        screenshot("5-movies", Screen.Movies(), "Clockwork Garden")
+    }
+
+    // One channel set by hand (an hour's shift), and another open on its suggestions.
+    @Test fun guideMatching() {
+        runBlocking {
+            val source = app.container.db.epg().enabledSources().first().id
+            app.container.epg.setManual(playlistId, 108, source, "comedy", offsetMinutes = 60)
+        }
+        screenshot("6-guide-matching", Screen.GuideMatching(playlistId), "Meadow Comedy") {
+            // As AppUiTest does: performClick() doesn't reach the TV card's onClick under Robolectric.
+            compose.onAllNodes(hasText("Harbour Sport 2") and hasClickAction())[0].performSemanticsAction(SemanticsActions.OnClick)
+            waitFor("Time shift")
+        }
+    }
 
     @Test fun icon() = graphic("icon-512", 256.dp, 256.dp) { Icon() }
 
