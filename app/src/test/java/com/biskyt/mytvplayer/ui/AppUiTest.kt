@@ -144,6 +144,21 @@ class AppUiTest {
         throw AssertionError("'$text' not shown. Screen:\n" + compose.onRoot(useUnmergedTree = true).printToString(), e)
     }
 
+    /** Android 9 (Fire OS 7) is the oldest the app runs on; the rest of the suite runs on a current Android. */
+    @Test
+    @Config(sdk = [28])
+    fun `on android 9 the playlist and guide load, and Home, the channel list and the guide show`() {
+        show(Screen.Home)
+        waitFor("Your channels, on now")
+        compose.runOnUiThread { navigator.reset(Screen.Live()) }
+        waitFor("UK: CHANNEL ONE HD")
+        compose.runOnUiThread { navigator.reset(Screen.Live(guide = true)) }
+        waitFor("Now on one.uk")
+        // Backup asks for the storage permission there (declined here): the page still works for restoring a file.
+        compose.runOnUiThread { navigator.reset(Screen.Backup) }
+        waitFor("Restore from a file")
+    }
+
     @Test
     fun `moving through the list never changes channel and OK plays the focused one`() {
         show(Screen.Live())

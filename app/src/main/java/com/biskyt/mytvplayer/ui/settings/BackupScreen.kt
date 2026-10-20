@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -35,8 +36,13 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 
+private const val PERMISSION_DENIED =
+    "Without storage permission the backup can't be saved. Allow it in the TV's Settings › Apps › MyTVPlayer › Permissions."
+
 class BackupViewModel(private val c: AppContainer) : ViewModel() {
     private val file = c.backupFile
+
+    val needsPermission: Boolean get() = file.needsPermission
 
     /** This install's backup file, if any. */
     var saved by mutableStateOf<BackupFile.Saved?>(null)
@@ -73,6 +79,45 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
 
     fun failed(message: String) {
         status = message
+    }
+
+    /** Android 9: whether the storage permission is being asked for by "Back up now" (else on opening the page). */
+    private var backUpAfterPermission = false
+
+    /** Android 9: asked already on opening the page (not again if the screen is rebuilt, e.g. the TV changes mode). */
+    var askedOnOpening = false
+        private set
+
+    fun askingPermission(forBackUp: Boolean) {
+        backUpAfterPermission = forBackUp
+        if (!forBackUp) askedOnOpening = true
+    }
+
+    /**
+     * Android 9: the answer to the storage permission. Granted, the backup file can be seen: one already there (e.g.
+     * from before a reinstall) is offered to restore, never silently replaced; otherwise "Back up now" carries on.
+     */
+    fun permissionResult(granted: Boolean) {
+        val backUpNext = backUpAfterPermission
+        backUpAfterPermission = false
+        // Declined on opening the page: fine for restoring from a file, so nothing to report until "Back up now".
+        if (!granted) return if (backUpNext) failed(PERMISSION_DENIED) else Unit
+        viewModelScope.launch {
+            // Not knowing whether one is there, nothing is saved over it.
+            val found = try {
+                file.find()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                return@launch failed("Couldn't look for a backup: ${e.message ?: e.javaClass.simpleName}")
+            }
+            saved = found
+            when {
+                !backUpNext -> Unit
+                found != null -> status = "There's a backup here already. Restore it, or press Back up now again to replace it."
+                else -> backUp()
+            }
+        }
     }
 
     /** Replaces everything from the file, then downloads the playlists and guides again. [done]: has playlists. */
@@ -118,6 +163,16 @@ private class OpenBackup : ActivityResultContracts.OpenDocument() {
 fun BackupScreen() {
     val vm = appViewModel { BackupViewModel(it) }
     val nav = LocalNavigator.current
+    // Android 9 only: the Download folder needs the storage permission, asked for on opening the page (and again by
+    // "Back up now" if it was declined).
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission(), vm::permissionResult)
+    fun askPermission(forBackUp: Boolean) {
+        vm.askingPermission(forBackUp)
+        permission.launch(BackupFile.STORAGE_PERMISSION)
+    }
+    // Asked for on opening, so a backup already here (e.g. from before a reinstall) shows, ready to restore.
+    LaunchedEffect(Unit) { if (vm.needsPermission && !vm.askedOnOpening) askPermission(forBackUp = false) }
+    val backUp = { if (vm.needsPermission) askPermission(forBackUp = true) else vm.backUp() }
     val picker = rememberLauncherForActivityResult(OpenBackup()) { uri -> uri?.let(vm::ask) }
     // Some TVs leave out Android's picker; a file manager app installed from the store can usually stand in.
     val getContent = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let(vm::ask) }
@@ -164,7 +219,7 @@ fun BackupScreen() {
                 }
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    PillButton("Back up now", vm::backUp, rememberFirstFocus(), primary = true)
+                    PillButton("Back up now", backUp, rememberFirstFocus(), primary = true)
                     val s = vm.saved
                     if (s != null) PillButton("Restore", { vm.ask(s.uri) })
                     PillButton(if (s == null) "Restore from a file…" else "Restore from another file…", ::pick)
