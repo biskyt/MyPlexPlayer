@@ -9,6 +9,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
@@ -17,6 +18,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
@@ -43,6 +45,7 @@ import com.biskyt.mytvplayer.ui.settings.BackupScreen
 import com.biskyt.mytvplayer.ui.settings.CategoriesScreen
 import com.biskyt.mytvplayer.ui.settings.PlaybackSettingsScreen
 import com.biskyt.mytvplayer.ui.settings.PlaylistsScreen
+import com.biskyt.mytvplayer.ui.settings.SettingsScreen
 import com.biskyt.mytvplayer.ui.settings.WelcomeScreen
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import com.biskyt.mytvplayer.ui.vod.MovieDetailsScreen
@@ -115,6 +118,7 @@ class AppUiTest {
     private fun Screens(screen: Screen) {
         when (screen) {
             Screen.Home -> HomeScreen()
+            Screen.Settings -> SettingsScreen()
             is Screen.Live -> LiveScreen(screen.filter, screen.guide)
             is Screen.GuideMatching -> GuideMatchingScreen(screen.playlistId, screen.streamId)
             Screen.PlaybackSettings -> PlaybackSettingsScreen()
@@ -401,6 +405,17 @@ class AppUiTest {
             assertEquals(listOf(playlistId), app.container.playlists.allIds())
             assertEquals(false, app.container.db.channels().get(playlistId, 101)?.hidden ?: false)
         }
+    }
+
+    @Test
+    fun `settings ends with ways to support the app, each with a QR code to scan`() {
+        show(Screen.Settings)
+        waitFor("Playlists")
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Ko-fi"))
+        compose.onNode(hasText("Ko-fi") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("ko-fi.com/biskyt")
+        assertTrue(compose.onAllNodes(hasContentDescription("QR code for https://ko-fi.com/biskyt")).fetchSemanticsNodes().isNotEmpty())
+        compose.onRoot().captureRoboImage("screenshots/settings-support.png")
     }
 
     @Test

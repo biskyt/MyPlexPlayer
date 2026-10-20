@@ -84,6 +84,7 @@ fun SettingsScreen() {
         item { SettingRow("Appearance", "Accent colour and text size", { nav.push(Screen.Appearance) }) }
         item { SettingRow("Backup & restore", "Save your playlists and choices to a file, or restore them", { nav.push(Screen.Backup) }) }
         item { SettingRow("About", "Version, licences, storage", { nav.push(Screen.About) }) }
+        item { SupportSection() }
     }
 }
 
