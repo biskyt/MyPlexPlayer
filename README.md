@@ -62,8 +62,6 @@ MyTVPlayer is free, with no ads and no tracking. If you find it useful, you can 
 - [Ko-fi](https://ko-fi.com/biskyt)
 - [GitHub Sponsors](https://github.com/sponsors/biskyt)
 
-The same links are at the bottom of the app's Settings, with QR codes to scan with your phone.
-
 ## Licence
 
 GPL-3.0 (see `LICENSE`). Nunito font: SIL Open Font License. Playback uses AndroidX Media3 and FFmpeg (LGPL).
