@@ -24,7 +24,10 @@ For the **Amazon Appstore** (Fire TV):
 Every file is a 24-bit PNG (no transparency) except Play's `icon-512.png`, which is 32-bit as Play asks.
 
 They're drawn by the app itself (`app/src/test/.../ui/StoreAssetsTest.kt`), with invented channels and programmes, so
-they never show a real broadcaster or title. To make them again after the app's look changes:
+they never show a real broadcaster or programme. The channel logos are original, drawn by `demo-logos.py`. The movies
+and series are the Blender Foundation's open movies, with their posters and stills, which are licensed CC BY. If a store asks, or the
+listing has room, credit them: "Movie and series art © Blender Foundation and the films' artists (Big Buck Bunny,
+Elephants Dream, Sintel, Tears of Steel, Cosmos Laundromat, Charge, Caminandes), CC BY 3.0/4.0, cropped. Credits: https://github.com/biskyt/MyTVPlayer/blob/main/app/src/test/resources/demo-art/CREDITS.md". To make them again after the app's look changes:
 
 ```
 ./gradlew :app:recordRoborazziDebug --tests '*StoreAssetsTest*' -PstoreAssets
