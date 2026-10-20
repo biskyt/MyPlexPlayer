@@ -92,7 +92,7 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
     init {
         viewModelScope.launch {
             val p = c.playlists.get(playlistId) ?: return@launch
-            hasVod = !p.isM3u
+            hasVod = p.hasVod
         }
     }
 

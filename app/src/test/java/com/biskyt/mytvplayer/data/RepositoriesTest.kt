@@ -202,8 +202,21 @@ class RepositoriesTest {
     }
 
     @Test
-    fun `a provider's M3U link shows the account's expiry date, free channels have none`() = runBlocking {
+    fun `a provider's M3U link is added as its login, for movies, series and catch-up`() = runBlocking {
         val panel = playlists.addM3u("Panel", provider.url + "get.php?username=me&password=secret&type=m3u_plus&output=ts")
+        val p = playlists.get(panel)!!
+        assertFalse(p.isM3u)
+        assertEquals(Triple(provider.url.trimEnd('/'), "me", "secret"), Triple(p.server, p.username, p.password))
+        vod.sync(p)
+        assertTrue(vod.movie(panel, 501) != null)
+    }
+
+    @Test
+    fun `a provider's M3U link stays a playlist when the panel refuses logins, and shows the account's expiry`() = runBlocking {
+        provider.loginsRefused = true
+        val panel = playlists.addM3u("Panel", provider.url + "get.php?username=me&password=secret&type=m3u_plus&output=ts")
+        assertTrue(playlists.get(panel)!!.isM3u)
+        provider.loginsRefused = false
         playlists.syncChannels(panel)
         assertEquals(1_900_000_000L, playlists.get(panel)!!.expiresAt)
         val free = playlists.addM3u("Free", provider.url + "free.m3u")
@@ -219,6 +232,11 @@ class RepositoriesTest {
         )
         assertNull(PlaylistRepository.xtreamLoginIn(PlaylistRepository.FREE_PLAYLIST_URL))
         assertNull(PlaylistRepository.xtreamLoginIn("http://tv.example/get.php?type=m3u"))
+        // Only plain links become logins: another stream format or a choice of channels stays a playlist.
+        assertTrue(PlaylistRepository.isPlainPanelLink("http://tv.example/get.php?username=me&password=p&type=m3u_plus&output=ts"))
+        assertTrue(PlaylistRepository.isPlainPanelLink("http://tv.example/get.php?username=me&password=p"))
+        assertFalse(PlaylistRepository.isPlainPanelLink("http://tv.example/get.php?username=me&password=p&type=m3u_plus&output=m3u8"))
+        assertFalse(PlaylistRepository.isPlainPanelLink("http://tv.example/get.php?username=me&password=p&bouquet=3"))
     }
 
     @Test
@@ -541,5 +559,108 @@ class RepositoriesTest {
         val start = listing.programmes.first { it.title == "Earlier Today" }.startMs
         val url = catchup.url(p, one, listing, start)
         assertTrue(url, url.contains("/timeshift/me/secret/121/") && url.endsWith("/101.ts"))
+    }
+
+    private val vodPlaylist = """
+        #EXTM3U
+        #EXTINF:-1 tvg-logo="http://img/bbb.jpg" group-title="Animation",Big Buck Bunny (2008)
+        http://vod.example/movies/bbb.mp4
+        #EXTINF:-1 group-title="FR | Films",Amélie (2001)
+        http://vod.example/movies/amelie.mkv
+        #EXTINF:-1 tvg-logo="http://img/caminandes.jpg" group-title="Animated Series",Caminandes S01E02 - Gran Dillama
+        http://vod.example/series/cam2.mp4
+        #EXTINF:-1 group-title="Animated Series",Caminandes S01E01 - Llama Drama
+        http://vod.example/series/cam1.mp4
+    """.trimIndent()
+
+    @Test
+    fun `an M3U movie playlist with episodes in it gives movies and series, in the categories wanted`() = runBlocking {
+        provider.vodM3u = vodPlaylist
+        val id = playlists.addM3u("Free", provider.url + "free.m3u", moviesUrl = provider.url + "vod.m3u")
+        val p = playlists.get(id)!!
+        assertTrue(p.hasVod)
+        vod.sync(p)
+
+        // A film named in French isn't wanted on a UK TV; untagged categories are.
+        val movies = db.vod().searchMovies(id, "%", 10)
+        assertEquals(listOf("Big Buck Bunny"), movies.map { it.title })
+        val bunny = vod.movie(id, movies[0].id)!!
+        assertEquals(2008, bunny.year)
+        assertEquals("http://vod.example/movies/bbb.mp4", vod.movieUrl(p, bunny))
+        assertTrue(db.categories().all(id, CAT_MOVIE).any { it.categoryId == "FR | Films" && !it.included })
+
+        // Episodes make one series, in order, with their titles; each plays from its own address.
+        val show = db.vod().searchSeries(id, "%", 10).single()
+        assertEquals("Caminandes", show.title)
+        val details = vod.seriesDetails(p, show.id)
+        assertEquals(listOf("Season 1"), details.seasons.map { it.name })
+        assertEquals(listOf("Llama Drama", "Gran Dillama"), details.episodes.map { it.title })
+        assertEquals("http://vod.example/series/cam1.mp4", vod.episodeUrl(p, details.episodes[0].id, ""))
+        assertEquals(null, vod.movieDetails(p, bunny.streamId).plot)
+    }
+
+    @Test
+    fun `an unchanged M3U movie playlist isn't loaded again, and removing it removes its titles`() = runBlocking {
+        provider.vodM3u = vodPlaylist
+        val id = playlists.addM3u("Free", provider.url + "free.m3u", moviesUrl = provider.url + "vod.m3u")
+        vod.sync(playlists.get(id)!!)
+        val bunny = db.vod().searchMovies(id, "%", 10).single()
+        db.vod().deleteStaleMovies(id, Long.MAX_VALUE) // so a reload would show
+
+        vod.sync(playlists.get(id)!!)
+        assertTrue(db.vod().searchMovies(id, "%", 10).isEmpty())
+
+        // Changed: loaded again, with the same ids, so favourites and progress still match.
+        provider.vodM3u = vodPlaylist + "\n"
+        vod.sync(playlists.get(id)!!)
+        assertEquals(bunny.id, db.vod().searchMovies(id, "%", 10).single().id)
+
+        playlists.update(playlists.get(id)!!.copy(moviesUrl = null))
+        vod.sync(playlists.get(id)!!)
+        assertEquals(0, db.vod().titleCount(id))
+        assertTrue(db.categories().all(id, CAT_MOVIE).isEmpty())
+        assertFalse(playlists.get(id)!!.hasVod)
+    }
+
+    @Test
+    fun `everything in a series playlist is a series, even unnumbered`() = runBlocking {
+        provider.seriesM3u = """
+            #EXTM3U
+            #EXTINF:-1 group-title="Shorts",Llama Drama
+            http://vod.example/series/cam1.mp4
+            #EXTINF:-1 group-title="Shorts",Gran Dillama
+            http://vod.example/series/cam2.mp4
+        """.trimIndent()
+        val id = playlists.addM3u("Free", provider.url + "free.m3u", seriesUrl = provider.url + "series.m3u")
+        val p = playlists.get(id)!!
+        vod.sync(p)
+        assertEquals(0, db.vod().searchMovies(id, "%", 10).size)
+        assertEquals(listOf("Gran Dillama", "Llama Drama"), db.vod().searchSeries(id, "%", 10).map { it.title }.sorted())
+    }
+
+    @Test
+    fun `M3U titles keep their ids when categories change, and moving a playlist to Series reloads it`() = runBlocking {
+        provider.vodM3u = """
+            #EXTM3U
+            #EXTINF:-1 group-title="FR | Films",Big Buck Bunny (2008)
+            http://vod.example/fr/bbb.mp4
+            #EXTINF:-1 group-title="Animation",Big Buck Bunny (2008)
+            http://vod.example/bbb.mp4
+        """.trimIndent()
+        val id = playlists.addM3u("Free", provider.url + "free.m3u", moviesUrl = provider.url + "vod.m3u")
+        vod.sync(playlists.get(id)!!)
+        val before = db.vod().searchMovies(id, "%", 10).single().id
+        db.categories().setIncluded(id, CAT_MOVIE, listOf("FR | Films"), true)
+        vod.sync(playlists.get(id)!!)
+        assertTrue(db.vod().searchMovies(id, "%", 10).map { it.id }.contains(before))
+        assertEquals("http://vod.example/bbb.mp4", vod.movieUrl(playlists.get(id)!!, vod.movie(id, before)!!))
+
+        // The same address moved from Movies to Series: everything in it becomes a series.
+        playlists.update(playlists.get(id)!!.copy(moviesUrl = null, seriesUrl = provider.url + "vod.m3u"))
+        vod.sync(playlists.get(id)!!)
+        db.categories().setIncluded(id, CAT_SERIES, listOf("FR | Films"), true)
+        vod.sync(playlists.get(id)!!)
+        assertEquals(0, db.vod().searchMovies(id, "%", 10).size)
+        assertEquals(2, db.vod().searchSeries(id, "%", 10).size)
     }
 }

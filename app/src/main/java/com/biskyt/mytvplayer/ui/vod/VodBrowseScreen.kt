@@ -126,8 +126,9 @@ fun VodBrowseScreen(type: String, initialFilter: VodFilter) {
                 Header(vm, entries.firstOrNull { it.filter == filter })
                 val p = playlist
                 when {
-                    p != null && p.isM3u -> Muted(
-                        "M3U playlists only have live channels. Movies and series come with Xtream Codes accounts.",
+                    p != null && !p.hasVod -> Muted(
+                        "This playlist only has live channels. To add movies and series, give its movie or series " +
+                            "playlist address in Settings › Playlists.",
                         Modifier.padding(top = 24.dp),
                         maxLines = 2
                     )

@@ -4,6 +4,7 @@ import androidx.room.testing.MigrationTestHelper
 import androidx.test.platform.app.InstrumentationRegistry
 import com.biskyt.mytvplayer.data.db.AppDatabase
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -91,6 +92,34 @@ class MigrationTest {
             db.query("SELECT archiveDays FROM channel").use {
                 it.moveToFirst()
                 assertEquals(3, it.getInt(0))
+            }
+        }
+    }
+
+    @Test
+    fun `version 5 to 6 keeps playlists and movies, and adds M3U movie and series playlists`() {
+        helper.createDatabase("migration-test-6", 5).use { db ->
+            db.execSQL(
+                "INSERT INTO playlist (id, name, kind, server, username, password, lastSyncAt) VALUES (1, 'Home', 'm3u', 'http://a', '', '', 0)"
+            )
+            db.execSQL(
+                "INSERT INTO movie (playlistId, streamId, title, categoryId, added, extension, position, syncStamp) " +
+                    "VALUES (1, 501, 'Dune', '10', 0, 'mkv', 0, 0)"
+            )
+        }
+        helper.runMigrationsAndValidate("migration-test-6", 6, true).use { db ->
+            db.query("SELECT moviesUrl, seriesUrl, vodFeedHash FROM playlist").use {
+                it.moveToFirst()
+                assertTrue(it.isNull(0) && it.isNull(1) && it.isNull(2))
+            }
+            db.query("SELECT title, streamUrl FROM movie").use {
+                it.moveToFirst()
+                assertEquals("Dune", it.getString(0))
+                assertTrue(it.isNull(1))
+            }
+            db.query("SELECT COUNT(*) FROM episode").use {
+                it.moveToFirst()
+                assertEquals(0, it.getInt(0))
             }
         }
     }

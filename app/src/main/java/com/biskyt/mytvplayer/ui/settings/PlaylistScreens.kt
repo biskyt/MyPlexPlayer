@@ -182,6 +182,10 @@ class PlaylistEditViewModel(private val c: AppContainer, private val id: Long?) 
     var server by mutableStateOf("")
     var username by mutableStateOf("")
     var password by mutableStateOf("")
+
+    /** M3U: optional movie and series playlist addresses. */
+    var moviesUrl by mutableStateOf("")
+    var seriesUrl by mutableStateOf("")
     var busy by mutableStateOf(false)
         private set
     var message by mutableStateOf<String?>(null)
@@ -198,6 +202,8 @@ class PlaylistEditViewModel(private val c: AppContainer, private val id: Long?) 
                     server = it.server
                     username = it.username
                     password = it.password
+                    moviesUrl = it.moviesUrl.orEmpty()
+                    seriesUrl = it.seriesUrl.orEmpty()
                 }
             }
         }
@@ -228,20 +234,37 @@ class PlaylistEditViewModel(private val c: AppContainer, private val id: Long?) 
         val old = original
         if (old == null) {
             message = if (m3u) "Downloading playlist…" else "Checking login…"
-            val newId = if (m3u) c.playlists.addM3u(name, server) else c.playlists.add(name, server, username, password)
+            val newId = if (m3u) {
+                c.playlists.addM3u(
+                    name,
+                    server,
+                    moviesUrl,
+                    seriesUrl
+                )
+            } else {
+                c.playlists.add(name, server, username, password)
+            }
             message = null
             onSaved(newId)
         } else {
-            val updated = old.copy(
+            // From what's stored now, not when the screen opened: a sync may have recorded something since.
+            val current = c.playlists.get(old.id) ?: old
+            val updated = current.copy(
                 name = name.ifBlank {
                     old.name
                 },
                 server = server.trim(),
                 username = username.trim(),
-                password = password
+                password = password,
+                moviesUrl = moviesUrl.trim().ifEmpty { null }.takeIf { old.isM3u },
+                seriesUrl = seriesUrl.trim().ifEmpty { null }.takeIf { old.isM3u }
             )
             c.playlists.update(updated)
-            if (updated.server != old.server || updated.username != old.username || updated.password != old.password) c.sync.refresh(old.id)
+            if (updated.server != old.server || updated.username != old.username || updated.password != old.password) {
+                c.sync.refresh(old.id)
+            } else if (updated.moviesUrl != old.moviesUrl || updated.seriesUrl != old.seriesUrl) {
+                c.sync.refreshVod(old.id)
+            }
             onSaved(old.id)
         }
     }
@@ -281,6 +304,8 @@ fun PlaylistEditScreen(id: Long?, firstRun: Boolean) {
         val serverEdit = rememberSaveable { mutableStateOf(false) }
         val userEdit = rememberSaveable { mutableStateOf(false) }
         val passwordEdit = rememberSaveable { mutableStateOf(false) }
+        val moviesEdit = rememberSaveable { mutableStateOf(false) }
+        val seriesEdit = rememberSaveable { mutableStateOf(false) }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Field("Name", Modifier.weight(1f)) {
                 TvTextField(
@@ -300,9 +325,35 @@ fun PlaylistEditScreen(id: Long?, firstRun: Boolean) {
                     Modifier.fillMaxWidth(),
                     keyboardType = KeyboardType.Uri,
                     editing = serverEdit,
-                    onNext = if (vm.m3u) null else ({ userEdit.value = true })
+                    onNext = { (if (vm.m3u) moviesEdit else userEdit).value = true }
                 )
             }
+        }
+        if (vm.m3u) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Field("Movies playlist (optional)", Modifier.weight(1f)) {
+                    TvTextField(
+                        vm.moviesUrl,
+                        { vm.moviesUrl = it },
+                        "https://example.com/movies.m3u",
+                        Modifier.fillMaxWidth(),
+                        keyboardType = KeyboardType.Uri,
+                        editing = moviesEdit,
+                        onNext = { seriesEdit.value = true }
+                    )
+                }
+                Field("Series playlist (optional)", Modifier.weight(1f)) {
+                    TvTextField(
+                        vm.seriesUrl,
+                        { vm.seriesUrl = it },
+                        "https://example.com/series.m3u",
+                        Modifier.fillMaxWidth(),
+                        keyboardType = KeyboardType.Uri,
+                        editing = seriesEdit
+                    )
+                }
+            }
+            Muted("One playlist with both is fine: episodes (\"Show S01E02\") go to Series, the rest to Movies.", maxLines = 2)
         }
         if (!vm.m3u) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
