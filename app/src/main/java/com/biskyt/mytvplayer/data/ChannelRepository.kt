@@ -20,15 +20,22 @@ sealed interface ChannelFilter {
 
     /** Channels whose provider keeps past programmes to watch again. */
     data object Catchup : ChannelFilter
+
+    /** The catch-up channels of one category. */
+    data class CatchupCategory(val id: String) : ChannelFilter
+
+    /** A catch-up list (shown on the Catch-up tab, and never remembered for Live TV). */
+    val isCatchup: Boolean get() = this == Catchup || this is CatchupCategory
     data class Category(val id: String) : ChannelFilter
 
-    /** For remembering a list in settings: "all", "favourites", "recent", "catchup" or "category:<id>". */
+    /** For remembering a list in settings: "all", "favourites", "recent" or "category:<id>" (catch-up lists aren't remembered). */
     val key: String
         get() = when (this) {
             All -> "all"
             Favourites -> "favourites"
             Recent -> "recent"
             Catchup -> "catchup"
+            is CatchupCategory -> "catchup:$id"
             is Category -> "category:$id"
         }
 
@@ -56,6 +63,7 @@ class ChannelRepository(private val db: AppDatabase) {
                 ChannelFilter.Favourites -> channels.pageFavourites(playlistId, q)
                 ChannelFilter.Recent -> channels.pageRecent(playlistId, q)
                 ChannelFilter.Catchup -> channels.pageCatchup(playlistId, q)
+                is ChannelFilter.CatchupCategory -> channels.pageCatchupCategory(playlistId, filter.id, q)
                 is ChannelFilter.Category -> channels.pageCategory(playlistId, filter.id, q)
             }
         }.flow
@@ -67,6 +75,7 @@ class ChannelRepository(private val db: AppDatabase) {
         ChannelFilter.Favourites -> channels.idsFavourites(playlistId)
         ChannelFilter.Recent -> channels.idsRecent(playlistId)
         ChannelFilter.Catchup -> channels.idsCatchup(playlistId)
+        is ChannelFilter.CatchupCategory -> channels.idsCatchupCategory(playlistId, filter.id)
         is ChannelFilter.Category -> channels.idsCategory(playlistId, filter.id)
     }
 
@@ -76,7 +85,8 @@ class ChannelRepository(private val db: AppDatabase) {
 
     fun observeCount(playlistId: Long) = channels.observeCount(playlistId)
 
-    fun observeCatchupCount(playlistId: Long) = channels.observeCatchupCount(playlistId).distinctUntilChanged()
+    /** The categories with catch-up channels, with how many each has. */
+    fun observeCatchupCategories(playlistId: Long) = channels.observeCatchupCategories(playlistId)
 
     fun observeHasCatchup(playlistId: Long) = channels.observeHasCatchup(playlistId).distinctUntilChanged()
 

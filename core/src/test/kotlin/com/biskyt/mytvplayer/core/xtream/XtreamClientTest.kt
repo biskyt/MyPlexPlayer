@@ -71,15 +71,18 @@ class XtreamClientTest {
                 """[
                   {"num":1,"name":"UK: ARENA 1 HD","stream_id":"101","stream_icon":"","epg_channel_id":null,"category_id":"5","tv_archive":1,"tv_archive_duration":"7"},
                   {"num":"2","name":" Kite Kids ","stream_id":102,"stream_icon":"http://x/logo.png","epg_channel_id":"kite.uk","category_id":5,"tv_archive":"0"},
+                  {"num":3,"name":"US: NBC","stream_id":103,"category_id":5,"tv_archive":1,"tv_archive_duration":""},
                   {"name":"broken, no id"}
                 ]"""
             )
         )
         val streams = mutableListOf<XtreamLiveStream>()
         val count = client.liveStreams("5") { streams += it }
-        assertEquals(2, count)
+        assertEquals(3, count)
         assertEquals(XtreamLiveStream(101, 1, "UK: ARENA 1 HD", "5", null, null, 7), streams[0])
         assertEquals(XtreamLiveStream(102, 2, "Kite Kids", "5", "http://x/logo.png", "kite.uk", 0), streams[1])
+        // Catch-up without a length: taken as a week.
+        assertEquals(7, streams[2].archiveDays)
         server.takeRequest()
         assertEquals("5", server.takeRequest().requestUrl!!.queryParameter("category_id"))
     }

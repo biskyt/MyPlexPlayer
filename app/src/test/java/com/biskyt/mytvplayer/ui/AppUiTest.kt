@@ -95,9 +95,20 @@ class AppUiTest {
     @After
     fun tearDown() = provider.close()
 
+    private var backDispatcher: androidx.activity.OnBackPressedDispatcher? = null
+
     private fun show(start: Screen) {
         navigator = Navigator(start)
-        compose.setContent { MyTvTheme { NavHost(remember { navigator }) { Screens(it) } } }
+        compose.setContent {
+            backDispatcher = androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+            MyTvTheme { NavHost(remember { navigator }) { Screens(it) } }
+        }
+    }
+
+    /** The remote's Back button. */
+    private fun pressBack() {
+        compose.runOnUiThread { backDispatcher!!.onBackPressed() }
+        compose.waitForIdle()
     }
 
     @Composable
@@ -464,9 +475,22 @@ class AppUiTest {
         assertTrue(compose.onAllNodes(hasText("UK: ARENA SPRTS 1 FHD")).fetchSemanticsNodes().isEmpty())
         // Marked as having catch-up.
         assertTrue(compose.onAllNodes(hasContentDescription("Catch-up")).fetchSemanticsNodes().isNotEmpty())
+        // Its column has the categories with catch-up channels.
+        assertTrue(compose.onAllNodes(hasText("All catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty())
+        assertTrue(compose.onAllNodes(hasText("ENTERTAINMENT", substring = true) and hasClickAction()).fetchSemanticsNodes().isNotEmpty())
+        assertTrue(compose.onAllNodes(hasText("SPORT", substring = true) and hasClickAction()).fetchSemanticsNodes().isEmpty())
         press(Key.DirectionCenter)
         compose.waitUntil(5_000) { navigator.current.screen is Screen.Catchup }
         assertEquals(Screen.Catchup(playlistId, 101), navigator.current.screen)
+    }
+
+    @Test
+    fun `back in the channel list goes to the filter`() {
+        show(Screen.Live())
+        compose.waitUntil(5_000) { focusedText().contains("UK: CHANNEL ONE HD") }
+        pressBack()
+        assertTrue(focusedText(), focusedText().contains("Filter by name"))
+        assertEquals(Screen.Live(), navigator.current.screen)
     }
 
     @Test

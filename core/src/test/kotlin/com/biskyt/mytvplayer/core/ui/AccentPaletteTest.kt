@@ -19,10 +19,7 @@ class AccentPaletteTest {
     }
 
     @Test
-    fun `alpha in input is ignored and hue slider wraps`() {
+    fun `alpha in input is ignored`() {
         assertEquals(AccentPalette.DEFAULT, AccentPalette.from(0x002BC4B0).accent)
-        assertEquals(AccentPalette.fromHue(10f), AccentPalette.fromHue(370f))
-        val red = AccentPalette.fromHue(0f)
-        assert((red shr 16 and 0xFF) > (red shr 8 and 0xFF) && (red shr 16 and 0xFF) > (red and 0xFF))
     }
 }

@@ -93,7 +93,8 @@ class CatchupPlayerViewModel(
         showControls()
     }
 
-    private fun programmeAt(t: Long) = listing?.programmes?.lastOrNull { it.startMs <= t }
+    /** The programme on at [t]. */
+    fun programmeAt(t: Long) = listing?.programmes?.lastOrNull { it.startMs <= t }
 
     /** Keeps the title and timeline on the programme being watched. */
     private fun startTicking() {
@@ -109,12 +110,17 @@ class CatchupPlayerViewModel(
         }
     }
 
-    /** Skipping reopens the stream at the new moment (never before the channel's oldest catch-up, never past now). */
-    override fun seekBy(ms: Long) {
-        val oldest = clock() - (channel?.archiveDays ?: 0) * CatchupRepository.DAY_MS
-        open((position() + ms).coerceAtLeast(oldest))
-        flash(if (ms < 0) "−${-ms / 1000}s" else "+${ms / 1000}s")
+    /** Skipping moves between the channel's oldest catch-up (or where it is, if older) and now (where it goes live). */
+    override fun scrubBounds(): Pair<LongRange, Long>? {
+        val ch = channel ?: return null
+        if (listing == null || openedAt == 0L) return null // nothing playing yet
+        val now = clock()
+        val position = position()
+        return minOf(now - ch.archiveDays * CatchupRepository.DAY_MS, position)..now to position
     }
+
+    /** Reopens the stream at the new moment. */
+    override fun playFrom(ms: Long) = open(ms)
 
     fun fromStart() {
         programme?.let { open(it.startMs) }
