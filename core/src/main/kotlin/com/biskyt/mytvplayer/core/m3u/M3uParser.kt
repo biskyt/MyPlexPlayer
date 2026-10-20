@@ -12,6 +12,10 @@ data class M3uEntry(
     val number: Int?,
     val userAgent: String?,
     val referrer: String?,
+    /** Catch-up as the playlist declares it (`catchup`, `catchup-days`, `catchup-source`); see M3uCatchup. */
+    val catchup: String? = null,
+    val catchupDays: Int? = null,
+    val catchupSource: String? = null,
 )
 
 /**
@@ -55,6 +59,8 @@ object M3uParser {
     /** Calls [onEntry] for every channel; returns the guide URLs from the header. */
     suspend fun parse(reader: BufferedReader, onEntry: suspend (M3uEntry) -> Unit): List<String> {
         var guides = emptyList<String>()
+        // Catch-up declared once for the whole playlist, for channels that don't declare their own.
+        var catchupDefaults = emptyMap<String, String>()
         var info: String? = null
         var vlcUserAgent: String? = null
         var vlcReferrer: String? = null
@@ -62,7 +68,10 @@ object M3uParser {
             val line = clean(raw)
             when {
                 line.isEmpty() -> Unit
-                line.startsWith("#EXTM3U") -> guides = guides + headerGuideUrls(line)
+                line.startsWith("#EXTM3U") -> {
+                    guides = guides + headerGuideUrls(line)
+                    catchupDefaults = attributes(line, line.length).filterKeys { it in catchupKeys }
+                }
                 line.startsWith("#EXTINF") -> {
                     info = line
                     vlcUserAgent = null
@@ -72,7 +81,7 @@ object M3uParser {
                 line.startsWith("#EXTVLCOPT:http-referrer=") -> vlcReferrer = line.substringAfter('=')
                 line.startsWith("#") -> Unit
                 info != null -> {
-                    onEntry(entry(info, line, vlcUserAgent, vlcReferrer))
+                    onEntry(entry(info, line, vlcUserAgent, vlcReferrer, catchupDefaults))
                     info = null
                 }
             }
@@ -80,7 +89,9 @@ object M3uParser {
         return guides
     }
 
-    private fun entry(info: String, url: String, vlcUserAgent: String?, vlcReferrer: String?): M3uEntry {
+    private val catchupKeys = setOf("catchup", "catchup-type", "catchup-days", "catchup-source", "tvg-rec", "timeshift")
+
+    private fun entry(info: String, url: String, vlcUserAgent: String?, vlcReferrer: String?, defaults: Map<String, String>): M3uEntry {
         // The display name follows the first comma outside quoted attribute values (names may contain commas).
         var inQuotes = false
         var comma = -1
@@ -92,7 +103,9 @@ object M3uParser {
                 break
             }
         }
-        val attrs = attributes(info, if (comma >= 0) comma else info.length)
+        val own = attributes(info, if (comma >= 0) comma else info.length)
+        // A channel's own catch-up settings replace the playlist's as a whole (not one attribute at a time).
+        val attrs = if (defaults.isEmpty() || own.keys.any { it in catchupKeys }) own else defaults + own
         val name = (if (comma >= 0) info.substring(comma + 1).trim() else "").ifEmpty { attrs["tvg-name"].orEmpty() }.ifEmpty { url }
         return M3uEntry(
             name = name,
@@ -103,6 +116,10 @@ object M3uParser {
             number = attrs["tvg-chno"]?.toIntOrNull(),
             userAgent = attrs["http-user-agent"]?.ifEmpty { null } ?: vlcUserAgent,
             referrer = attrs["http-referrer"]?.ifEmpty { null } ?: vlcReferrer,
+            catchup = attrs["catchup"] ?: attrs["catchup-type"],
+            // Some playlists give the days as tvg-rec or timeshift.
+            catchupDays = (attrs["catchup-days"] ?: attrs["tvg-rec"] ?: attrs["timeshift"])?.trim()?.toIntOrNull(),
+            catchupSource = attrs["catchup-source"]?.ifEmpty { null },
         )
     }
 }

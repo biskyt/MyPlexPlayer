@@ -24,9 +24,17 @@ data class PlaylistEntity(
     val password: String,
     val lastSyncAt: Long = 0,
     val expiresAt: Long? = null,
-    val maxConnections: Int? = null
+    val maxConnections: Int? = null,
+    /** M3U: optional playlists of movies and of series (either may hold both: episodes are told apart by name). */
+    val moviesUrl: String? = null,
+    val seriesUrl: String? = null,
+    /** A fingerprint of the movie and series playlists last loaded, so unchanged ones aren't loaded again. */
+    val vodFeedHash: Long? = null
 ) {
     val isM3u: Boolean get() = kind == KIND_M3U
+
+    /** Whether it has movies and series: Xtream accounts, and M3U playlists with a movie or series playlist. */
+    val hasVod: Boolean get() = !isM3u || !moviesUrl.isNullOrBlank() || !seriesUrl.isNullOrBlank()
 
     /** The free iptv-org channels. */
     val isFree: Boolean get() = server == com.biskyt.mytvplayer.data.PlaylistRepository.FREE_PLAYLIST_URL
@@ -85,7 +93,9 @@ data class MovieEntity(
     val extension: String,
     /** Provider order. */
     val position: Int,
-    val syncStamp: Long
+    val syncStamp: Long,
+    /** M3U: where it plays from (Xtream movies are played by [streamId] and [extension]). */
+    val streamUrl: String? = null
 )
 
 @Entity(
@@ -107,6 +117,19 @@ data class SeriesEntity(
     val rating: Double?,
     val lastModified: Long,
     val position: Int,
+    val syncStamp: Long
+)
+
+/** An episode from an M3U series playlist (Xtream episodes are fetched from the provider when a series is opened). */
+@Entity(tableName = "episode", primaryKeys = ["playlistId", "episodeId"], indices = [Index("playlistId", "seriesId", "season", "number")])
+data class EpisodeEntity(
+    val playlistId: Long,
+    val episodeId: Long,
+    val seriesId: Long,
+    val season: Int,
+    val number: Int,
+    val title: String,
+    val streamUrl: String,
     val syncStamp: Long
 )
 
@@ -180,7 +203,7 @@ data class ChannelEntity(
     val categoryId: String,
     val logoUrl: String?,
     val providerEpgId: String?,
-    /** Catch-up days offered by the provider (used by catch-up TV in the next update). */
+    /** Catch-up days offered by the provider (0: no catch-up). */
     val archiveDays: Int,
     val hidden: Boolean = false,
     val sortOrder: Int? = null,
@@ -189,7 +212,10 @@ data class ChannelEntity(
     /** M3U channels carry their own URL (and sometimes required HTTP headers); Xtream URLs are built from the login. */
     val streamUrl: String? = null,
     val userAgent: String? = null,
-    val referrer: String? = null
+    val referrer: String? = null,
+    /** M3U catch-up: how the archive's address is made (see M3uCatchup), and the playlist's address template. */
+    val catchupType: String? = null,
+    val catchupSource: String? = null
 )
 
 @Entity(tableName = "favourite", primaryKeys = ["playlistId", "streamId"])

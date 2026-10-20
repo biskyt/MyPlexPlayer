@@ -137,7 +137,7 @@ class BackupRepository(
             db.clearEveryTable()
             dao.insert(
                 // Never downloaded on this TV: zero times make everything refresh straight away.
-                backup.playlists.map { it.copy(lastSyncAt = 0) },
+                backup.playlists.map { it.copy(lastSyncAt = 0, vodFeedHash = null) },
                 backup.categories,
                 backup.channels,
                 backup.favourites,
