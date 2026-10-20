@@ -95,7 +95,6 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
     val categories: StateFlow<List<CategoryEntity>> = activePlaylist.flatMapLatest { c.db.categories().observeIncluded(it, CAT_LIVE) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** How many channels offer catch-up (the Catch-up list is left out when none do). */
     /** The categories with catch-up channels (the Catch-up tab's column). */
     val catchupCategories: StateFlow<List<CategoryCount>> = activePlaylist.flatMapLatest { c.channels.observeCatchupCategories(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

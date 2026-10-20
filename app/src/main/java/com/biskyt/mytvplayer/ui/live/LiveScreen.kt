@@ -83,7 +83,7 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
     }
     // In the Catch-up lists, OK opens the channel's past programmes (Watch, in its options, plays it live).
     val open: (ChannelEntity) -> Unit = { ch ->
-        if (filter.isCatchup) {
+        if (vm.catchupMode) {
             vm.focusStreamId = ch.streamId
             nav.push(Screen.Catchup(ch.playlistId, ch.streamId))
         } else {
@@ -116,14 +116,11 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
         ) {
             LiveCategories(vm, filter)
             Column(Modifier.weight(1f)) {
-                // Back in the list or guide goes up to the filter (anywhere else it leaves Live TV).
                 val filterBox = remember { FocusRequester() }
-                var inList by remember { mutableStateOf(false) }
-                BackHandler(enabled = inList) { runCatching { filterBox.requestFocus() } }
                 ListHeader(vm, filter, Modifier.focusRequester(filterBox))
                 // One paged list for both views, so the one switched to has its rows (and somewhere for focus) at once.
                 val items = vm.channels.collectAsLazyPagingItems()
-                Box(Modifier.onFocusChanged { inList = it.hasFocus }) {
+                BackToFilter(filterBox) {
                     if (vm.guideMode) GuideGrid(vm, items, play) else ChannelList(vm, items, open)
                 }
             }
@@ -133,6 +130,14 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
     if (vm.numberEntry.typed.isNotEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopEnd) { FlashLabel(vm.numberEntry.typed) }
     }
+}
+
+/** Back with focus in [content] (the list or guide) goes up to the filter box; anywhere else it leaves Live TV. */
+@Composable
+private fun BackToFilter(filterBox: FocusRequester, content: @Composable () -> Unit) {
+    var inside by remember { mutableStateOf(false) }
+    BackHandler(enabled = inside) { runCatching { filterBox.requestFocus() } }
+    Box(Modifier.onFocusChanged { inside = it.hasFocus }) { content() }
 }
 
 @Composable
@@ -162,22 +167,24 @@ private fun CatchupCategories(vm: LiveViewModel, selected: ChannelFilter) {
 
 @Composable
 private fun ListHeader(vm: LiveViewModel, filter: ChannelFilter, filterModifier: Modifier) {
-    val categories by vm.categories.collectAsState()
-    val total by vm.totalCount.collectAsState()
-    val catchupCategories by vm.catchupCategories.collectAsState()
-    val favs by vm.favouriteIds.collectAsState()
     val query by vm.query.collectAsState()
-    val (title, count) = when (filter) {
-        ChannelFilter.All -> "All channels" to total
-        ChannelFilter.Favourites -> "Favourites" to favs.size
-        ChannelFilter.Recent -> "Recently watched" to null
-        ChannelFilter.Catchup -> "Catch-up" to catchupCategories.sumOf { it.count }
-        is ChannelFilter.CatchupCategory -> catchupCategories.firstOrNull { it.categoryId == filter.id }.let {
-            (it?.name ?: "Catch-up") to it?.count
-        }
-        is ChannelFilter.Category -> categories.firstOrNull { it.categoryId == filter.id }.let {
-            (it?.name ?: "Channels") to
-                it?.channelCount
+    // Each tab reads only its own category list.
+    val (title, count) = if (vm.catchupMode) {
+        val categories by vm.catchupCategories.collectAsState()
+        val shown = (filter as? ChannelFilter.CatchupCategory)?.let { f -> categories.firstOrNull { it.categoryId == f.id } }
+        (shown?.name ?: "Catch-up") to (shown?.count ?: categories.sumOf { it.count })
+    } else {
+        val categories by vm.categories.collectAsState()
+        val total by vm.totalCount.collectAsState()
+        val favs by vm.favouriteIds.collectAsState()
+        when (filter) {
+            ChannelFilter.All -> "All channels" to total
+            ChannelFilter.Favourites -> "Favourites" to favs.size
+            is ChannelFilter.Category -> categories.firstOrNull { it.categoryId == filter.id }.let {
+                (it?.name ?: "Channels") to
+                    it?.channelCount
+            }
+            else -> "Recently watched" to null
         }
     }
     ListHeader(title, count, query, { vm.query.value = it }, "Filter by name or number", filterModifier) {

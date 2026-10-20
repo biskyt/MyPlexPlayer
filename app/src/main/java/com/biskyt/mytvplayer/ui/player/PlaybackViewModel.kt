@@ -172,6 +172,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
     /** Forgets the previous stream's failures before playing another. */
     protected fun resetForNewStream() {
+        cancelScrub()
         retryJob?.cancel()
         error = null
         retries.reset()
@@ -231,6 +232,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
     /** Called when the app goes to the background / comes back: nothing is left streaming in the background. */
     open fun onAppHidden() {
+        cancelScrub()
         engine?.player?.stop()
     }
 
@@ -244,6 +246,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     }
 
     open fun stop() {
+        cancelScrub()
         engine?.player?.stop()
         exit = true
     }
@@ -261,8 +264,10 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
      */
     protected open fun scrubBounds(): Pair<LongRange, Long>? {
         val p = engine?.player ?: return null
-        val duration = p.duration.takeIf { p.isCurrentMediaItemSeekable && it > 0 } ?: return null
-        return 0L..duration to p.currentPosition
+        if (!p.isCurrentMediaItemSeekable) return null
+        // Short of the very end, which would end it (and close a film); unknown length: unbounded.
+        val end = p.duration.takeIf { it > 0 }?.let { (it - END_MARGIN_MS).coerceAtLeast(0) } ?: Long.MAX_VALUE
+        return 0L..end to p.currentPosition
     }
 
     /** Plays from [ms] (a point within [scrubBounds]). */
@@ -280,7 +285,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         scrubMs = target
         val offset = target - now
         flash((if (offset < 0) "−" else "+") + formatDuration(kotlin.math.abs(offset)))
-        showControls(keepOverlay = true)
+        if (overlay == OverlayState.NONE) showControls()
         scrubJob?.cancel()
         scrubJob = viewModelScope.launch {
             delay(SCRUB_SETTLE_MS)
@@ -288,6 +293,15 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             playFrom(target)
         }
     }
+
+    /** Forgets a scrub not yet played from (another stream, starting over, leaving). */
+    protected fun cancelScrub() {
+        scrubJob?.cancel()
+        scrubMs = null
+    }
+
+    /** Whether up and down change channel (else only the channel buttons do), for the controls' hint. */
+    val upDownZaps: Boolean get() = ::settings.isInitialized && settings.zapWithUpDown
 
     fun showControls(keepOverlay: Boolean = false) {
         if (!keepOverlay || overlay == OverlayState.NONE) overlay = OverlayState.CONTROLS
@@ -350,5 +364,8 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
         /** How long ◀ ▶ rest before playback jumps to where they scrubbed to. */
         const val SCRUB_SETTLE_MS = 700L
+
+        /** Scrubbing stops this far before the end of a video. */
+        const val END_MARGIN_MS = 5_000L
     }
 }

@@ -159,24 +159,33 @@ interface ChannelDao {
     @Query("SELECT streamId FROM channel WHERE playlistId = :pid AND hidden = 0 AND categoryId = :cat ORDER BY position, name")
     suspend fun idsCategory(pid: Long, cat: String): List<Long>
 
-    /** Catch-up channels: all of them, or those of category [cat]. */
     @Query(
         """SELECT * FROM channel WHERE playlistId = :pid AND hidden = 0 AND archiveDays > 0
-           AND (:cat IS NULL OR categoryId = :cat) AND (:q = '' OR $CHANNEL_MATCH)
+           AND (:q = '' OR $CHANNEL_MATCH)
            ORDER BY position, name"""
     )
-    fun pageCatchup(pid: Long, cat: String?, q: String): PagingSource<Int, ChannelEntity>
+    fun pageCatchup(pid: Long, q: String): PagingSource<Int, ChannelEntity>
+
+    @Query("SELECT streamId FROM channel WHERE playlistId = :pid AND hidden = 0 AND archiveDays > 0 ORDER BY position, name")
+    suspend fun idsCatchup(pid: Long): List<Long>
 
     @Query(
-        """SELECT streamId FROM channel WHERE playlistId = :pid AND hidden = 0 AND archiveDays > 0
-           AND (:cat IS NULL OR categoryId = :cat) ORDER BY position, name"""
+        """SELECT * FROM channel WHERE playlistId = :pid AND categoryId = :cat AND hidden = 0 AND archiveDays > 0
+           AND (:q = '' OR $CHANNEL_MATCH)
+           ORDER BY position, name"""
     )
-    suspend fun idsCatchup(pid: Long, cat: String?): List<Long>
+    fun pageCatchupCategory(pid: Long, cat: String, q: String): PagingSource<Int, ChannelEntity>
+
+    @Query(
+        """SELECT streamId FROM channel WHERE playlistId = :pid AND categoryId = :cat AND hidden = 0 AND archiveDays > 0
+           ORDER BY position, name"""
+    )
+    suspend fun idsCatchupCategory(pid: Long, cat: String): List<Long>
 
     @Query(
         """SELECT c.categoryId AS categoryId, k.name AS name, COUNT(*) AS count
            FROM channel c JOIN category k ON k.playlistId = c.playlistId AND k.type = 'live' AND k.categoryId = c.categoryId
-           WHERE c.playlistId = :pid AND c.hidden = 0 AND c.archiveDays > 0
+           WHERE c.playlistId = :pid AND c.hidden = 0 AND c.archiveDays > 0 AND k.included = 1
            GROUP BY c.categoryId ORDER BY k.sortOrder"""
     )
     fun observeCatchupCategories(pid: Long): Flow<List<CategoryCount>>

@@ -110,11 +110,13 @@ class CatchupPlayerViewModel(
         }
     }
 
-    /** Skipping moves between the channel's oldest catch-up and now (where it goes live). */
+    /** Skipping moves between the channel's oldest catch-up (or where it is, if older) and now (where it goes live). */
     override fun scrubBounds(): Pair<LongRange, Long>? {
-        if (channel == null) return null
+        val ch = channel ?: return null
+        if (listing == null || openedAt == 0L) return null // nothing playing yet
         val now = clock()
-        return now - (channel?.archiveDays ?: 0) * CatchupRepository.DAY_MS..now to position()
+        val position = position()
+        return minOf(now - ch.archiveDays * CatchupRepository.DAY_MS, position)..now to position
     }
 
     /** Reopens the stream at the new moment. */
