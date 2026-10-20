@@ -207,7 +207,12 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     private fun perform(action: PlayerAction, repeat: Int = 0): Boolean {
         val player = engine?.player
         when (action) {
-            is PlayerAction.SeekBy -> scrub(action.ms, repeat)
+            is PlayerAction.SeekBy -> {
+                // From the media buttons with a panel open: it closes, so the play bar shows where playback goes.
+                sheet = null
+                if (overlay == OverlayState.GUIDE) closeGuide()
+                scrub(action.ms, repeat)
+            }
             is PlayerAction.Zap -> zap(action.step)
             is PlayerAction.Digit -> typeDigit(action.value)
             PlayerAction.ToggleOverlay -> if (overlay == OverlayState.NONE) showControls() else hideOverlay()
@@ -284,7 +289,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         scrubMs = target
         val offset = target - now
         flash((if (offset < 0) "−" else "+") + formatDuration(kotlin.math.abs(offset)))
-        if (overlay == OverlayState.NONE) showControls()
+        if (overlay == OverlayState.NONE) showControls(forSkip = true)
         scrubJob?.cancel()
         scrubJob = viewModelScope.launch {
             delay(SCRUB_SETTLE_MS)
@@ -299,11 +304,19 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         scrubMs = null
     }
 
-    /** Whether up and down change channel (else only the channel buttons do), for the controls' hint. */
-    val upDownZaps: Boolean get() = ::settings.isInitialized && settings.zapWithUpDown
+    /** Whether up and down change channel (live TV, if set to; else only the channel buttons do). */
+    val upDownZaps: Boolean get() = isLive && ::settings.isInitialized && settings.zapWithUpDown
 
-    fun showControls(keepOverlay: Boolean = false) {
-        if (!keepOverlay || overlay == OverlayState.NONE) overlay = OverlayState.CONTROLS
+    /** Whether the controls showing put focus on play/pause; not when they came up for skipping (◀ ▶ keep skipping). */
+    var focusPlayPause by mutableStateOf(true) // the controls are up as playback starts
+        private set
+
+    /** Shows the controls (and keeps them up a while longer); [forSkip] when skipping brings them up. */
+    fun showControls(keepOverlay: Boolean = false, forSkip: Boolean = false) {
+        if (overlay != OverlayState.CONTROLS && (!keepOverlay || overlay == OverlayState.NONE)) {
+            overlay = OverlayState.CONTROLS
+            focusPlayPause = !forSkip
+        }
         hideJob?.cancel()
         hideJob = viewModelScope.launch {
             delay(OVERLAY_TIMEOUT_MS)

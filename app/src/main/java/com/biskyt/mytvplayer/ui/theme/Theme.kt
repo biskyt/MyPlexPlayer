@@ -46,28 +46,37 @@ val LocalAccent = staticCompositionLocalOf { Accent(Color(AccentPalette.DEFAULT)
 private fun nunito(weight: Int) =
     Font(R.font.nunito, FontWeight(weight), variationSettings = FontVariation.Settings(FontVariation.weight(weight)))
 
-val Nunito = FontFamily(nunito(500), nunito(600), nunito(700), nunito(800))
+private const val BOLD = 700
+private const val MEDIUM = 500
 
-private fun style(size: Int, weight: Int = 700) =
-    TextStyle(fontFamily = Nunito, fontSize = size.sp, fontWeight = FontWeight(weight), color = Palette.text)
+val Nunito = FontFamily(nunito(MEDIUM), nunito(BOLD))
 
-/** Text sizes for the 10-foot UI; [large] bumps everything up a step for easier reading from the sofa. */
+/** Text is drawn this much smaller than its nominal size (a lighter look than the first designs). */
+private const val TEXT_SCALE = 0.92f
+
+private fun style(size: Int, weight: Int) =
+    TextStyle(fontFamily = Nunito, fontSize = (size * TEXT_SCALE).sp, fontWeight = FontWeight(weight), color = Palette.text)
+
+/**
+ * Text sizes for the 10-foot UI; [large] bumps everything up a step for easier reading from the sofa. Two weights:
+ * bold (700) for headings, titles and labels, medium (500) for other text.
+ */
 private fun typography(large: Boolean): Typography {
     val b = if (large) 2 else 0
     return Typography(
-        displaySmall = style(36 + b, 800),
-        headlineLarge = style(30 + b, 800),
-        headlineMedium = style(26 + b, 800),
-        headlineSmall = style(22 + b, 800),
-        titleLarge = style(20 + b, 800),
-        titleMedium = style(18 + b, 800),
-        titleSmall = style(16 + b, 700),
-        bodyLarge = style(17 + b, 600),
-        bodyMedium = style(15 + b, 600),
-        bodySmall = style(13 + b, 600),
-        labelLarge = style(16 + b, 800),
-        labelMedium = style(14 + b, 700),
-        labelSmall = style(12 + b, 700)
+        displaySmall = style(36 + b, BOLD),
+        headlineLarge = style(30 + b, BOLD),
+        headlineMedium = style(26 + b, BOLD),
+        headlineSmall = style(22 + b, BOLD),
+        titleLarge = style(20 + b, BOLD),
+        titleMedium = style(18 + b, BOLD),
+        titleSmall = style(16 + b, BOLD),
+        bodyLarge = style(17 + b, MEDIUM),
+        bodyMedium = style(15 + b, MEDIUM),
+        bodySmall = style(13 + b, MEDIUM),
+        labelLarge = style(16 + b, BOLD),
+        labelMedium = style(14 + b, BOLD),
+        labelSmall = style(12 + b, BOLD)
     )
 }
 

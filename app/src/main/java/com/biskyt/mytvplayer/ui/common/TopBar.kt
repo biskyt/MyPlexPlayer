@@ -146,8 +146,8 @@ fun syncLabel(state: SyncState): String? = when (state) {
 
 /** Screen with the top bar above [content]. */
 @Composable
-fun TabScaffold(tab: Tab?, content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxSize().background(Palette.background)) {
+fun TabScaffold(tab: Tab?, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier.fillMaxSize().background(Palette.background)) {
         TopBar(tab)
         Column(Modifier.padding(top = 20.dp).fillMaxSize(), content = content)
     }

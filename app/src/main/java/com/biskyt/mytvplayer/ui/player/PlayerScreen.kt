@@ -55,6 +55,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.core.player.OverlayState
 import com.biskyt.mytvplayer.core.player.RemoteKey
+import com.biskyt.mytvplayer.core.player.isMedia
 import com.biskyt.mytvplayer.player.PlaybackError
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
@@ -167,35 +168,53 @@ internal fun PlayerFrame(
         extras()
     }
     vm.sheet?.let { PlayerSheet(it, vm) }
-    LaunchedEffect(vm.overlay, vm.sheet) { if (vm.sheet == null && vm.overlay != OverlayState.GUIDE) runCatching { root.requestFocus() } }
+    FocusFollowsOverlay(vm, root)
+}
+
+/** Focus goes back to the video when nothing's over it (play/pause is the controls' own: see [ControlsBar]). */
+@Composable
+private fun FocusFollowsOverlay(vm: PlaybackViewModel, root: FocusRequester) {
+    LaunchedEffect(vm.overlay, vm.sheet, vm.focusPlayPause) {
+        val toButtons = vm.overlay == OverlayState.CONTROLS && vm.focusPlayPause
+        if (vm.sheet == null && vm.overlay != OverlayState.GUIDE && !toButtons) runCatching { root.requestFocus() }
+    }
 }
 
 /** Remote keys on the video: left/right skip (and scrub, held), down with controls showing moves into the buttons. */
 private fun handleKey(e: KeyEvent, vm: PlaybackViewModel, buttons: FocusRequester): Boolean {
-    if (vm.overlay == OverlayState.CONTROLS && e.key == Key.DirectionDown) {
+    if (vm.overlay == OverlayState.CONTROLS && e.key == Key.DirectionDown && !vm.upDownZaps) {
         return runCatching { buttons.requestFocus() }.isSuccess
     }
-    val key = when (e.key) {
-        Key.DirectionLeft -> RemoteKey.LEFT
-        Key.DirectionRight -> RemoteKey.RIGHT
-        Key.DirectionUp -> RemoteKey.UP
-        Key.DirectionDown -> RemoteKey.DOWN
-        Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.Info -> RemoteKey.OK
-        Key.MediaPlayPause -> RemoteKey.PLAY_PAUSE
-        Key.MediaPlay -> RemoteKey.PLAY
-        Key.MediaPause -> RemoteKey.PAUSE
-        Key.MediaStop -> RemoteKey.STOP
-        Key.MediaRewind -> RemoteKey.REWIND
-        Key.MediaFastForward -> RemoteKey.FAST_FORWARD
-        Key.Guide -> RemoteKey.GUIDE
-        Key.Menu -> RemoteKey.MENU
-        Key.ChannelUp, Key.PageUp -> RemoteKey.CHANNEL_UP
-        Key.ChannelDown, Key.PageDown -> RemoteKey.CHANNEL_DOWN
-        else -> null
-    }
+    val key = remoteKey(e.key)
     if (key != null) return vm.onKey(key, repeat = e.nativeKeyEvent.repeatCount)
     val digit = e.key.digit() ?: return false
     return vm.onKey(RemoteKey.DIGIT, digit)
+}
+
+private fun remoteKey(key: Key): RemoteKey? = when (key) {
+    Key.DirectionLeft -> RemoteKey.LEFT
+    Key.DirectionRight -> RemoteKey.RIGHT
+    Key.DirectionUp -> RemoteKey.UP
+    Key.DirectionDown -> RemoteKey.DOWN
+    Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.Info -> RemoteKey.OK
+    Key.MediaPlayPause -> RemoteKey.PLAY_PAUSE
+    Key.MediaPlay -> RemoteKey.PLAY
+    Key.MediaPause -> RemoteKey.PAUSE
+    Key.MediaStop -> RemoteKey.STOP
+    Key.MediaRewind -> RemoteKey.REWIND
+    Key.MediaFastForward -> RemoteKey.FAST_FORWARD
+    Key.Guide -> RemoteKey.GUIDE
+    Key.Menu -> RemoteKey.MENU
+    Key.ChannelUp, Key.PageUp -> RemoteKey.CHANNEL_UP
+    Key.ChannelDown, Key.PageDown -> RemoteKey.CHANNEL_DOWN
+    else -> null
+}
+
+/** The remote's media buttons inside a panel over the video (a window of its own, so they'd never reach the player). */
+internal fun Modifier.mediaKeys(vm: PlaybackViewModel): Modifier = onKeyEvent { e ->
+    val key = remoteKey(e.key)?.takeIf { it.isMedia } ?: return@onKeyEvent false
+    if (e.type == KeyEventType.KeyDown) vm.onKey(key, repeat = e.nativeKeyEvent.repeatCount)
+    true
 }
 
 @Composable
@@ -229,15 +248,15 @@ private fun LiveControls(vm: PlayerViewModel, buttons: FocusRequester, root: Foc
             }
         }
         nn?.now?.let { current -> Timeline(formatTime(current.startMs), nn.progress(now), formatTime(current.stopMs)) }
-        ControlsBar(vm, root) {
-            PillButton("Channel guide", vm::openGuide, Modifier.focusRequester(buttons))
+        ControlsBar(vm, buttons, root) {
+            PillButton("Channel guide", vm::openGuide)
             if (ch.archiveDays > 0) {
                 val nav = LocalNavigator.current
                 PillButton("Start over", { nav.replace(Screen.CatchupPlayer(ch.playlistId, ch.streamId, filter = vm.filter)) })
             }
         }
         Muted(
-            "◀ ▶ skip · ${if (vm.upDownZaps) "▲ ▼" else "CH + −"} change channel · ▼ for buttons · OK hides this",
+            if (vm.upDownZaps) "▲ ▼ change channel · Back hides this" else "CH + − change channel · ▲ then ◀ ▶ to skip · Back hides this",
             Modifier.align(Alignment.CenterHorizontally)
         )
     }
@@ -267,13 +286,28 @@ internal fun Timeline(start: String, fraction: Float, end: String, scrub: Float?
     }
 }
 
-/** The row of buttons under the video: [leading] on the left, play controls in the middle, tracks and more on the right. */
+/**
+ * The row of buttons under the video: [leading] on the left, play controls in the middle, tracks and more on the right.
+ * Play/pause ([buttons]) takes focus as the controls come up (unless they came up for skipping).
+ */
 @Composable
-internal fun ControlsBar(vm: PlaybackViewModel, root: FocusRequester, leading: @Composable RowScope.() -> Unit) {
+internal fun ControlsBar(vm: PlaybackViewModel, buttons: FocusRequester, root: FocusRequester, leading: @Composable RowScope.() -> Unit) {
+    // As they come up (when what's playing is known), and again when a panel over them closes.
+    LaunchedEffect(vm.sheet) { if (vm.sheet == null && vm.focusPlayPause) runCatching { buttons.requestFocus() } }
     Row(
         Modifier.onPreviewKeyEvent { e ->
-            // Up from the buttons returns to the video, where left/right skip again.
-            if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionUp) runCatching { root.requestFocus() }.isSuccess else false
+            val upDown = e.key == Key.DirectionUp || e.key == Key.DirectionDown
+            when {
+                e.type != KeyEventType.KeyDown -> false
+                // Up and down change channel, if set to, wherever focus is.
+                upDown && vm.upDownZaps -> vm.onKey(if (e.key == Key.DirectionUp) RemoteKey.UP else RemoteKey.DOWN)
+                else -> {
+                    // Moving between the buttons keeps the controls up.
+                    vm.showControls(keepOverlay = true)
+                    // Up from the buttons returns to the video, where left/right skip again.
+                    e.key == Key.DirectionUp && runCatching { root.requestFocus() }.isSuccess
+                }
+            }
         },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -281,9 +315,12 @@ internal fun ControlsBar(vm: PlaybackViewModel, root: FocusRequester, leading: @
         leading()
         Box(Modifier.weight(1f))
         RoundButton(AppIcons.Rewind, "Skip back") { vm.onKey(RemoteKey.LEFT) }
-        RoundButton(if (vm.isPlaying) AppIcons.Pause else AppIcons.Play, if (vm.isPlaying) "Pause" else "Play", primary = true) {
-            vm.togglePlayPause()
-        }
+        RoundButton(
+            if (vm.isPlaying) AppIcons.Pause else AppIcons.Play,
+            if (vm.isPlaying) "Pause" else "Play",
+            primary = true,
+            modifier = Modifier.focusRequester(buttons)
+        ) { vm.togglePlayPause() }
         RoundButton(AppIcons.Forward, "Skip forward") { vm.onKey(RemoteKey.RIGHT) }
         RoundButton(AppIcons.Stop, "Stop") { vm.stop() }
         Box(Modifier.weight(1f))
@@ -294,10 +331,11 @@ internal fun ControlsBar(vm: PlaybackViewModel, root: FocusRequester, leading: @
 }
 
 @Composable
-private fun RoundButton(icon: ImageVector, label: String, primary: Boolean = false, onClick: () -> Unit) {
+private fun RoundButton(icon: ImageVector, label: String, primary: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val accent = LocalAccent.current
     TvCard(
         onClick = onClick,
+        modifier = modifier,
         shape = CircleShape,
         color = if (primary) accent.color else Palette.surfaceHigh,
         focusedColor = if (primary) accent.color else Palette.surfaceHigh

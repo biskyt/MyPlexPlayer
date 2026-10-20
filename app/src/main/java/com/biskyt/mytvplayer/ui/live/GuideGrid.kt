@@ -184,8 +184,9 @@ fun GuideGrid(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (C
                             focused.value = ch to p
                             vm.focusMoved(ch.streamId, index)
                             // The target is done once its cell has focus with the programmes loaded (until then the
-                            // placeholder holds focus, and the real cell takes it when they arrive).
-                            if (isTarget && loaded) focusTarget.value = null
+                            // placeholder holds focus, and the real cell takes it when they arrive). Focus moved by the
+                            // user ends it too: it mustn't pull focus back when a row's programmes arrive later.
+                            if (!isTarget || loaded) focusTarget.value = null
                         },
                         onPlay = { p -> openProgramme(nav, ch, p, play) },
                         // The programme with focus on this row, so its options can offer to find it on demand.
