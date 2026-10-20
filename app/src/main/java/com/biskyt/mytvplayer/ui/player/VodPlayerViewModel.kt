@@ -222,6 +222,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     }
 
     fun startOver() {
+        cancelScrub()
         engine?.player?.seekTo(0)
         showControls()
     }

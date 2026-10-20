@@ -28,7 +28,7 @@ sealed interface ChannelFilter {
     val isCatchup: Boolean get() = this == Catchup || this is CatchupCategory
     data class Category(val id: String) : ChannelFilter
 
-    /** For remembering a list in settings: "all", "favourites", "recent", "catchup[:<id>]" or "category:<id>". */
+    /** For remembering a list in settings: "all", "favourites", "recent" or "category:<id>" (catch-up lists aren't remembered). */
     val key: String
         get() = when (this) {
             All -> "all"
@@ -44,7 +44,6 @@ sealed interface ChannelFilter {
             key == "favourites" -> Favourites
             key == "recent" -> Recent
             key == "catchup" -> Catchup
-            key.startsWith("catchup:") -> CatchupCategory(key.removePrefix("catchup:"))
             key.startsWith("category:") -> Category(key.removePrefix("category:"))
             else -> All
         }
@@ -63,8 +62,8 @@ class ChannelRepository(private val db: AppDatabase) {
                 ChannelFilter.All -> channels.pageAll(playlistId, q)
                 ChannelFilter.Favourites -> channels.pageFavourites(playlistId, q)
                 ChannelFilter.Recent -> channels.pageRecent(playlistId, q)
-                ChannelFilter.Catchup -> channels.pageCatchup(playlistId, null, q)
-                is ChannelFilter.CatchupCategory -> channels.pageCatchup(playlistId, filter.id, q)
+                ChannelFilter.Catchup -> channels.pageCatchup(playlistId, q)
+                is ChannelFilter.CatchupCategory -> channels.pageCatchupCategory(playlistId, filter.id, q)
                 is ChannelFilter.Category -> channels.pageCategory(playlistId, filter.id, q)
             }
         }.flow
@@ -75,8 +74,8 @@ class ChannelRepository(private val db: AppDatabase) {
         ChannelFilter.All -> channels.idsAll(playlistId)
         ChannelFilter.Favourites -> channels.idsFavourites(playlistId)
         ChannelFilter.Recent -> channels.idsRecent(playlistId)
-        ChannelFilter.Catchup -> channels.idsCatchup(playlistId, null)
-        is ChannelFilter.CatchupCategory -> channels.idsCatchup(playlistId, filter.id)
+        ChannelFilter.Catchup -> channels.idsCatchup(playlistId)
+        is ChannelFilter.CatchupCategory -> channels.idsCatchupCategory(playlistId, filter.id)
         is ChannelFilter.Category -> channels.idsCategory(playlistId, filter.id)
     }
 
