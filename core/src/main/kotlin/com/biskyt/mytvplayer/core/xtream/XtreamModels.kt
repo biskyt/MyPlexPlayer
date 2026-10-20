@@ -75,7 +75,8 @@ private fun archiveDays(o: JsonObject): Int {
     return o.int("tv_archive_duration")?.takeIf { it > 0 } ?: DEFAULT_ARCHIVE_DAYS
 }
 
-private const val DEFAULT_ARCHIVE_DAYS = 7
+/** Catch-up days when a provider turns catch-up on without saying for how long. */
+internal const val DEFAULT_ARCHIVE_DAYS = 7
 
 internal fun JsonElement.toAccount(): XtreamAccount? {
     val info = (this as? JsonObject)?.get("user_info") as? JsonObject ?: return null

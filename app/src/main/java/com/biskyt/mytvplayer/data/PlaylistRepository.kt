@@ -1,6 +1,7 @@
 package com.biskyt.mytvplayer.data
 
 import androidx.room.withTransaction
+import com.biskyt.mytvplayer.core.m3u.M3uCatchup
 import com.biskyt.mytvplayer.core.m3u.M3uEntry
 import com.biskyt.mytvplayer.core.m3u.M3uParser
 import com.biskyt.mytvplayer.core.xtream.XtreamCategory
@@ -279,12 +280,15 @@ class PlaylistRepository(
                 val group = groupOf(e)
                 groups += group
                 if (!include.getOrPut(group) { categoryStore.langOf(group, groupByName = true) in wanted }) return@parse
+                val catchup = M3uCatchup.typeFor(e.catchup, e.catchupSource, e.url)
                 out.add(
                     ChannelEntity(
                         playlistId = p.id, streamId = id, number = e.number ?: index, name = e.name, categoryId = group,
-                        logoUrl = e.logo, providerEpgId = e.tvgId?.substringBefore('@'), archiveDays = 0,
+                        logoUrl = e.logo, providerEpgId = e.tvgId?.substringBefore('@'),
+                        archiveDays = if (catchup == null) 0 else M3uCatchup.daysFor(e.catchupDays),
                         hidden = out.hidden(id), sortOrder = out.sortOrder(id), syncStamp = out.stamp,
-                        streamUrl = e.url, userAgent = e.userAgent, referrer = e.referrer
+                        streamUrl = e.url, userAgent = e.userAgent, referrer = e.referrer,
+                        catchupType = catchup, catchupSource = e.catchupSource
                     )
                 )
             }
