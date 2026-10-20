@@ -71,6 +71,7 @@ sealed interface Screen {
     data class GuideMatching(val playlistId: Long, val streamId: Long? = null) : Screen
     data object Backup : Screen
     data object About : Screen
+    data object Licences : Screen
 }
 
 /** A back-stack entry owns the ViewModels of its screen; they are cleared when the entry is popped. */
