@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.9.1
+- Settings › About now ends with the Ko-fi and GitHub Sponsors links too, and both buttons have icons.
+- New **Open source licences** page (Settings › About): every library and the font the app is built with, with its
+  version, licence and what it's used for. Select one for a QR code to its project page.
+
 ## 0.9.0
 - **Movies and series from M3U playlists**: when adding or editing an M3U playlist, give its movies playlist and/or
   series playlist (both optional). One playlist with both works: episodes named like "Show S01E02" go to Series,

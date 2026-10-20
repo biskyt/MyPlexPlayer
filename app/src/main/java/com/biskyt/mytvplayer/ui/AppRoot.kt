@@ -36,6 +36,7 @@ import com.biskyt.mytvplayer.ui.settings.AboutScreen
 import com.biskyt.mytvplayer.ui.settings.AppearanceScreen
 import com.biskyt.mytvplayer.ui.settings.BackupScreen
 import com.biskyt.mytvplayer.ui.settings.CategoriesScreen
+import com.biskyt.mytvplayer.ui.settings.LicencesScreen
 import com.biskyt.mytvplayer.ui.settings.PlaybackSettingsScreen
 import com.biskyt.mytvplayer.ui.settings.PlaylistEditScreen
 import com.biskyt.mytvplayer.ui.settings.PlaylistsScreen
@@ -146,6 +147,7 @@ internal fun ScreenContent(screen: Screen) {
         is Screen.GuideMatching -> GuideMatchingScreen(screen.playlistId, screen.streamId)
         Screen.Backup -> BackupScreen()
         Screen.About -> AboutScreen()
+        Screen.Licences -> LicencesScreen()
     }
 }
 
