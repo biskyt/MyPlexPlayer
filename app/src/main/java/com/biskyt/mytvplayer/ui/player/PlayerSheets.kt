@@ -16,7 +16,6 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.C
 import androidx.media3.common.Tracks
@@ -88,8 +87,8 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
                     val options = trackOptions(vm.tracks, C.TRACK_TYPE_AUDIO)
                     items(options) { o ->
                         Choice(o.label, o.selected, if (o == options.first()) first else Modifier) {
-                            engine.selectTrack(C.TRACK_TYPE_AUDIO, o.group, o.index)
                             close()
+                            vm.chooseTrack(C.TRACK_TYPE_AUDIO, "Audio", o.group, o.index, o.label)
                         }
                     }
                     if (options.isEmpty()) item { Muted("No audio tracks") }
@@ -101,12 +100,13 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
                         Choice("Off", options.none { it.selected }, first) {
                             engine.selectTrack(C.TRACK_TYPE_TEXT, null, 0)
                             close()
+                            vm.flash("Subtitles off")
                         }
                     }
                     items(options) { o ->
                         Choice(o.label, o.selected) {
-                            engine.selectTrack(C.TRACK_TYPE_TEXT, o.group, o.index)
                             close()
+                            vm.chooseTrack(C.TRACK_TYPE_TEXT, "Subtitles", o.group, o.index, o.label)
                         }
                     }
                 }
@@ -118,13 +118,9 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
                         Choice(a.label, false, if (i == 0) first else Modifier) { a.perform(nav, close, vm::beforeLeaving) }
                     }
                     item {
-                        val next = when (vm.contentScale) {
-                            ContentScale.Fit -> ContentScale.Crop
-                            ContentScale.Crop -> ContentScale.FillBounds
-                            else -> ContentScale.Fit
-                        }
-                        Choice("Picture: ${scaleName(vm.contentScale)}", false, if (actions.isEmpty()) first else Modifier) {
-                            vm.contentScale = next
+                        Choice("Picture: ${vm.picture.label}", false, if (actions.isEmpty()) first else Modifier) {
+                            vm.picture = vm.picture.next
+                            vm.flash("Picture: ${vm.picture.label}")
                         }
                     }
                     item {
@@ -169,12 +165,6 @@ private fun trackOptions(tracks: Tracks, type: Int): List<TrackOption> = tracks.
         )
         TrackOption(parts.joinToString(" · "), g, i, g.isTrackSelected(i))
     }
-}
-
-private fun scaleName(s: ContentScale) = when (s) {
-    ContentScale.Crop -> "Zoom to fill"
-    ContentScale.FillBounds -> "Stretch"
-    else -> "Fit"
 }
 
 private fun videoInfo(tracks: Tracks): String {

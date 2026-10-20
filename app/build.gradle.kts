@@ -116,6 +116,8 @@ dependencies {
     implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.exoplayer.dash)
     implementation(libs.media3.ui.compose)
+    // Only for SubtitleView: the Compose video surface draws no subtitles.
+    implementation(libs.media3.ui)
     implementation(libs.media3.ffmpeg.decoder)
 
     implementation(libs.room.runtime)

@@ -12,6 +12,11 @@ Each version's section becomes its GitHub release notes, so it is written for th
   "Start over" goes back to the start of the programme on now, if the TV guide has it.
 - Adding a provider's M3U link (`…/get.php?username=…&password=…`) adds it with its login instead, so its movies,
   series and catch-up come too. Links that ask for another stream format or a selection of channels stay playlists.
+- Fixed: subtitles never appeared on screen. Text and picture (DVB) subtitles now show over the video.
+- Picture options do what they say: Fit, Zoom to fill (crops to fill the screen), Stretch, and now 16:9 and 4:3 for
+  channels whose picture is the wrong shape.
+- Choosing an audio or subtitle track now says what's playing a moment later (or that the channel wouldn't switch).
+- Fixed: an audio or subtitle choice could carry over to the next channel, or stop applying after a reconnect.
 
 ## 0.8.9
 - Settings now ends with **Support MyTVPlayer**: Ko-fi and GitHub Sponsors. Each shows a QR code to scan with your
