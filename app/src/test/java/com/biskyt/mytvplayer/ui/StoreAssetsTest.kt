@@ -26,7 +26,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -40,16 +43,24 @@ import androidx.compose.ui.unit.sp
 import androidx.test.core.app.ApplicationProvider
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import coil3.SingletonImageLoader
+import coil3.annotation.DelicateCoilApi
 import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.core.ui.AccentPalette
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
+import com.biskyt.mytvplayer.data.db.CAT_SERIES
+import com.biskyt.mytvplayer.data.db.VOD_EPISODE
+import com.biskyt.mytvplayer.data.db.VOD_MOVIE
+import com.biskyt.mytvplayer.data.db.WatchProgressEntity
 import com.biskyt.mytvplayer.testutil.FakeProvider
 import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.ui.common.initials
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import com.biskyt.mytvplayer.ui.theme.Palette
 import com.github.takahirom.roborazzi.captureRoboImage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assume.assumeTrue
@@ -68,7 +79,7 @@ import org.robolectric.annotation.GraphicsMode
  *
  * xhdpi on a 960×540 dp screen gives the 1920×1080 pixels Play asks for in TV screenshots.
  */
-@OptIn(ExperimentalTestApi::class)
+@OptIn(ExperimentalTestApi::class, DelicateCoilApi::class)
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-xhdpi")
@@ -86,7 +97,7 @@ class StoreAssetsTest {
             FakeProvider.Stream(106, 6, "Lantern Drama", "4", "drama", archiveDays = 7),
             FakeProvider.Stream(107, 7, "Atlas Documentary", "5", "docs", archiveDays = 7),
             FakeProvider.Stream(108, 8, "Meadow Comedy", "4", "comedy"),
-        )
+        ).map { it.copy(logo = art("${it.epgId}.png")) }
         guideChannels = listOf(
             "one" to "Riverside One HD",
             "news" to "Northbridge News",
@@ -118,21 +129,38 @@ class StoreAssetsTest {
             "docs" to "Night Skies",
             "comedy" to "Open Mic"
         )
-        movieCategories = listOf("30" to "Drama", "31" to "Family", "32" to "Documentary")
+        // The Blender Foundation's open movies, with their posters (CC BY; see demo-art/CREDITS.md).
+        movieCategories = listOf("30" to "Animation", "31" to "Sci-fi")
         movies = listOf(
-            Triple(801L, "The Quiet Harbour (2023)", "30"),
-            Triple(802L, "Northern Lights Express (2022)", "31"),
-            Triple(803L, "A Summer of Kites (2021)", "31"),
-            Triple(804L, "The Last Lighthouse (2020)", "30"),
-            Triple(805L, "Salt and Stone (2024)", "32"),
-            Triple(806L, "Midnight Bakery (2019)", "30"),
-            Triple(807L, "Paper Planets (2023)", "31"),
-            Triple(808L, "Rivers of the North (2022)", "32"),
-            Triple(809L, "The Long Way Home (2018)", "30"),
-            Triple(810L, "Clockwork Garden (2024)", "31"),
+            Triple(801L, "Charge (2022)", "30"),
+            Triple(802L, "Cosmos Laundromat (2015)", "30"),
+            Triple(803L, "Tears of Steel (2012)", "31"),
+            Triple(804L, "Sintel (2010)", "30"),
+            Triple(805L, "Big Buck Bunny (2008)", "30"),
+            Triple(806L, "Elephants Dream (2006)", "30"),
         )
-        seriesCategories = emptyList()
-        series = emptyList()
+        moviePoster = { id -> art(posterFile(movies.first { it.first == id }.second)) }
+        // Only Big Buck Bunny's details page is shown.
+        movieInfo = { id ->
+            """{"info":{"plot":"$BUNNY_PLOT","director":"Sacha Goedegebure",""" +
+                """"genre":"Animation, Comedy","releasedate":"2008-05-30","duration_secs":596,""" +
+                """"backdrop_path":["${art("big-buck-bunny-still.jpg")}"]},"movie_data":{"stream_id":$id,"container_extension":"mkv"}}"""
+        }
+        // And their series: Caminandes, three shorts about Koro the llama.
+        seriesCategories = listOf("40" to "Animation")
+        series = listOf(Triple(901L, "Caminandes (2013)", "40"))
+        seriesCover = { art("caminandes.jpg") }
+        seriesReleaseDate = "2013-01-30"
+        seriesInfo = {
+            fun episode(n: Int, title: String, plot: String, secs: Int) =
+                """{"id":"910$n","episode_num":$n,"title":"$title","container_extension":"mp4","season":1,""" +
+                    """"info":{"plot":"$plot","duration_secs":$secs}}"""
+            """{"seasons":[{"season_number":1,"name":"Season 1"}],
+               "info":{"plot":"$LLAMA_PLOT","genre":"Animation, Comedy","backdrop_path":["${art("caminandes-still.jpg")}"]},
+               "episodes":{"1":[${episode(1, "Llama Drama", "Koro wants to cross the road. So does the traffic.", 90)},
+                                ${episode(2, "Gran Dillama", "The grass is greener beyond the electric fence.", 146)},
+                                ${episode(3, "Llamigos", "Winter, a berry bush, and a penguin called Oti.", 150)}]}}"""
+        }
     }
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
     private var playlistId = 0L
@@ -141,6 +169,9 @@ class StoreAssetsTest {
     fun setUp() = runBlocking {
         assumeTrue("Run with -PstoreAssets", System.getProperty("storeAssets") == "true")
         val c = app.container
+        // Robolectric's native graphics can only decode images on the main thread.
+        SingletonImageLoader.setUnsafe(app.newImageLoader(app).newBuilder().decoderCoroutineContext(Dispatchers.Main.immediate).build())
+        provider.images = { name -> javaClass.getResourceAsStream("/demo-art/$name")?.use { it.readBytes() } }
         playlistId = c.playlists.add("My TV provider", provider.url, "me", "secret")
         // The demo categories have no country prefix, so none is picked by default: show them all.
         c.db.categories().setIncluded(playlistId, CAT_LIVE, provider.categories.map { it.first }, true)
@@ -155,11 +186,32 @@ class StoreAssetsTest {
     }
 
     @After
-    fun tearDown() = provider.close()
+    fun tearDown() {
+        provider.close()
+        SingletonImageLoader.reset()
+    }
 
-    private fun waitFor(text: String) = compose.waitUntil(10_000) {
+    /** A movie's poster file in demo-art/, from its title ("Big Buck Bunny (2008)" → big-buck-bunny.jpg). */
+    private fun posterFile(title: String) = title.substringBefore(" (").lowercase().replace(' ', '-') + ".jpg"
+
+    /** Runs the main thread until [done]. */
+    private fun idleUntil(timeoutMs: Long = 10_000, done: () -> Boolean) = compose.waitUntil(timeoutMs) {
         org.robolectric.shadows.ShadowLooper.idleMainLooper()
-        compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty()
+        done()
+    }
+
+    private fun waitFor(text: String) = idleUntil { compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
+
+    /** Initials shown in place of a logo or poster until it loads. */
+    private val placeholders by lazy {
+        (
+            provider.streams.map {
+                it.name
+            } + (provider.movies + provider.series).map { it.second.substringBefore(" (") }
+            ).map { initials(it) }.toSet()
+    }
+    private val placeholder = SemanticsMatcher("logo or poster placeholder") { node ->
+        node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text in placeholders }
     }
 
     private fun screenshot(name: String, start: Screen, ready: String, then: () -> Unit = {}) {
@@ -170,12 +222,29 @@ class StoreAssetsTest {
             throw AssertionError("'$ready' not shown on $name", it)
         }
         then()
+        // Logos and posters load in the background: wait until none is still showing its initials.
+        idleUntil(15_000) { compose.onAllNodes(placeholder).fetchSemanticsNodes().isEmpty() }
         compose.waitForIdle()
         compose.onRoot().captureRoboImage("$OUT/screenshots/$name.png")
         flatten("$OUT/screenshots/$name.png")
     }
 
-    @Test fun home() = screenshot("1-home", Screen.Home, "The Garden Planners")
+    // Part-way through a film and a series, as well as the channels.
+    @Test fun home() {
+        runBlocking {
+            val now = System.currentTimeMillis()
+            app.container.vod.saveProgress(
+                WatchProgressEntity(playlistId, VOD_MOVIE, 804, 530_000, 888_000, now, "Sintel", provider.moviePoster(804))
+            )
+            app.container.vod.saveProgress(
+                WatchProgressEntity(
+                    playlistId, VOD_EPISODE, 9102, 50_000, 146_000, now - 3_600_000, "Caminandes", provider.seriesCover(901),
+                    seriesId = 901, season = 1, episode = 2, episodeTitle = "Gran Dillama", hasNext = true
+                )
+            )
+        }
+        screenshot("1-home", Screen.Home, "The Garden Planners")
+    }
 
     @Test fun liveTv() = screenshot("2-live-tv", Screen.Live(ChannelFilter.All), "Evening Bulletin")
 
@@ -185,12 +254,25 @@ class StoreAssetsTest {
     @Test fun catchup() = screenshot("4-catch-up", Screen.Live(ChannelFilter.Catchup), "Wild Rivers")
 
     @Test fun movies() {
-        runBlocking {
-            val c = app.container
-            c.db.categories().setIncluded(playlistId, CAT_MOVIE, provider.movieCategories.map { it.first }, true)
-            c.vod.sync(c.playlists.get(playlistId)!!)
-        }
-        screenshot("5-movies", Screen.Movies(), "Clockwork Garden")
+        loadMoviesAndSeries()
+        screenshot("5-movies", Screen.Movies(), "Elephants Dream")
+    }
+
+    @Test fun movieDetails() {
+        loadMoviesAndSeries()
+        screenshot("7-movie-details", Screen.MovieDetails(playlistId, 805), "Sacha Goedegebure")
+    }
+
+    @Test fun seriesDetails() {
+        loadMoviesAndSeries()
+        screenshot("8-series-details", Screen.SeriesDetails(playlistId, 901), "Llamigos")
+    }
+
+    private fun loadMoviesAndSeries() = runBlocking {
+        val c = app.container
+        c.db.categories().setIncluded(playlistId, CAT_MOVIE, provider.movieCategories.map { it.first }, true)
+        c.db.categories().setIncluded(playlistId, CAT_SERIES, provider.seriesCategories.map { it.first }, true)
+        c.vod.sync(c.playlists.get(playlistId)!!)
     }
 
     // One channel set by hand (an hour's shift), and another open on its suggestions.
@@ -328,6 +410,10 @@ class StoreAssetsTest {
     }
 
     private companion object {
+        const val BUNNY_PLOT = "A giant, gentle rabbit's lazy day in the meadow is spoiled by three bullying rodents. " +
+            "Big mistake: he decides to get even."
+        const val LLAMA_PLOT = "Koro the llama will go to any lengths for greener grass in the Patagonian hills. " +
+            "Three short comedies from the Blender Foundation."
         const val OUT = "../store"
 
         /** The Fire TV background's guide: programme widths per row, in tenths. */

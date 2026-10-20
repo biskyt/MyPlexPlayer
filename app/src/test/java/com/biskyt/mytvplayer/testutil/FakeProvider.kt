@@ -30,7 +30,45 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
     /** How long catch-up listings take to arrive (a slow provider). */
     var catchupDelayMs = 0L
 
-    data class Stream(val id: Long, val num: Int, val name: String, val cat: String, val epgId: String?, val archiveDays: Int = 0)
+    data class Stream(
+        val id: Long,
+        val num: Int,
+        val name: String,
+        val cat: String,
+        val epgId: String?,
+        val archiveDays: Int = 0,
+        val logo: String = ""
+    )
+
+    /** Images served at /art/<name> (logos and posters for the store screenshots), by name. */
+    var images: (String) -> ByteArray? = { null }
+
+    /** The address of an image served at /art/<name>. */
+    fun art(name: String) = "${url}art/$name"
+
+    /** A movie's poster address. */
+    var moviePoster: (Long) -> String = { "http://img/$it.jpg" }
+
+    /** A series' cover address. */
+    var seriesCover: (Long) -> String = { "http://img/s$it.jpg" }
+
+    /** Every series' release date. */
+    var seriesReleaseDate = "2012-06-26"
+
+    /** A movie's details (get_vod_info), by its id. */
+    var movieInfo: (String) -> String = { id ->
+        """{"info":{"plot":"A story.","cast":"Someone","genre":"Drama","releasedate":"2021-09-15","duration_secs":6000,""" +
+            """"backdrop_path":["http://img/back.jpg"]},"movie_data":{"stream_id":$id,"container_extension":"mkv"}}"""
+    }
+
+    /** A series' details, seasons and episodes (get_series_info), by its id. */
+    var seriesInfo: (String) -> String = {
+        """{"seasons":[{"season_number":1,"name":"Series 1"},{"season_number":2,"name":"Series 2"}],
+           "info":{"plot":"Anti-corruption.","genre":"Crime","episode_run_time":"60"},
+           "episodes":{"1":[{"id":"9001","episode_num":1,"title":"Episode 1","container_extension":"mkv","season":1,"info":{"plot":"First.","duration_secs":3600}},
+                            {"id":"9002","episode_num":2,"title":"Episode 2","container_extension":"mkv","season":1,"info":{"duration_secs":3500}}],
+                       "2":[{"id":"9003","episode_num":1,"title":"Episode 1","container_extension":"mp4","season":2}]}}"""
+    }
 
     /**
      * Catch-up listing for any channel (times from now, in hours): one from yesterday, one earlier today, one on now,
@@ -90,9 +128,16 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
     override fun dispatch(request: RecordedRequest): MockResponse {
         val url = request.requestUrl!!
         requests += url.encodedPath + "?" + (url.queryParameter("action") ?: "")
-        if (url.encodedPath == "/free.m3u") return MockResponse().setBody(m3u)
-        if (url.encodedPath == "/not-a-playlist") return MockResponse().setBody("<html>hello</html>")
-        if (url.queryParameter("password") != "secret") return MockResponse().setBody("""{"user_info":{"auth":0}}""")
+        val early = when {
+            url.encodedPath == "/free.m3u" -> MockResponse().setBody(m3u)
+            url.encodedPath == "/not-a-playlist" -> MockResponse().setBody("<html>hello</html>")
+            url.encodedPath.startsWith("/art/") ->
+                images(url.encodedPath.removePrefix("/art/"))?.let { MockResponse().setBody(Buffer().write(it)) }
+                    ?: MockResponse().setResponseCode(404)
+            url.queryParameter("password") != "secret" -> MockResponse().setBody("""{"user_info":{"auth":0}}""")
+            else -> null
+        }
+        if (early != null) return early
         return when {
             url.encodedPath.endsWith("xmltv.php") -> {
                 // Like real servers: a version tag, and "not modified" when the guide asked for hasn't changed.
@@ -120,7 +165,7 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
                 MockResponse().setBody(
                     list.joinToString(",", "[", "]") {
                         """{"num":${it.num},"name":"${it.name}","stream_id":${it.id},"category_id":"${it.cat}",""" +
-                            """"stream_icon":"","epg_channel_id":${it.epgId?.let { e -> "\"$e\"" } ?: "null"},""" +
+                            """"stream_icon":"${it.logo}","epg_channel_id":${it.epgId?.let { e -> "\"$e\"" } ?: "null"},""" +
                             """"tv_archive":${if (it.archiveDays > 0) 1 else 0},"tv_archive_duration":"${it.archiveDays}"}"""
                     },
                 )
@@ -140,7 +185,9 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
             MockResponse().setBody(
                 movies.filter { cat == null || it.third == cat }.withIndex().joinToString(",", "[", "]") { (i, m) ->
                     """{"num":${i + 1},"name":"${m.second}","stream_id":${m.first},"category_id":"${m.third}",""" +
-                        """"stream_icon":"http://img/${m.first}.jpg","rating":"7.5","added":"${1_700_000_000 + m.first}","container_extension":"mkv"}"""
+                        """"stream_icon":"${moviePoster(
+                            m.first
+                        )}","rating":"7.5","added":"${1_700_000_000 + m.first}","container_extension":"mkv"}"""
                 }
             )
         }
@@ -149,23 +196,14 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
             MockResponse().setBody(
                 series.filter { cat == null || it.third == cat }.withIndex().joinToString(",", "[", "]") { (i, s) ->
                     """{"num":${i + 1},"name":"${s.second}","series_id":${s.first},"category_id":"${s.third}",""" +
-                        """"cover":"http://img/s${s.first}.jpg","releaseDate":"2012-06-26","last_modified":"${1_690_000_000 + s.first}"}"""
+                        """"cover":"${seriesCover(
+                            s.first
+                        )}","releaseDate":"$seriesReleaseDate","last_modified":"${1_690_000_000 + s.first}"}"""
                 }
             )
         }
-        "get_vod_info" -> MockResponse().setBody(
-            """{"info":{"plot":"A story.","cast":"Someone","genre":"Drama","releasedate":"2021-09-15","duration_secs":6000,""" +
-                """"backdrop_path":["http://img/back.jpg"]},"movie_data":{"stream_id":${url.queryParameter(
-                    "vod_id"
-                )},"container_extension":"mkv"}}"""
-        )
-        "get_series_info" -> MockResponse().setBody(
-            """{"seasons":[{"season_number":1,"name":"Series 1"},{"season_number":2,"name":"Series 2"}],
-               "info":{"plot":"Anti-corruption.","genre":"Crime","episode_run_time":"60"},
-               "episodes":{"1":[{"id":"9001","episode_num":1,"title":"Episode 1","container_extension":"mkv","season":1,"info":{"plot":"First.","duration_secs":3600}},
-                                {"id":"9002","episode_num":2,"title":"Episode 2","container_extension":"mkv","season":1,"info":{"duration_secs":3500}}],
-                           "2":[{"id":"9003","episode_num":1,"title":"Episode 1","container_extension":"mp4","season":2}]}}"""
-        )
+        "get_vod_info" -> MockResponse().setBody(movieInfo(url.queryParameter("vod_id")!!))
+        "get_series_info" -> MockResponse().setBody(seriesInfo(url.queryParameter("series_id")!!))
         else -> null
     }
 
