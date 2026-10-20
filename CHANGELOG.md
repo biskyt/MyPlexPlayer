@@ -2,6 +2,18 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.9.2
+- A lighter, slightly smaller look: text is drawn in Nunito Bold and Medium (it was ExtraBold and SemiBold) at 92% of
+  its old size.
+- When the player's controls come up (as playback starts, or on OK, ▲ or ▼), Play/Pause has focus. ▲ goes back to the
+  video, where ◀ ▶ skip (and scrub, held). With "Up/down change channel" on, ▲ ▼ change channel with the controls up too.
+- The remote's play/pause, rewind, fast forward and stop buttons now work with the channel guide or the Audio,
+  Subtitles and More panels open (rewind, fast forward and stop close the panel).
+- Fixed: the remote's Guide button with focus on the Live TV or Catch-up tabs opened the TV's own guide; it now switches
+  between the list and the TV guide, as it does elsewhere on the screen.
+- Fixed: in the TV guide (and the Catch-up tab's timeline), ▲ from the first row could stay stuck there instead of going
+  up to the filter box.
+
 ## 0.9.1
 - Settings › About now ends with the Ko-fi and GitHub Sponsors links too, and both buttons have icons.
 - New **Open source licences** page (Settings › About): every library and the font the app is built with, with its

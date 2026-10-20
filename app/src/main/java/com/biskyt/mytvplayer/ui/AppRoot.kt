@@ -111,15 +111,15 @@ private fun Modifier.guideButton(nav: Navigator, hasPlaylist: Boolean) =
     onGuideKey({ hasPlaylist && guideButtonOpensGuide(nav.current.screen) }) { nav.push(Screen.Live(guide = true)) }
 
 /**
- * Not while watching something (leaving would stop it), during set-up, or on the live screen (which switches between
- * list and guide itself; pressed elsewhere on it, e.g. on the tabs, nothing happens).
- */
-/**
  * Movies and series not loaded yet (e.g. just updated from a version without them). M3U ones only if never loaded:
  * with every category unticked there are rightly none.
  */
 private suspend fun needsVod(c: AppContainer, p: PlaylistEntity) = p.hasVod && (!p.isM3u || p.vodFeedHash == null) && !c.vod.hasTitles(p.id)
 
+/**
+ * Not while watching something (leaving would stop it), during set-up, or on the live screen (which switches between
+ * list and guide itself, wherever focus is on it).
+ */
 internal fun guideButtonOpensGuide(screen: Screen) = !screen.isPlayback && !screen.isSetup && screen !is Screen.Live
 
 @Composable

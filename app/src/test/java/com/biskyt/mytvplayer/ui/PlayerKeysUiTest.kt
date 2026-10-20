@@ -1,0 +1,138 @@
+package com.biskyt.mytvplayer.ui
+
+import androidx.compose.runtime.remember
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isFocused
+import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.printToString
+import androidx.test.core.app.ApplicationProvider
+import com.biskyt.mytvplayer.data.ChannelFilter
+import com.biskyt.mytvplayer.testutil.FakeProvider
+import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.ui.theme.MyTvTheme
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+/** Remote buttons on the player and the live screen, through the app's own screens. */
+@OptIn(ExperimentalTestApi::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-tvdpi")
+class PlayerKeysUiTest {
+    @get:Rule val compose = createComposeRule()
+
+    private val provider = FakeProvider()
+    private val app = ApplicationProvider.getApplicationContext<TestApp>()
+    private var playlistId = 0L
+    private lateinit var navigator: Navigator
+
+    @Before
+    fun setUp() = runBlocking {
+        val c = app.container
+        playlistId = c.playlists.add("Home TV", provider.url, "me", "secret")
+        c.playlists.syncChannels(playlistId)
+        c.playlists.get(playlistId)?.let { c.epg.ensureProviderSource(it, c.playlists.client(it).xmltvUrl()) }
+        c.epg.importAll(listOf(playlistId))
+        c.settings.update { it.copy(lastLiveFilter = "all") }
+        c.settings.current()
+        Unit
+    }
+
+    @After
+    fun tearDown() = provider.close()
+
+    private fun show(start: Screen) {
+        navigator = Navigator(start)
+        compose.setContent { MyTvTheme { NavHost(remember { navigator }) { ScreenContent(it) } } }
+    }
+
+    private fun waitFor(text: String) = try {
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
+    } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
+        throw AssertionError("'$text' not shown. Screen:\n" + compose.onRoot(useUnmergedTree = true).printToString(), e)
+    }
+
+    /** The text and descriptions of what has focus. */
+    private fun focused(): String = compose.onAllNodes(isFocused()).fetchSemanticsNodes().joinToString(" | ") { node ->
+        (
+            node.config.getOrNull(
+                SemanticsProperties.Text
+            ).orEmpty() + node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty()
+            )
+            .joinToString()
+    }
+
+    /** A remote button, to the topmost window (a panel over the video is a window of its own). */
+    private fun press(key: Key) {
+        compose.onAllNodes(isRoot()).let { it[it.fetchSemanticsNodes().lastIndex] }.performKeyInput { pressKey(key) }
+        compose.waitForIdle()
+    }
+
+    private fun waitForFocus(text: String) = try {
+        compose.waitUntil(5_000) { focused().contains(text) }
+    } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
+        throw AssertionError("'$text' hasn't focus: ${focused()}", e)
+    }
+
+    @Test
+    fun `the controls come up with focus on play-pause, and up goes back to the video`() {
+        show(Screen.Player(playlistId, 101, ChannelFilter.All))
+        waitFor("Channel guide")
+        compose.waitUntil(5_000) { focused().contains("Pause") || focused().contains("Play") }
+        press(Key.DirectionUp)
+        assertTrue(focused(), !focused().contains("Pause") && !focused().contains("Play"))
+    }
+
+    @Test
+    fun `the media buttons work with a panel open over the video`() {
+        show(Screen.Live())
+        compose.runOnIdle { navigator.push(Screen.Player(playlistId, 101, ChannelFilter.All)) }
+        waitFor("Channel guide")
+        press(Key.Menu) // the More panel
+        waitFor("Sleep timer")
+        press(Key.MediaFastForward)
+        // The panel closes and the player answers (live TV here can't skip).
+        waitFor("Skipping isn't available here")
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Sleep timer")).fetchSemanticsNodes().isEmpty() }
+        press(Key.Menu)
+        waitFor("Sleep timer")
+        press(Key.MediaStop)
+        compose.waitUntil(5_000) { navigator.current.screen is Screen.Live } // stopped, back where it was opened from
+    }
+
+    @Test
+    fun `the guide button works on the live screen with focus on the tabs`() {
+        show(Screen.Live())
+        waitForFocus("CHANNEL ONE")
+        press(Key.DirectionUp) // the filter box
+        press(Key.DirectionUp) // the tabs
+        assertTrue(focused(), listOf("Home", "Live TV", "Movies", "Series", "Catch-up").any { focused().contains(it) })
+        press(Key.Guide)
+        waitFor("No guide information")
+    }
+
+    @Test
+    fun `up from the guide's first row goes to the filter box`() {
+        show(Screen.Live(guide = true))
+        waitForFocus("Now on one.uk")
+        press(Key.DirectionDown)
+        press(Key.DirectionUp)
+        waitForFocus("on one.uk") // back on the first row
+        press(Key.DirectionUp)
+        waitForFocus("Filter by name or number")
+    }
+}
