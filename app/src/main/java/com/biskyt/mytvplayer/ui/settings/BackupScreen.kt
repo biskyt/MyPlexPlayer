@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -40,7 +39,7 @@ import com.biskyt.mytvplayer.ui.common.formatDayTime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 
 private const val PERMISSION_DENIED =
@@ -80,12 +79,13 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
         status = null
     }
 
-    /** A file another app opened with MyTVPlayer (see MainActivity). */
-    val openedFile: StateFlow<Uri?> = c.openedFile
-
-    fun askOpened(uri: Uri) {
+    /**
+     * Files opened with MyTVPlayer from another app (see MainActivity), offered to restore like one chosen here; while
+     * the page is showing, so one left under another screen doesn't take them unseen.
+     */
+    suspend fun takeOpenedFiles() = c.openedFile.filterNotNull().collect {
         c.openedFile.value = null
-        ask(uri)
+        ask(it)
     }
 
     fun cancel() {
@@ -213,10 +213,12 @@ fun BackupScreen() {
         val get = Intent(Intent.ACTION_GET_CONTENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE)
         val (standIns, fileManagers) = context.handlers(get).partition { it.isStandIn }
         val tries = listOfNotNull(
-            picker?.let { open.setPackage(it.packageName) },
+            picker?.let { Intent(open).setPackage(it.packageName) },
             Intent.createChooser(get, "Choose the backup file")
                 .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, standIns.map { ComponentName(it.packageName, it.name) }.toTypedArray())
-                .takeIf { fileManagers.isNotEmpty() }
+                .takeIf { fileManagers.isNotEmpty() },
+            // Last, whatever else answers for the picker (a maker's own, perhaps), as before.
+            open.takeIf { picker == null && context.handlers(open).any { !it.isStandIn } }
         )
         // The first that opens: should the picker fail after all, a file manager is next.
         val opened = tries.any {
@@ -235,9 +237,7 @@ fun BackupScreen() {
         }
     }
 
-    // A file opened with MyTVPlayer from another app: offered to restore, like one chosen here.
-    val opened by vm.openedFile.collectAsState()
-    LaunchedEffect(opened) { opened?.let(vm::askOpened) }
+    LaunchedEffect(vm) { vm.takeOpenedFiles() }
 
     SettingsPage("Backup & restore") {
         item {

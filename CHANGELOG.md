@@ -2,6 +2,16 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.0.1
+- **Restoring a backup on TVs without Android's file picker**: instead of "no application can
+  handle this request", MyTVPlayer now offers the file manager apps installed (such as X-plore). You can also open
+  the backup file from a file manager with Open with or Share and choose MyTVPlayer: it goes to Backup & restore,
+  which asks before restoring.
+- A channel's catch-up now opens with focus on its programmes (the first key press went to the top bar). Right from
+  the days goes to the programmes, and back from watching one, focus is on it again.
+- With the Audio, Subtitles or More panel open over live TV, the Guide button now opens the channel guide, as it does
+  with no panel open (it opened the TV's own guide).
+
 ## 1.0.0
 The first full release: phones and tablets now work by touch, and the free TV has its own programme guide.
 
