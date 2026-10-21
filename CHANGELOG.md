@@ -3,13 +3,6 @@
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
 ## 0.9.4
-- M3U playlists that give each channel, film or series its country or language (`tvg-country`, `tvg-language`):
-  categories named only by genre ("News", "Movies: Drama") are split by country, so Settings › Languages & categories
-  lists them under their country or language, your TV's own is chosen to start with, and the free TV guide for each
-  country you pick is added. Where two countries' categories share a name, the list shows which is which
-  ("News · Swedish"). Categories whose names already say their country ("UK | Sports") stay as they are.
-
-## 0.9.3
 - **New free TV, legal to watch:** the free option on the first screen (and in Settings › Playlists) now sets up
   [biskyt/legalFreeIPTVplaylist](https://github.com/biskyt/legalFreeIPTVplaylist): live channels streamed free by
   their broadcasters and free ad-supported services, plus public-domain and openly licensed films and series. It
@@ -17,6 +10,11 @@ Each version's section becomes its GitHub release notes, so it is written for th
   working.
 - M3U movie and series playlists can say what each title is (`tvg-type`, `series-name`, `season`, `episode` and
   `year`, an open convention); the app follows them instead of guessing from the names.
+- M3U playlists that give each channel, film or series its country or language (`tvg-country`, `tvg-language`):
+  categories named only by genre ("News", "Movies: Drama") are split by country, so Settings › Languages & categories
+  lists them under their country or language, your TV's own is chosen to start with, and the free TV guide for each
+  country you pick is added. Where two countries' categories share a name, the list shows which is which
+  ("News · Swedish"). Categories whose names already say their country ("UK | Sports") stay as they are.
 
 ## 0.9.2
 - A lighter, slightly smaller look: text is drawn in Nunito Bold and Medium (it was ExtraBold and SemiBold) at 92% of
