@@ -9,7 +9,6 @@ import com.biskyt.mytvplayer.core.xtream.EpisodeInfo
 import com.biskyt.mytvplayer.core.xtream.SeasonInfo
 import com.biskyt.mytvplayer.core.xtream.SeriesDetails
 import com.biskyt.mytvplayer.core.xtream.VodDetails
-import com.biskyt.mytvplayer.core.xtream.XtreamCategory
 import com.biskyt.mytvplayer.data.db.AppDatabase
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
@@ -81,7 +80,7 @@ internal class M3uVod(private val db: AppDatabase, private val playlists: Playli
         val movieGroups = LinkedHashSet<String>()
         val seriesGroups = LinkedHashSet<String>()
         feeds.forEach { feed ->
-            each(feed) { e, episode -> (if (episode) seriesGroups else movieGroups) += PlaylistRepository.groupOf(e) }
+            each(feed) { e, episode -> (if (episode) seriesGroups else movieGroups) += M3uCategories.idOf(e) }
         }
         store(playlistId, CAT_MOVIE, movieGroups)
         store(playlistId, CAT_SERIES, seriesGroups)
@@ -90,7 +89,7 @@ internal class M3uVod(private val db: AppDatabase, private val playlists: Playli
     private suspend fun store(playlistId: Long, type: String, groups: Set<String>) = if (groups.isEmpty()) {
         categories.deleteOthers(playlistId, type, emptyList())
     } else {
-        categoryStore.store(playlistId, type, groups.map { XtreamCategory(it, it) })
+        categoryStore.store(playlistId, type, groups.map(M3uCategories::category))
     }
 
     @Suppress("LongMethod") // one pass over the playlists, writing movies, series and episodes as it goes
@@ -111,7 +110,7 @@ internal class M3uVod(private val db: AppDatabase, private val playlists: Playli
         var position = 0
         feeds.forEach { feed ->
             each(feed) { e, episode ->
-                val group = PlaylistRepository.groupOf(e)
+                val group = M3uCategories.idOf(e)
                 // Every entry gets its id, so a repeated name's id doesn't depend on which categories are included.
                 val id = playlists.uniqueId(if (episode) "episode|${e.name}" else "movie|${e.name}", ids)
                 if (!episode) {

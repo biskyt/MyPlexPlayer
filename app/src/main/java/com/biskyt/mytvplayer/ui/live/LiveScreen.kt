@@ -62,6 +62,7 @@ import com.biskyt.mytvplayer.ui.common.ProgressLine
 import com.biskyt.mytvplayer.ui.common.Tab
 import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.TvCard
+import com.biskyt.mytvplayer.ui.common.categoryEntries
 import com.biskyt.mytvplayer.ui.common.digit
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.common.isGuide
@@ -158,7 +159,7 @@ private fun LiveCategories(vm: LiveViewModel, selected: ChannelFilter) {
             CategoryEntry(ChannelFilter.Favourites, "Favourites"),
             CategoryEntry(ChannelFilter.Recent, "Recently watched"),
             CategoryEntry(ChannelFilter.All, "All channels")
-        ) + categories.map { CategoryEntry<ChannelFilter>(ChannelFilter.Category(it.categoryId), it.name, it.channelCount, it) }
+        ) + categoryEntries<ChannelFilter>(categories) { ChannelFilter.Category(it.categoryId) }
     }
     CategoryColumn(entries, selected, vm.filters::focus, vm.filters::select, vm::hideCategory)
 }

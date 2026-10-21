@@ -46,6 +46,7 @@ import com.biskyt.mytvplayer.ui.common.Poster
 import com.biskyt.mytvplayer.ui.common.PosterCard
 import com.biskyt.mytvplayer.ui.common.Tab
 import com.biskyt.mytvplayer.ui.common.TabScaffold
+import com.biskyt.mytvplayer.ui.common.categoryEntries
 import com.biskyt.mytvplayer.ui.common.restoreFocusIf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -117,7 +118,7 @@ fun VodBrowseScreen(type: String, initialFilter: VodFilter) {
             CategoryEntry(VodFilter.Favourites, "Favourites"),
             CategoryEntry(VodFilter.Newest, if (vm.isMovies) "Recently added" else "Recently updated"),
             CategoryEntry(VodFilter.All, if (vm.isMovies) "All movies" else "All series")
-        ) + categories.map { CategoryEntry<VodFilter>(VodFilter.Category(it.categoryId), it.name, it.channelCount, it) }
+        ) + categoryEntries<VodFilter>(categories) { VodFilter.Category(it.categoryId) }
     }
     TabScaffold(if (vm.isMovies) Tab.MOVIES else Tab.SERIES) {
         Row(Modifier.fillMaxSize().padding(horizontal = 56.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {

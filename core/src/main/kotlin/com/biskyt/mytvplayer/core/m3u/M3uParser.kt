@@ -25,6 +25,9 @@ data class M3uEntry(
     val season: Int? = null,
     val episode: Int? = null,
     val year: Int? = null,
+    /** `tvg-country` and `tvg-language`, the first of each when several are listed (`US;CA`, `English;Spanish`). */
+    val country: String? = null,
+    val language: String? = null,
 )
 
 /**
@@ -98,6 +101,9 @@ object M3uParser {
         return guides
     }
 
+    /** The first of a list written `a;b` or `a,b`, or null when there's none. */
+    private fun first(list: String?): String? = list?.substringBefore(';')?.substringBefore(',')?.trim()?.ifEmpty { null }
+
     /** The years a title can have, as in the names of titles ("(1945)"). */
     private val YEARS = 1900..2099
 
@@ -137,6 +143,8 @@ object M3uParser {
             season = attrs["season"]?.toIntOrNull()?.takeIf { it > 0 },
             episode = attrs["episode"]?.toIntOrNull()?.takeIf { it > 0 },
             year = attrs["year"]?.toIntOrNull()?.takeIf { it in YEARS },
+            country = first(attrs["tvg-country"]),
+            language = first(attrs["tvg-language"]),
         )
     }
 }

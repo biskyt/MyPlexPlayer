@@ -94,4 +94,19 @@ class M3uParserTest {
         assertEquals(listOf("The Beverly Hillbillies", 1, 2), entries[1].let { listOf(it.seriesName, it.season, it.episode) })
         assertEquals(listOf(null, null, null), entries[2].let { listOf(it.season, it.episode, it.year) })
     }
+
+    @Test
+    fun `country and language, the first of each list`() = runBlocking {
+        val playlist = """
+            #EXTM3U
+            #EXTINF:-1 tvg-country="US;CA" tvg-language="English;Spanish",Both
+            http://a.m3u8
+            #EXTINF:-1 tvg-country="" tvg-language=" ",Empty
+            http://b.m3u8
+        """.trimIndent()
+        val entries = mutableListOf<M3uEntry>()
+        M3uParser.parse(playlist.reader().buffered()) { entries += it }
+        assertEquals(listOf("US", "English"), entries[0].let { listOf(it.country, it.language) })
+        assertEquals(listOf(null, null), entries[1].let { listOf(it.country, it.language) })
+    }
 }
