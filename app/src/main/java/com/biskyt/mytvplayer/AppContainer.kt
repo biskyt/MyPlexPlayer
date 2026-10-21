@@ -22,6 +22,7 @@ import com.biskyt.mytvplayer.data.BackupRepository
 import com.biskyt.mytvplayer.data.CatchupRepository
 import com.biskyt.mytvplayer.data.CategoryStore
 import com.biskyt.mytvplayer.data.ChannelRepository
+import com.biskyt.mytvplayer.data.CrashLog
 import com.biskyt.mytvplayer.data.EpgRepository
 import com.biskyt.mytvplayer.data.PlaylistRepository
 import com.biskyt.mytvplayer.data.SearchRepository
@@ -55,6 +56,7 @@ class AppContainer(context: Context) {
     val sync = SyncManager(appScope, playlists, vod, epg)
     val backup = BackupRepository(db, settings, epg, sync)
     val backupFile = BackupFile(context)
+    val crashLog = CrashLog(context.filesDir, BuildConfig.VERSION_NAME)
 }
 
 open class MyTvApp : Application(), SingletonImageLoader.Factory {
@@ -63,9 +65,13 @@ open class MyTvApp : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        // First, so a crash while setting up the rest is recorded too.
+        installCrashLog()
         container = AppContainer(this)
         scheduleDailyRefresh()
     }
+
+    protected open fun installCrashLog() = CrashLog(filesDir, BuildConfig.VERSION_NAME).install()
 
     protected open fun scheduleDailyRefresh() {
         val request = PeriodicWorkRequestBuilder<RefreshWorker>(1, TimeUnit.DAYS)
