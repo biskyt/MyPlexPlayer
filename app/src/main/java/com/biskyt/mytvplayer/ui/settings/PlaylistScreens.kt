@@ -33,8 +33,11 @@ import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.PillButton
+import com.biskyt.mytvplayer.ui.common.StatusPanel
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.TvTextField
+import com.biskyt.mytvplayer.ui.common.WorkRunner
+import com.biskyt.mytvplayer.ui.common.WorkStatus
 import com.biskyt.mytvplayer.ui.common.formatDateTime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
@@ -60,9 +63,24 @@ class PlaylistsViewModel(private val c: AppContainer) : ViewModel() {
         then()
     }
 
-    /** Downloads the playlist's channels, guide, movies and series again (progress shows in the top bar). */
-    fun update(p: PlaylistEntity) {
-        c.sync.refresh(p.id)
+    private val work = WorkRunner(c.appScope, viewModelScope, c.sync.state)
+
+    /** Progress and the outcome of the last update from this page. */
+    val status: WorkStatus? get() = work.status
+
+    /** Downloads the playlist's channels, guide, movies and series again: its progress, then how it went. */
+    fun update(p: PlaylistEntity) = work.run("Updating ${p.name}") {
+        c.sync.refreshNow(p.id).fold(
+            { guideErrors ->
+                if (guideErrors.isEmpty()) {
+                    WorkStatus("${p.name} updated", "Its channels, TV guide, films and series are up to date.")
+                } else {
+                    // As on the TV guide page: the channels updated, but say which guide didn't.
+                    WorkStatus("${p.name} updated, but some guides couldn't be loaded", guideErrors.values.first(), failed = true)
+                }
+            },
+            { WorkRunner.failed("Couldn't update ${p.name}", it) }
+        )
     }
 
     /** Adding the free channels, films and series: true while downloading; [freeError] if it failed. */
@@ -91,6 +109,8 @@ fun PlaylistsScreen() {
     val (playlists, active) = vm.state.collectAsState().value
     val accent = LocalAccent.current
     SettingsPage("Playlists") {
+        // Above the playlists, so "Update now" on any of them shows its progress and outcome in the same place.
+        item(key = "status") { StatusPanel(vm.status) }
         items(playlists.size) { i ->
             val p = playlists[i]
             val isActive = p.id == active

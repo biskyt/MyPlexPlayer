@@ -4,10 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -27,9 +25,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -46,7 +41,6 @@ import com.biskyt.mytvplayer.core.epg.EpgCandidate
 import com.biskyt.mytvplayer.core.epg.EpgMatch
 import com.biskyt.mytvplayer.data.FreeGuide
 import com.biskyt.mytvplayer.data.FreeGuides
-import com.biskyt.mytvplayer.data.SyncState
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.EpgSourceEntity
 import com.biskyt.mytvplayer.data.db.GuideCoverage
@@ -59,25 +53,24 @@ import com.biskyt.mytvplayer.ui.common.ChannelLogo
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.PillButton
 import com.biskyt.mytvplayer.ui.common.SidePanel
+import com.biskyt.mytvplayer.ui.common.StatusPanel
 import com.biskyt.mytvplayer.ui.common.Toggle
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.TvTextField
+import com.biskyt.mytvplayer.ui.common.WorkRunner
+import com.biskyt.mytvplayer.ui.common.WorkStatus
 import com.biskyt.mytvplayer.ui.common.formatCount
 import com.biskyt.mytvplayer.ui.common.formatDateTime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
-import com.biskyt.mytvplayer.ui.common.syncLabel
 import com.biskyt.mytvplayer.ui.settings.SettingsPage
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
@@ -87,26 +80,14 @@ import kotlinx.coroutines.launch
 
 // ---------------------------------------------------------------- sources
 
-/** The status panel on the guide sources page: progress while [working], then what happened. */
-data class GuideStatus(val title: String, val detail: String? = null, val working: Boolean = false, val failed: Boolean = false)
-
 class GuideSourcesViewModel(private val c: AppContainer) : ViewModel() {
     val sources = c.epg.observeSources().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val sync = c.sync.state
     var name by mutableStateOf("")
     var url by mutableStateOf("")
+    private val work = WorkRunner(c.appScope, viewModelScope, c.sync.state)
 
     /** Progress and the outcome of the last add, update or match, all shown in the one place. */
-    var status by mutableStateOf<GuideStatus?>(null)
-        private set
-
-    init {
-        // A refresh started elsewhere (the daily update, a playlist) replaces an earlier outcome, so its own
-        // progress and result show instead.
-        viewModelScope.launch {
-            c.sync.state.collect { if (it !is SyncState.Idle && it !is SyncState.Failed && status?.working != true) status = null }
-        }
-    }
+    val status: WorkStatus? get() = work.status
 
     /** Adds the typed address; false if it can't start yet (nothing typed, or something else is running). */
     fun add(): Boolean {
@@ -120,23 +101,23 @@ class GuideSourcesViewModel(private val c: AppContainer) : ViewModel() {
 
     private fun addAndLoad(name: String, url: String): Boolean {
         val shown = name.trim().ifEmpty { url.trim() }
-        return run("Adding $shown") {
+        return work.run("Adding $shown") {
             val id = c.epg.addSource(name, url)
             // A guide that couldn't be loaded doesn't fail the update (the others still load), so look for its own error.
-            update("$shown added", only = id) { errors -> errors[id]?.let { GuideStatus("Couldn't load $shown", it, failed = true) } }
+            update("$shown added", only = id) { errors -> errors[id]?.let { WorkStatus("Couldn't load $shown", it, failed = true) } }
         }
     }
 
-    fun refresh() = run("Updating the TV guide") {
+    fun refresh() = work.run("Updating the TV guide") {
         update("TV guide updated") { errors ->
             if (errors.isEmpty()) return@update null
             val names = sources.value.filter { it.id in errors }.joinToString { it.name }
-            GuideStatus("Some guides couldn't be loaded", "$names: ${errors.values.first()}", failed = true)
+            WorkStatus("Some guides couldn't be loaded", "$names: ${errors.values.first()}", failed = true)
         }
     }
 
-    fun matchMissing() = run("Matching channels without a guide") {
-        val r = c.sync.matchMissingGuides().getOrElse { return@run failed("Couldn't match channels", it) }
+    fun matchMissing() = work.run("Matching channels without a guide") {
+        val r = c.sync.matchMissingGuides().getOrElse { return@run WorkRunner.failed("Couldn't match channels", it) }
         val now = c.epg.coverage()
         val title = when {
             r.matched > 0 -> "Found a guide for ${channels(r.matched)} more"
@@ -144,43 +125,21 @@ class GuideSourcesViewModel(private val c: AppContainer) : ViewModel() {
             r.checked == 0 -> "No channels left to match"
             else -> "No new matches found"
         }
-        GuideStatus(title, coverageText(now, now))
+        WorkStatus(title, coverageText(now, now))
     }
 
     /**
      * Updates the guide (downloading just [only], if given): [done], with how many channels have a guide now, unless
      * [check] finds a problem.
      */
-    private suspend fun update(done: String, only: Long? = null, check: (Map<Long, String>) -> GuideStatus?): GuideStatus {
+    private suspend fun update(done: String, only: Long? = null, check: (Map<Long, String>) -> WorkStatus?): WorkStatus {
         val before = c.epg.coverage()
-        val errors = c.sync.updateGuide(only).getOrElse { return failed("Couldn't update the TV guide", it) }
-        return check(errors) ?: GuideStatus(done, coverageText(before, c.epg.coverage()))
+        val errors = c.sync.updateGuide(only).getOrElse { return WorkRunner.failed("Couldn't update the TV guide", it) }
+        return check(errors) ?: WorkStatus(done, coverageText(before, c.epg.coverage()))
     }
 
     fun toggle(s: EpgSourceEntity) = viewModelScope.launch { c.epg.setSourceEnabled(s, !s.enabled) }
     fun remove(s: EpgSourceEntity) = viewModelScope.launch { c.epg.removeSource(s.id) }
-
-    /**
-     * Shows [title] as working until [work] is done, then its outcome. The work runs in the app's scope, so leaving
-     * the page doesn't stop it. Returns false, doing nothing, while something is already running.
-     */
-    @Suppress("TooGenericExceptionCaught") // e.g. full storage: shown, never allowed to crash the app
-    private fun run(title: String, work: suspend () -> GuideStatus): Boolean {
-        if (status?.working == true) return false
-        status = GuideStatus(title, working = true)
-        viewModelScope.launch {
-            status = try {
-                c.appScope.async { work() }.await()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                failed("Something went wrong", e)
-            }
-        }
-        return true
-    }
-
-    private fun failed(title: String, e: Throwable) = GuideStatus(title, e.message, failed = true)
 
     private fun coverageText(before: GuideCoverage, now: GuideCoverage): String {
         val gained = now.withGuide - before.withGuide
@@ -216,7 +175,7 @@ fun GuideSourcesScreen() {
             }
         }
         // Directly under the buttons, so whatever was pressed, its progress and outcome show in the same place.
-        item(key = "status") { StatusPanel(vm.status, vm.sync) }
+        item(key = "status") { StatusPanel(vm.status) }
         item { Text("Your guides", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp)) }
         if (sources.isEmpty()) item { Muted("No guides yet. Add a free guide for your country, or your own XMLTV address.") }
         items(sources, key = { it.id }) { s ->
@@ -243,35 +202,6 @@ fun GuideSourcesScreen() {
         }
     }
     if (adding) AddGuidePanel(vm, sources) { adding = false }
-}
-
-/** Progress (the running step, e.g. "Loading guide: 40%") or the outcome, in one clearly visible box. */
-@Composable
-private fun StatusPanel(status: GuideStatus?, syncFlow: StateFlow<SyncState>) {
-    // Read here, not by the page: progress ticks then redraw just this box.
-    val sync = syncFlow.collectAsState().value
-    val busy = sync !is SyncState.Idle && sync !is SyncState.Failed
-    // Not an earlier failure: that isn't what is happening now.
-    val progress = sync.takeUnless { it is SyncState.Failed }?.let(::syncLabel) ?: "Please wait"
-    val shown = when {
-        status?.working == true -> status.copy(detail = progress)
-        busy -> GuideStatus("Updating", progress, working = true)
-        status != null -> status
-        sync is SyncState.Failed -> GuideStatus("The last update failed", sync.message, failed = true)
-        else -> return
-    }
-    val colour = if (shown.failed) Palette.warning else LocalAccent.current.color
-    Row(
-        Modifier.fillMaxWidth().height(IntrinsicSize.Min).clip(RoundedCornerShape(12.dp)).background(Palette.surfaceLow)
-            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(Modifier.width(6.dp).fillMaxHeight().background(colour))
-        Column(Modifier.padding(horizontal = 20.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(if (shown.working) "${shown.title}…" else shown.title, style = MaterialTheme.typography.titleMedium, color = colour)
-            shown.detail?.let { Text(it, style = MaterialTheme.typography.bodyLarge, maxLines = 3, overflow = TextOverflow.Ellipsis) }
-        }
-    }
 }
 
 /** Adding a guide: a free one for a country (the TV's own first), or any XMLTV address. Closes once one is added. */

@@ -52,11 +52,16 @@ class SyncManager(
     /** Runs [block] while no refresh is running, e.g. replacing everything from a backup. */
     suspend fun <T> whileIdle(block: suspend () -> T): T = mutex.withLock { block() }
 
-    suspend fun refreshNow(playlistId: Long, includeGuide: Boolean = true) = guarded("Couldn't refresh") {
+    /**
+     * [refresh], waiting for it: the outcome is returned (with the error of each guide that couldn't be loaded, by source
+     * id, as [updateGuide]), and also shows in [state].
+     */
+    suspend fun refreshNow(playlistId: Long, includeGuide: Boolean = true): Result<Map<Long, String>> = attempt("Couldn't refresh") {
         _state.value = SyncState.Channels(0)
         playlists.syncChannels(playlistId) { _state.value = SyncState.Channels(it) }
-        if (includeGuide) importGuide()
+        val guideErrors = if (includeGuide) importGuide() else emptyMap()
         syncVod(playlistId)
+        guideErrors
     }
 
     /**
