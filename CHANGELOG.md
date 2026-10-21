@@ -11,6 +11,8 @@ Each version's section becomes its GitHub release notes, so it is written for th
   the days goes to the programmes, and back from watching one, focus is on it again.
 - With the Audio, Subtitles or More panel open over live TV, the Guide button now opens the channel guide, as it does
   with no panel open (it opened the TV's own guide).
+- Settings › Playlists: Update now shows its progress, then whether the playlist updated or what went wrong, as the TV
+  guide page does.
 
 ## 1.0.0
 The first full release: phones and tablets now work by touch, and the free TV has its own programme guide.
