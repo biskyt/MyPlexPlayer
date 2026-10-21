@@ -4,7 +4,10 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -91,7 +94,10 @@ fun AppRoot() {
             }
         }
         Box(
-            Modifier.fillMaxSize().background(Palette.background).guideButton(nav, hasPlaylist = s.activePlaylistId != 0L)
+            Modifier.fillMaxSize().background(Palette.background)
+                // Clear of a phone's camera cutout (TVs have none).
+                .windowInsetsPadding(WindowInsets.displayCutout)
+                .guideButton(nav, hasPlaylist = s.activePlaylistId != 0L)
         ) {
             NavHost(nav) { screen -> ScreenContent(screen) }
         }

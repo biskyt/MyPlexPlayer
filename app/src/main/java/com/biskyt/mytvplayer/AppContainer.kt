@@ -36,6 +36,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import okhttp3.OkHttpClient
 
+/**
+ * How the app names itself to servers. Some hosts (Wikimedia, archive.org) refuse or throttle clients that don't say
+ * who they are and how to reach their maker. Sent with downloads, pictures and streams, except a stream whose M3U entry
+ * gives its own (`http-user-agent`).
+ */
+val USER_AGENT = "MyTVPlayer/${BuildConfig.VERSION_NAME} (+https://github.com/biskyt/MyTVPlayer)"
+
 /** Hand-wired dependencies: small enough that a DI framework would only add start-up time. */
 class AppContainer(context: Context) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -44,6 +51,11 @@ class AppContainer(context: Context) {
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
+        // Downloads and pictures (logos, posters) say who's asking, unless a request already does.
+        .addInterceptor { chain ->
+            val r = chain.request()
+            chain.proceed(if (r.header("User-Agent") == null) r.newBuilder().header("User-Agent", USER_AGENT).build() else r)
+        }
         .build()
     val settings = SettingsRepository(context)
     val epg = EpgRepository(db, http, context.filesDir, appScope)

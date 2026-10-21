@@ -22,6 +22,7 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
+import com.biskyt.mytvplayer.USER_AGENT
 import com.biskyt.mytvplayer.core.player.SubtitlePolicy
 import com.biskyt.mytvplayer.core.player.TextTrack
 import com.biskyt.mytvplayer.data.BufferSize
@@ -38,7 +39,7 @@ import com.biskyt.mytvplayer.data.Settings
 class PlaybackEngine(private val context: Context, private val settings: Settings) {
 
     private val http = DefaultHttpDataSource.Factory()
-        .setUserAgent(DEFAULT_USER_AGENT)
+        .setUserAgent(USER_AGENT)
         .setAllowCrossProtocolRedirects(true)
         .setConnectTimeoutMs(10_000)
         .setReadTimeoutMs(15_000)
@@ -90,7 +91,7 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
             .build()
         current = url
         currentInferred = hls == null && url !in hlsUrls
-        http.setUserAgent(userAgent ?: DEFAULT_USER_AGENT)
+        http.setUserAgent(userAgent ?: USER_AGENT)
         http.setDefaultRequestProperties(if (referrer != null) mapOf("Referer" to referrer) else emptyMap())
         val asHls = hls ?: (url in hlsUrls)
         val item = MediaItem.Builder().setUri(url).apply { if (asHls) setMimeType(MimeTypes.APPLICATION_M3U8) }.build()
@@ -203,7 +204,6 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
     private companion object {
         const val TAG = "PlaybackEngine"
         const val MB = 1024 * 1024
-        const val DEFAULT_USER_AGENT = "MyTVPlayer"
 
         fun encodedName(mime: String?): String? = when (mime) {
             MimeTypes.AUDIO_AC3 -> "Dolby Digital"
