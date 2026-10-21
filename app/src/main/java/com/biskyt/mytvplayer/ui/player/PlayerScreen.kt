@@ -226,10 +226,20 @@ private fun remoteKey(key: Key): RemoteKey? = when (key) {
     else -> null
 }
 
-/** The remote's media buttons inside a panel over the video (a window of its own, so they'd never reach the player). */
+/**
+ * The remote's media buttons inside a panel over the video (a window of its own, so they'd never reach the player);
+ * and Guide, which closes the panel for the channel guide, as it opens it with no panel there (else the TV's own guide).
+ */
 internal fun Modifier.mediaKeys(vm: PlaybackViewModel): Modifier = onKeyEvent { e ->
-    val key = remoteKey(e.key)?.takeIf { it.isMedia } ?: return@onKeyEvent false
-    if (e.type == KeyEventType.KeyDown) vm.onKey(key, repeat = e.nativeKeyEvent.repeatCount)
+    val key = remoteKey(e.key) ?: return@onKeyEvent false
+    when {
+        key.isMedia -> if (e.type == KeyEventType.KeyDown) vm.onKey(key, repeat = e.nativeKeyEvent.repeatCount)
+        key == RemoteKey.GUIDE && vm.hasGuide && vm.sheet != null -> if (e.type == KeyEventType.KeyDown) {
+            vm.sheet = null
+            vm.onKey(key)
+        }
+        else -> return@onKeyEvent false
+    }
     true
 }
 

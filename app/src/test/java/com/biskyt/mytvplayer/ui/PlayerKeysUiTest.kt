@@ -116,6 +116,36 @@ class PlayerKeysUiTest {
     }
 
     @Test
+    fun `the guide button with a panel open over the video opens the channel guide`() {
+        show(Screen.Player(playlistId, 101, ChannelFilter.All))
+        waitFor("Channel guide")
+        press(Key.Menu) // the More panel
+        waitFor("Sleep timer")
+        press(Key.Guide)
+        // The panel gives way to the channel guide, as with no panel open (not the TV's own guide).
+        // Its hint for the remote, or on a touch screen its buttons.
+        compose.waitAdvancingClock {
+            compose.onAllNodes(hasText("other channels", substring = true) or hasText("Previous", substring = true))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        assertTrue(compose.onAllNodes(hasText("Sleep timer")).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun `a channel's catch-up opens with focus on its programmes, and right from the days goes back to them`() {
+        show(Screen.Live(ChannelFilter.Catchup))
+        waitForFocus("CHANNEL ONE")
+        press(Key.DirectionCenter)
+        waitFor("Earlier Today")
+        // Today's programmes, newest first (not nothing, which would send the first key press to the top bar).
+        waitForFocus("On Now")
+        press(Key.DirectionLeft)
+        waitForFocus("Today")
+        press(Key.DirectionRight)
+        waitForFocus("On Now")
+    }
+
+    @Test
     fun `the guide button works on the live screen with focus on the tabs`() {
         show(Screen.Live())
         waitForFocus("CHANNEL ONE")

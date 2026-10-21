@@ -96,6 +96,9 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     /** Live TV zaps with up/down and has a guide; on-demand video doesn't. */
     protected abstract val isLive: Boolean
 
+    /** Whether the Guide button opens a guide here (live TV's channel guide); elsewhere it's left to the TV. */
+    val hasGuide: Boolean get() = isLive
+
     /** Shown when a stream keeps failing. */
     protected abstract val failureMessage: String
 
