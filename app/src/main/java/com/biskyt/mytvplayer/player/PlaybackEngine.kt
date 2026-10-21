@@ -1,6 +1,7 @@
 package com.biskyt.mytvplayer.player
 
 import android.content.Context
+import android.os.Handler
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
@@ -9,6 +10,7 @@ import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
@@ -66,12 +68,57 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
      */
     var onUnsupported: (url: String) -> Unit = {}
 
+    /**
+     * Called (with the player stopped) when a stream has buffered for [STALL_MS] without getting any further, so the
+     * caller handles it like any other failure (retries, then an error).
+     */
+    var onStalled: (PlaybackException) -> Unit = {}
+
     /** True once the default subtitle choice has been applied to the current stream (the user may change it after). */
     private var subtitlesApplied = false
 
     // URLs whose format was worked out from the address and turned out to be HLS (some M3U links don't say).
     private val hlsUrls = HashSet<String>()
     private var current: String? = null
+
+    // A server that sends nothing at all fails on the read timeout. One that trickles (a byte now and then, never
+    // enough to play), or sends only some of a stream's tracks, raises no error: this notices a stream that can't get
+    // started. Media3 1.8 has nothing built in for it (its own check only covers a full buffer that can't start).
+    // Once a stream has played, rebuffering is left to the player's own retries.
+    private val handler = Handler(player.applicationLooper)
+    private var started = false
+    private var lastBuffered = 0L
+    private var stalledMs = 0L
+    private val checkStall = object : Runnable {
+        override fun run() {
+            val buffered = player.bufferedPosition
+            stalledMs = if (buffered != lastBuffered) 0 else stalledMs + STALL_CHECK_MS
+            lastBuffered = buffered
+            if (stalledMs < STALL_MS) {
+                handler.postDelayed(this, STALL_CHECK_MS)
+                return
+            }
+            player.stop()
+            onStalled(PlaybackException("Buffering got nowhere for ${STALL_MS / 1000} s", null, ERROR_CODE_STALLED))
+        }
+    }
+
+    /** Watches while the viewer is waiting on buffering, from the start (again) when a new stream starts. */
+    private fun watchForStall() {
+        handler.removeCallbacks(checkStall)
+        if (player.playbackState == Player.STATE_READY) started = true
+        if (started || player.playbackState != Player.STATE_BUFFERING || !player.playWhenReady) return
+        lastBuffered = player.bufferedPosition
+        stalledMs = 0
+        handler.postDelayed(checkStall, STALL_CHECK_MS)
+    }
+
+    init {
+        player.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) = watchForStall()
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) = watchForStall()
+        })
+    }
 
     /** The current stream's address. */
     val currentUrl: String? get() = current
@@ -90,6 +137,7 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
             .build()
         current = url
+        started = false
         currentInferred = hls == null && url !in hlsUrls
         http.setUserAgent(userAgent ?: USER_AGENT)
         http.setDefaultRequestProperties(if (referrer != null) mapOf("Referer" to referrer) else emptyMap())
@@ -97,6 +145,7 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         val item = MediaItem.Builder().setUri(url).apply { if (asHls) setMimeType(MimeTypes.APPLICATION_M3U8) }.build()
         if (!start(item)) return
         player.playWhenReady = true
+        watchForStall()
     }
 
     /** Sets and prepares [item]; false (and [onUnsupported]) when the player can't handle its type. */
@@ -175,7 +224,10 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         .firstOrNull { it.type == C.TRACK_TYPE_AUDIO && it.isSelected }
         ?.let { g -> (0 until g.length).firstOrNull(g::isTrackSelected)?.let(g::getTrackFormat) }
 
-    fun release() = player.release()
+    fun release() {
+        handler.removeCallbacks(checkStall)
+        player.release()
+    }
 
     private fun renderersFactory() = object : DefaultRenderersFactory(context) {
         override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink? =
@@ -204,6 +256,10 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
     private companion object {
         const val TAG = "PlaybackEngine"
         const val MB = 1024 * 1024
+
+        /** Buffering this long without getting any further counts as a failure. */
+        const val STALL_MS = 20_000L
+        const val STALL_CHECK_MS = 5_000L
 
         fun encodedName(mime: String?): String? = when (mime) {
             MimeTypes.AUDIO_AC3 -> "Dolby Digital"
