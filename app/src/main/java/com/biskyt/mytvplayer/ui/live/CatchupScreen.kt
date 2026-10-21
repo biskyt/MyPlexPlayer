@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -18,6 +18,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -43,6 +45,7 @@ import com.biskyt.mytvplayer.ui.common.dateFormat
 import com.biskyt.mytvplayer.ui.common.formatRuntime
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
+import com.biskyt.mytvplayer.ui.common.restoreFocusIf
 import com.biskyt.mytvplayer.ui.theme.Palette
 import java.time.Instant
 import java.time.LocalDate
@@ -95,9 +98,14 @@ fun CatchupScreen(screen: Screen.Catchup) {
     val day by vm.days.value.collectAsState()
     val entries = remember(ch) { (0..(ch?.archiveDays ?: 0)).map { CategoryEntry(it, dayLabel(it)) } }
     var focused by remember { mutableStateOf<CatchupProgramme?>(null) }
+    val programmes = vm.byDay?.get(day).orEmpty()
+    // Opening, focus starts on the programmes (else the first key press would put it on the top bar); right from the
+    // days goes to them too.
+    val firstProgramme = remember { FocusRequester() }
+    var placed by remember { mutableStateOf(false) }
     TabScaffold(Tab.LIVE) {
         Row(Modifier.fillMaxSize().padding(horizontal = 56.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            CategoryColumn(entries, day, vm.days::focus, vm.days::select)
+            CategoryColumn(entries, day, vm.days::focus, vm.days::select, right = firstProgramme.takeIf { programmes.isNotEmpty() })
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Catch-up · ${ch?.name.orEmpty()}", style = MaterialTheme.typography.headlineSmall, maxLines = 1)
                 // The focused programme's description, in a fixed space so the list doesn't jump.
@@ -109,13 +117,20 @@ fun CatchupScreen(screen: Screen.Catchup) {
                         PillButton("Try again", { vm.load() }, rememberFirstFocus())
                     }
                     byDay == null -> Muted("Loading…")
-                    byDay[day].isNullOrEmpty() -> Muted("Nothing to catch up on for this day.")
+                    programmes.isEmpty() -> Muted("Nothing to catch up on for this day.")
                     else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
-                        items(byDay.getValue(day), key = { it.startMs }) { p ->
+                        itemsIndexed(programmes, key = { _, p -> p.startMs }) { i, p ->
                             TvCard(
                                 onClick = { nav.push(Screen.CatchupPlayer(screen.playlistId, screen.streamId, p.startMs)) },
                                 color = Palette.surfaceLow,
                                 modifier = Modifier.fillMaxWidth().onFocusChanged { if (it.isFocused) focused = p }
+                                    .then(
+                                        if (i == 0) {
+                                            Modifier.focusRequester(firstProgramme).restoreFocusIf(!placed) { placed = true }
+                                        } else {
+                                            Modifier
+                                        }
+                                    )
                             ) {
                                 Row(
                                     Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
