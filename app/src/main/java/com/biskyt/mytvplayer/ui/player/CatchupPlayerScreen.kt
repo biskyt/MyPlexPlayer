@@ -13,6 +13,7 @@ import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
+import com.biskyt.mytvplayer.ui.common.LocalTouch
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.PillButton
 import com.biskyt.mytvplayer.ui.common.formatRuntime
@@ -50,12 +51,14 @@ private fun CatchupControls(vm: CatchupPlayerViewModel, buttons: FocusRequester,
         }
         if (p != null) {
             fun fraction(t: Long) = ((t - p.startMs).toFloat() / (p.stopMs - p.startMs).coerceAtLeast(1)).coerceIn(0f, 1f)
-            Timeline(formatTime(p.startMs), fraction(vm.at), formatTime(p.stopMs), scrub?.let(::fraction))
+            Timeline(formatTime(p.startMs), fraction(vm.at), formatTime(p.stopMs), scrub?.let(::fraction)) {
+                vm.scrubTo(p.startMs..p.stopMs, it)
+            }
         }
         ControlsBar(vm, buttons, root) {
             PillButton("From the start", vm::fromStart)
             PillButton("Watch live", vm::watchLive)
         }
-        Muted("▲ then ◀ ▶ to skip (hold to scrub) · Back hides this", Modifier.align(Alignment.CenterHorizontally))
+        if (!LocalTouch.current) Muted("▲ then ◀ ▶ to skip (hold to scrub) · Back hides this", Modifier.align(Alignment.CenterHorizontally))
     }
 }

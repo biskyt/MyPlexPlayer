@@ -100,10 +100,17 @@ fun SidePanel(onDismiss: () -> Unit, width: Dp = 430.dp, dim: Boolean = true, co
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         CompositionLocalProvider(LocalDensity provides density) {
             Box(
-                Modifier.fillMaxSize().ignoreHeldSelect().background(if (dim) Palette.background.copy(alpha = 0.6f) else Color.Transparent),
+                Modifier.fillMaxSize().ignoreHeldSelect()
+                    // On a touch screen, tapping beside the panel closes it.
+                    .onPlainTap(onDismiss)
+                    .background(if (dim) Palette.background.copy(alpha = 0.6f) else Color.Transparent),
                 contentAlignment = Alignment.CenterEnd
             ) {
-                Box(Modifier.fillMaxHeight().width(width).background(Palette.surface.copy(alpha = 0.97f)).padding(28.dp)) { content() }
+                Box(
+                    Modifier.fillMaxHeight().width(width)
+                        .onPlainTap {} // taps on the panel itself don't close it
+                        .background(Palette.surface.copy(alpha = 0.97f)).padding(28.dp)
+                ) { content() }
             }
         }
     }

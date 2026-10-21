@@ -6,6 +6,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.ExperimentalTextApi
@@ -21,6 +22,8 @@ import androidx.tv.material3.Typography
 import androidx.tv.material3.darkColorScheme
 import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.core.ui.AccentPalette
+import com.biskyt.mytvplayer.ui.common.LocalTouch
+import com.biskyt.mytvplayer.ui.common.hasTouchScreen
 
 /** Neutral greys so any accent colour works. */
 object Palette {
@@ -31,7 +34,7 @@ object Palette {
     val track = Color(0xFF2A2F37)
     val text = Color(0xFFF1F3F6)
     val textMuted = Color(0xFFA9B0BB)
-    val textDim = Color(0xFF7E8692)
+    val textDim = Color(0xFF868E9A)
     val live = Color(0xFFE25555)
     val warning = Color(0xFFF2C46B)
     val danger = Color(0xFFE58080)
@@ -109,7 +112,9 @@ fun MyTvTheme(accentArgb: Int = AccentPalette.DEFAULT, largeText: Boolean = fals
     val scaled = remember(density, widthPx) {
         if (widthPx > 0) Density(widthPx / DESIGN_WIDTH, density.fontScale) else density
     }
-    CompositionLocalProvider(LocalAccent provides accent, LocalDensity provides scaled) {
+    val context = LocalContext.current
+    val touch = remember { context.hasTouchScreen() }
+    CompositionLocalProvider(LocalAccent provides accent, LocalDensity provides scaled, LocalTouch provides touch) {
         MaterialTheme(colorScheme = colors, typography = type, content = content)
     }
 }
