@@ -1,0 +1,69 @@
+package com.biskyt.mytvplayer.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.data.CrashLog
+import com.biskyt.mytvplayer.ui.common.Muted
+import com.biskyt.mytvplayer.ui.common.PillButton
+import com.biskyt.mytvplayer.ui.common.QrCode
+import com.biskyt.mytvplayer.ui.common.TvCard
+import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
+import com.biskyt.mytvplayer.ui.theme.Palette
+
+/**
+ * After a crash: what went wrong, a code to send it from a phone, and a way in that doesn't update the playlist first
+ * (in case that's what crashed). [onContinue] gets whether to update as usual.
+ */
+@Composable
+fun CrashScreen(report: String, onContinue: (updating: Boolean) -> Unit) {
+    val issue = remember(report) { CrashLog.issueUrl(report) }
+    // A block of lines per card: a few presses of the remote get through even a long report.
+    val blocks = remember(report) { report.lines().filter { it.isNotBlank() }.chunked(10).map { it.joinToString("\n") } }
+    Row(
+        Modifier.fillMaxSize().background(Palette.background).padding(horizontal = 72.dp, vertical = 36.dp),
+        horizontalArrangement = Arrangement.spacedBy(40.dp)
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text("MyTVPlayer closed unexpectedly last time", style = MaterialTheme.typography.headlineMedium)
+            Muted(
+                "To help fix it, scan the code with your phone: it opens a GitHub issue with the details below, ready " +
+                    "to send. Logins are left out, and nothing is sent unless you send it.",
+                maxLines = 3
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                PillButton("Continue", { onContinue(true) }, rememberFirstFocus(), primary = true)
+                PillButton("Continue without updating", { onContinue(false) })
+            }
+            // The whole report, in focusable blocks so the remote can scroll through it.
+            LazyColumn(Modifier.weight(1f).background(Palette.surfaceLow).padding(12.dp)) {
+                items(blocks) { block ->
+                    TvCard(onClick = {}, color = Palette.surfaceLow) {
+                        Text(
+                            block,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Palette.textMuted,
+                            modifier = Modifier.padding(6.dp)
+                        )
+                    }
+                }
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            QrCode(issue, Modifier.size(320.dp))
+            Muted(CrashLog.ISSUES.removePrefix("https://").substringBeforeLast('/'))
+        }
+    }
+}

@@ -9,6 +9,11 @@ Each version's section becomes its GitHub release notes, so it is written for th
   the top left to return to the list. The TV guide has Earlier and Later buttons, and the channel guide beside the
   picture has Previous and Next. Tap beside a side panel to close it. Nothing changes on a TV.
 - Dim text (times, counts, hints) is a little lighter, so it's easier to read on every background.
+- **If MyTVPlayer closes unexpectedly**, the next start says so and shows what went wrong, with a code to scan on your
+  phone that opens a GitHub issue with the details (logins are left out; nothing is sent unless you send it). "Continue
+  without updating" starts without refreshing your playlist, in case that's what went wrong.
+- Settings › Languages & categories: the languages and the categories each have their own Select all / none, so you
+  can choose every category of one language without choosing every language.
 
 ## 0.9.5
 - **Live TV that won't start in one format is tried in the other.** If a channel from your provider doesn't start in
