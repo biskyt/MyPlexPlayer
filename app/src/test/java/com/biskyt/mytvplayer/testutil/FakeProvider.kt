@@ -50,6 +50,9 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
     /** Live streams that connect but then send next to nothing (a few bytes a second), never enough to play. */
     var streamsTrickle = false
 
+    /** The guide (xmltv.php) fails with a server error. */
+    var guideFails = false
+
     /** A panel that serves M3U playlists but refuses Xtream logins. */
     var loginsRefused = false
 
@@ -156,6 +159,7 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
         }
         if (early != null) return early
         return when {
+            guideFails && url.encodedPath.endsWith("xmltv.php") -> MockResponse().setResponseCode(500)
             url.encodedPath.endsWith("xmltv.php") -> {
                 // Like real servers: a version tag, and "not modified" when the guide asked for hasn't changed.
                 val guide = xmltv()

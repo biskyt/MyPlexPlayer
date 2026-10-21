@@ -5,7 +5,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.printToString
@@ -15,7 +14,9 @@ import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.testutil.FakeProvider
+import com.biskyt.mytvplayer.testutil.Navigators
 import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.testutil.createUiComposeRule
 import com.biskyt.mytvplayer.testutil.waitAdvancingClock
 import com.biskyt.mytvplayer.ui.live.CatchupScreen
 import com.biskyt.mytvplayer.ui.settings.PlaylistEditScreen
@@ -37,7 +38,10 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-tvdpi")
 class M3uUiTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createUiComposeRule()
+
+    @get:Rule(order = Navigators.ORDER)
+    val navigators = Navigators()
 
     private val provider = FakeProvider()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
@@ -47,7 +51,7 @@ class M3uUiTest {
     fun tearDown() = provider.close()
 
     private fun show(start: Screen) {
-        navigator = Navigator(start)
+        navigator = navigators.new(start)
         compose.setContent { MyTvTheme { NavHost(remember { navigator }) { Screens(it) } } }
     }
 

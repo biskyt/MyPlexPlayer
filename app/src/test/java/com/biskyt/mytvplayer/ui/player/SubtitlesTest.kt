@@ -4,7 +4,6 @@ import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.text.Cue
@@ -12,6 +11,7 @@ import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.SubtitleView
 import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.testutil.createUiComposeRule
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import org.junit.Assert.assertEquals
@@ -25,7 +25,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestApp::class)
 class SubtitlesTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createUiComposeRule()
 
     /** A player whose subtitle track is showing [text], as a stream's would. */
     private class SubtitledPlayer(var text: String) : SimpleBasePlayer(Looper.getMainLooper()) {

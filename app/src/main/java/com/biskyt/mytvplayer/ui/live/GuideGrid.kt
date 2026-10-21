@@ -84,6 +84,46 @@ private const val DAY_MS = 24 * HOUR
 
 /** Where focus should land: the programme on [time] in channel [streamId] (null = the first row). */
 private data class GuideFocus(val streamId: Long?, val time: Long)
+
+/** What the Live screen around the grid knows of focus: whether it has it, and how often the remote's arrows were pressed. */
+class ScreenFocus {
+    var hasFocus = false
+    var arrowPresses = 0
+}
+
+/** Where focus goes in the grid once that row's cell is there ([value]); null when there's nowhere to go. */
+private class FocusTarget(private val screen: ScreenFocus) {
+    var value by mutableStateOf<GuideFocus?>(null)
+    private var gridHasFocus = false
+
+    /** Whether the grid has had focus since the target was set. */
+    private var gridHadFocus = false
+    private var pressesWhenSet = 0
+
+    fun set(target: GuideFocus) {
+        gridHadFocus = gridHasFocus
+        pressesWhenSet = screen.arrowPresses
+        value = target
+    }
+
+    fun gridFocusChanged(hasFocus: Boolean) {
+        gridHasFocus = hasFocus
+        if (hasFocus) gridHadFocus = true
+    }
+
+    /**
+     * Whether the target's cell may still take focus: not once focus has left the grid for somewhere else on the screen
+     * (up to the filter, the categories: moved there with the remote, or thrown there) while the row's programmes were
+     * on their way. The target is then done, and focus stays there. Arriving at the grid, or a placeholder cell
+     * replaced by the programmes (focus briefly nowhere), carries on.
+     */
+    fun mayTakeFocus(): Boolean {
+        val movedAway = !gridHasFocus && (screen.arrowPresses != pressesWhenSet || (gridHadFocus && screen.hasFocus))
+        if (movedAway) value = null
+        return !movedAway
+    }
+}
+
 private val DpPerMinute = 6.dp
 private val ChannelColumn = 250.dp
 
@@ -93,7 +133,7 @@ private val ChannelColumn = 250.dp
  * and focus follows on to the next/previous programme of the same channel.
  */
 @Composable
-fun GuideGrid(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (ChannelEntity) -> Unit) {
+fun GuideGrid(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (ChannelEntity) -> Unit, screen: ScreenFocus) {
     val container = LocalContext.current.container
     val epg = container.epg
     val nav = LocalNavigator.current
@@ -119,12 +159,12 @@ fun GuideGrid(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (C
     LaunchedEffect(guideVersion) { loader.refreshAll() }
     // Read only inside FocusedInfo, so moving focus around the grid doesn't recompose the grid itself.
     val focused = remember { mutableStateOf<Pair<ChannelEntity, ChannelProgramme?>?>(null) }
-    val focusTarget = remember { mutableStateOf<GuideFocus?>(null) }
+    val focusTarget = remember { FocusTarget(screen) }
     // Arriving from the list (or the player, or after a move): focus what's on now on the channel that had focus.
     LaunchedEffect(vm.restoreFocusPending) {
         if (vm.restoreFocusPending) {
             vm.restoreFocusPending = false
-            focusTarget.value = GuideFocus(vm.focusStreamId, System.currentTimeMillis())
+            focusTarget.set(GuideFocus(vm.focusStreamId, System.currentTimeMillis()))
             vm.revealFocused()
         }
     }
@@ -135,9 +175,9 @@ fun GuideGrid(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (C
      * (e.g. left to the categories).
      */
     fun edge(ch: ChannelEntity, dir: Int, p: ChannelProgramme?): Boolean =
-        window.move(dir, p) { focusTarget.value = GuideFocus(ch.streamId, it) }
+        window.move(dir, p) { focusTarget.set(GuideFocus(ch.streamId, it)) }
 
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().onFocusChanged { focusTarget.gridFocusChanged(it.hasFocus) }) {
         FocusedInfo(focused) { ch, p ->
             // Descriptions aren't kept for the whole grid (they're large); the focused one is fetched when focus rests.
             delay(300)
@@ -185,7 +225,8 @@ fun GuideGrid(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (C
                         onPlay = { p -> openProgramme(nav, ch, p, play) },
                         // The programme with focus on this row, so its options can offer to find it on demand.
                         onOptions = { vm.openOptions(ch, focused.value?.takeIf { it.first.streamId == ch.streamId }?.second) },
-                        onEdge = { dir, p -> edge(ch, dir, p) }
+                        onEdge = { dir, p -> edge(ch, dir, p) },
+                        mayTakeFocus = focusTarget::mayTakeFocus
                     )
                 }
             }
@@ -260,7 +301,8 @@ private fun GuideRow(
     onFocus: (ChannelProgramme?, isTarget: Boolean) -> Unit,
     onPlay: (ChannelProgramme?) -> Unit,
     onOptions: () -> Unit,
-    onEdge: (Int, ChannelProgramme?) -> Boolean
+    onEdge: (Int, ChannelProgramme?) -> Boolean,
+    mayTakeFocus: () -> Boolean
 ) {
     val windowEnd = windowStart + WINDOW_MS
     Row(Modifier.fillMaxWidth().height(60.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -283,7 +325,7 @@ private fun GuideRow(
             // a pending target, which then moves to the real programme once it arrives.
             Cell(
                 null, DpPerMinute * (WINDOW_MS / 60_000f), live = true, first = true, last = true,
-                focusKey = focusTime?.let { Triple(it, programmes, loaded) }, onFocus, onPlay, onOptions, onEdge,
+                focusKey = focusTime?.let { Triple(it, programmes, loaded) }, onFocus, onPlay, onOptions, onEdge, mayTakeFocus,
                 if (programmes == null) "" else "No guide information"
             )
         } else {
@@ -298,7 +340,8 @@ private fun GuideRow(
                 Cell(
                     p, width, p.isLive(now), i == 0, i == visible.lastIndex,
                     // Asks again once the row's own programmes arrive (and the target is then done).
-                    focusKey = if (i == focusIndex) focusTime?.let { it to loaded } else null, onFocus, onPlay, onOptions, onEdge,
+                    focusKey = if (i == focusIndex) focusTime?.let { it to loaded } else null,
+                    onFocus, onPlay, onOptions, onEdge, mayTakeFocus,
                     // Marks what can be replayed.
                     if (ch.archiveDays > 0 && p.stopMs <= now) "⟲ ${p.title}" else p.title
                 )
@@ -321,6 +364,7 @@ private fun Cell(
     onPlay: (ChannelProgramme?) -> Unit,
     onOptions: () -> Unit,
     onEdge: (Int, ChannelProgramme?) -> Boolean,
+    mayTakeFocus: () -> Boolean,
     title: String
 ) {
     val requester = remember { FocusRequester() }
@@ -328,7 +372,11 @@ private fun Cell(
     if (focusKey != null) {
         LaunchedEffect(focusKey) {
             // Already focused: requesting again wouldn't report anything, so report it directly.
-            if (hasFocus[0]) onFocus(p, true) else runCatching { requester.requestFocus() }
+            // Not when the target is done (focus was taken elsewhere meanwhile).
+            when {
+                hasFocus[0] -> onFocus(p, true)
+                mayTakeFocus() -> runCatching { requester.requestFocus() }
+            }
         }
     }
     TvCard(

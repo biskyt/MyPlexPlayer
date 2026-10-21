@@ -105,7 +105,8 @@ fun <F> categoryEntries(categories: List<CategoryEntity>, filter: (CategoryEntit
  * offers to hide it ([onHide]).
  *
  * The list follows the remote's up/down keys, not focus: focus arriving any other way (e.g. thrown out of a list that
- * changed under it) never switches it. Coming into the column, focus goes to the selected entry.
+ * changed under it) never switches it. Coming into the column, focus goes to the selected entry. [right]: where right
+ * goes from it, when the list beside it isn't level with it (left to find, right could land on the top bar).
  */
 @Composable
 fun <F> CategoryColumn(
@@ -113,7 +114,8 @@ fun <F> CategoryColumn(
     selected: F,
     onFocus: (F) -> Unit,
     onSelect: (F) -> Unit,
-    onHide: ((CategoryEntity) -> Unit)? = null
+    onHide: ((CategoryEntity) -> Unit)? = null,
+    right: FocusRequester = FocusRequester.Default
 ) {
     val selectedEntry = remember { FocusRequester() }
     var options by remember { mutableStateOf<CategoryEntity?>(null) }
@@ -165,6 +167,7 @@ fun <F> CategoryColumn(
                 color = Palette.background,
                 modifier = Modifier.fillMaxWidth()
                     .then(if (isSelected) Modifier.focusRequester(selectedEntry) else Modifier)
+                    .rightTo(right)
                     .onPreviewKeyEvent { e ->
                         if (e.type == KeyEventType.KeyDown) {
                             val next = when (e.key) {
@@ -239,3 +242,7 @@ fun ListHeader(
 
 /** How many frames focus waits for the selected entry to be laid out after scrolling to it. */
 private const val REFOCUS_FRAMES = 10
+
+/** Right from here goes to [target]; unchanged (the usual search) when it's the default. */
+private fun Modifier.rightTo(target: FocusRequester): Modifier =
+    if (target == FocusRequester.Default) this else focusProperties { right = target }

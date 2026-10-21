@@ -5,6 +5,7 @@ import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.DocumentsContract
@@ -38,6 +39,7 @@ import com.biskyt.mytvplayer.ui.common.formatDayTime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 
 private const val PERMISSION_DENIED =
@@ -75,6 +77,15 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
     fun ask(uri: Uri) {
         confirming = uri
         status = null
+    }
+
+    /**
+     * Files opened with MyTVPlayer from another app (see MainActivity), offered to restore like one chosen here; while
+     * the page is showing, so one left under another screen doesn't take them unseen.
+     */
+    suspend fun takeOpenedFiles() = c.openedFile.filterNotNull().collect {
+        c.openedFile.value = null
+        ask(it)
     }
 
     fun cancel() {
@@ -159,9 +170,12 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
 
 /**
  * Android TV fills in for system apps a TV leaves out (like the file picker) with stand-ins that only say "no
- * application can handle this request": an intent they answer has no real handler.
+ * application can handle this request" (e.g. com.android.tv.frameworkpackagestubs; makers may name theirs otherwise).
  */
-private const val TV_STUBS = "com.android.tv.frameworkpackagestubs"
+private val ActivityInfo.isStandIn get() = "stub" in packageName.lowercase()
+
+/** Android's own file picker (com.android.documentsui, or Google's com.google.android.documentsui). */
+private val ActivityInfo.isAndroidPicker get() = packageName.endsWith(".documentsui")
 
 /** The activities that would answer [intent] (as starting it would find them). */
 private fun Context.handlers(intent: Intent) =
@@ -192,16 +206,19 @@ fun BackupScreen() {
         if (result.resultCode == Activity.RESULT_OK) result.data?.data?.let(vm::ask)
     }
     fun pick() {
-        // Some TVs leave out Android's picker; a file manager app installed from the store (e.g. X-plore) can stand in.
+        // Android's own picker where the TV has it, opened in the backup folder. Anything else answering for it may be
+        // a stand-in under another name, so then the file manager apps installed (e.g. X-plore) are offered instead.
+        val open = OpenBackup().createIntent(context, arrayOf("*/*"))
+        val picker = context.handlers(open).firstOrNull { it.isAndroidPicker }
         val get = Intent(Intent.ACTION_GET_CONTENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE)
-        val (stubs, fileManagers) = context.handlers(get).partition { it.packageName == TV_STUBS }
+        val (standIns, fileManagers) = context.handlers(get).partition { it.isStandIn }
         val tries = listOfNotNull(
-            OpenBackup().createIntent(context, arrayOf("*/*")).takeIf { open ->
-                context.handlers(open).any { it.packageName != TV_STUBS }
-            },
+            picker?.let { Intent(open).setPackage(it.packageName) },
             Intent.createChooser(get, "Choose the backup file")
-                .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, stubs.map { ComponentName(it.packageName, it.name) }.toTypedArray())
-                .takeIf { fileManagers.isNotEmpty() }
+                .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, standIns.map { ComponentName(it.packageName, it.name) }.toTypedArray())
+                .takeIf { fileManagers.isNotEmpty() },
+            // Last, whatever else answers for the picker (a maker's own, perhaps), as before.
+            open.takeIf { picker == null && context.handlers(open).any { !it.isStandIn } }
         )
         // The first that opens: should the picker fail after all, a file manager is next.
         val opened = tries.any {
@@ -212,8 +229,15 @@ fun BackupScreen() {
                 false
             }
         }
-        if (!opened) vm.failed("This TV has no way to choose a file. Install a file manager app, such as X-plore, then try again.")
+        if (!opened) {
+            vm.failed(
+                "This TV has no way to choose a file. Open the backup with MyTVPlayer from a file manager app such as " +
+                    "X-plore (Open with, or Share), or install one and try again."
+            )
+        }
     }
+
+    LaunchedEffect(vm) { vm.takeOpenedFiles() }
 
     SettingsPage("Backup & restore") {
         item {

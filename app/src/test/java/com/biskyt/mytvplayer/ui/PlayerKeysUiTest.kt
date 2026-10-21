@@ -8,7 +8,6 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.isRoot
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
@@ -16,7 +15,9 @@ import androidx.compose.ui.test.printToString
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.testutil.FakeProvider
+import com.biskyt.mytvplayer.testutil.Navigators
 import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.testutil.createUiComposeRule
 import com.biskyt.mytvplayer.testutil.waitAdvancingClock
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import kotlinx.coroutines.runBlocking
@@ -34,7 +35,10 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-tvdpi")
 class PlayerKeysUiTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createUiComposeRule()
+
+    @get:Rule(order = Navigators.ORDER)
+    val navigators = Navigators()
 
     private val provider = FakeProvider()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
@@ -57,7 +61,7 @@ class PlayerKeysUiTest {
     fun tearDown() = provider.close()
 
     private fun show(start: Screen) {
-        navigator = Navigator(start)
+        navigator = navigators.new(start)
         compose.setContent { MyTvTheme { NavHost(remember { navigator }) { ScreenContent(it) } } }
     }
 
@@ -113,6 +117,43 @@ class PlayerKeysUiTest {
         waitFor("Sleep timer")
         press(Key.MediaStop)
         compose.waitAdvancingClock { navigator.current.screen is Screen.Live } // stopped, back where it was opened from
+    }
+
+    @Test
+    fun `the guide button with a panel open over the video opens the channel guide`() {
+        show(Screen.Player(playlistId, 101, ChannelFilter.All))
+        waitFor("Channel guide")
+        press(Key.Menu) // the More panel
+        waitFor("Sleep timer")
+        press(Key.Guide)
+        // The panel gives way to the channel guide, as with no panel open (not the TV's own guide).
+        // Its hint for the remote, or on a touch screen its buttons.
+        compose.waitAdvancingClock {
+            compose.onAllNodes(hasText("other channels", substring = true) or hasText("Previous", substring = true))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        assertTrue(compose.onAllNodes(hasText("Sleep timer")).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun `a channel's catch-up keeps focus on its programmes on opening, right from the days, and back from one`() {
+        show(Screen.Live(ChannelFilter.Catchup))
+        waitForFocus("CHANNEL ONE")
+        press(Key.DirectionCenter)
+        waitFor("Earlier Today")
+        // Today's programmes, newest first (not nothing, which would send the first key press to the top bar).
+        waitForFocus("On Now")
+        press(Key.DirectionLeft)
+        waitForFocus("Today")
+        press(Key.DirectionRight)
+        waitForFocus("On Now")
+        // Back from playing one, focus is on it again.
+        press(Key.DirectionDown)
+        waitForFocus("Earlier Today")
+        press(Key.DirectionCenter)
+        compose.waitAdvancingClock { navigator.current.screen is Screen.CatchupPlayer }
+        compose.runOnIdle { navigator.pop() }
+        waitForFocus("Earlier Today")
     }
 
     @Test

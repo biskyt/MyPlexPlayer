@@ -5,7 +5,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
@@ -13,7 +12,9 @@ import androidx.compose.ui.test.printToString
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.testutil.FakeProvider
+import com.biskyt.mytvplayer.testutil.Navigators
 import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.testutil.createUiComposeRule
 import com.biskyt.mytvplayer.testutil.waitAdvancingClock
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import kotlinx.coroutines.runBlocking
@@ -31,7 +32,10 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-tvdpi")
 class TouchUiTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createUiComposeRule()
+
+    @get:Rule(order = Navigators.ORDER)
+    val navigators = Navigators()
 
     private val provider = FakeProvider()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
@@ -53,7 +57,7 @@ class TouchUiTest {
     fun tearDown() = provider.close()
 
     private fun show(start: Screen) {
-        navigator = Navigator(start)
+        navigator = navigators.new(start)
         compose.setContent { MyTvTheme { NavHost(remember { navigator }) { ScreenContent(it) } } }
     }
 
@@ -102,15 +106,16 @@ class TouchUiTest {
     fun `the TV guide has buttons to move later and earlier`() {
         show(Screen.Live(guide = true))
         waitFor(hasText("Later ▶"), "Later")
-        // The header starts at the current half hour; moving later leaves it behind, and earlier brings it back.
+        // The header starts at the current half hour; moving later leaves its first half hours behind, and earlier
+        // brings them back. Checked on its second time: the first is also the clock's for a minute (e.g. 22:00).
         val halfHour = 30 * 60_000L
-        val first = com.biskyt.mytvplayer.ui.common.formatTime(System.currentTimeMillis() / halfHour * halfHour)
-        waitFor(hasText(first), "the time $first")
+        val second = com.biskyt.mytvplayer.ui.common.formatTime(System.currentTimeMillis() / halfHour * halfHour + halfHour)
+        waitFor(hasText(second), "the time $second")
         val before = navigator.current.screen
         compose.onNode(hasText("Later ▶")).performTouchInput { click() }
-        gone(hasText(first))
+        gone(hasText(second))
         compose.onNode(hasText("◀ Earlier")).performTouchInput { click() }
-        waitFor(hasText(first), "the time $first again")
+        waitFor(hasText(second), "the time $second again")
         assertEquals(before, navigator.current.screen)
     }
 }

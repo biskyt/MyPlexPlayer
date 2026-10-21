@@ -51,6 +51,7 @@ import com.biskyt.mytvplayer.ui.theme.Palette
 import com.biskyt.mytvplayer.ui.vod.MovieDetailsScreen
 import com.biskyt.mytvplayer.ui.vod.SeriesDetailsScreen
 import com.biskyt.mytvplayer.ui.vod.VodBrowseScreen
+import kotlinx.coroutines.flow.filterNotNull
 
 @Composable
 fun AppRoot() {
@@ -83,6 +84,10 @@ fun AppRoot() {
         val nav = root.navigator ?: run {
             Box(Modifier.fillMaxSize().background(Palette.background))
             return@MyTvTheme
+        }
+        // A backup file opened with MyTVPlayer from another app: Backup & restore offers to restore it.
+        LaunchedEffect(nav) {
+            container.openedFile.filterNotNull().collect { if (nav.current.screen != Screen.Backup) nav.push(Screen.Backup) }
         }
         val activity = LocalActivity.current
         BackHandler {
@@ -119,7 +124,12 @@ private suspend fun firstScreen(container: AppContainer, s: Settings, safeStart:
         playlist.isStale() -> container.sync.refresh(playlist.id)
         needsVod(container, playlist) -> container.sync.refreshVod(playlist.id)
     }
-    if (s.startOnLastChannel && s.lastChannelId != 0L && container.channels.get(playlist.id, s.lastChannelId) != null) {
+    // Not when opened with a backup file: that's what to show (see MainActivity).
+    if (s.startOnLastChannel &&
+        container.openedFile.value == null &&
+        s.lastChannelId != 0L &&
+        container.channels.get(playlist.id, s.lastChannelId) != null
+    ) {
         nav.push(Screen.Player(playlist.id, s.lastChannelId, ChannelFilter.All))
     }
     return nav

@@ -2,6 +2,7 @@ package com.biskyt.mytvplayer
 
 import android.app.Application
 import android.content.Context
+import android.net.Uri
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -34,6 +35,7 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
 import okhttp3.OkHttpClient
 
 /**
@@ -69,6 +71,9 @@ class AppContainer(context: Context) {
     val backup = BackupRepository(db, settings, epg, sync)
     val backupFile = BackupFile(context)
     val crashLog = CrashLog(context.filesDir, BuildConfig.VERSION_NAME)
+
+    /** A backup file another app (e.g. a file manager's "Open with") handed to MyTVPlayer, until it's offered to restore. */
+    val openedFile = MutableStateFlow<Uri?>(null)
 }
 
 open class MyTvApp : Application(), SingletonImageLoader.Factory {
