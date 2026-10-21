@@ -27,7 +27,8 @@ class MainActivity : ComponentActivity() {
             enableEdgeToEdge()
             window.hideSystemBars()
         }
-        takeOpenedFile(intent)
+        // Only when first opened with it: recreated, or reopened from Recents, it's the same file, already dealt with.
+        if (savedInstanceState == null && intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) takeOpenedFile(intent)
         setContent { AppRoot() }
     }
 

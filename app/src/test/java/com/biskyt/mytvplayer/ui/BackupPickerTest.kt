@@ -10,6 +10,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.test.core.app.ApplicationProvider
 import com.biskyt.mytvplayer.openedFile
 import com.biskyt.mytvplayer.testutil.TestApp
 import com.biskyt.mytvplayer.testutil.waitAdvancingClock
@@ -28,6 +29,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-tvdpi")
 class BackupPickerTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
+    private val app = ApplicationProvider.getApplicationContext<TestApp>()
 
     private val stub = ComponentName("com.android.tv.frameworkpackagestubs", "com.android.tv.frameworkpackagestubs.Stubs\$DocumentsStub")
     private val fileManager = ComponentName("com.lonelycatgames.Xplore", "com.lonelycatgames.Xplore.GetContent")
@@ -49,8 +51,10 @@ class BackupPickerTest {
         )
     }
 
+    private fun showBackup() = compose.setContent { MyTvTheme { NavHost(remember { Navigator(Screen.Backup) }) { ScreenContent(it) } } }
+
     private fun openPicker(): Intent {
-        compose.setContent { MyTvTheme { NavHost(remember { Navigator(Screen.Backup) }) { ScreenContent(it) } } }
+        showBackup()
         compose.waitAdvancingClock { compose.onAllNodes(hasText("Restore from", substring = true)).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasText("Restore from", substring = true) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
@@ -81,10 +85,10 @@ class BackupPickerTest {
         val file = android.net.Uri.parse("content://com.lonelycatgames.Xplore.FileContent/backup.json")
         assertEquals(file, Intent(Intent.ACTION_VIEW, file).openedFile())
         assertEquals(file, Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, file).openedFile())
-        compose.activity.application.let { it as TestApp }.container.openedFile.value = file
-        compose.setContent { MyTvTheme { NavHost(remember { Navigator(Screen.Backup) }) { ScreenContent(it) } } }
+        app.container.openedFile.value = file
+        showBackup()
         compose.waitAdvancingClock { compose.onAllNodes(hasText("Restore?", substring = true)).fetchSemanticsNodes().isNotEmpty() }
-        assertEquals(null, (compose.activity.application as TestApp).container.openedFile.value)
+        assertEquals(null, app.container.openedFile.value)
     }
 
     @Test
@@ -93,12 +97,7 @@ class BackupPickerTest {
         installs(stub, Intent.ACTION_OPEN_DOCUMENT)
         installs(stub, Intent.ACTION_GET_CONTENT)
         installs(fileManager, Intent.ACTION_GET_CONTENT)
-        compose.setContent { MyTvTheme { NavHost(remember { Navigator(Screen.Backup) }) { ScreenContent(it) } } }
-        compose.waitAdvancingClock { compose.onAllNodes(hasText("Restore from", substring = true)).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNode(hasText("Restore from", substring = true) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitForIdle()
-
-        val started = shadowOf(compose.activity).nextStartedActivityForResult.intent
+        val started = openPicker()
         assertEquals(Intent.ACTION_CHOOSER, started.action)
         @Suppress("DEPRECATION")
         val target = started.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)!!

@@ -132,7 +132,7 @@ class PlayerKeysUiTest {
     }
 
     @Test
-    fun `a channel's catch-up opens with focus on its programmes, and right from the days goes back to them`() {
+    fun `a channel's catch-up keeps focus on its programmes on opening, right from the days, and back from one`() {
         show(Screen.Live(ChannelFilter.Catchup))
         waitForFocus("CHANNEL ONE")
         press(Key.DirectionCenter)
@@ -143,6 +143,13 @@ class PlayerKeysUiTest {
         waitForFocus("Today")
         press(Key.DirectionRight)
         waitForFocus("On Now")
+        // Back from playing one, focus is on it again.
+        press(Key.DirectionDown)
+        waitForFocus("Earlier Today")
+        press(Key.DirectionCenter)
+        compose.waitAdvancingClock { navigator.current.screen is Screen.CatchupPlayer }
+        compose.runOnIdle { navigator.pop() }
+        waitForFocus("Earlier Today")
     }
 
     @Test
