@@ -124,13 +124,25 @@ fun <F> CategoryColumn(
     var refocus by remember { mutableIntStateOf(0) }
     LaunchedEffect(refocus) {
         if (refocus == 0) return@LaunchedEffect
+        if (selectedIndex >= 0 && !selectedShown()) state.scrollToItem(selectedIndex)
         withFrameNanos { }
         if (selectedShown()) runCatching { selectedEntry.requestFocus() }
     }
     LazyColumn(
         Modifier.width(250.dp)
-            // Coming in, focus goes to the selected entry when it's there (else wherever it would have).
-            .focusProperties { onEnter = { if (selectedShown()) runCatching { selectedEntry.requestFocus(requestedFocusDirection) } } }
+            // Coming in, focus goes to the selected entry; if it isn't in view yet (a slow box still scrolling to it),
+            // once the column has scrolled there.
+            .focusProperties {
+                onEnter = {
+                    when {
+                        selectedShown() -> runCatching { selectedEntry.requestFocus(requestedFocusDirection) }
+                        selectedIndex >= 0 -> {
+                            cancelFocusChange()
+                            refocus++
+                        }
+                    }
+                }
+            }
             .focusGroup(),
         state = state,
         verticalArrangement = Arrangement.spacedBy(4.dp),
