@@ -497,8 +497,8 @@ class AppUiTest {
     @Test
     fun `the Catch-up tab lists catch-up channels, and OK opens their past programmes`() {
         show(Screen.Home)
-        // The tab shows once the playlist is known to have catch-up channels.
-        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+        // The tab shows once the playlist is known to have catch-up channels (a database query: slow on busy CI runners).
+        compose.waitUntil(15_000) { compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasText("Catch-up") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
         assertEquals(Screen.Live(ChannelFilter.Catchup), navigator.current.screen)
