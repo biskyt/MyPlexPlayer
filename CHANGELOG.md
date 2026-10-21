@@ -2,7 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
-## 0.9.6
+## 1.0.0
+The first full release: phones and tablets now work by touch, and the free TV has its own programme guide.
+
 - **Fix: setting up or updating an M3U playlist (including the free TV) crashed the app** on Android devices since
   0.9.0. A pattern for reading catch-up addresses that Java accepts is rejected by Android, and the tests only ran on
   Java. A new test now checks every pattern the way Android does.
