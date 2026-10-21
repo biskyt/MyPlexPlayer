@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -23,6 +25,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +42,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,6 +67,7 @@ import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.AppIcons
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
 import com.biskyt.mytvplayer.ui.common.FlashLabel
+import com.biskyt.mytvplayer.ui.common.LocalTouch
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.PillButton
 import com.biskyt.mytvplayer.ui.common.ProgressLine
@@ -70,6 +75,8 @@ import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.digit
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.common.numberLabel
+import com.biskyt.mytvplayer.ui.common.onAnyTouch
+import com.biskyt.mytvplayer.ui.common.onPlainTap
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
@@ -147,6 +154,9 @@ internal fun PlayerFrame(
                 }
             }
             .focusable()
+            // Touch: any touch keeps the controls up; a tap on the video itself shows or hides them.
+            .onAnyTouch { if (vm.overlay == OverlayState.CONTROLS) vm.showControls(keepOverlay = true) }
+            .onPlainTap(vm::tapVideo)
     ) {
         vm.engine?.let { engine ->
             val presentation = rememberPresentationState(engine.player)
@@ -163,7 +173,13 @@ internal fun PlayerFrame(
             Text("Loading…", style = MaterialTheme.typography.titleLarge, modifier = Modifier.align(Alignment.Center))
         }
         vm.error?.let { ErrorBox(it, vm) }
-        if (vm.overlay == OverlayState.CONTROLS) controls(buttons, root)
+        if (vm.overlay == OverlayState.CONTROLS) {
+            controls(buttons, root)
+            // A touch screen has no remote with a Back button in reach: this goes back to the list.
+            if (LocalTouch.current) {
+                RoundButton(AppIcons.Back, "Back", modifier = Modifier.align(Alignment.TopStart).padding(24.dp), onClick = vm::stop)
+            }
+        }
         vm.message?.let { FlashLabel(it, Modifier.align(Alignment.TopCenter)) }
         extras()
     }
@@ -255,10 +271,11 @@ private fun LiveControls(vm: PlayerViewModel, buttons: FocusRequester, root: Foc
                 PillButton("Start over", { nav.replace(Screen.CatchupPlayer(ch.playlistId, ch.streamId, filter = vm.filter)) })
             }
         }
-        Muted(
-            if (vm.upDownZaps) "▲ ▼ change channel · Back hides this" else "CH + − change channel · ▲ then ◀ ▶ to skip · Back hides this",
-            Modifier.align(Alignment.CenterHorizontally)
-        )
+        // Remote keys: no use on a touch screen.
+        if (!LocalTouch.current) {
+            val hint = if (vm.upDownZaps) "▲ ▼ change channel" else "CH + − change channel · ▲ then ◀ ▶ to skip"
+            Muted("$hint · Back hides this", Modifier.align(Alignment.CenterHorizontally))
+        }
     }
 }
 
@@ -268,6 +285,7 @@ internal fun ControlsPanel(content: @Composable ColumnScope.() -> Unit) {
     Box(Modifier.fillMaxSize()) {
         Box(
             Modifier.fillMaxWidth().align(Alignment.BottomCenter)
+                .onPlainTap {} // a tap beside a button keeps the controls up, rather than hiding them
                 .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xF2080A0D), Color(0xF5080A0D))))
                 .padding(start = 56.dp, end = 56.dp, top = 80.dp, bottom = 36.dp)
         ) {
@@ -278,10 +296,23 @@ internal fun ControlsPanel(content: @Composable ColumnScope.() -> Unit) {
 
 /** Start time, progress bar, end time; while scrubbing, a marker at [scrub] (the same scale as [fraction]). */
 @Composable
-internal fun Timeline(start: String, fraction: Float, end: String, scrub: Float? = null) {
+internal fun Timeline(start: String, fraction: Float, end: String, scrub: Float? = null, onSeek: ((Float) -> Unit)? = null) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         Muted(start)
-        ProgressLine(fraction, Modifier.weight(1f), height = 6.dp, marker = scrub)
+        // Touch: a tap or a drag along the bar picks where to play from (a taller strip than the bar, for fingers).
+        val latest by rememberUpdatedState(onSeek)
+        val seek = if (onSeek == null) {
+            Modifier
+        } else {
+            Modifier.pointerInput(Unit) {
+                detectTapGestures { latest?.invoke(it.x / size.width) }
+            }.pointerInput(Unit) {
+                detectHorizontalDragGestures { change, _ -> latest?.invoke(change.position.x / size.width) }
+            }
+        }
+        Box(Modifier.weight(1f).then(seek).padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+            ProgressLine(fraction, Modifier.fillMaxWidth(), height = 6.dp, marker = scrub)
+        }
         Muted(end)
     }
 }

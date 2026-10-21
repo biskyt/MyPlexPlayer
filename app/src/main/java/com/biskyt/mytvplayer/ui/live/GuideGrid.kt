@@ -54,7 +54,9 @@ import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.common.BatchLoader
 import com.biskyt.mytvplayer.ui.common.CatchupMark
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
+import com.biskyt.mytvplayer.ui.common.LocalTouch
 import com.biskyt.mytvplayer.ui.common.Muted
+import com.biskyt.mytvplayer.ui.common.TouchStepButtons
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.formatRange
 import com.biskyt.mytvplayer.ui.common.formatTime
@@ -96,9 +98,13 @@ fun GuideGrid(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (C
     val epg = container.epg
     val nav = LocalNavigator.current
     val scope = rememberCoroutineScope()
-    var windowStart by remember { mutableLongStateOf(System.currentTimeMillis() / HALF_HOUR * HALF_HOUR) }
     val guideVersion by epg.changes.collectAsState()
     val now by rememberMinuteClock()
+    // Catch-up (see GuideCatchup): only once the user scrolls back before now.
+    val playlistId by vm.playlistId.collectAsState()
+    val catchup = remember(playlistId) { GuideCatchup(container, scope, playlistId) }
+    val window = remember(catchup) { GuideWindow(scope, catchup) }
+    val windowStart = window.start
     // A fresh loader per chunk: rows on screen fetch just that chunk's programmes in batches.
     val chunkStart = windowStart / CHUNK_STEP * CHUNK_STEP
     val loader = remember(chunkStart) {
@@ -107,9 +113,6 @@ fun GuideGrid(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (C
                 .let { r -> ids.associateWith { r[it].orEmpty() } }
         }
     }
-    // Catch-up (see GuideCatchup): only once the user scrolls back before now.
-    val playlistId by vm.playlistId.collectAsState()
-    val catchup = remember(playlistId) { GuideCatchup(container, scope, playlistId) }
     val scrolledBack = windowStart < System.currentTimeMillis() / HALF_HOUR * HALF_HOUR
     val catchupLoader = remember(chunkStart, scrolledBack) { if (scrolledBack) catchup.loader(chunkStart, chunkStart + CHUNK_MS) else null }
     // After a guide update, reload the rows already shown (keeping them on screen meanwhile).
@@ -131,17 +134,8 @@ fun GuideGrid(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (C
      * beyond [p], then carries focus there. Returns false at the limits so the key can move focus normally
      * (e.g. left to the categories).
      */
-    fun edge(ch: ChannelEntity, dir: Int, p: ChannelProgramme?): Boolean {
-        if (dir < 0 && catchup.needsLookup(windowStart)) {
-            // First time back past now: find out whether any channel has catch-up, then carry on.
-            scope.launch { if (catchup.lookUpDays() > 0) edge(ch, dir, p) }
-            return true
-        }
-        val (next, target) = nextWindow(windowStart, dir, p, catchup.days ?: 0) ?: return false
-        windowStart = next
-        focusTarget.value = GuideFocus(ch.streamId, target)
-        return true
-    }
+    fun edge(ch: ChannelEntity, dir: Int, p: ChannelProgramme?): Boolean =
+        window.move(dir, p) { focusTarget.value = GuideFocus(ch.streamId, it) }
 
     Column(Modifier.fillMaxSize()) {
         FocusedInfo(focused) { ch, p ->
@@ -150,7 +144,7 @@ fun GuideGrid(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (C
             epg.programmes(vm.playlistId.value, listOf(ch.streamId), p.startMs, p.stopMs)[ch.streamId]
                 ?.firstOrNull { it.startMs == p.startMs }?.description
         }
-        TimeHeader(windowStart)
+        TimeHeader(windowStart) { dir -> window.move(dir, null) }
         val nowLine = (now - windowStart) / 60_000f
         Box(Modifier.fillMaxSize()) {
             LazyColumn(
@@ -238,9 +232,10 @@ private fun FocusedInfo(
 }
 
 @Composable
-private fun TimeHeader(windowStart: Long) {
-    Row(Modifier.fillMaxWidth().height(30.dp)) {
-        Spacer(Modifier.width(ChannelColumn))
+private fun TimeHeader(windowStart: Long, onMove: (dir: Int) -> Unit) {
+    // A touch screen has no ◀ ▶ to reach past the edge: buttons above the channels move the window instead.
+    Row(Modifier.fillMaxWidth().height(if (LocalTouch.current) 48.dp else 30.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.width(ChannelColumn)) { TouchStepButtons("Earlier", "Later", onMove) }
         for (i in 0 until 5) {
             Text(
                 formatTime(windowStart + i * HALF_HOUR),
@@ -362,6 +357,34 @@ private fun Cell(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 18.dp)
         )
+    }
+}
+
+/** The guide's time window, and moving it (see [nextWindow]). */
+private class GuideWindow(private val scope: CoroutineScope, private val catchup: GuideCatchup) {
+    var start by mutableLongStateOf(System.currentTimeMillis() / HALF_HOUR * HALF_HOUR)
+        private set
+    private var lookingUp = false
+
+    /** Moves the window, then [then] gets the time to show beyond [p]. False at the limits. */
+    fun move(dir: Int, p: ChannelProgramme?, then: (target: Long) -> Unit = {}): Boolean {
+        if (dir < 0 && catchup.needsLookup(start)) {
+            // First time back past now: find out whether any channel has catch-up, then carry on (once, however many
+            // times it's asked meanwhile).
+            if (!lookingUp) {
+                lookingUp = true
+                scope.launch {
+                    val days = catchup.lookUpDays()
+                    lookingUp = false
+                    if (days > 0) move(dir, p, then)
+                }
+            }
+            return true
+        }
+        val (next, target) = nextWindow(start, dir, p, catchup.days ?: 0) ?: return false
+        start = next
+        then(target)
+        return true
     }
 }
 

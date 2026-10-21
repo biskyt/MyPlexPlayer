@@ -2,6 +2,14 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.9.6
+- **Touch screens:** MyTVPlayer now works on phones and tablets (in landscape) as well as with a remote. Tap anything
+  to choose it, and press and hold for its options (as holding OK does). On the player, tap the picture to show or
+  hide the controls, tap or drag along the play bar to skip in films, series and catch-up, and tap the back arrow at
+  the top left to return to the list. The TV guide has Earlier and Later buttons, and the channel guide beside the
+  picture has Previous and Next. Tap beside a side panel to close it. Nothing changes on a TV.
+- Dim text (times, counts, hints) is a little lighter, so it's easier to read on every background.
+
 ## 0.9.5
 - **Live TV that won't start in one format is tried in the other.** If a channel from your provider doesn't start in
   MPEG-TS, HLS is tried (or the other way round, if you chose HLS). When the other one plays, your provider's channels
