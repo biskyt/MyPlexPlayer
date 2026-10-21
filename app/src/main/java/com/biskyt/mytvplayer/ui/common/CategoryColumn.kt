@@ -167,7 +167,7 @@ fun <F> CategoryColumn(
                 color = Palette.background,
                 modifier = Modifier.fillMaxWidth()
                     .then(if (isSelected) Modifier.focusRequester(selectedEntry) else Modifier)
-                    .focusProperties { this.right = right }
+                    .rightTo(right)
                     .onPreviewKeyEvent { e ->
                         if (e.type == KeyEventType.KeyDown) {
                             val next = when (e.key) {
@@ -242,3 +242,7 @@ fun ListHeader(
 
 /** How many frames focus waits for the selected entry to be laid out after scrolling to it. */
 private const val REFOCUS_FRAMES = 10
+
+/** Right from here goes to [target]; unchanged (the usual search) when it's the default. */
+private fun Modifier.rightTo(target: FocusRequester): Modifier =
+    if (target == FocusRequester.Default) this else focusProperties { right = target }
