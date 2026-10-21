@@ -1,0 +1,14 @@
+name: Probe film links (temporary)
+
+on:
+  push:
+    paths: [.github/workflows/probe.yml, .github/probe/**]
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+      - run: bash .github/probe/probe.sh
