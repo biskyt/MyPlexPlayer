@@ -8,8 +8,9 @@ Each version's section becomes its GitHub release notes, so it is written for th
   Java. A new test now checks every pattern the way Android does.
 - **Films and posters from Wikimedia and archive.org:** MyTVPlayer now tells servers who it is (its name, version and
   web address), as Wikimedia asks of apps; without it, Wikimedia refused films ("429") and pictures could fail to load.
-- **No more endless "Loading…":** a stream that gets nowhere for 30 seconds (its server keeps the connection open but
-  sends nothing playable) now shows an error with Retry, instead of loading for ever.
+- **No more endless "Loading…":** a stream that can't get started because its server sends it too slowly (a little
+  at a time, or only some of it) is now treated like one that fails: tried again a few times, then an error with
+  Retry, instead of loading for ever.
 - On phones and tablets the app now fills the screen (swipe from the edge to see the status bar), so the top bar is
   no longer under the status bar, where taps didn't reach it.
 - Free TV now comes with its own TV guide, so setting it up no longer adds a free guide for each country you pick.

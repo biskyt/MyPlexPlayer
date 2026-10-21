@@ -15,6 +15,9 @@ data class PlaybackError(val message: String, val reason: String? = null)
 fun streamSource(url: String?): String? = url?.let { android.net.Uri.parse(it).host }?.let { "Stream from $it." }
 
 /** Why a stream didn't play ([e], when the player said) and where it comes from, as one line; null if neither is known. */
+/** A stream that buffered for a long while without getting any further (see PlaybackEngine). */
+const val ERROR_CODE_STALLED = PlaybackException.CUSTOM_ERROR_CODE_BASE
+
 fun failureReason(e: PlaybackException?, url: String?): String? =
     listOfNotNull(e?.let(::explainFailure), streamSource(url)).joinToString(" ").ifEmpty { null }
 
@@ -29,6 +32,7 @@ fun explainFailure(e: PlaybackException): String {
         http != null -> httpReason(http.responseCode)
         e.causes().any { it is UnknownHostException } ->
             "The stream's server can't be found: its address may no longer exist."
+        e.errorCode == ERROR_CODE_STALLED -> "The stream's server sent it too slowly to start. It may be busy."
         e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
             "The stream's server didn't answer. It may be down or busy."
         e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ->

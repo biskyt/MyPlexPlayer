@@ -37,6 +37,8 @@ import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.testutil.FakeProvider
 import com.biskyt.mytvplayer.testutil.TestApp
 import com.biskyt.mytvplayer.testutil.UI_WAIT_MS
+import com.biskyt.mytvplayer.testutil.otherThreads
+import com.biskyt.mytvplayer.testutil.waitAdvancingClock
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.guide.GuideMatchingScreen
 import com.biskyt.mytvplayer.ui.guide.GuideSourcesScreen
@@ -147,11 +149,7 @@ class AppUiTest {
     }
 
     private fun waitFor(text: String) = try {
-        compose.waitUntil(UI_WAIT_MS) {
-            // What appears after a delay (a debounce, the next frame) needs the (simulated) clock to move on meanwhile.
-            org.robolectric.shadows.ShadowLooper.idleMainLooper(50, java.util.concurrent.TimeUnit.MILLISECONDS)
-            compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty()
-        }
+        compose.waitAdvancingClock { compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
     } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
         throw AssertionError("'$text' not shown. Screen:\n" + compose.onRoot(useUnmergedTree = true).printToString(), e)
     }
@@ -518,26 +516,22 @@ class AppUiTest {
         show(Screen.Home)
         // The tab shows once the playlist is known to have catch-up channels.
         try {
-            compose.waitUntil(UI_WAIT_MS) {
-                // The database's change notice comes through posted work: let (simulated) time pass while waiting.
-                org.robolectric.shadows.ShadowLooper.idleMainLooper(50, java.util.concurrent.TimeUnit.MILLISECONDS)
-                compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty()
-            }
+            // The database's change notice comes through posted work.
+            compose.waitAdvancingClock { compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
         } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
             val known = runBlocking {
                 val c = app.container
                 "playlists ${c.playlists.allIds()}, active ${c.settings.current().activePlaylistId}, this one $playlistId, " +
                     "catch-up ${c.channels.observeHasCatchup(playlistId).first()}"
             }
-            throw AssertionError("No Catch-up tab: $known. Screen:\n" + compose.onRoot(useUnmergedTree = true).printToString(), e)
+            // It has failed only rarely, on CI: what the other threads were doing says what held it up.
+            val screen = compose.onRoot(useUnmergedTree = true).printToString()
+            throw AssertionError("No Catch-up tab: $known. Screen:\n$screen\nThreads:\n${otherThreads()}", e)
         }
         compose.onNode(hasText("Catch-up") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
         assertEquals(Screen.Live(ChannelFilter.Catchup), navigator.current.screen)
-        compose.waitUntil(UI_WAIT_MS) {
-            org.robolectric.shadows.ShadowLooper.idleMainLooper(50, java.util.concurrent.TimeUnit.MILLISECONDS)
-            focusedText().contains("UK: CHANNEL ONE HD")
-        }
+        compose.waitAdvancingClock { focusedText().contains("UK: CHANNEL ONE HD") }
         assertTrue(compose.onAllNodes(hasText("UK: ARENA SPRTS 1 FHD")).fetchSemanticsNodes().isEmpty())
         // Marked as having catch-up.
         assertTrue(compose.onAllNodes(hasContentDescription("Catch-up")).fetchSemanticsNodes().isNotEmpty())
