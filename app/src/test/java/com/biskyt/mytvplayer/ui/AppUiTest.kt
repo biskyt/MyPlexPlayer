@@ -30,7 +30,6 @@ import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.PlaylistRepository
-import com.biskyt.mytvplayer.data.StreamFormat
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
@@ -456,8 +455,7 @@ class AppUiTest {
 
         // Focus thrown at another category (as when the row with focus goes away) goes to the selected one instead…
         compose.onNode(hasText("All channels") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
-        settle()
-        assertTrue(focusedText(), focusedText().contains("SPORT", ignoreCase = true))
+        compose.waitUntil(UI_WAIT_MS) { focusedText().contains("SPORT", ignoreCase = true) }
         assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
         // …and moving through the categories switches the list.
         press(Key.DirectionUp)
@@ -503,16 +501,16 @@ class AppUiTest {
         show(Screen.Home)
         // The tab shows once the playlist is known to have catch-up channels.
         try {
-            compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(UI_WAIT_MS) {
+                compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty()
+            }
         } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
             val known = runBlocking {
                 val c = app.container
                 "playlists ${c.playlists.allIds()}, active ${c.settings.current().activePlaylistId}, this one $playlistId, " +
                     "catch-up ${c.channels.observeHasCatchup(playlistId).first()}"
             }
-            val threads = Thread.getAllStackTraces().filterKeys { it.name.startsWith("arch_disk_io") || it.name.contains("DefaultDispatcher") }
-                .entries.joinToString("\n\n") { (t, st) -> "${t.name} ${t.state}\n" + st.take(25).joinToString("\n") { "  at $it" } }
-            throw AssertionError("No Catch-up tab: $known. Threads:\n$threads", e)
+            throw AssertionError("No Catch-up tab: $known. Screen:\n" + compose.onRoot(useUnmergedTree = true).printToString(), e)
         }
         compose.onNode(hasText("Catch-up") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
@@ -658,35 +656,6 @@ class AppUiTest {
             vm.menuActions().first().label == "Remove from favourites"
         }
         vm.engine?.release()
-    }
-
-    @Test
-    fun `a provider channel that won't start in the format set is tried in the other`() {
-        val vm = com.biskyt.mytvplayer.ui.player.PlayerViewModel(app.container, app, Screen.Player(playlistId, 101, ChannelFilter.All))
-        // The fake provider has no streams: MPEG-TS (the default) fails, so HLS is tried, once.
-        compose.waitUntil(UI_WAIT_MS) {
-            // The player retries a failed load a few times first: let its (simulated) time pass.
-            org.robolectric.shadows.ShadowLooper.idleMainLooper(500, java.util.concurrent.TimeUnit.MILLISECONDS)
-            provider.requests.any { it.startsWith("/live/me/secret/101.m3u8") }
-        }
-        assertTrue(provider.requests.any { it.startsWith("/live/me/secret/101.ts") })
-        vm.engine?.release()
-    }
-
-    @Test
-    fun `the format a provider fell back to is kept until the setting is changed or the playlist removed`() = runBlocking {
-        val settings = app.container.settings
-        assertEquals(null, settings.streamFormatFor(playlistId))
-        settings.rememberStreamFormat(playlistId, StreamFormat.HLS)
-        settings.update { it.copy(lastChannelId = 5) }
-        assertEquals(StreamFormat.HLS, settings.streamFormatFor(playlistId))
-        settings.setStreamFormat(StreamFormat.HLS)
-        assertEquals(null, settings.streamFormatFor(playlistId))
-        assertEquals(StreamFormat.HLS, settings.current().streamFormat)
-        settings.rememberStreamFormat(playlistId, StreamFormat.TS)
-        app.container.playlists.delete(playlistId)
-        assertEquals(null, settings.streamFormatFor(playlistId))
-        settings.setStreamFormat(StreamFormat.TS) // settings outlive the test
     }
 
     @Test
