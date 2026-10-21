@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -117,13 +116,16 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
     }
 
     /** Ticks or unticks a group: while filtering, only the categories shown for it. */
-    fun toggleGroup(g: LanguageGroup) = viewModelScope.launch {
-        val t = type.value
-        val cats = shown(categories.value.filter { it.type == t }, g.code, query.trim())
-        setIncluded(t, cats.map { it.categoryId }, cats.any { !it.included })
+    fun toggleGroup(g: LanguageGroup) = setGroup(g.code, shownIn(g.code).any { !it.included })
+
+    /** Ticks or unticks every category of group [code] the right-hand list shows (while filtering, those that match). */
+    fun setGroup(code: String?, included: Boolean) = viewModelScope.launch {
+        setIncluded(type.value, shownIn(code).filter { it.included != included }.map { it.categoryId }, included)
     }
 
-    /** Ticks or unticks every category of the type shown: while filtering, only those that match. */
+    private fun shownIn(code: String?) = shown(categories.value.filter { it.type == type.value }, code, query.trim())
+
+    /** Ticks or unticks every language's categories of the type shown: while filtering, only those that match. */
     fun setAll(included: Boolean) = viewModelScope.launch {
         val t = type.value
         val q = query.trim()
@@ -222,11 +224,6 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                     PillButton(label, { vm.showType(t) }, selected = t == type)
                 }
             }
-            Spacer(Modifier.weight(1f))
-            // While filtering, these apply to the matching categories only.
-            val matching = if (query.isEmpty()) "" else " matching"
-            PillButton("Select all$matching", { vm.setAll(true) })
-            PillButton("Select none$matching", { vm.setAll(false) })
         }
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             LazyColumn(
@@ -244,6 +241,13 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                     )
                 }
                 item { Text("DETECTED FROM CATEGORY NAMES", style = MaterialTheme.typography.labelMedium, color = Palette.textMuted) }
+                // Every language at once (while filtering, the matching ones).
+                if (groups.isNotEmpty()) {
+                    item {
+                        val matching = if (query.isEmpty()) "" else " matching"
+                        SelectAllRow("All$matching", "None", vm::setAll)
+                    }
+                }
                 if (groups.isEmpty() && query.isNotEmpty()) item { Muted("Nothing matches \u201c$query\u201d.") }
                 items(groups, key = { it.code ?: "" }) { g ->
                     TvCard(
@@ -294,6 +298,10 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                 Modifier.weight(1f).background(Palette.surfaceLow).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
+                // Just this language's categories: all of them, say, without choosing every language.
+                if (shown.isNotEmpty()) {
+                    item { SelectAllRow("All in ${CategoryLanguageDetector.label(selected)}", "None") { vm.setGroup(selected, it) } }
+                }
                 items(shown, key = { it.categoryId }) { cat ->
                     TvCard(onClick = { vm.toggleCategory(cat) }, color = Palette.surface, modifier = Modifier.fillMaxWidth()) {
                         Row(
@@ -316,5 +324,14 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                 }
             }
         }
+    }
+}
+
+/** "Select all" and "select none" for the list below. */
+@Composable
+private fun SelectAllRow(all: String, none: String, set: (included: Boolean) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        PillButton(all, { set(true) })
+        PillButton(none, { set(false) })
     }
 }

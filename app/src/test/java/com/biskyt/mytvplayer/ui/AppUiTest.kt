@@ -690,24 +690,35 @@ class AppUiTest {
     }
 
     @Test
-    fun `select all and none tick every category, or while filtering only the matching ones`() {
+    fun `each list has its own select all and none, the languages' while filtering only the matching ones`() {
         val dao = app.container.db.categories()
-        fun included() = runBlocking { dao.included(playlistId, CAT_LIVE).map { it.name }.toSet() }
+        fun included() = runBlocking { dao.included(playlistId, CAT_LIVE) }
         show(Screen.Categories(playlistId))
         waitFor("UK | ENTERTAINMENT")
-        compose.onNode(hasText("Select none")).performSemanticsAction(SemanticsActions.OnClick)
+        // The languages' None (the first): nothing at all.
+        compose.onAllNodes(hasText("None") and hasClickAction())[0].performSemanticsAction(SemanticsActions.OnClick)
         compose.waitUntil(UI_WAIT_MS) { included().isEmpty() }
 
+        // The categories' All: every category in the language shown, and no other language.
+        waitFor("All in ")
+        compose.onNode(hasText("All in ", substring = true) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(UI_WAIT_MS) { included().isNotEmpty() }
+        val langs = included().map { it.lang }.toSet()
+        assertEquals(1, langs.size)
+        assertEquals(runBlocking { dao.all(playlistId, CAT_LIVE) }.count { it.lang in langs }, included().size)
+
+        compose.onAllNodes(hasText("None") and hasClickAction())[0].performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(UI_WAIT_MS) { included().isEmpty() }
         compose.onNode(hasText("Filter countries and categories")).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasSetTextAction()).performTextInput("UK")
-        waitFor("Select all matching")
-        compose.onNode(hasText("Select all matching")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(UI_WAIT_MS) { included() == setOf("UK | ENTERTAINMENT", "UK | SPORT") }
+        waitFor("All matching")
+        compose.onNode(hasText("All matching")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(UI_WAIT_MS) { included().map { it.name }.toSet() == setOf("UK | ENTERTAINMENT", "UK | SPORT") }
 
         compose.onNode(hasSetTextAction()).performTextClearance()
-        waitFor("Select all")
-        compose.onNode(hasText("Select all")).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("All")
+        compose.onNode(hasText("All") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitUntil(UI_WAIT_MS) { included().size == 4 }
     }
 
