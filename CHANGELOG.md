@@ -2,6 +2,15 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.9.3
+- **New free TV, legal to watch:** the free option on the first screen (and in Settings › Playlists) now sets up
+  [biskyt/legalFreeIPTVplaylist](https://github.com/biskyt/legalFreeIPTVplaylist): live channels streamed free by
+  their broadcasters and free ad-supported services, plus public-domain and openly licensed films and series. It
+  replaces iptv-org's list, which also includes unofficial streams. A free iptv-org playlist you already have keeps
+  working.
+- M3U movie and series playlists can say what each title is (`tvg-type`, `series-name`, `season`, `episode` and
+  `year`, an open convention); the app follows them instead of guessing from the names.
+
 ## 0.9.2
 - A lighter, slightly smaller look: text is drawn in Nunito Bold and Medium (it was ExtraBold and SemiBold) at 92% of
   its old size.

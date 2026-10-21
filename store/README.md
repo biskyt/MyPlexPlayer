@@ -50,7 +50,8 @@ Elephants Dream, Sintel, Tears of Steel, Cosmos Laundromat, Charge, Caminandes),
 > MyTVPlayer is a fast, simple player for Android TV and Fire TV that brings your own IPTV service to the big screen.
 >
 > MyTVPlayer does not include any channels or content. Add the IPTV service you subscribe to (Xtream Codes login or
-> M3U playlist), or start with the free, public channels collected by the iptv-org project.
+> M3U playlist), or start with free TV: channels streamed free by their broadcasters, and public-domain films and
+> series.
 >
 > • Live TV with categories, favourites and recently watched channels
 > • A full TV guide, with guides from your provider or any XMLTV address, matched to your channels automatically
@@ -79,7 +80,7 @@ Elephants Dream, Sintel, Tears of Steel, Cosmos Laundromat, Charge, Caminandes),
   - It shows whatever the user's own service provides.
   - It has no user-to-user features.
 - **Target audience:** 18+ (or 13+), not directed at children.
-- **App access:** reviewers need a way to sign in. Tell them to choose **Free channels (iptv-org)** on the first
+- **App access:** reviewers need a way to sign in. Tell them to choose **Free TV, films and series** on the first
   screen, which needs no login.
 - **Android TV:** the app declares `LEANBACK_LAUNCHER` and a TV banner, and doesn't require a touchscreen. Opt in to
   Android TV under *Advanced settings › Form factors*.

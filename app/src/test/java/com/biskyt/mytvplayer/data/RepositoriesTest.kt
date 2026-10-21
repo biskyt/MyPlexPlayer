@@ -639,6 +639,37 @@ class RepositoriesTest {
     }
 
     @Test
+    fun `a playlist that says what each title is (tvg-type) is taken at its word`() = runBlocking {
+        provider.vodM3u = """
+            #EXTM3U
+            #EXTINF:4020 tvg-type="movie" year="1945" group-title="Movies: Noir",Detour
+            https://archive.org/download/Detour/Detour.mp4
+            #EXTINF:600 tvg-type="movie" group-title="Movies: Serials",Flash Gordon S01E02
+            https://archive.org/download/flash2.mp4
+            #EXTINF:1530 tvg-type="series" series-name="The Beverly Hillbillies" season="1" episode="2" group-title="Series: The Beverly Hillbillies",Getting Settled
+            https://archive.org/download/bh2.mp4
+            #EXTINF:1530 tvg-type="series" series-name="The Beverly Hillbillies" season="1" episode="1" group-title="Series: The Beverly Hillbillies",The Beverly Hillbillies S01E01 - The Clampetts Strike Oil
+            https://archive.org/download/bh1.mp4
+        """.trimIndent()
+        val id = playlists.addM3u("Free", provider.url + "free.m3u", moviesUrl = provider.url + "vod.m3u")
+        db.categories().setIncluded(id, CAT_MOVIE, listOf("Movies: Noir", "Movies: Serials"), true)
+        db.categories().setIncluded(id, CAT_SERIES, listOf("Series: The Beverly Hillbillies"), true)
+        val p = playlists.get(id)!!
+        vod.sync(p)
+
+        // A film named like an episode stays a film; the year comes from the playlist.
+        val movies = db.vod().searchMovies(id, "%", 10).sortedBy { it.title }
+        assertEquals(listOf("Detour", "Flash Gordon S01E02"), movies.map { it.title })
+        assertEquals(1945, vod.movie(id, movies[0].id)!!.year)
+
+        // Episodes by series-name, season and episode, whatever their names say.
+        val show = db.vod().searchSeries(id, "%", 10).single()
+        assertEquals("The Beverly Hillbillies", show.title)
+        val details = vod.seriesDetails(p, show.id)
+        assertEquals(listOf("The Clampetts Strike Oil", "Episode 2"), details.episodes.map { it.title })
+    }
+
+    @Test
     fun `M3U titles keep their ids when categories change, and moving a playlist to Series reloads it`() = runBlocking {
         provider.vodM3u = """
             #EXTM3U

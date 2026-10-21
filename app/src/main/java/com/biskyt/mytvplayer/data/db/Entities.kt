@@ -36,8 +36,8 @@ data class PlaylistEntity(
     /** Whether it has movies and series: Xtream accounts, and M3U playlists with a movie or series playlist. */
     val hasVod: Boolean get() = !isM3u || !moviesUrl.isNullOrBlank() || !seriesUrl.isNullOrBlank()
 
-    /** The free iptv-org channels. */
-    val isFree: Boolean get() = server == com.biskyt.mytvplayer.data.PlaylistRepository.FREE_PLAYLIST_URL
+    /** The free channels (or iptv-org's, which were offered before). */
+    val isFree: Boolean get() = server in com.biskyt.mytvplayer.data.PlaylistRepository.FREE_PLAYLIST_URLS
 
     /** Channels are refreshed in the background when the last download is older than this. */
     fun isStale(now: Long = System.currentTimeMillis()) = now - lastSyncAt > 12 * 3_600_000L

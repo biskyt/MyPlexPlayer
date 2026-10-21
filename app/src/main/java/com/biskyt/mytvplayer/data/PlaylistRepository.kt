@@ -99,12 +99,12 @@ class PlaylistRepository(
     }
 
     /**
-     * Sets up the free iptv-org channels; the new playlist's id, or a message for the user. Never throws (but for
-     * cancellation): any failure (network, full storage…) must leave a way forward, on first launch above all.
+     * Sets up the free channels, films and series; the new playlist's id, or a message for the user. Never throws (but
+     * for cancellation): any failure (network, full storage…) must leave a way forward, on first launch above all.
      */
     @Suppress("TooGenericExceptionCaught")
     suspend fun addFree(): Result<Long> = try {
-        Result.success(addM3u(FREE_PLAYLIST_NAME, FREE_PLAYLIST_URL))
+        Result.success(addM3u(FREE_PLAYLIST_NAME, FREE_PLAYLIST_URL, FREE_MOVIES_URL, FREE_SERIES_URL))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -415,11 +415,18 @@ class PlaylistRepository(
         }
 
         /**
-         * Free, legal, no-sign-up channels collected by iptv-org (github.com/iptv-org/iptv), grouped by country so the
-         * language filter can pick the TV's own country. Set up on first launch; users can add their own providers.
+         * Free TV that's legal to watch, with no sign-up (github.com/biskyt/legalFreeIPTVplaylist): live channels
+         * streamed by their broadcasters or free ad-supported services, and public-domain or openly licensed films and
+         * series. Offered on first launch; users can add their own providers.
          */
-        const val FREE_PLAYLIST_URL = "https://iptv-org.github.io/iptv/index.country.m3u"
-        const val FREE_PLAYLIST_NAME = "Free TV (iptv-org)"
+        private const val FREE_BASE = "https://biskyt.github.io/legalFreeIPTVplaylist"
+        const val FREE_PLAYLIST_URL = "$FREE_BASE/live.m3u"
+        const val FREE_MOVIES_URL = "$FREE_BASE/movies.m3u"
+        const val FREE_SERIES_URL = "$FREE_BASE/series.m3u"
+        const val FREE_PLAYLIST_NAME = "Free TV"
+
+        /** The free playlist's addresses: now, and before 0.9.3 (iptv-org's channels by country, where users have it). */
+        val FREE_PLAYLIST_URLS = setOf(FREE_PLAYLIST_URL, "https://iptv-org.github.io/iptv/index.country.m3u")
         private const val REUSE_DOWNLOAD_MS = 10 * 60_000L
         private const val KEEP_DOWNLOAD_MS = 60 * 60_000L
 
