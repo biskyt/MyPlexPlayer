@@ -231,13 +231,20 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             PlayerAction.Play -> player?.play()
             PlayerAction.Pause -> player?.pause()
             PlayerAction.StopAndExit -> stop()
-            PlayerAction.OpenGuide -> openGuide()
+            PlayerAction.OpenGuide -> {
+                // From the Guide button with a panel open: the guide takes its place.
+                sheet = null
+                openGuide()
+            }
             PlayerAction.CloseGuide -> closeGuide()
             PlayerAction.OpenMenu -> sheet = Sheet.MORE
             PlayerAction.None -> return false
         }
         return true
     }
+
+    /** Whether the Guide button opens the channel guide now (live TV, guide not open); else it's the TV's. */
+    fun guideOpens(): Boolean = ::mapper.isInitialized && mapper.map(RemoteKey.GUIDE, overlay, isLive) == PlayerAction.OpenGuide
 
     /** Back closes the topmost overlay, otherwise stops playback (also safe while the player is still starting). */
     fun back() {
