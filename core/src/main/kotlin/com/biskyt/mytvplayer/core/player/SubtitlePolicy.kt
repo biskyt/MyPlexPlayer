@@ -1,5 +1,7 @@
 package com.biskyt.mytvplayer.core.player
 
+import com.biskyt.mytvplayer.core.Languages
+
 enum class SubtitleMode { OFF, FORCED_ONLY, ALWAYS }
 
 /** A text track as reported by the player, reduced to what the policy needs. */
@@ -28,16 +30,5 @@ object SubtitlePolicy {
         return x == primary(b)
     }
 
-    private fun primary(tag: String?): String? {
-        val p = tag?.trim()?.lowercase()?.substringBefore('-')?.substringBefore('_')?.takeIf { it.isNotEmpty() } ?: return null
-        return iso3to2[p] ?: p
-    }
-
-    // Streams often tag tracks with ISO 639-2 codes.
-    private val iso3to2 = mapOf(
-        "eng" to "en", "fra" to "fr", "fre" to "fr", "deu" to "de", "ger" to "de", "spa" to "es", "ita" to "it",
-        "por" to "pt", "nld" to "nl", "dut" to "nl", "pol" to "pl", "tur" to "tr", "ara" to "ar", "hin" to "hi",
-        "ell" to "el", "gre" to "el", "ron" to "ro", "rum" to "ro", "swe" to "sv", "nor" to "no", "dan" to "da",
-        "fin" to "fi", "rus" to "ru", "zho" to "zh", "chi" to "zh", "kor" to "ko", "jpn" to "ja"
-    )
+    private fun primary(tag: String?): String? = tag?.trim()?.takeIf { it.isNotEmpty() }?.let(Languages::primary)
 }

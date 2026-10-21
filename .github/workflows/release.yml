@@ -62,8 +62,12 @@ jobs:
             echo "SIGNED_WITH=development" >> "$GITHUB_ENV"
           fi
 
-      - name: Check and test
-        run: ./gradlew ktlintCheck detekt lintDebug :core:test :app:testDebugUnitTest
+      # Separate steps, as in CI: run together (org.gradle.parallel), lint takes the CPU the UI tests' waits need.
+      - name: Check
+        run: ./gradlew ktlintCheck detekt lintDebug
+
+      - name: Test
+        run: ./gradlew :core:test :app:testDebugUnitTest
 
       - name: Build APK and app bundle
         run: ./gradlew :app:assembleRelease :app:bundleRelease

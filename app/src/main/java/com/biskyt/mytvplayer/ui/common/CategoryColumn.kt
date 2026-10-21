@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.core.epg.CategoryLanguageDetector
 import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
@@ -84,6 +85,18 @@ class CategoryFilter<F>(private val scope: CoroutineScope, initial: F, private v
  * its size.
  */
 data class CategoryEntry<F>(val filter: F, val label: String, val count: Int? = null, val category: CategoryEntity? = null)
+
+/**
+ * Entries for [categories], named as the playlist names them; a name shared by categories of different groups ("News"
+ * from two countries' channels) gets its group's label too, so they can be told apart.
+ */
+fun <F> categoryEntries(categories: List<CategoryEntity>, filter: (CategoryEntity) -> F): List<CategoryEntry<F>> {
+    val shared = categories.groupingBy { it.name }.eachCount().filterValues { it > 1 }.keys
+    return categories.map {
+        val label = if (it.name in shared && it.lang != null) "${it.name} · ${CategoryLanguageDetector.label(it.lang)}" else it.name
+        CategoryEntry(filter(it), label, it.channelCount, it)
+    }
+}
 
 /**
  * The column of categories on the left of Live TV, Movies and Series. Moving up or down to an entry calls [onFocus]

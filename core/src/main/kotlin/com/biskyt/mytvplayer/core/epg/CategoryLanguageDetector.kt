@@ -1,5 +1,6 @@
 package com.biskyt.mytvplayer.core.epg
 
+import com.biskyt.mytvplayer.core.Languages
 import java.util.Locale
 
 /**
@@ -74,6 +75,29 @@ object CategoryLanguageDetector {
         }
         val name = padded(categoryName)
         return words.firstOrNull { name.contains(it.first) }?.second
+    }
+
+    /** Category groups that share a language, the first being where it's mostly watched (for defaults, and below). */
+    val languageGroups: Map<String, List<String>> = mapOf(
+        "en" to listOf("UK", "US", "CA", "AU", "IE"), "fr" to listOf("FR", "BE"), "de" to listOf("DE"),
+        "es" to listOf("ES", "MX", "LAT"), "it" to listOf("IT"), "pt" to listOf("PT", "BR"), "nl" to listOf("NL", "BE"),
+        "pl" to listOf("PL"), "tr" to listOf("TR"), "ar" to listOf("AR"), "el" to listOf("GR"), "ro" to listOf("RO"),
+        "sv" to listOf("SE"), "nb" to listOf("NO"), "no" to listOf("NO"), "da" to listOf("DK"), "fi" to listOf("FI"),
+        "ru" to listOf("RU"), "hi" to listOf("IN"), "sq" to listOf("AL"), "zh" to listOf("CN"), "ko" to listOf("KR"), "ja" to listOf("JP"),
+    )
+
+    private val isoCountries = Locale.getISOCountries().toHashSet()
+
+    /**
+     * The group for a playlist entry's `tvg-country` (an ISO code, or one providers use: "UK", "USA", "LAT"…), or else
+     * its `tvg-language` (an English name or an ISO 639 code): the country's own group, or the language's main one
+     * ("English" → UK); for other languages, the language's English name. Null when neither says anything usable.
+     */
+    fun groupFor(country: String?, language: String?): String? {
+        val c = country?.uppercase()?.let { aliases[it] ?: it }
+        if (c != null && (c in groups || c in isoCountries)) return groupForCountry(c)
+        val code = language?.let(Languages::code) ?: return null
+        return languageGroups[code]?.first() ?: Locale(code).getDisplayLanguage(Locale.ENGLISH).ifEmpty { null }
     }
 
     fun label(code: String?): String = when {

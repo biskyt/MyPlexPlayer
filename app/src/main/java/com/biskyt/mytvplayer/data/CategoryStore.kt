@@ -20,9 +20,11 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
      * A category's language/country group. [groupByName]: M3U playlists also group by genre ("News"); when no
      * language is detected the group's own name is used, so each still appears in the language list.
      */
-    fun langOf(name: String, groupByName: Boolean) =
-        // Two-letter names ("TV", "SD") would read as country codes, so those go under "Other".
-        CategoryLanguageDetector.detect(name) ?: name.takeIf { groupByName && it.length > 2 }
+    fun langOf(c: XtreamCategory, groupByName: Boolean) =
+        // Filed under a group from its entries' tvg-country/tvg-language (see M3uCategories), else as its name says.
+        M3uCategories.groupOf(c.id) ?: CategoryLanguageDetector.detect(c.name)
+            // Two-letter names ("TV", "SD") would read as country codes, so those go under "Other".
+            ?: c.name.takeIf { groupByName && it.length > 2 }
 
     /**
      * Saves the provider's categories of one [type], keeping the user's choices for ones already known.
@@ -35,7 +37,7 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
         val vod = type != CAT_LIVE
         val known = categories.all(playlistId, type).associateBy { it.categoryId }
         val existing = if (vod && known.values.none { it.included }) emptyMap() else known
-        val langs = remote.map { langOf(it.name, groupByName) }
+        val langs = remote.map { langOf(it, groupByName) }
         val wanted = if (existing.isEmpty()) {
             defaultGroups(
                 langs.filterNotNullTo(HashSet())
@@ -67,7 +69,7 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
      * rather than the stored groups, so it still matches after an update improves language detection.
      */
     fun includedLangs(existing: Collection<CategoryEntity>, groupByName: Boolean) =
-        existing.filter { it.included }.mapNotNullTo(HashSet()) { langOf(it.name, groupByName) }
+        existing.filter { it.included }.mapNotNullTo(HashSet()) { langOf(XtreamCategory(it.categoryId, it.name), groupByName) }
 
     /**
      * Language groups included by default: the TV's own country (e.g. en-GB → UK) when the provider has it,
@@ -77,7 +79,7 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
         val l = locale()
         val country = CategoryLanguageDetector.groupForCountry(l.country)
         if (country in available) return setOf(country)
-        return languageGroups[l.language].orEmpty().intersect(available)
+        return CategoryLanguageDetector.languageGroups[l.language].orEmpty().intersect(available)
     }
 
     /**
@@ -105,15 +107,6 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
 
     private companion object {
         const val PER_CATEGORY_LIMIT = 20
-
-        /** Category groups that share a language, for the default selection. */
-        val languageGroups = mapOf(
-            "en" to setOf("UK", "US", "CA", "AU", "IE"), "fr" to setOf("FR", "BE"), "de" to setOf("DE"),
-            "es" to setOf("ES", "MX", "LAT"), "it" to setOf("IT"), "pt" to setOf("PT", "BR"), "nl" to setOf("NL", "BE"),
-            "pl" to setOf("PL"), "tr" to setOf("TR"), "ar" to setOf("AR"), "el" to setOf("GR"), "ro" to setOf("RO"),
-            "sv" to setOf("SE"), "nb" to setOf("NO"), "no" to setOf("NO"), "da" to setOf("DK"), "fi" to setOf("FI"),
-            "ru" to setOf("RU"), "hi" to setOf("IN"), "sq" to setOf("AL"), "zh" to setOf("CN"), "ko" to setOf("KR"), "ja" to setOf("JP"),
-        )
     }
 }
 

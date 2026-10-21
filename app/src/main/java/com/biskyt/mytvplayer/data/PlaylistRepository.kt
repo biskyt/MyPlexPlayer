@@ -2,7 +2,6 @@ package com.biskyt.mytvplayer.data
 
 import androidx.room.withTransaction
 import com.biskyt.mytvplayer.core.m3u.M3uCatchup
-import com.biskyt.mytvplayer.core.m3u.M3uEntry
 import com.biskyt.mytvplayer.core.m3u.M3uParser
 import com.biskyt.mytvplayer.core.xtream.XtreamCategory
 import com.biskyt.mytvplayer.core.xtream.XtreamClient
@@ -277,9 +276,14 @@ class PlaylistRepository(
                 index++
                 // Ids are given to every entry, so a duplicate's id doesn't depend on which groups are included.
                 val id = uniqueId("${e.tvgId.orEmpty()}|${e.name}", ids)
-                val group = groupOf(e)
+                val group = M3uCategories.idOf(e)
                 groups += group
-                if (!include.getOrPut(group) { categoryStore.langOf(group, groupByName = true) in wanted }) return@parse
+                if (!include.getOrPut(group) {
+                        categoryStore.langOf(M3uCategories.category(group), groupByName = true) in wanted
+                    }
+                ) {
+                    return@parse
+                }
                 val catchup = M3uCatchup.typeFor(e.catchup, e.catchupSource, e.url)
                 out.add(
                     ChannelEntity(
@@ -293,7 +297,7 @@ class PlaylistRepository(
                 )
             }
         }
-        categoryStore.store(p.id, CAT_LIVE, groups.map { XtreamCategory(it, it) }, groupByName = true)
+        categoryStore.store(p.id, CAT_LIVE, groups.map(M3uCategories::category), groupByName = true)
         val count = out.finish()
         guides.firstOrNull()?.let { epg.ensureProviderSource(p, it) }
         count
@@ -375,8 +379,8 @@ class PlaylistRepository(
     /** Distinct group titles in playlist order; channels without one go under "Other". */
     private suspend fun m3uGroups(file: File): List<XtreamCategory> {
         val groups = LinkedHashSet<String>()
-        file.bufferedReader().use { reader -> M3uParser.parse(reader) { groups += groupOf(it) } }
-        return groups.map { XtreamCategory(it, it) }
+        file.bufferedReader().use { reader -> M3uParser.parse(reader) { groups += M3uCategories.idOf(it) } }
+        return groups.map(M3uCategories::category)
     }
 
     /** A [stableId] not yet in [taken] (which it's added to): the same name listed twice gets a second id. */
@@ -425,15 +429,11 @@ class PlaylistRepository(
         const val FREE_SERIES_URL = "$FREE_BASE/series.m3u"
         const val FREE_PLAYLIST_NAME = "Free TV"
 
-        /** The free playlist's addresses: now, and before 0.9.3 (iptv-org's channels by country, where users have it). */
+        /** The free playlist's addresses: now, and before 0.9.4 (iptv-org's channels by country, where users have it). */
         val FREE_PLAYLIST_URLS = setOf(FREE_PLAYLIST_URL, "https://iptv-org.github.io/iptv/index.country.m3u")
         private const val REUSE_DOWNLOAD_MS = 10 * 60_000L
         private const val KEEP_DOWNLOAD_MS = 60 * 60_000L
 
         private const val BATCH = 500
-        private const val OTHER_GROUP = "Other"
-
-        /** An M3U entry's group; entries without one go under "Other". */
-        fun groupOf(e: M3uEntry) = e.group ?: OTHER_GROUP
     }
 }
