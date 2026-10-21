@@ -510,7 +510,9 @@ class AppUiTest {
                 "playlists ${c.playlists.allIds()}, active ${c.settings.current().activePlaylistId}, this one $playlistId, " +
                     "catch-up ${c.channels.observeHasCatchup(playlistId).first()}"
             }
-            throw AssertionError("No Catch-up tab: $known. Screen:\n" + compose.onRoot(useUnmergedTree = true).printToString(), e)
+            val threads = Thread.getAllStackTraces().filterKeys { it.name.startsWith("arch_disk_io") || it.name.contains("DefaultDispatcher") }
+                .entries.joinToString("\n\n") { (t, st) -> "${t.name} ${t.state}\n" + st.take(25).joinToString("\n") { "  at $it" } }
+            throw AssertionError("No Catch-up tab: $known. Threads:\n$threads", e)
         }
         compose.onNode(hasText("Catch-up") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
