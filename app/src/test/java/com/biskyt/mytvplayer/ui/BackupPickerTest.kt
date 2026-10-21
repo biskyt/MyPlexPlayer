@@ -10,6 +10,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.performSemanticsAction
+import com.biskyt.mytvplayer.openedFile
 import com.biskyt.mytvplayer.testutil.TestApp
 import com.biskyt.mytvplayer.testutil.waitAdvancingClock
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
@@ -31,6 +32,10 @@ class BackupPickerTest {
     private val stub = ComponentName("com.android.tv.frameworkpackagestubs", "com.android.tv.frameworkpackagestubs.Stubs\$DocumentsStub")
     private val fileManager = ComponentName("com.lonelycatgames.Xplore", "com.lonelycatgames.Xplore.GetContent")
 
+    // A TV maker's stand-in under a name of its own (the picker's request answered, but by nothing that can pick).
+    private val unknownPicker = ComponentName("com.example.tv.system", "com.example.tv.system.NoPicker")
+    private val androidPicker = ComponentName("com.android.documentsui", "com.android.documentsui.picker.PickActivity")
+
     private fun installs(component: ComponentName, action: String) {
         val pm = shadowOf(compose.activity.packageManager)
         pm.addActivityIfNotPresent(component)
@@ -42,6 +47,44 @@ class BackupPickerTest {
                 addDataType("*/*")
             }
         )
+    }
+
+    private fun openPicker(): Intent {
+        compose.setContent { MyTvTheme { NavHost(remember { Navigator(Screen.Backup) }) { ScreenContent(it) } } }
+        compose.waitAdvancingClock { compose.onAllNodes(hasText("Restore from", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasText("Restore from", substring = true) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+        return shadowOf(compose.activity).nextStartedActivityForResult.intent
+    }
+
+    @Test
+    fun `a picker other than Android's own is passed over for the file managers`() {
+        installs(unknownPicker, Intent.ACTION_OPEN_DOCUMENT)
+        installs(fileManager, Intent.ACTION_GET_CONTENT)
+        val started = openPicker()
+        assertEquals(Intent.ACTION_CHOOSER, started.action)
+        @Suppress("DEPRECATION")
+        assertEquals(Intent.ACTION_GET_CONTENT, started.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)!!.action)
+    }
+
+    @Test
+    fun `Android's own picker is used where the TV has it`() {
+        installs(androidPicker, Intent.ACTION_OPEN_DOCUMENT)
+        installs(fileManager, Intent.ACTION_GET_CONTENT)
+        val started = openPicker()
+        assertEquals(Intent.ACTION_OPEN_DOCUMENT, started.action)
+        assertEquals(androidPicker.packageName, started.`package`)
+    }
+
+    @Test
+    fun `a file opened with MyTVPlayer from a file manager is offered to restore`() {
+        val file = android.net.Uri.parse("content://com.lonelycatgames.Xplore.FileContent/backup.json")
+        assertEquals(file, Intent(Intent.ACTION_VIEW, file).openedFile())
+        assertEquals(file, Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, file).openedFile())
+        compose.activity.application.let { it as TestApp }.container.openedFile.value = file
+        compose.setContent { MyTvTheme { NavHost(remember { Navigator(Screen.Backup) }) { ScreenContent(it) } } }
+        compose.waitAdvancingClock { compose.onAllNodes(hasText("Restore?", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(null, (compose.activity.application as TestApp).container.openedFile.value)
     }
 
     @Test

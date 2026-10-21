@@ -84,6 +84,9 @@ fun AppRoot() {
             Box(Modifier.fillMaxSize().background(Palette.background))
             return@MyTvTheme
         }
+        // A backup file opened with MyTVPlayer from another app: Backup & restore offers to restore it.
+        val opened by container.openedFile.collectAsState()
+        LaunchedEffect(opened) { if (opened != null && nav.current.screen != Screen.Backup) nav.push(Screen.Backup) }
         val activity = LocalActivity.current
         BackHandler {
             when {

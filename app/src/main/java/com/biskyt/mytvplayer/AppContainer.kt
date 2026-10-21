@@ -69,6 +69,9 @@ class AppContainer(context: Context) {
     val backup = BackupRepository(db, settings, epg, sync)
     val backupFile = BackupFile(context)
     val crashLog = CrashLog(context.filesDir, BuildConfig.VERSION_NAME)
+
+    /** A backup file another app (e.g. a file manager's "Open with") handed to MyTVPlayer, until it's offered to restore. */
+    val openedFile = kotlinx.coroutines.flow.MutableStateFlow<android.net.Uri?>(null)
 }
 
 open class MyTvApp : Application(), SingletonImageLoader.Factory {
