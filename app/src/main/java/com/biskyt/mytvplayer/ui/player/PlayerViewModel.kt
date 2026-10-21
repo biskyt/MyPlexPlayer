@@ -55,6 +55,12 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
     }
 
     private var client: XtreamClient? = null
+
+    /** The format provider channels are played in first: the one that worked for this provider, else the setting. */
+    private var format = StreamFormat.TS
+
+    /** The format the channel being tuned is playing in: null for an M3U one, else [format] until the other is tried. */
+    private var tuning: StreamFormat? = null
     private var ids: List<Long> = emptyList()
     private var tuneJob: Job? = null
 
@@ -65,6 +71,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
         viewModelScope.launch { c.channels.observeFavouriteIds(screen.playlistId).collect { favouriteIds = it.toSet() } }
         viewModelScope.launch {
             startEngine()
+            format = c.settings.streamFormatFor(screen.playlistId) ?: settings.streamFormat
             client = c.playlists.get(screen.playlistId)?.takeUnless { it.isM3u }?.let(c.playlists::client)
             tuneTo(screen.streamId)
             // Only needed for changing channel: not worth delaying the first picture for.
@@ -83,6 +90,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
     /** Starts tuning to [streamId], cancelling any tune still in progress so the last request always wins. */
     private fun tuneTo(streamId: Long) {
         targetStreamId = streamId
+        tuning = null // the last channel's failures mustn't try it in the other format any more
         tuneJob?.cancel()
         tuneJob = viewModelScope.launch { tune(streamId) }
     }
@@ -97,8 +105,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
             // M3U channel: its own URL; the format is worked out from the stream itself.
             engine?.play(ch.streamUrl, hls = null, userAgent = ch.userAgent, referrer = ch.referrer)
         } else {
-            val hls = settings.streamFormat == StreamFormat.HLS
-            engine?.play(client?.liveStreamUrl(ch.streamId, if (hls) "m3u8" else "ts") ?: return, hls)
+            playFrom(client ?: return, ch, format)
         }
         nowNext.refresh(ch.streamId)
         showControls()
@@ -106,6 +113,40 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
         delay(WATCHED_AFTER_MS)
         c.channels.markWatched(ch.playlistId, ch.streamId)
         c.settings.update { it.copy(lastChannelId = ch.streamId) }
+    }
+
+    private fun playFrom(client: XtreamClient, ch: ChannelEntity, f: StreamFormat) {
+        tuning = f
+        val hls = f == StreamFormat.HLS
+        engine?.play(client.liveStreamUrl(ch.streamId, if (hls) "m3u8" else "ts"), hls)
+    }
+
+    /** Some providers only offer one of HLS and MPEG-TS (or only one works): a channel that won't start gets the other. */
+    override fun tryOtherFormat(): Boolean {
+        val ch = channel
+        val client = client
+        val tried = tuning
+        if (ch == null || client == null || tried != format) return false
+        playFrom(client, ch, StreamFormat.entries.cycle(tried))
+        return true
+    }
+
+    /** The other format played: this provider starts with it from now on. */
+    override fun onPlayingChanged(playing: Boolean) {
+        val playingIn = tuning
+        if (!playing || playingIn == null || playingIn == format) return
+        format = playingIn
+        // Kept even if the player is closed straight away.
+        c.appScope.launch { c.settings.rememberStreamFormat(screen.playlistId, playingIn) }
+    }
+
+    /** A provider channel starts again in its usual format (then the other); anything else as before. */
+    override fun retry() {
+        val ch = channel
+        val client = client
+        if (tuning == null || ch == null || client == null) return super.retry()
+        resetForNewStream()
+        playFrom(client, ch, format)
     }
 
     override fun zap(step: Int) {

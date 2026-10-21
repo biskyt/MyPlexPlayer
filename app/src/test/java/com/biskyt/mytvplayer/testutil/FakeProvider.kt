@@ -117,7 +117,7 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
 
     var series = listOf(Triple(77L, "UK - Line of Duty", "20"), Triple(78L, "FR - Lupin", "21"))
 
-    val requests = mutableListOf<String>()
+    val requests: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList()
 
     /** An iptv-org style playlist, grouped by country. */
     var m3u = """

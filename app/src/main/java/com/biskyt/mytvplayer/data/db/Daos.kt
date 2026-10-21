@@ -9,6 +9,9 @@ import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
+/** The most `IN (…)` arguments passed in one query (older Android SQLite allows 999). */
+const val MAX_SQL_ARGS = 900
+
 @Dao
 interface PlaylistDao {
     @Query("SELECT * FROM playlist ORDER BY id")

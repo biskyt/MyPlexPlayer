@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -27,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -38,6 +40,7 @@ import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.db.ChannelEntity
+import com.biskyt.mytvplayer.data.db.MAX_SQL_ARGS
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
@@ -117,9 +120,28 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
     fun toggleGroup(g: LanguageGroup) = viewModelScope.launch {
         val t = type.value
         val cats = shown(categories.value.filter { it.type == t }, g.code, query.trim())
-        if (cats.isEmpty()) return@launch
+        setIncluded(t, cats.map { it.categoryId }, cats.any { !it.included })
+    }
+
+    /** Ticks or unticks every category of the type shown: while filtering, only those that match. */
+    fun setAll(included: Boolean) = viewModelScope.launch {
+        val t = type.value
+        val q = query.trim()
+        // What the screen shows: categories whose name, or whose group's name, matches.
+        val ids = categories.value
+            .filter {
+                it.type == t &&
+                    it.included != included &&
+                    (matches(it.name, q) || matches(CategoryLanguageDetector.label(it.lang), q))
+            }
+            .map { it.categoryId }
+        setIncluded(t, ids, included)
+    }
+
+    private suspend fun setIncluded(t: String, ids: List<String>, included: Boolean) {
+        if (ids.isEmpty()) return
         changed += t
-        c.db.categories().setIncluded(playlistId, t, cats.map { it.categoryId }, cats.any { !it.included })
+        c.db.withTransaction { ids.chunked(MAX_SQL_ARGS).forEach { c.db.categories().setIncluded(playlistId, t, it, included) } }
     }
 
     fun toggleCategory(cat: CategoryEntity) = viewModelScope.launch {
@@ -194,12 +216,17 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
             Muted("Loading ${categories.count { it.included }} of ${categories.size} categories", Modifier.padding(end = 16.dp))
             PillButton(if (firstRun) "Continue" else "Done", done, primary = true)
         }
-        if (vm.hasVod) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (vm.hasVod) {
                 listOf(CAT_LIVE to "Live TV", CAT_MOVIE to "Movies", CAT_SERIES to "Series").forEach { (t, label) ->
                     PillButton(label, { vm.showType(t) }, selected = t == type)
                 }
             }
+            Spacer(Modifier.weight(1f))
+            // While filtering, these apply to the matching categories only.
+            val matching = if (query.isEmpty()) "" else " matching"
+            PillButton("Select all$matching", { vm.setAll(true) })
+            PillButton("Select none$matching", { vm.setAll(false) })
         }
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             LazyColumn(

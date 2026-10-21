@@ -168,6 +168,8 @@ class PlaylistRepository(
         val old = playlists.get(p.id)
         if (old != null && (old.server != p.server || old.username != p.username || old.password != p.password)) {
             testConnection(p.isM3u, p.server, p.username, p.password)
+            // Perhaps another provider now: what the old one fell back to may not apply.
+            settings.forgetStreamFormat(p.id)
         }
         playlists.upsert(p)
     }
@@ -204,6 +206,7 @@ class PlaylistRepository(
             playlists.delete(id)
         }
         db.epg().providerSource(id)?.let { epg.removeSource(it.id) }
+        settings.forgetStreamFormat(id)
         val next = playlists.all().firstOrNull()?.id ?: 0
         if (settings.current().activePlaylistId == id) settings.update { it.copy(activePlaylistId = next) }
     }

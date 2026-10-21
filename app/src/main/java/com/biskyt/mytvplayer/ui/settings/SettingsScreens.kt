@@ -58,6 +58,8 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     val settings = c.settings.settings.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     fun update(transform: (Settings) -> Settings) = viewModelScope.launch { c.settings.update(transform) }
+
+    fun setStreamFormat(format: StreamFormat) = viewModelScope.launch { c.settings.setStreamFormat(format) }
 }
 
 /** Title + scrollable column used by every settings page. */
@@ -153,8 +155,8 @@ fun PlaybackSettingsScreen() {
             }
         }
         item {
-            SettingRow("Stream format", "Try HLS if channels stutter or won't start", {
-                vm.update { it.copy(streamFormat = StreamFormat.entries.cycle(it.streamFormat)) }
+            SettingRow("Stream format", "Tried first; if a channel won't start, the other is tried and kept if it works", {
+                vm.setStreamFormat(StreamFormat.entries.cycle(s.streamFormat))
             }) {
                 ValueChip(if (s.streamFormat == StreamFormat.TS) "MPEG-TS" else "HLS")
             }
