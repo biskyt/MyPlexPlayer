@@ -120,7 +120,8 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
 
     /** Ticks or unticks every category of group [code] the right-hand list shows (while filtering, those that match). */
     fun setGroup(code: String?, included: Boolean) = viewModelScope.launch {
-        setIncluded(type.value, shownIn(code).filter { it.included != included }.map { it.categoryId }, included)
+        // All of them, not just those the list shows as different: it may not have caught up with the last change yet.
+        setIncluded(type.value, shownIn(code).map { it.categoryId }, included)
     }
 
     private fun shownIn(code: String?) = shown(categories.value.filter { it.type == type.value }, code, query.trim())
@@ -132,9 +133,7 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
         // What the screen shows: categories whose name, or whose group's name, matches.
         val ids = categories.value
             .filter {
-                it.type == t &&
-                    it.included != included &&
-                    (matches(it.name, q) || matches(CategoryLanguageDetector.label(it.lang), q))
+                it.type == t && (matches(it.name, q) || matches(CategoryLanguageDetector.label(it.lang), q))
             }
             .map { it.categoryId }
         setIncluded(t, ids, included)
