@@ -76,16 +76,7 @@ See also:
   - Films are hosted on archive.org and upload.wikimedia.org.
   - Its group titles carry prefixes ("Movies: Open Movies"). The app doesn't add them.
 
-## Open items (as of 1.0.1)
-- **1.0.1 is in PR #26**, with:
-  - backup restore on TVs without a picker (Open with / Share),
-  - catch-up screen focus,
-  - the Guide button with a player panel open,
-  - playlist "Update now" feedback,
-  - a fix for the TV guide taking focus back when a row's programmes load late,
-  - the UI-test fixes above (three root causes of the long-running AppUiTest flakes).
-
-  Merge and release it once CI is green.
+## Open items (as of 1.0.1, released)
 - **Next:** a Google Play store deployment pipeline. The owner planned this after 1.0.0. The `.aab` is uploaded by hand for now.
 - **Later:** emulator smoke tests on CI (Gradle Managed Devices, Android 9 and current), as a release of its own after the owner has tested.
 - **Optional:** per-entry user agent / referrer for M3U films and episodes.
