@@ -41,7 +41,7 @@ object FreeGuides {
 
     /**
      * The guides for category groups (country codes as [CategoryLanguageDetector] gives them, "UK" for Great Britain),
-     * for the countries that have one. Meant for the free iptv-org channels, whose categories are countries (so "AR"
+     * for the countries that have one. Meant for the free channels, whose categories may start with a country (so "AR"
      * is Argentina, not Arabic).
      */
     fun forGroups(groups: Collection<String?>): List<FreeGuide> {

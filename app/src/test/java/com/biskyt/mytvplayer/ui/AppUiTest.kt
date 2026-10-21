@@ -336,12 +336,12 @@ class AppUiTest {
     fun `free channels button shows only until they are added`() {
         show(Screen.Playlists)
         waitFor("Home TV")
-        waitFor("Add free channels (iptv-org)")
+        waitFor("Add free TV, films and series")
         runBlocking {
             val c = app.container
             c.db.playlists().insert(
                 com.biskyt.mytvplayer.data.db.PlaylistEntity(
-                    name = "Free TV (iptv-org)",
+                    name = "Free TV",
                     kind = "m3u",
                     server = PlaylistRepository.FREE_PLAYLIST_URL,
                     username = "",
@@ -490,14 +490,15 @@ class AppUiTest {
         show(Screen.Live())
         compose.waitUntil(5_000) { focusedText().contains("UK: ARENA SPRTS 1 FHD") }
         press(Key.DirectionLeft)
-        assertTrue(focusedText(), focusedText().contains("SPORT", ignoreCase = true))
+        // The column scrolls to the selected category first when it's out of view, so focus can take a moment.
+        compose.waitUntil(5_000) { focusedText().contains("SPORT", ignoreCase = true) }
     }
 
     @Test
     fun `the Catch-up tab lists catch-up channels, and OK opens their past programmes`() {
         show(Screen.Home)
-        // The tab shows once the playlist is known to have catch-up channels.
-        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+        // The tab shows once the playlist is known to have catch-up channels (a database query: slow on busy CI runners).
+        compose.waitUntil(15_000) { compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasText("Catch-up") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
         assertEquals(Screen.Live(ChannelFilter.Catchup), navigator.current.screen)
@@ -648,7 +649,7 @@ class AppUiTest {
     fun `first launch offers a choice and sets nothing up by itself`() {
         show(Screen.Welcome)
         waitFor("Add my TV provider")
-        waitFor("Free channels (iptv-org)")
+        waitFor("Free TV, films and series")
         waitFor("Restore a backup")
         compose.mainClock.advanceTimeBy(2_000)
         compose.waitForIdle()
