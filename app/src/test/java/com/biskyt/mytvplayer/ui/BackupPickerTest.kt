@@ -8,11 +8,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.mytvplayer.openedFile
+import com.biskyt.mytvplayer.testutil.Navigators
 import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.testutil.createUiComposeRule
 import com.biskyt.mytvplayer.testutil.waitAdvancingClock
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import org.junit.Assert.assertEquals
@@ -28,7 +29,10 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-tvdpi")
 class BackupPickerTest {
-    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule val compose = createUiComposeRule<ComponentActivity>()
+
+    @get:Rule(order = Navigators.ORDER)
+    val navigators = Navigators()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
 
     private val stub = ComponentName("com.android.tv.frameworkpackagestubs", "com.android.tv.frameworkpackagestubs.Stubs\$DocumentsStub")
@@ -51,7 +55,9 @@ class BackupPickerTest {
         )
     }
 
-    private fun showBackup() = compose.setContent { MyTvTheme { NavHost(remember { Navigator(Screen.Backup) }) { ScreenContent(it) } } }
+    private fun showBackup() = compose.setContent {
+        MyTvTheme { NavHost(remember { navigators.new(Screen.Backup) }) { ScreenContent(it) } }
+    }
 
     private fun openPicker(): Intent {
         showBackup()

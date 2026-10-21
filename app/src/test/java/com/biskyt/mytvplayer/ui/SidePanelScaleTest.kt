@@ -2,9 +2,9 @@ package com.biskyt.mytvplayer.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.testutil.createUiComposeRule
 import com.biskyt.mytvplayer.ui.common.SidePanel
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import org.junit.Assert.assertEquals
@@ -18,7 +18,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-xhdpi")
 class SidePanelScaleTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createUiComposeRule()
 
     @Test
     fun `text in a side panel is the same size as on screen`() {

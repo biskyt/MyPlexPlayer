@@ -11,6 +11,8 @@ Each version's section becomes its GitHub release notes, so it is written for th
   the days goes to the programmes, and back from watching one, focus is on it again.
 - With the Audio, Subtitles or More panel open over live TV, the Guide button now opens the channel guide, as it does
   with no panel open (it opened the TV's own guide).
+- In the TV guide, moving away (up to the filter, or to the categories) before a channel's programmes have loaded no
+  longer has focus jump back into the guide when they arrive.
 - Settings › Playlists: Update now shows its progress, then whether the playlist updated or what went wrong, as the TV
   guide page does.
 

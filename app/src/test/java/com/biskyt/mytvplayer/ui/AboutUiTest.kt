@@ -6,12 +6,13 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.printToString
+import com.biskyt.mytvplayer.testutil.Navigators
 import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.testutil.createUiComposeRule
 import com.biskyt.mytvplayer.testutil.waitAdvancingClock
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -26,10 +27,13 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-tvdpi")
 class AboutUiTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createUiComposeRule()
+
+    @get:Rule(order = Navigators.ORDER)
+    val navigators = Navigators()
 
     private fun show(start: Screen) {
-        val navigator = Navigator(start)
+        val navigator = navigators.new(start)
         compose.setContent { MyTvTheme { NavHost(remember { navigator }) { ScreenContent(it) } } }
     }
 

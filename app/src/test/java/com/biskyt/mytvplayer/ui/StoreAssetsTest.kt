@@ -32,7 +32,6 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performSemanticsAction
@@ -55,7 +54,9 @@ import com.biskyt.mytvplayer.data.db.VOD_EPISODE
 import com.biskyt.mytvplayer.data.db.VOD_MOVIE
 import com.biskyt.mytvplayer.data.db.WatchProgressEntity
 import com.biskyt.mytvplayer.testutil.FakeProvider
+import com.biskyt.mytvplayer.testutil.Navigators
 import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.testutil.createUiComposeRule
 import com.biskyt.mytvplayer.ui.common.initials
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import com.biskyt.mytvplayer.ui.theme.Palette
@@ -84,7 +85,10 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-xhdpi")
 class StoreAssetsTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createUiComposeRule()
+
+    @get:Rule(order = Navigators.ORDER)
+    val navigators = Navigators()
 
     private val provider = FakeProvider().apply {
         categories = listOf("1" to "News", "2" to "Sport", "3" to "Kids", "4" to "Entertainment", "5" to "Documentaries")
@@ -215,7 +219,7 @@ class StoreAssetsTest {
     }
 
     private fun screenshot(name: String, start: Screen, ready: String, then: () -> Unit = {}) {
-        val navigator = Navigator(start)
+        val navigator = navigators.new(start)
         compose.setContent { MyTvTheme { NavHost(remember { navigator }) { ScreenContent(it) } } }
         runCatching { waitFor(ready) }.onFailure {
             compose.onRoot().captureRoboImage("build/store-assets/stuck-$name.png")
