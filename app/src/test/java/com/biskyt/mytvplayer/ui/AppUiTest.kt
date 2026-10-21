@@ -455,7 +455,11 @@ class AppUiTest {
 
         // Focus thrown at another category (as when the row with focus goes away) goes to the selected one instead…
         compose.onNode(hasText("All channels") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
-        compose.waitUntil(UI_WAIT_MS) { focusedText().contains("SPORT", ignoreCase = true) }
+        compose.waitUntil(UI_WAIT_MS) {
+            // The column moves focus a frame later: let (simulated) time pass while waiting.
+            org.robolectric.shadows.ShadowLooper.idleMainLooper(100, java.util.concurrent.TimeUnit.MILLISECONDS)
+            focusedText().contains("SPORT", ignoreCase = true)
+        }
         assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
         // …and moving through the categories switches the list.
         press(Key.DirectionUp)
@@ -493,7 +497,11 @@ class AppUiTest {
         compose.waitUntil(UI_WAIT_MS) { focusedText().contains("UK: ARENA SPRTS 1 FHD") }
         press(Key.DirectionLeft)
         // The column scrolls to the selected category first when it's out of view, so focus can take a moment.
-        compose.waitUntil(UI_WAIT_MS) { focusedText().contains("SPORT", ignoreCase = true) }
+        compose.waitUntil(UI_WAIT_MS) {
+            // The column moves focus a frame later: let (simulated) time pass while waiting.
+            org.robolectric.shadows.ShadowLooper.idleMainLooper(100, java.util.concurrent.TimeUnit.MILLISECONDS)
+            focusedText().contains("SPORT", ignoreCase = true)
+        }
     }
 
     @Test

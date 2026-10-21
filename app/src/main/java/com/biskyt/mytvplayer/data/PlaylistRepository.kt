@@ -266,9 +266,9 @@ class PlaylistRepository(
             categoryStore.store(p.id, CAT_LIVE, m3uGroups(file), groupByName = true)
             known = categories.all(p.id, CAT_LIVE)
         }
-        // Included: existing groups as the user chose; new groups when their language is one already included
-        // (the same rule categoryStore.store applies when it records them below).
-        val wanted = categoryStore.includedLangs(known, groupByName = true)
+        // Included: existing groups as the user chose; new groups by the rule categoryStore.store applies when it
+        // records them below.
+        val includesNew = categoryStore.includesNew(known, groupByName = true)
         val include = known.associateTo(HashMap()) { it.categoryId to it.included }
         val groups = LinkedHashSet<String>()
         val out = ChannelWriter(p.id, onProgress)
@@ -281,10 +281,7 @@ class PlaylistRepository(
                 val id = uniqueId("${e.tvgId.orEmpty()}|${e.name}", ids)
                 val group = M3uCategories.idOf(e)
                 groups += group
-                if (!include.getOrPut(group) {
-                        categoryStore.langOf(M3uCategories.category(group), groupByName = true) in wanted
-                    }
-                ) {
+                if (!include.getOrPut(group) { includesNew(M3uCategories.category(group)) }) {
                     return@parse
                 }
                 val catchup = M3uCatchup.typeFor(e.catchup, e.catchupSource, e.url)

@@ -1,8 +1,11 @@
 package com.biskyt.mytvplayer.ui.settings
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -17,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -153,6 +157,16 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
     }
 }
 
+/**
+ * Android TV fills in for system apps a TV leaves out (like the file picker) with stand-ins that only say "no
+ * application can handle this request": an intent they answer has no real handler.
+ */
+private const val TV_STUBS = "com.android.tv.frameworkpackagestubs"
+
+/** The activities that would answer [intent] (as starting it would find them). */
+private fun Context.handlers(intent: Intent) =
+    packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY).map { it.activityInfo }
+
 /** Opens the picker in the backup folder (where the TV's picker supports that). */
 private class OpenBackup : ActivityResultContracts.OpenDocument() {
     override fun createIntent(context: Context, input: Array<String>): Intent =
@@ -173,19 +187,32 @@ fun BackupScreen() {
     // Asked for on opening, so a backup already here (e.g. from before a reinstall) shows, ready to restore.
     LaunchedEffect(Unit) { if (vm.needsPermission && !vm.askedOnOpening) askPermission(forBackUp = false) }
     val backUp = { if (vm.needsPermission) askPermission(forBackUp = true) else vm.backUp() }
-    val picker = rememberLauncherForActivityResult(OpenBackup()) { uri -> uri?.let(vm::ask) }
-    // Some TVs leave out Android's picker; a file manager app installed from the store can usually stand in.
-    val getContent = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let(vm::ask) }
+    val context = LocalContext.current
+    val chooseFile = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) result.data?.data?.let(vm::ask)
+    }
     fun pick() {
-        try {
-            picker.launch(arrayOf("*/*"))
-        } catch (_: ActivityNotFoundException) {
+        // Some TVs leave out Android's picker; a file manager app installed from the store (e.g. X-plore) can stand in.
+        val get = Intent(Intent.ACTION_GET_CONTENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE)
+        val (stubs, fileManagers) = context.handlers(get).partition { it.packageName == TV_STUBS }
+        val tries = listOfNotNull(
+            OpenBackup().createIntent(context, arrayOf("*/*")).takeIf { open ->
+                context.handlers(open).any { it.packageName != TV_STUBS }
+            },
+            Intent.createChooser(get, "Choose the backup file")
+                .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, stubs.map { ComponentName(it.packageName, it.name) }.toTypedArray())
+                .takeIf { fileManagers.isNotEmpty() }
+        )
+        // The first that opens: should the picker fail after all, a file manager is next.
+        val opened = tries.any {
             try {
-                getContent.launch("*/*")
+                chooseFile.launch(it)
+                true
             } catch (_: ActivityNotFoundException) {
-                vm.failed("This TV has no way to choose a file. Install a file manager app, then try again.")
+                false
             }
         }
+        if (!opened) vm.failed("This TV has no way to choose a file. Install a file manager app, such as X-plore, then try again.")
     }
 
     SettingsPage("Backup & restore") {

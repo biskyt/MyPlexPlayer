@@ -8,6 +8,11 @@ Each version's section becomes its GitHub release notes, so it is written for th
   start in it from then on. Choosing a format again in Settings › Playback starts afresh.
 - **Select all or none** in Settings › Languages & categories, for live TV, movies or series. While filtering, they
   apply to the matching categories only.
+- **Fix: setting up free TV loaded nothing.** Its categories name genres but no country, so none matched your TV's
+  country and none were chosen. A playlist whose categories name no country or language now has them all chosen to
+  start with.
+- **Fix: "Restore from a file" on TVs without Android's file picker.** Some TVs answer with "No application can handle
+  this request" instead of a picker. MyTVPlayer now spots this and offers your file manager app (e.g. X-plore).
 
 ## 0.9.4
 - **New free TV, legal to watch:** the free option on the first screen (and in Settings › Playlists) now sets up
