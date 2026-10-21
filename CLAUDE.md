@@ -45,7 +45,15 @@ See also:
   - **Compose rules:** use `createUiComposeRule()` / `createUiComposeRule<Activity>()` from `testutil/ComposeRules.kt`, not `createComposeRule()`.
     - The plain rule runs effects on an unconfined dispatcher. Room flows collected with `collectAsState` then resume on Room's `arch_disk_io` threads and race the main thread's recomposition, so updates get lost now and then.
     - That was the cause of the long-running Catch-up tab / category flakes. The real app is unaffected.
-  - **Clean up navigators:** clear each test's `Navigator` (its ViewModelStores) at teardown with the helper in `testutil/Navigators.kt`. Otherwise ViewModels and ExoPlayers from earlier tests keep running into later ones.
+  - Clear each test's `Navigator` (its ViewModelStores) at teardown with the `Navigators` rule
+    (`@get:Rule(order = Navigators.ORDER)`, in testutil/Navigators.kt): otherwise ViewModels and ExoPlayers from earlier
+    tests keep running into later ones.
+  - `TestApp.onTerminate` runs the main looper down before Robolectric resets it: Compose's `AndroidUiDispatcher.Main`
+    is a process-wide lazy, and if Robolectric drops its posted run it never posts again, so every later test's paged
+    lists (`collectAsLazyPagingItems`) stay empty. That made failures depend on which test ran before.
+  - `createUiComposeRule` reads kotlinx-coroutines-test's private `dispatchEvents` by reflection (no public hook in
+    1.10.2; an IdlingResource isn't consulted by performScrollToNode, which then loops until out of memory). A
+    coroutines upgrade that renames it fails every UI test at once.
   - **Waits:** go through `waitAdvancingClock(stepMs)` in `testutil/UiWait.kt`, because the main looper is paused. Use step 0 to run due work, and a step greater than 0 when delayed work (debounces, timeouts) must happen.
   - **Settings outlive a test:** the settings DataStore is process-wide, so set what a test relies on in its `setUp`.
   - **A panel is its own window:** `SidePanel` dialogs are separate windows. Send keys to the right root (`onAllNodes(isRoot())`).
@@ -75,7 +83,7 @@ See also:
   - the Guide button with a player panel open,
   - playlist "Update now" feedback,
   - a fix for the TV guide taking focus back when a row's programmes load late,
-  - the UI-test fixes above.
+  - the UI-test fixes above (three root causes of the long-running AppUiTest flakes).
 
   Merge and release it once CI is green.
 - **Next:** a Google Play store deployment pipeline. The owner planned this after 1.0.0. The `.aab` is uploaded by hand for now.

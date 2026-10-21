@@ -94,12 +94,15 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
     }
 
     LaunchedEffect(Unit) { vm.restoreFocusPending = true }
+    // So a late focus target in the guide knows when the user has moved on (see GuideGrid).
+    val screenFocus = remember { ScreenFocus() }
 
     TabScaffold(
         if (vm.catchupMode) Tab.CATCHUP else Tab.LIVE,
         // Anywhere on the screen, the tabs included (else the TV would take the Guide button for its own guide): 0–9
         // on the remote jumps straight to that channel number; the Guide button switches list/guide.
-        Modifier.onPreviewKeyEvent { e ->
+        Modifier.onFocusChanged { screenFocus.hasFocus = it.hasFocus }.onPreviewKeyEvent { e ->
+            if (e.type == KeyEventType.KeyDown && e.key in arrowKeys) screenFocus.arrowPresses++
             val digit = e.key.digit()
             when {
                 e.type != KeyEventType.KeyDown -> e.key.isGuide()
@@ -124,7 +127,7 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
                 // One paged list for both views, so the one switched to has its rows (and somewhere for focus) at once.
                 val items = vm.channels.collectAsLazyPagingItems()
                 BackToFilter(filterBox, atTop = { vm.guideMode && vm.focusIndex == 0 }) {
-                    if (vm.guideMode) GuideGrid(vm, items, play) else ChannelList(vm, items, open)
+                    if (vm.guideMode) GuideGrid(vm, items, play, screenFocus) else ChannelList(vm, items, open)
                 }
             }
         }
@@ -315,3 +318,5 @@ private fun SkeletonLines() {
 private fun PlaceholderRow() {
     Box(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(14.dp)).background(Palette.surfaceLow))
 }
+
+private val arrowKeys = setOf(Key.DirectionUp, Key.DirectionDown, Key.DirectionLeft, Key.DirectionRight)

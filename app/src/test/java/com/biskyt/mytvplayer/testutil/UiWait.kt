@@ -1,5 +1,8 @@
 package com.biskyt.mytvplayer.testutil
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import java.util.concurrent.TimeUnit
 import org.robolectric.shadows.ShadowLooper
@@ -23,3 +26,14 @@ fun ComposeTestRule.waitAdvancingClock(stepMs: Long = 0, condition: () -> Boolea
 /** What every other thread is doing (the top of its stack), for a wait that timed out. */
 fun otherThreads(): String = Thread.getAllStackTraces().filterKeys { it.isAlive && it != Thread.currentThread() }.entries
     .joinToString("\n") { (t, stack) -> "${t.name} ${t.state}: " + stack.take(8).joinToString(" < ") }
+
+/** The text of whatever has focus ("" for focus on something without text). */
+fun ComposeTestRule.focusedText(): String = onAllNodes(isFocused()).fetchSemanticsNodes().joinToString(" | ") { node ->
+    node.config.getOrNull(SemanticsProperties.Text)?.joinToString().orEmpty()
+}
+
+/** Lets a second of (simulated) time pass, idling as it goes: for checking that something did *not* happen. */
+fun ComposeTestRule.settle() = repeat(10) {
+    ShadowLooper.idleMainLooper(100, TimeUnit.MILLISECONDS)
+    waitForIdle()
+}

@@ -4,17 +4,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.isRoot
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onRoot
@@ -35,8 +31,12 @@ import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.testutil.FakeProvider
+import com.biskyt.mytvplayer.testutil.Navigators
 import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.testutil.createUiComposeRule
+import com.biskyt.mytvplayer.testutil.focusedText
 import com.biskyt.mytvplayer.testutil.otherThreads
+import com.biskyt.mytvplayer.testutil.settle
 import com.biskyt.mytvplayer.testutil.waitAdvancingClock
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.guide.GuideMatchingScreen
@@ -79,7 +79,10 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-tvdpi")
 class AppUiTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createUiComposeRule()
+
+    @get:Rule(order = Navigators.ORDER)
+    val navigators = Navigators()
 
     private val provider = FakeProvider()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
@@ -106,7 +109,7 @@ class AppUiTest {
     private var backDispatcher: androidx.activity.OnBackPressedDispatcher? = null
 
     private fun show(start: Screen) {
-        navigator = Navigator(start)
+        navigator = navigators.new(start)
         compose.setContent {
             backDispatcher = androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
             MyTvTheme { NavHost(remember { navigator }) { Screens(it) } }
@@ -207,7 +210,7 @@ class AppUiTest {
             app.container.epg.importAll(listOf(playlistId))
         }
         show(Screen.Live(guide = true))
-        compose.waitAdvancingClock { focusedText().contains("Line of Duty") }
+        compose.waitAdvancingClock { compose.focusedText().contains("Line of Duty") }
         // To the screen's own window: the options open in a window of their own while OK is still held.
         compose.onAllNodes(isRoot())[0].performKeyInput {
             keyDown(Key.DirectionCenter)
@@ -257,7 +260,7 @@ class AppUiTest {
     @Test
     fun `the guide asks for catch-up only when scrolled into the past`() {
         show(Screen.Live(guide = true))
-        compose.waitAdvancingClock { focusedText().contains("Now on one.uk") }
+        compose.waitAdvancingClock { compose.focusedText().contains("Now on one.uk") }
         assertTrue(provider.requests.none { it.endsWith("get_simple_data_table") })
         // Left at "now" looks up how far back catch-up goes, then the guide moves back an hour.
         press(Key.DirectionLeft)
@@ -269,20 +272,16 @@ class AppUiTest {
     fun `scrolling back while catch-up loads keeps focus on the programme`() {
         provider.catchupDelayMs = 1_500
         show(Screen.Live(guide = true))
-        compose.waitAdvancingClock { focusedText().contains("Now on one.uk") }
+        compose.waitAdvancingClock { compose.focusedText().contains("Now on one.uk") }
         press(Key.DirectionLeft)
         // Until the provider answers, the row keeps showing (and focusing) what it had.
         val focused = LinkedHashSet<String>()
         compose.waitUntil(8_000) {
             org.robolectric.shadows.ShadowLooper.idleMainLooper()
-            focused += focusedText()
+            focused += compose.focusedText()
             compose.onAllNodes(hasText("Earlier Today", substring = true)).fetchSemanticsNodes().isNotEmpty()
         }
         assertTrue(focused.toString(), focused.none { it.isBlank() })
-    }
-
-    private fun focusedText(): String = compose.onAllNodes(isFocused()).fetchSemanticsNodes().joinToString(" | ") { node ->
-        node.config.getOrNull(SemanticsProperties.Text)?.joinToString().orEmpty()
     }
 
     private fun press(key: Key) {
@@ -295,20 +294,20 @@ class AppUiTest {
         show(Screen.Live(guide = true))
         waitFor("Next on one.uk")
         val start = System.currentTimeMillis() / (30 * 60_000L) * (30 * 60_000L)
-        compose.waitAdvancingClock { focusedText().contains("Now on one.uk") }
+        compose.waitAdvancingClock { compose.focusedText().contains("Now on one.uk") }
 
         press(Key.DirectionRight) // now → next programme
-        assertTrue(focusedText(), focusedText().contains("Next on one.uk"))
+        assertTrue(compose.focusedText(), compose.focusedText().contains("Next on one.uk"))
         press(Key.DirectionRight) // past the window edge: the guide moves on an hour
         waitFor(formatTime(start + 60 * 60_000L))
-        assertTrue(focusedText(), focusedText().contains("Next on one.uk"))
+        assertTrue(compose.focusedText(), compose.focusedText().contains("Next on one.uk"))
         press(Key.DirectionRight) // and again, into empty time: focus stays in the same row
         waitFor(formatTime(start + 2 * 60 * 60_000L))
-        assertTrue(focusedText(), focusedText().contains("No guide information"))
+        assertTrue(compose.focusedText(), compose.focusedText().contains("No guide information"))
 
         press(Key.Guide)
         waitFor("Now on one.uk")
-        compose.waitAdvancingClock { focusedText().contains("UK: CHANNEL ONE HD") }
+        compose.waitAdvancingClock { compose.focusedText().contains("UK: CHANNEL ONE HD") }
     }
 
     @Test
@@ -436,28 +435,28 @@ class AppUiTest {
             app.container.settings.current()
         }
         show(Screen.Live())
-        compose.waitAdvancingClock { focusedText().contains("UK: ARENA SPRTS 1 FHD") }
+        compose.waitAdvancingClock { compose.focusedText().contains("UK: ARENA SPRTS 1 FHD") }
         press(Key.Guide)
-        settle()
-        compose.waitAdvancingClock { focusedText().contains("No guide information") }
-        settle()
+        compose.settle()
+        compose.waitAdvancingClock { compose.focusedText().contains("No guide information") }
+        compose.settle()
         assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
         // Back to the list and to the guide again: still the same category.
         press(Key.Guide)
-        settle()
+        compose.settle()
         press(Key.Guide)
-        settle()
+        compose.settle()
         assertTrue(compose.onAllNodes(hasText("UK: ARENA SPRTS 1 FHD")).fetchSemanticsNodes().isNotEmpty())
         assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
 
         // Focus thrown at another category (as when the row with focus goes away) goes to the selected one instead…
         compose.onNode(hasText("All channels") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
         // The column moves focus a frame later: let (simulated) time pass while waiting.
-        compose.waitAdvancingClock(100) { focusedText().contains("SPORT", ignoreCase = true) }
+        compose.waitAdvancingClock(100) { compose.focusedText().contains("SPORT", ignoreCase = true) }
         assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
         // …and moving through the categories switches the list.
         press(Key.DirectionUp)
-        settle()
+        compose.settle()
         waitFor("UK: KITE KIDZ")
     }
 
@@ -468,16 +467,16 @@ class AppUiTest {
             app.container.settings.current()
         }
         show(Screen.Live())
-        compose.waitAdvancingClock { focusedText().contains("UK: ARENA SPRTS 1 FHD") }
+        compose.waitAdvancingClock { compose.focusedText().contains("UK: ARENA SPRTS 1 FHD") }
         // The category shown goes from the column (e.g. unticked elsewhere) while its list is still up.
         runBlocking { app.container.db.categories().setIncluded(playlistId, com.biskyt.mytvplayer.data.db.CAT_LIVE, listOf("2"), false) }
         compose.waitAdvancingClock {
             compose.onAllNodes(hasText("SPORT", substring = true) and hasClickAction()).fetchSemanticsNodes().isEmpty()
         }
-        val before = focusedText()
+        val before = compose.focusedText()
         press(Key.DirectionLeft)
-        settle()
-        assertTrue("before: '$before'", focusedText().isNotBlank())
+        compose.settle()
+        assertTrue("before: '$before'", compose.focusedText().isNotBlank())
     }
 
     @Test
@@ -487,11 +486,11 @@ class AppUiTest {
             app.container.settings.current()
         }
         show(Screen.Live())
-        compose.waitAdvancingClock { focusedText().contains("UK: ARENA SPRTS 1 FHD") }
+        compose.waitAdvancingClock { compose.focusedText().contains("UK: ARENA SPRTS 1 FHD") }
         press(Key.DirectionLeft)
         // The column scrolls to the selected category first when it's out of view, so focus can take a moment.
         // The column moves focus a frame later: let (simulated) time pass while waiting.
-        compose.waitAdvancingClock(100) { focusedText().contains("SPORT", ignoreCase = true) }
+        compose.waitAdvancingClock(100) { compose.focusedText().contains("SPORT", ignoreCase = true) }
     }
 
     @Test
@@ -516,7 +515,7 @@ class AppUiTest {
         compose.onNode(hasText("Catch-up") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
         assertEquals(Screen.Live(ChannelFilter.Catchup), navigator.current.screen)
-        compose.waitAdvancingClock(50) { focusedText().contains("UK: CHANNEL ONE HD") }
+        compose.waitAdvancingClock(50) { compose.focusedText().contains("UK: CHANNEL ONE HD") }
         assertTrue(compose.onAllNodes(hasText("UK: ARENA SPRTS 1 FHD")).fetchSemanticsNodes().isEmpty())
         // Marked as having catch-up.
         assertTrue(compose.onAllNodes(hasContentDescription("Catch-up")).fetchSemanticsNodes().isNotEmpty())
@@ -532,9 +531,9 @@ class AppUiTest {
     @Test
     fun `back in the channel list goes to the filter`() {
         show(Screen.Live())
-        compose.waitAdvancingClock { focusedText().contains("UK: CHANNEL ONE HD") }
+        compose.waitAdvancingClock { compose.focusedText().contains("UK: CHANNEL ONE HD") }
         pressBack()
-        assertTrue(focusedText(), focusedText().contains("Filter by name"))
+        assertTrue(compose.focusedText(), compose.focusedText().contains("Filter by name"))
         assertEquals(Screen.Live(), navigator.current.screen)
     }
 
@@ -554,8 +553,8 @@ class AppUiTest {
         assertTrue(included.none { it.categoryId == "2" })
         // Its channels go at once, and focus stays in the column.
         assertTrue(compose.onAllNodes(hasText("UK: ARENA SPRTS 1 FHD")).fetchSemanticsNodes().isEmpty())
-        settle()
-        assertTrue(focusedText(), focusedText().isNotBlank())
+        compose.settle()
+        assertTrue(compose.focusedText(), compose.focusedText().isNotBlank())
     }
 
     @Test
@@ -584,8 +583,8 @@ class AppUiTest {
         compose.onNode(hasText("Remove from Carry on watching")).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitAdvancingClock { compose.onAllNodes(hasText("Half Watched")).fetchSemanticsNodes().isEmpty() }
         // Focus doesn't go with the card.
-        settle()
-        assertTrue(focusedText(), focusedText().isNotBlank())
+        compose.settle()
+        assertTrue(compose.focusedText(), compose.focusedText().isNotBlank())
 
         waitFor("Recently watched")
         compose.onNode(hasText("UK: ARENA SPRTS 1 FHD", substring = true) and hasClickAction())
@@ -601,12 +600,6 @@ class AppUiTest {
     }
 
     /** Lets delayed work (e.g. a category switch after focus rests) happen. */
-    private fun settle() {
-        repeat(10) {
-            org.robolectric.shadows.ShadowLooper.idleMainLooper(100, java.util.concurrent.TimeUnit.MILLISECONDS)
-            compose.waitForIdle()
-        }
-    }
 
     @Test
     fun `guide sources can match channels without a guide, showing the result`() {
