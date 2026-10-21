@@ -115,6 +115,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
         override fun onPlaybackStateChanged(state: Int) {
             buffering = state == Player.STATE_BUFFERING
+            if (buffering) watchForStall() else stallJob?.cancel()
             if (state == Player.STATE_READY) error = null
             if (state == Player.STATE_ENDED) onEnded()
         }
@@ -150,6 +151,29 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         }
     }
 
+    private var stallJob: Job? = null
+
+    /**
+     * Buffering that gets nowhere (the server holds the connection open but sends nothing, or nothing of one of the
+     * tracks) raises no error of its own: given up on after [STALL_MS], so it doesn't sit on "Loading…" for ever.
+     */
+    private fun watchForStall() {
+        stallJob?.cancel()
+        stallJob = viewModelScope.launch {
+            val player = engine?.player ?: return@launch
+            var buffered = player.bufferedPosition
+            var stalledMs = 0L
+            while (stalledMs < STALL_MS) {
+                delay(STALL_CHECK_MS)
+                val now = player.bufferedPosition
+                stalledMs = if (now != buffered || !player.playWhenReady) 0 else stalledMs + STALL_CHECK_MS
+                buffered = now
+            }
+            player.stop()
+            fail(failureMessage, "The stream stopped arriving: its server sent nothing playable for ${STALL_MS / 1000} seconds.")
+        }
+    }
+
     /** The sound's real format arrives once its output starts (after the tracks): the label follows it. */
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     private val audioFormatListener = object : androidx.media3.exoplayer.analytics.AnalyticsListener {
@@ -178,6 +202,8 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     protected fun resetForNewStream() {
         cancelScrub()
         retryJob?.cancel()
+        // A new stream gets the full time to start.
+        if (buffering) watchForStall()
         error = null
         retries.reset()
         playedMs = 0
@@ -418,6 +444,10 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         /** How long a track change is given to take effect before saying how it went. */
         const val TRACK_CHECK_MS = 1_500L
         const val MAX_RETRIES = 3
+
+        /** Buffering this long without getting any further counts as a failure. */
+        const val STALL_MS = 30_000L
+        const val STALL_CHECK_MS = 1_000L
 
         /** Having played this long (in all) since the last failure counts as working: later failures get fresh retries. */
         const val STEADY_MS = 20_000L
