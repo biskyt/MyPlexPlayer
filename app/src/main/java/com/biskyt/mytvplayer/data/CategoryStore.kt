@@ -20,11 +20,13 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
      * A category's language/country group. [groupByName]: M3U playlists also group by genre ("News"); when no
      * language is detected the group's own name is used, so each still appears in the language list.
      */
-    fun langOf(c: XtreamCategory, groupByName: Boolean) =
-        // Filed under a group from its entries' tvg-country/tvg-language (see M3uCategories), else as its name says.
-        M3uCategories.groupOf(c.id) ?: CategoryLanguageDetector.detect(c.name)
-            // Two-letter names ("TV", "SD") would read as country codes, so those go under "Other".
-            ?: c.name.takeIf { groupByName && it.length > 2 }
+    fun langOf(c: XtreamCategory, groupByName: Boolean) = detectedGroup(c) ?: genreGroup(c, groupByName)
+
+    // Two-letter names ("TV", "SD") would read as country codes, so those go under "Other".
+    private fun genreGroup(c: XtreamCategory, groupByName: Boolean) = c.name.takeIf { groupByName && it.length > 2 }
+
+    /** Filed under a group from its entries' tvg-country/tvg-language (see M3uCategories), else as its name says. */
+    private fun detectedGroup(c: XtreamCategory) = M3uCategories.groupOf(c.id) ?: CategoryLanguageDetector.detect(c.name)
 
     /**
      * Saves the provider's categories of one [type], keeping the user's choices for ones already known.
@@ -37,13 +39,17 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
         val vod = type != CAT_LIVE
         val known = categories.all(playlistId, type).associateBy { it.categoryId }
         val existing = if (vod && known.values.none { it.included }) emptyMap() else known
-        val langs = remote.map { langOf(it, groupByName) }
-        val wanted = if (existing.isEmpty()) {
-            defaultGroups(
-                langs.filterNotNullTo(HashSet())
-            )
+        val detected = remote.map(::detectedGroup)
+        val langs = remote.mapIndexed { i, c -> detected[i] ?: genreGroup(c, groupByName) }
+        val isNew: (Int) -> Boolean = if (existing.isEmpty()) {
+            val defaults = defaultGroups(langs.filterNotNullTo(HashSet()))
+
+            // Nothing matches the TV's country or language (e.g. a playlist of genres, "Live: News", with no
+            // countries at all): what names no country is chosen, so there's something to watch.
+            fun(i: Int) = langs[i] in defaults || (defaults.isEmpty() && detected[i] == null)
         } else {
-            includedLangs(existing.values, groupByName)
+            val includes = includesNew(existing.values, groupByName)
+            fun(i: Int) = includes(remote[i])
         }
         val items = remote.mapIndexed { i, c ->
             val old = existing[c.id]
@@ -52,7 +58,7 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
                 categoryId = c.id,
                 name = c.name,
                 lang = langs[i],
-                included = old?.included ?: (langs[i] in wanted || (vod && langs[i] == null)),
+                included = old?.included ?: (isNew(i) || (vod && langs[i] == null)),
                 sortOrder = old?.sortOrder ?: (existing.size + i),
                 channelCount = old?.channelCount ?: 0,
                 type = type
@@ -68,8 +74,20 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
      * Groups the user includes: a new category in one of these is included automatically. Worked out from the names
      * rather than the stored groups, so it still matches after an update improves language detection.
      */
-    fun includedLangs(existing: Collection<CategoryEntity>, groupByName: Boolean) =
+    private fun includedLangs(existing: Collection<CategoryEntity>, groupByName: Boolean) =
         existing.filter { it.included }.mapNotNullTo(HashSet()) { langOf(XtreamCategory(it.categoryId, it.name), groupByName) }
+
+    /**
+     * Whether a category not seen before is included, given the [known] ones: when it's in a group the user includes,
+     * or names no country while every known one that names none is included (as everything is to start with in a
+     * playlist of genres, so a genre added later is too).
+     */
+    fun includesNew(known: Collection<CategoryEntity>, groupByName: Boolean): (XtreamCategory) -> Boolean {
+        val wanted = includedLangs(known, groupByName)
+        val undetected = known.filter { detectedGroup(XtreamCategory(it.categoryId, it.name)) == null }
+        val allUndetected = undetected.isNotEmpty() && undetected.all { it.included }
+        return { c -> langOf(c, groupByName) in wanted || (allUndetected && detectedGroup(c) == null) }
+    }
 
     /**
      * Language groups included by default: the TV's own country (e.g. en-GB → UK) when the provider has it,

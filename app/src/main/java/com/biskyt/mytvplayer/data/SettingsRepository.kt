@@ -73,6 +73,31 @@ class SettingsRepository(private val context: Context) {
     /** The playlist in use; 0 (none yet) is skipped so screens never query for it. */
     val activePlaylistId: Flow<Long> = settings.map { it.activePlaylistId }.filter { it != 0L }.distinctUntilChanged()
 
+    /**
+     * The live stream format that worked for [playlistId]'s provider when the one set didn't (see PlayerViewModel);
+     * null when there's none. One short value per provider, forgotten when the setting is changed (see [setStreamFormat]).
+     */
+    suspend fun streamFormatFor(playlistId: Long): StreamFormat? =
+        enumOrNull<StreamFormat>(context.dataStore.data.first()[formatKey(playlistId)])
+
+    suspend fun rememberStreamFormat(playlistId: Long, format: StreamFormat) {
+        context.dataStore.edit { it[formatKey(playlistId)] = format.name }
+    }
+
+    /** Choosing a format starts afresh: what each provider fell back to is forgotten. */
+    suspend fun setStreamFormat(format: StreamFormat) {
+        context.dataStore.edit { prefs ->
+            prefs[K.format] = format.name
+            prefs.asMap().keys.filter { it.name.startsWith(FORMAT_FOR) }.forEach { prefs.remove(it) }
+        }
+    }
+
+    suspend fun forgetStreamFormat(playlistId: Long) {
+        context.dataStore.edit { it.remove(formatKey(playlistId)) }
+    }
+
+    private fun formatKey(playlistId: Long) = stringPreferencesKey("$FORMAT_FOR$playlistId")
+
     private fun Preferences.toSettings(): Settings {
         val d = Settings()
         return Settings(
@@ -113,6 +138,11 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
-    private inline fun <reified E : Enum<E>> enumOr(name: String?, default: E): E =
-        name?.let { n -> enumValues<E>().firstOrNull { it.name == n } } ?: default
+    private inline fun <reified E : Enum<E>> enumOr(name: String?, default: E): E = enumOrNull<E>(name) ?: default
+
+    private inline fun <reified E : Enum<E>> enumOrNull(name: String?): E? = name?.let { n -> enumValues<E>().firstOrNull { it.name == n } }
+
+    private companion object {
+        const val FORMAT_FOR = "stream_format_for_"
+    }
 }

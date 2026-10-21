@@ -90,6 +90,9 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     private var playedMs = 0L
     private var playingSince = 0L
 
+    /** Whether the stream has played at all yet. */
+    private var hasPlayed = false
+
     /** Live TV zaps with up/down and has a guide; on-demand video doesn't. */
     protected abstract val isLive: Boolean
 
@@ -101,6 +104,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             isPlaying = playing
             val now = System.currentTimeMillis()
             if (playing) {
+                hasPlayed = true
                 playingSince = now
             } else if (playingSince > 0) {
                 playedMs += now - playingSince
@@ -123,7 +127,8 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
         override fun onPlayerError(e: PlaybackException) {
             val player = engine?.player ?: return
-            if (engine?.retryAsHls(e) == true) return
+            // A stream that failed again after a retry, before it ever played, may play another way.
+            if (engine?.retryAsHls(e) == true || (!hasPlayed && retries.used > 0 && tryOtherFormat())) return
             // Streams drop out now and then; retry a few times before showing an error.
             if (playedSinceFailure() >= STEADY_MS) retries.reset()
             playedMs = 0
@@ -177,11 +182,15 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         retries.reset()
         playedMs = 0
         playingSince = 0
+        hasPlayed = false
     }
 
     private fun playedSinceFailure() = playedMs + if (playingSince > 0) System.currentTimeMillis() - playingSince else 0
 
     protected open fun onPlayingChanged(playing: Boolean) = Unit
+
+    /** A stream that keeps failing before it ever played may be tried another way (live TV: the other format); true if so. */
+    protected open fun tryOtherFormat(): Boolean = false
 
     protected open fun onEnded() = Unit
 

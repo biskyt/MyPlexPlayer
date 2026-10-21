@@ -32,8 +32,9 @@ cropped ([credits, with each image's author and licence](app/src/test/resources/
 ### Live TV and the TV guide
 - **Channel list** with logos and what's on now and next, or a **full TV guide grid**: switch between them with one
   press.
-- **Categories grouped by country and language** (from names like `UK |` or `FR:`). Pick the ones you want and only
-  those are downloaded, so even very large playlists stay quick. Hide any category you don't need.
+- **Categories grouped by country and language** (from names like `UK |` or `FR:`, or a playlist's `tvg-country` and
+  `tvg-language`). Pick the ones you want, or select all or none in one go, and only those are downloaded, so even
+  very large playlists stay quick. Hide any category you don't need.
 - **Filter by name or number**, or type a channel number on the remote to jump straight to it.
 - **Home** shows your favourite channels with what's on now, recently watched channels and what you're part-way
   through.
@@ -77,6 +78,8 @@ cropped ([credits, with each image's author and licence](app/src/test/resources/
 - Skip back and forward (10 s / 30 s by default), or hold ◀ ▶ to scrub along the play bar.
 - **Audio passthrough** of Dolby, DTS and Atmos to your soundbar or TV, with a software fallback.
 - **Subtitles**: forced subtitles in your TV's language by default, or always available, or off.
+- A provider channel that won't start in MPEG-TS is tried in HLS, or the other way round, and the format that works is
+  remembered for that provider.
 - When something won't play, a clear message says why.
 
 ### And more
