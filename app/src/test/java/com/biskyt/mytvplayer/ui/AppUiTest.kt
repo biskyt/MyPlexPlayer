@@ -146,7 +146,11 @@ class AppUiTest {
     }
 
     private fun waitFor(text: String) = try {
-        compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(UI_WAIT_MS) {
+            // What appears after a delay (a debounce, the next frame) needs the (simulated) clock to move on meanwhile.
+            org.robolectric.shadows.ShadowLooper.idleMainLooper(50, java.util.concurrent.TimeUnit.MILLISECONDS)
+            compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
     } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
         throw AssertionError("'$text' not shown. Screen:\n" + compose.onRoot(useUnmergedTree = true).printToString(), e)
     }
