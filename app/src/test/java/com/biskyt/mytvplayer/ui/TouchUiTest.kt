@@ -91,7 +91,8 @@ class TouchUiTest {
         compose.runOnUiThread { navigator.push(Screen.Player(playlistId, 101, ChannelFilter.All)) }
         // The controls are up as playback starts, with Back in the corner on a touch screen.
         waitFor(hasContentDescription("Back"), "Back")
-        compose.onNode(hasContentDescription("Skip back"), useUnmergedTree = true).assertExists()
+        // The channel's own controls come once it's been looked up.
+        waitFor(hasContentDescription("Skip back"), "the controls")
         compose.onRoot().performTouchInput { click(center) }
         gone(hasContentDescription("Skip back"))
         compose.onRoot().performTouchInput { click(center) }
