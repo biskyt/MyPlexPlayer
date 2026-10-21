@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -118,15 +119,20 @@ fun <F> CategoryColumn(
     var options by remember { mutableStateOf<CategoryEntity?>(null) }
     val state = rememberLazyListState()
     val selectedIndex = entries.indexOfFirst { it.filter == selected }
-    fun selectedShown() = state.layoutInfo.visibleItemsInfo.any { it.index == selectedIndex }
+    val currentIndex by rememberUpdatedState(selectedIndex)
+    fun selectedShown() = state.layoutInfo.visibleItemsInfo.any { it.index == currentIndex }
     // Picked some other way (remembered, or the one shown was hidden): the column shows it, ready for focus.
     LaunchedEffect(selectedIndex) { if (selectedIndex >= 0 && !selectedShown()) state.scrollToItem(selectedIndex) }
     var refocus by remember { mutableIntStateOf(0) }
     LaunchedEffect(refocus) {
         if (refocus == 0) return@LaunchedEffect
-        if (selectedIndex >= 0 && !selectedShown()) state.scrollToItem(selectedIndex)
-        withFrameNanos { }
-        if (selectedShown()) runCatching { selectedEntry.requestFocus() }
+        // A slow box may take a few frames to lay out the entry it scrolls to: focus goes there once it's shown.
+        repeat(REFOCUS_FRAMES) {
+            val index = currentIndex
+            if (index >= 0 && !selectedShown()) state.scrollToItem(index)
+            withFrameNanos { }
+            if (selectedShown() && runCatching { selectedEntry.requestFocus() }.isSuccess) return@LaunchedEffect
+        }
     }
     LazyColumn(
         Modifier.width(250.dp)
@@ -230,3 +236,6 @@ fun ListHeader(
         trailing()
     }
 }
+
+/** How many frames focus waits for the selected entry to be laid out after scrolling to it. */
+private const val REFOCUS_FRAMES = 10

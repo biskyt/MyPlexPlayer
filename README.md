@@ -5,8 +5,9 @@ _This work is free, with no ads and no tracking and no data collection. If you f
 
 # MyTVPlayer
 
-A fast, free and open-source IPTV player for Android TV and Fire TV (Android 9 and later). It's built to feel quick
-on low-powered TV boxes and sticks, and to make it easy to find something to watch and press play.
+A fast, free and open-source IPTV player for Android TV and Fire TV (Android 9 and later), that also works by touch
+on phones and tablets in landscape. It's built to feel quick on low-powered TV boxes and sticks, and to make it easy
+to find something to watch and press play.
 
 - **Fast**, even on budget boxes, with channel lists of thousands.
 - **Excellent TV guide matching**, with simple manual overrides when you want them.
