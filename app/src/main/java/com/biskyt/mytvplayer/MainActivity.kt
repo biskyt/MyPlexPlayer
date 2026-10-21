@@ -1,11 +1,14 @@
 package com.biskyt.mytvplayer
 
+import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.net.Uri
 import android.os.Bundle
 import android.view.Window
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.content.IntentCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -24,7 +27,19 @@ class MainActivity : ComponentActivity() {
             enableEdgeToEdge()
             window.hideSystemBars()
         }
+        takeOpenedFile(intent)
         setContent { AppRoot() }
+    }
+
+    // Already running (it's the only one, singleTask): a file opened with it arrives here.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        takeOpenedFile(intent)
+    }
+
+    /** A backup file opened with MyTVPlayer from another app, for Backup & restore to offer (see AppRoot). */
+    private fun takeOpenedFile(intent: Intent) {
+        intent.openedFile()?.let { container.openedFile.value = it }
     }
 
     // Back from a picker or another app, the bars may have come back.
@@ -41,4 +56,11 @@ class MainActivity : ComponentActivity() {
 fun Window.hideSystemBars() = WindowCompat.getInsetsController(this, decorView).run {
     systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     hide(WindowInsetsCompat.Type.systemBars())
+}
+
+/** The file in a file manager's "Open with" (VIEW) or "Share" (SEND). */
+fun Intent.openedFile(): Uri? = when (action) {
+    Intent.ACTION_VIEW -> data
+    Intent.ACTION_SEND -> IntentCompat.getParcelableExtra(this, Intent.EXTRA_STREAM, Uri::class.java)
+    else -> null
 }
