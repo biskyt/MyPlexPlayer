@@ -1,6 +1,5 @@
 package com.biskyt.mytvplayer.ui.settings
 
-import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -33,7 +32,6 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.core.epg.CategoryLanguageDetector
-import com.biskyt.mytvplayer.data.FreeGuides
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
@@ -53,7 +51,6 @@ import com.biskyt.mytvplayer.ui.common.formatCount
 import com.biskyt.mytvplayer.ui.common.restoreFocusIf
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -155,27 +152,11 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
     /** Downloads again what the change affects: everything on first run or for live TV, else just movies and series. */
     fun finish(firstRun: Boolean) {
         when {
-            firstRun -> c.appScope.launch {
-                // Optional: the channels still load if this fails.
-                try {
-                    addFreeGuides()
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                    Log.w("Categories", "Couldn't add the free guides", e)
-                }
-                c.sync.refreshNow(playlistId)
-            }
+            // The guide comes with it: a playlist that names its own (as the free TV does) has it added as it loads.
+            firstRun -> c.appScope.launch { c.sync.refreshNow(playlistId) }
             CAT_LIVE in changed -> c.sync.refresh(playlistId)
             changed.isNotEmpty() -> c.sync.refreshVod(playlistId)
         }
-    }
-
-    /** Setting up the free channels: the free guides for the countries chosen (where there is one), before the first load. */
-    private suspend fun addFreeGuides() {
-        if (c.playlists.get(playlistId)?.isFree != true) return
-        val countries = c.db.categories().included(playlistId, CAT_LIVE).map { it.lang }
-        c.epg.addMissing(FreeGuides.forGroups(countries))
     }
 
     /** Focus goes to the first group once, when the screen opens (not each time filtering changes the first group). */
