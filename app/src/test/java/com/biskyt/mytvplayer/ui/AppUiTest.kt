@@ -519,6 +519,8 @@ class AppUiTest {
         // The tab shows once the playlist is known to have catch-up channels.
         try {
             compose.waitUntil(UI_WAIT_MS) {
+                // The database's change notice comes through posted work: let (simulated) time pass while waiting.
+                org.robolectric.shadows.ShadowLooper.idleMainLooper(50, java.util.concurrent.TimeUnit.MILLISECONDS)
                 compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty()
             }
         } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
@@ -532,7 +534,10 @@ class AppUiTest {
         compose.onNode(hasText("Catch-up") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
         assertEquals(Screen.Live(ChannelFilter.Catchup), navigator.current.screen)
-        compose.waitUntil(UI_WAIT_MS) { focusedText().contains("UK: CHANNEL ONE HD") }
+        compose.waitUntil(UI_WAIT_MS) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper(50, java.util.concurrent.TimeUnit.MILLISECONDS)
+            focusedText().contains("UK: CHANNEL ONE HD")
+        }
         assertTrue(compose.onAllNodes(hasText("UK: ARENA SPRTS 1 FHD")).fetchSemanticsNodes().isEmpty())
         // Marked as having catch-up.
         assertTrue(compose.onAllNodes(hasContentDescription("Catch-up")).fetchSemanticsNodes().isNotEmpty())
