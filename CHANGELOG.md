@@ -6,6 +6,10 @@ Each version's section becomes its GitHub release notes, so it is written for th
 - **Fix: setting up or updating an M3U playlist (including the free TV) crashed the app** on Android devices since
   0.9.0. A pattern for reading catch-up addresses that Java accepts is rejected by Android, and the tests only ran on
   Java. A new test now checks every pattern the way Android does.
+- **Films and posters from Wikimedia and archive.org:** MyTVPlayer now tells servers who it is (its name, version and
+  web address), as Wikimedia asks of apps; without it, Wikimedia refused films ("429") and pictures could fail to load.
+- On phones and tablets the app now fills the screen (swipe from the edge to see the status bar), so the top bar is
+  no longer under the status bar, where taps didn't reach it.
 - Free TV now comes with its own TV guide, so setting it up no longer adds a free guide for each country you pick.
   (Country guides can still be added in Settings › TV guide.)
 - **Touch screens:** MyTVPlayer now works on phones and tablets (in landscape) as well as with a remote. Tap anything

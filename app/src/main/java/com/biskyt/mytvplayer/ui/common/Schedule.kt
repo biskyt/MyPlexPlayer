@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -22,15 +23,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.db.ChannelProgramme
+import com.biskyt.mytvplayer.hideSystemBars
 import com.biskyt.mytvplayer.ui.theme.Palette
 
 /** Programmes for one channel from now until tomorrow, loaded from the local guide. */
@@ -99,6 +103,11 @@ fun SidePanel(onDismiss: () -> Unit, width: Dp = 430.dp, dim: Boolean = true, co
     val density = LocalDensity.current
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         CompositionLocalProvider(LocalDensity provides density) {
+            // A dialog is its own window: on a phone its bars would come back over the app otherwise.
+            if (LocalTouch.current) {
+                val dialogView = LocalView.current
+                SideEffect { (dialogView.parent as? DialogWindowProvider)?.window?.hideSystemBars() }
+            }
             Box(
                 Modifier.fillMaxSize().ignoreHeldSelect()
                     // On a touch screen, tapping beside the panel closes it.
