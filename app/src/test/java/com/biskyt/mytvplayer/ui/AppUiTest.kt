@@ -13,6 +13,7 @@ import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
@@ -186,7 +187,8 @@ class AppUiTest {
     fun `long press opens channel options and leads to guide matching`() {
         show(Screen.Live())
         waitFor("UK: CHANNEL ONE HD")
-        compose.onRoot().performKeyInput {
+        // To the screen's own window: the options open in a window of their own while OK is still held.
+        compose.onAllNodes(isRoot())[0].performKeyInput {
             keyDown(Key.DirectionCenter)
             advanceEventTime(1_500)
             keyUp(Key.DirectionCenter)
@@ -209,7 +211,8 @@ class AppUiTest {
         }
         show(Screen.Live(guide = true))
         compose.waitUntil(UI_WAIT_MS) { focusedText().contains("Line of Duty") }
-        compose.onRoot().performKeyInput {
+        // To the screen's own window: the options open in a window of their own while OK is still held.
+        compose.onAllNodes(isRoot())[0].performKeyInput {
             keyDown(Key.DirectionCenter)
             advanceEventTime(1_500)
             keyUp(Key.DirectionCenter)
@@ -227,7 +230,8 @@ class AppUiTest {
     fun `catch-up channels offer catch-up and start over, and the page replays a past programme`() {
         show(Screen.Live())
         waitFor("UK: CHANNEL ONE HD")
-        compose.onRoot().performKeyInput {
+        // To the screen's own window: the options open in a window of their own while OK is still held.
+        compose.onAllNodes(isRoot())[0].performKeyInput {
             keyDown(Key.DirectionCenter)
             advanceEventTime(1_500)
             keyUp(Key.DirectionCenter)
@@ -246,7 +250,8 @@ class AppUiTest {
         compose.runOnUiThread { navigator.reset(Screen.Live()) }
         waitFor("UK: ARENA SPRTS 1 FHD")
         press(Key.DirectionDown)
-        compose.onRoot().performKeyInput {
+        // To the screen's own window: the options open in a window of their own while OK is still held.
+        compose.onAllNodes(isRoot())[0].performKeyInput {
             keyDown(Key.DirectionCenter)
             advanceEventTime(1_500)
             keyUp(Key.DirectionCenter)
