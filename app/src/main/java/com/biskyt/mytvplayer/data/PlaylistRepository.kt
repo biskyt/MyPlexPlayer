@@ -429,7 +429,7 @@ class PlaylistRepository(
         const val FREE_SERIES_URL = "$FREE_BASE/series.m3u"
         const val FREE_PLAYLIST_NAME = "Free TV"
 
-        /** The free playlist's addresses: now, and before 0.9.3 (iptv-org's channels by country, where users have it). */
+        /** The free playlist's addresses: now, and before 0.9.4 (iptv-org's channels by country, where users have it). */
         val FREE_PLAYLIST_URLS = setOf(FREE_PLAYLIST_URL, "https://iptv-org.github.io/iptv/index.country.m3u")
         private const val REUSE_DOWNLOAD_MS = 10 * 60_000L
         private const val KEEP_DOWNLOAD_MS = 60 * 60_000L
