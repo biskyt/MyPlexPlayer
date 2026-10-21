@@ -11,10 +11,11 @@ import org.robolectric.shadows.ShadowLooper
 const val UI_WAIT_MS = 15_000L
 
 /**
- * Waits for [condition], moving the (simulated) main-looper clock on by [stepMs] before each check: what appears after
- * posted or delayed work (a debounce, a database change notice, a timeout) needs that time to pass.
+ * Waits for [condition], running the main looper's due work before each check and moving its (simulated) clock on by
+ * [stepMs]: what appears after posted work (a database change notice) needs the looper to run, and what appears after
+ * a delay (a debounce, a timeout) needs that time to pass as well.
  */
-fun ComposeTestRule.waitAdvancingClock(stepMs: Long = 50, condition: () -> Boolean) = waitUntil(UI_WAIT_MS) {
+fun ComposeTestRule.waitAdvancingClock(stepMs: Long = 0, condition: () -> Boolean) = waitUntil(UI_WAIT_MS) {
     ShadowLooper.idleMainLooper(stepMs, TimeUnit.MILLISECONDS)
     condition()
 }

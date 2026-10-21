@@ -36,7 +36,6 @@ import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.testutil.FakeProvider
 import com.biskyt.mytvplayer.testutil.TestApp
-import com.biskyt.mytvplayer.testutil.UI_WAIT_MS
 import com.biskyt.mytvplayer.testutil.otherThreads
 import com.biskyt.mytvplayer.testutil.waitAdvancingClock
 import com.biskyt.mytvplayer.ui.common.formatTime
@@ -149,7 +148,7 @@ class AppUiTest {
     }
 
     private fun waitFor(text: String) = try {
-        compose.waitAdvancingClock { compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitAdvancingClock(50) { compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
     } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
         throw AssertionError("'$text' not shown. Screen:\n" + compose.onRoot(useUnmergedTree = true).printToString(), e)
     }
@@ -208,7 +207,7 @@ class AppUiTest {
             app.container.epg.importAll(listOf(playlistId))
         }
         show(Screen.Live(guide = true))
-        compose.waitUntil(UI_WAIT_MS) { focusedText().contains("Line of Duty") }
+        compose.waitAdvancingClock { focusedText().contains("Line of Duty") }
         // To the screen's own window: the options open in a window of their own while OK is still held.
         compose.onAllNodes(isRoot())[0].performKeyInput {
             keyDown(Key.DirectionCenter)
@@ -217,10 +216,7 @@ class AppUiTest {
         }
         waitFor("Find series")
         compose.onNode(hasText("Find series")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(UI_WAIT_MS) {
-            org.robolectric.shadows.ShadowLooper.idleMainLooper()
-            navigator.current.screen is Screen.SeriesDetails
-        }
+        compose.waitAdvancingClock { navigator.current.screen is Screen.SeriesDetails }
         assertEquals(Screen.SeriesDetails(playlistId, 77, season = 1, episode = 2), navigator.current.screen)
     }
 
@@ -261,14 +257,11 @@ class AppUiTest {
     @Test
     fun `the guide asks for catch-up only when scrolled into the past`() {
         show(Screen.Live(guide = true))
-        compose.waitUntil(UI_WAIT_MS) { focusedText().contains("Now on one.uk") }
+        compose.waitAdvancingClock { focusedText().contains("Now on one.uk") }
         assertTrue(provider.requests.none { it.endsWith("get_simple_data_table") })
         // Left at "now" looks up how far back catch-up goes, then the guide moves back an hour.
         press(Key.DirectionLeft)
-        compose.waitUntil(UI_WAIT_MS) {
-            org.robolectric.shadows.ShadowLooper.idleMainLooper()
-            compose.onAllNodes(hasText("Earlier Today", substring = true)).fetchSemanticsNodes().isNotEmpty()
-        }
+        compose.waitAdvancingClock { compose.onAllNodes(hasText("Earlier Today", substring = true)).fetchSemanticsNodes().isNotEmpty() }
         assertTrue(provider.requests.any { it.endsWith("get_simple_data_table") })
     }
 
@@ -276,7 +269,7 @@ class AppUiTest {
     fun `scrolling back while catch-up loads keeps focus on the programme`() {
         provider.catchupDelayMs = 1_500
         show(Screen.Live(guide = true))
-        compose.waitUntil(UI_WAIT_MS) { focusedText().contains("Now on one.uk") }
+        compose.waitAdvancingClock { focusedText().contains("Now on one.uk") }
         press(Key.DirectionLeft)
         // Until the provider answers, the row keeps showing (and focusing) what it had.
         val focused = LinkedHashSet<String>()
@@ -302,7 +295,7 @@ class AppUiTest {
         show(Screen.Live(guide = true))
         waitFor("Next on one.uk")
         val start = System.currentTimeMillis() / (30 * 60_000L) * (30 * 60_000L)
-        compose.waitUntil(UI_WAIT_MS) { focusedText().contains("Now on one.uk") }
+        compose.waitAdvancingClock { focusedText().contains("Now on one.uk") }
 
         press(Key.DirectionRight) // now → next programme
         assertTrue(focusedText(), focusedText().contains("Next on one.uk"))
@@ -315,7 +308,7 @@ class AppUiTest {
 
         press(Key.Guide)
         waitFor("Now on one.uk")
-        compose.waitUntil(UI_WAIT_MS) { focusedText().contains("UK: CHANNEL ONE HD") }
+        compose.waitAdvancingClock { focusedText().contains("UK: CHANNEL ONE HD") }
     }
 
     @Test
@@ -359,13 +352,13 @@ class AppUiTest {
                 )
             )
         }
-        compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasText("Add free channels", substring = true)).fetchSemanticsNodes().isEmpty() }
+        compose.waitAdvancingClock { compose.onAllNodes(hasText("Add free channels", substring = true)).fetchSemanticsNodes().isEmpty() }
     }
 
     @Test
     fun `search finds channels, programmes and movies, and opens what is picked`() {
         show(Screen.Search())
-        compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitAdvancingClock { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasSetTextAction()).performTextInput("one")
         waitFor("Now on one.uk") // programme
         waitFor("UK: CHANNEL ONE HD") // channel
@@ -406,11 +399,8 @@ class AppUiTest {
         compose.onNode(hasText("Restore")).performSemanticsAction(SemanticsActions.OnClick)
         waitFor("Restore?")
         compose.onNode(hasText("Restore")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(UI_WAIT_MS) {
-            // The restore finishes on the main thread, which this test is holding while it waits.
-            org.robolectric.shadows.ShadowLooper.idleMainLooper()
-            navigator.current.screen == Screen.Home
-        }
+        // The restore finishes on the main thread, which this test is holding while it waits.
+        compose.waitAdvancingClock { navigator.current.screen == Screen.Home }
         runBlocking {
             assertEquals(listOf(playlistId), app.container.playlists.allIds())
             assertEquals(false, app.container.db.channels().get(playlistId, 101)?.hidden ?: false)
@@ -446,10 +436,10 @@ class AppUiTest {
             app.container.settings.current()
         }
         show(Screen.Live())
-        compose.waitUntil(UI_WAIT_MS) { focusedText().contains("UK: ARENA SPRTS 1 FHD") }
+        compose.waitAdvancingClock { focusedText().contains("UK: ARENA SPRTS 1 FHD") }
         press(Key.Guide)
         settle()
-        compose.waitUntil(UI_WAIT_MS) { focusedText().contains("No guide information") }
+        compose.waitAdvancingClock { focusedText().contains("No guide information") }
         settle()
         assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
         // Back to the list and to the guide again: still the same category.
@@ -462,11 +452,8 @@ class AppUiTest {
 
         // Focus thrown at another category (as when the row with focus goes away) goes to the selected one instead…
         compose.onNode(hasText("All channels") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
-        compose.waitUntil(UI_WAIT_MS) {
-            // The column moves focus a frame later: let (simulated) time pass while waiting.
-            org.robolectric.shadows.ShadowLooper.idleMainLooper(100, java.util.concurrent.TimeUnit.MILLISECONDS)
-            focusedText().contains("SPORT", ignoreCase = true)
-        }
+        // The column moves focus a frame later: let (simulated) time pass while waiting.
+        compose.waitAdvancingClock(100) { focusedText().contains("SPORT", ignoreCase = true) }
         assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
         // …and moving through the categories switches the list.
         press(Key.DirectionUp)
@@ -481,11 +468,10 @@ class AppUiTest {
             app.container.settings.current()
         }
         show(Screen.Live())
-        compose.waitUntil(UI_WAIT_MS) { focusedText().contains("UK: ARENA SPRTS 1 FHD") }
+        compose.waitAdvancingClock { focusedText().contains("UK: ARENA SPRTS 1 FHD") }
         // The category shown goes from the column (e.g. unticked elsewhere) while its list is still up.
         runBlocking { app.container.db.categories().setIncluded(playlistId, com.biskyt.mytvplayer.data.db.CAT_LIVE, listOf("2"), false) }
-        compose.waitUntil(UI_WAIT_MS) {
-            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        compose.waitAdvancingClock {
             compose.onAllNodes(hasText("SPORT", substring = true) and hasClickAction()).fetchSemanticsNodes().isEmpty()
         }
         val before = focusedText()
@@ -501,14 +487,11 @@ class AppUiTest {
             app.container.settings.current()
         }
         show(Screen.Live())
-        compose.waitUntil(UI_WAIT_MS) { focusedText().contains("UK: ARENA SPRTS 1 FHD") }
+        compose.waitAdvancingClock { focusedText().contains("UK: ARENA SPRTS 1 FHD") }
         press(Key.DirectionLeft)
         // The column scrolls to the selected category first when it's out of view, so focus can take a moment.
-        compose.waitUntil(UI_WAIT_MS) {
-            // The column moves focus a frame later: let (simulated) time pass while waiting.
-            org.robolectric.shadows.ShadowLooper.idleMainLooper(100, java.util.concurrent.TimeUnit.MILLISECONDS)
-            focusedText().contains("SPORT", ignoreCase = true)
-        }
+        // The column moves focus a frame later: let (simulated) time pass while waiting.
+        compose.waitAdvancingClock(100) { focusedText().contains("SPORT", ignoreCase = true) }
     }
 
     @Test
@@ -517,7 +500,9 @@ class AppUiTest {
         // The tab shows once the playlist is known to have catch-up channels.
         try {
             // The database's change notice comes through posted work.
-            compose.waitAdvancingClock { compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitAdvancingClock(50) {
+                compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty()
+            }
         } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
             val known = runBlocking {
                 val c = app.container
@@ -531,7 +516,7 @@ class AppUiTest {
         compose.onNode(hasText("Catch-up") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
         assertEquals(Screen.Live(ChannelFilter.Catchup), navigator.current.screen)
-        compose.waitAdvancingClock { focusedText().contains("UK: CHANNEL ONE HD") }
+        compose.waitAdvancingClock(50) { focusedText().contains("UK: CHANNEL ONE HD") }
         assertTrue(compose.onAllNodes(hasText("UK: ARENA SPRTS 1 FHD")).fetchSemanticsNodes().isEmpty())
         // Marked as having catch-up.
         assertTrue(compose.onAllNodes(hasContentDescription("Catch-up")).fetchSemanticsNodes().isNotEmpty())
@@ -540,14 +525,14 @@ class AppUiTest {
         assertTrue(compose.onAllNodes(hasText("ENTERTAINMENT", substring = true) and hasClickAction()).fetchSemanticsNodes().isNotEmpty())
         assertTrue(compose.onAllNodes(hasText("SPORT", substring = true) and hasClickAction()).fetchSemanticsNodes().isEmpty())
         press(Key.DirectionCenter)
-        compose.waitUntil(UI_WAIT_MS) { navigator.current.screen is Screen.Catchup }
+        compose.waitAdvancingClock { navigator.current.screen is Screen.Catchup }
         assertEquals(Screen.Catchup(playlistId, 101), navigator.current.screen)
     }
 
     @Test
     fun `back in the channel list goes to the filter`() {
         show(Screen.Live())
-        compose.waitUntil(UI_WAIT_MS) { focusedText().contains("UK: CHANNEL ONE HD") }
+        compose.waitAdvancingClock { focusedText().contains("UK: CHANNEL ONE HD") }
         pressBack()
         assertTrue(focusedText(), focusedText().contains("Filter by name"))
         assertEquals(Screen.Live(), navigator.current.screen)
@@ -562,8 +547,7 @@ class AppUiTest {
         ).performSemanticsAction(SemanticsActions.OnLongClick)
         waitFor("Show it again in Settings")
         compose.onNode(hasText("Hide category")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(UI_WAIT_MS) {
-            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        compose.waitAdvancingClock {
             compose.onAllNodes(hasText("Sport", substring = true, ignoreCase = true) and hasClickAction()).fetchSemanticsNodes().isEmpty()
         }
         val included = runBlocking { app.container.db.categories().included(playlistId, com.biskyt.mytvplayer.data.db.CAT_LIVE) }
@@ -598,10 +582,7 @@ class AppUiTest {
         compose.onNode(hasText("Half Watched") and hasClickAction()).performSemanticsAction(SemanticsActions.OnLongClick)
         waitFor("About this movie")
         compose.onNode(hasText("Remove from Carry on watching")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(UI_WAIT_MS) {
-            org.robolectric.shadows.ShadowLooper.idleMainLooper()
-            compose.onAllNodes(hasText("Half Watched")).fetchSemanticsNodes().isEmpty()
-        }
+        compose.waitAdvancingClock { compose.onAllNodes(hasText("Half Watched")).fetchSemanticsNodes().isEmpty() }
         // Focus doesn't go with the card.
         settle()
         assertTrue(focusedText(), focusedText().isNotBlank())
@@ -611,10 +592,7 @@ class AppUiTest {
             .performSemanticsAction(SemanticsActions.OnLongClick)
         waitFor("Change guide source")
         compose.onNode(hasText("Remove from Recently watched")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(UI_WAIT_MS) {
-            org.robolectric.shadows.ShadowLooper.idleMainLooper()
-            compose.onAllNodes(hasText("Recently watched")).fetchSemanticsNodes().isEmpty()
-        }
+        compose.waitAdvancingClock { compose.onAllNodes(hasText("Recently watched")).fetchSemanticsNodes().isEmpty() }
     }
 
     /** Picks [label] in the options panel open (the top bar may have a tab of the same name). */
@@ -656,10 +634,7 @@ class AppUiTest {
     @Test
     fun `the live player's More menu adds to favourites and opens catch-up and the guide source`() {
         val vm = com.biskyt.mytvplayer.ui.player.PlayerViewModel(app.container, app, Screen.Player(playlistId, 101, ChannelFilter.All))
-        compose.waitUntil(UI_WAIT_MS) {
-            org.robolectric.shadows.ShadowLooper.idleMainLooper()
-            vm.menuActions().isNotEmpty()
-        }
+        compose.waitAdvancingClock { vm.menuActions().isNotEmpty() }
         val labels = vm.menuActions().map { it.label }
         assertEquals(listOf("Add to favourites", "Catch-up", "Change guide source…"), labels)
         assertEquals(
@@ -667,10 +642,7 @@ class AppUiTest {
             (vm.menuActions().last() as com.biskyt.mytvplayer.ui.common.ItemAction.Open).screen
         )
         (vm.menuActions().first() as com.biskyt.mytvplayer.ui.common.ItemAction.Run).run()
-        compose.waitUntil(UI_WAIT_MS) {
-            org.robolectric.shadows.ShadowLooper.idleMainLooper()
-            vm.menuActions().first().label == "Remove from favourites"
-        }
+        compose.waitAdvancingClock { vm.menuActions().first().label == "Remove from favourites" }
         vm.engine?.release()
     }
 
@@ -691,10 +663,10 @@ class AppUiTest {
         waitFor("UK | ENTERTAINMENT")
         // The box opens for typing when pressed (OK on the remote).
         compose.onNode(hasText("Filter countries and categories")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitAdvancingClock { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasSetTextAction()).performTextInput("cine")
         waitFor("FR: CINEMA")
-        compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasText("UK | ENTERTAINMENT")).fetchSemanticsNodes().isEmpty() }
+        compose.waitAdvancingClock { compose.onAllNodes(hasText("UK | ENTERTAINMENT")).fetchSemanticsNodes().isEmpty() }
     }
 
     @Test
@@ -705,29 +677,29 @@ class AppUiTest {
         waitFor("UK | ENTERTAINMENT")
         // The languages' None (the first): nothing at all.
         compose.onAllNodes(hasText("None") and hasClickAction())[0].performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(UI_WAIT_MS) { included().isEmpty() }
+        compose.waitAdvancingClock { included().isEmpty() }
 
         // The categories' All: every category in the language shown, and no other language.
         waitFor("All in ")
         compose.onNode(hasText("All in ", substring = true) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(UI_WAIT_MS) { included().isNotEmpty() }
+        compose.waitAdvancingClock { included().isNotEmpty() }
         val langs = included().map { it.lang }.toSet()
         assertEquals(1, langs.size)
         assertEquals(runBlocking { dao.all(playlistId, CAT_LIVE) }.count { it.lang in langs }, included().size)
 
         compose.onAllNodes(hasText("None") and hasClickAction())[0].performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(UI_WAIT_MS) { included().isEmpty() }
+        compose.waitAdvancingClock { included().isEmpty() }
         compose.onNode(hasText("Filter countries and categories")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitAdvancingClock { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasSetTextAction()).performTextInput("UK")
         waitFor("All matching")
         compose.onNode(hasText("All matching")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(UI_WAIT_MS) { included().map { it.name }.toSet() == setOf("UK | ENTERTAINMENT", "UK | SPORT") }
+        compose.waitAdvancingClock { included().map { it.name }.toSet() == setOf("UK | ENTERTAINMENT", "UK | SPORT") }
 
         compose.onNode(hasSetTextAction()).performTextClearance()
         waitFor("All")
         compose.onNode(hasText("All") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(UI_WAIT_MS) { included().size == 4 }
+        compose.waitAdvancingClock { included().size == 4 }
     }
 
     @Test
