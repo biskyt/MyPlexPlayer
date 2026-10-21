@@ -28,7 +28,7 @@ import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.theme.Palette
 import kotlinx.coroutines.launch
 
-/** First launch: the free iptv-org channels, when the user picks them. */
+/** First launch: the free channels, films and series, when the user picks them. */
 class WelcomeViewModel(private val c: AppContainer) : ViewModel() {
     var error by mutableStateOf<String?>(null)
         private set
@@ -63,8 +63,8 @@ fun WelcomeScreen() {
         Text("Welcome to MyTVPlayer", style = MaterialTheme.typography.displaySmall)
         Muted(
             "Add the TV service you subscribe to (an Xtream Codes login or an M3U playlist address), or start with free " +
-                "channels from iptv-org, a public collection of freely available channels. You can add the other at any " +
-                "time in Settings › Playlists.",
+                "TV: channels streamed free by their broadcasters, and public-domain films and series. You can add the " +
+                "other at any time in Settings › Playlists.",
             Modifier.widthIn(max = 820.dp),
             maxLines = 3,
         )
@@ -85,7 +85,7 @@ fun WelcomeScreen() {
                 when {
                     vm.working -> "Setting up…"
                     error != null -> "Try the free channels again"
-                    else -> "Free channels (iptv-org)"
+                    else -> "Free TV, films and series"
                 },
                 vm::start,
                 if (error != null) rememberFirstFocus(error) else Modifier,

@@ -16,6 +16,15 @@ data class M3uEntry(
     val catchup: String? = null,
     val catchupDays: Int? = null,
     val catchupSource: String? = null,
+    /**
+     * The open M3U VOD convention (FORMAT.md in biskyt/legalFreeIPTVplaylist): `tvg-type` (`movie`, `series` or
+     * `live`, lower-cased), and for an episode its `series-name`, `season` and `episode`; `year` for either.
+     */
+    val type: String? = null,
+    val seriesName: String? = null,
+    val season: Int? = null,
+    val episode: Int? = null,
+    val year: Int? = null,
 )
 
 /**
@@ -89,6 +98,9 @@ object M3uParser {
         return guides
     }
 
+    /** The years a title can have, as in the names of titles ("(1945)"). */
+    private val YEARS = 1900..2099
+
     private val catchupKeys = setOf("catchup", "catchup-type", "catchup-days", "catchup-source", "tvg-rec", "timeshift")
 
     private fun entry(info: String, url: String, vlcUserAgent: String?, vlcReferrer: String?, defaults: Map<String, String>): M3uEntry {
@@ -120,6 +132,11 @@ object M3uParser {
             // Some playlists give the days as tvg-rec or timeshift.
             catchupDays = (attrs["catchup-days"] ?: attrs["tvg-rec"] ?: attrs["timeshift"])?.trim()?.toIntOrNull(),
             catchupSource = attrs["catchup-source"]?.ifEmpty { null },
+            type = attrs["tvg-type"]?.lowercase()?.ifEmpty { null },
+            seriesName = attrs["series-name"]?.ifEmpty { null },
+            season = attrs["season"]?.toIntOrNull()?.takeIf { it > 0 },
+            episode = attrs["episode"]?.toIntOrNull()?.takeIf { it > 0 },
+            year = attrs["year"]?.toIntOrNull()?.takeIf { it in YEARS },
         )
     }
 }
