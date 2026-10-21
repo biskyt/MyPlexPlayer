@@ -9,7 +9,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.mytvplayer.MainActivity
 import com.biskyt.mytvplayer.testutil.TestApp
-import com.biskyt.mytvplayer.testutil.UI_WAIT_MS
+import com.biskyt.mytvplayer.testutil.waitAdvancingClock
 import java.io.File
 import org.junit.Assert.assertFalse
 import org.junit.Rule
@@ -28,7 +28,7 @@ class CrashScreenTest {
     private val file get() = File(app.filesDir, "last-crash.txt")
 
     private fun waitFor(text: String) =
-        compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitAdvancingClock { compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
 
     @Test
     fun `a crash recorded last time is shown first, and continuing clears it`() {

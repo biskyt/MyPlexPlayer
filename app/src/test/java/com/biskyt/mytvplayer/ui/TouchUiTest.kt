@@ -14,7 +14,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.testutil.FakeProvider
 import com.biskyt.mytvplayer.testutil.TestApp
-import com.biskyt.mytvplayer.testutil.UI_WAIT_MS
+import com.biskyt.mytvplayer.testutil.waitAdvancingClock
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -58,25 +58,20 @@ class TouchUiTest {
     }
 
     private fun waitFor(matcher: androidx.compose.ui.test.SemanticsMatcher, what: String) = try {
-        compose.waitUntil(UI_WAIT_MS) {
-            org.robolectric.shadows.ShadowLooper.idleMainLooper(100, java.util.concurrent.TimeUnit.MILLISECONDS)
-            compose.onAllNodes(matcher, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
-        }
+        compose.waitAdvancingClock(100) { compose.onAllNodes(matcher, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
     } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
         throw AssertionError("$what not shown. Screen:\n" + compose.onRoot(useUnmergedTree = true).printToString(), e)
     }
 
-    private fun gone(matcher: androidx.compose.ui.test.SemanticsMatcher) = compose.waitUntil(UI_WAIT_MS) {
-        org.robolectric.shadows.ShadowLooper.idleMainLooper(100, java.util.concurrent.TimeUnit.MILLISECONDS)
-        compose.onAllNodes(matcher, useUnmergedTree = true).fetchSemanticsNodes().isEmpty()
-    }
+    private fun gone(matcher: androidx.compose.ui.test.SemanticsMatcher) =
+        compose.waitAdvancingClock(100) { compose.onAllNodes(matcher, useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
 
     @Test
     fun `a tap presses a button and a long press opens a channel's options`() {
         show(Screen.Welcome)
         waitFor(hasText("Add my TV provider"), "Welcome")
         compose.onNode(hasText("Add my TV provider")).performTouchInput { click() }
-        compose.waitUntil(UI_WAIT_MS) { navigator.current.screen != Screen.Welcome }
+        compose.waitAdvancingClock { navigator.current.screen != Screen.Welcome }
         assertEquals(Screen.PlaylistEdit(null, firstRun = true), navigator.current.screen)
 
         compose.runOnUiThread { navigator.reset(Screen.Live()) }
@@ -99,7 +94,7 @@ class TouchUiTest {
         waitFor(hasContentDescription("Skip back"), "the controls")
 
         compose.onNode(hasContentDescription("Back")).performTouchInput { click() }
-        compose.waitUntil(UI_WAIT_MS) { navigator.current.screen !is Screen.Player }
+        compose.waitAdvancingClock { navigator.current.screen !is Screen.Player }
         assertEquals(Screen.Live(), navigator.current.screen)
     }
 
