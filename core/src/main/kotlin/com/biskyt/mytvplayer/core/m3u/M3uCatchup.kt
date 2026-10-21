@@ -104,7 +104,8 @@ object M3uCatchup {
     private fun hourStart(t: Long, zone: ZoneId): Long =
         Instant.ofEpochMilli(t).atZone(zone).withMinute(0).withSecond(0).withNano(0).toInstant().toEpochMilli()
 
-    private val placeholder = Regex("""\$?\{(utc|start|utcend|end|lutc|now|timestamp|duration|offset|[YmdHMS])(?::([^}]*))?}""")
+    // Braces escaped, even "}": Android's regex engine (ICU) rejects a bare one where Java's accepts it.
+    private val placeholder = Regex("""\$?\{(utc|start|utcend|end|lutc|now|timestamp|duration|offset|[YmdHMS])(?::([^\}]*))?\}""")
 
     /** [template] with its placeholders filled in for watching from [startMs] to [endMs]. */
     internal fun fill(template: String, startMs: Long, endMs: Long, nowMs: Long): String = placeholder.replace(template) { m ->
