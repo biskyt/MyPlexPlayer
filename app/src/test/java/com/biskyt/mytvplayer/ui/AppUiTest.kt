@@ -20,6 +20,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.pressKey
@@ -29,6 +30,8 @@ import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.PlaylistRepository
+import com.biskyt.mytvplayer.data.StreamFormat
+import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.testutil.FakeProvider
@@ -499,7 +502,16 @@ class AppUiTest {
     fun `the Catch-up tab lists catch-up channels, and OK opens their past programmes`() {
         show(Screen.Home)
         // The tab shows once the playlist is known to have catch-up channels.
-        compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+        try {
+            compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+        } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
+            val known = runBlocking {
+                val c = app.container
+                "playlists ${c.playlists.allIds()}, active ${c.settings.current().activePlaylistId}, this one $playlistId, " +
+                    "catch-up ${c.channels.observeHasCatchup(playlistId).first()}"
+            }
+            throw AssertionError("No Catch-up tab: $known. Screen:\n" + compose.onRoot(useUnmergedTree = true).printToString(), e)
+        }
         compose.onNode(hasText("Catch-up") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
         assertEquals(Screen.Live(ChannelFilter.Catchup), navigator.current.screen)
@@ -647,6 +659,35 @@ class AppUiTest {
     }
 
     @Test
+    fun `a provider channel that won't start in the format set is tried in the other`() {
+        val vm = com.biskyt.mytvplayer.ui.player.PlayerViewModel(app.container, app, Screen.Player(playlistId, 101, ChannelFilter.All))
+        // The fake provider has no streams: MPEG-TS (the default) fails, so HLS is tried, once.
+        compose.waitUntil(UI_WAIT_MS) {
+            // The player retries a failed load a few times first: let its (simulated) time pass.
+            org.robolectric.shadows.ShadowLooper.idleMainLooper(500, java.util.concurrent.TimeUnit.MILLISECONDS)
+            provider.requests.any { it.startsWith("/live/me/secret/101.m3u8") }
+        }
+        assertTrue(provider.requests.any { it.startsWith("/live/me/secret/101.ts") })
+        vm.engine?.release()
+    }
+
+    @Test
+    fun `the format a provider fell back to is kept until the setting is changed or the playlist removed`() = runBlocking {
+        val settings = app.container.settings
+        assertEquals(null, settings.streamFormatFor(playlistId))
+        settings.rememberStreamFormat(playlistId, StreamFormat.HLS)
+        settings.update { it.copy(lastChannelId = 5) }
+        assertEquals(StreamFormat.HLS, settings.streamFormatFor(playlistId))
+        settings.setStreamFormat(StreamFormat.HLS)
+        assertEquals(null, settings.streamFormatFor(playlistId))
+        assertEquals(StreamFormat.HLS, settings.current().streamFormat)
+        settings.rememberStreamFormat(playlistId, StreamFormat.TS)
+        app.container.playlists.delete(playlistId)
+        assertEquals(null, settings.streamFormatFor(playlistId))
+        settings.setStreamFormat(StreamFormat.TS) // settings outlive the test
+    }
+
+    @Test
     fun `first launch offers a choice and sets nothing up by itself`() {
         show(Screen.Welcome)
         waitFor("Add my TV provider")
@@ -667,6 +708,28 @@ class AppUiTest {
         compose.onNode(hasSetTextAction()).performTextInput("cine")
         waitFor("FR: CINEMA")
         compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasText("UK | ENTERTAINMENT")).fetchSemanticsNodes().isEmpty() }
+    }
+
+    @Test
+    fun `select all and none tick every category, or while filtering only the matching ones`() {
+        val dao = app.container.db.categories()
+        fun included() = runBlocking { dao.included(playlistId, CAT_LIVE).map { it.name }.toSet() }
+        show(Screen.Categories(playlistId))
+        waitFor("UK | ENTERTAINMENT")
+        compose.onNode(hasText("Select none")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(UI_WAIT_MS) { included().isEmpty() }
+
+        compose.onNode(hasText("Filter countries and categories")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasSetTextAction()).performTextInput("UK")
+        waitFor("Select all matching")
+        compose.onNode(hasText("Select all matching")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(UI_WAIT_MS) { included() == setOf("UK | ENTERTAINMENT", "UK | SPORT") }
+
+        compose.onNode(hasSetTextAction()).performTextClearance()
+        waitFor("Select all")
+        compose.onNode(hasText("Select all")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(UI_WAIT_MS) { included().size == 4 }
     }
 
     @Test

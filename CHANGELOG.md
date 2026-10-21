@@ -2,6 +2,13 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.9.5
+- **Live TV that won't start in one format is tried in the other.** If a channel from your provider doesn't start in
+  MPEG-TS, HLS is tried (or the other way round, if you chose HLS). When the other one plays, your provider's channels
+  start in it from then on. Choosing a format again in Settings › Playback starts afresh.
+- **Select all or none** in Settings › Languages & categories, for live TV, movies or series. While filtering, they
+  apply to the matching categories only.
+
 ## 0.9.4
 - **New free TV, legal to watch:** the free option on the first screen (and in Settings › Playlists) now sets up
   [biskyt/legalFreeIPTVplaylist](https://github.com/biskyt/legalFreeIPTVplaylist): live channels streamed free by
