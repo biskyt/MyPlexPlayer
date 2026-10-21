@@ -65,13 +65,13 @@ class PlaylistsViewModel(private val c: AppContainer) : ViewModel() {
         c.sync.refresh(p.id)
     }
 
-    /** Adding the free iptv-org channels: true while downloading; [freeError] if it failed. */
+    /** Adding the free channels, films and series: true while downloading; [freeError] if it failed. */
     var addingFree by mutableStateOf(false)
         private set
     var freeError by mutableStateOf<String?>(null)
         private set
 
-    /** Sets up the free iptv-org channels (as on first launch), then [then] gets the new playlist's id. */
+    /** Sets up the free channels, films and series (as on first launch), then [then] gets the new playlist's id. */
     fun addFree(then: (Long) -> Unit) {
         if (addingFree) return
         addingFree = true
@@ -133,7 +133,7 @@ fun PlaylistsScreen() {
                 // The free channels can be typed in as an M3U address too, but that's a long one to enter with a remote.
                 if (playlists.none { it.isFree }) {
                     PillButton(
-                        if (vm.addingFree) "Downloading free channels…" else "+ Add free channels (iptv-org)",
+                        if (vm.addingFree) "Downloading free channels…" else "+ Add free TV, films and series",
                         // First-run style: Continue downloads the channels and goes to Home.
                         { vm.addFree { id -> nav.push(Screen.Categories(id, firstRun = true)) } }
                     )

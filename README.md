@@ -13,7 +13,8 @@ on low-powered TV boxes and sticks, and to make it easy to find something to wat
 - **Small**: an 8 MB download.
 - **No ads, no tracking, no accounts.** Every feature is free.
 - **Your own provider or free channels**: add your IPTV provider's Xtream Codes login or M3U playlist, or start
-  straight away with the free [iptv-org](https://github.com/iptv-org/iptv) channels, which are built in.
+  straight away with the built-in [free TV](https://github.com/biskyt/legalFreeIPTVplaylist): channels streamed
+  free by their broadcasters, and public-domain or openly licensed films and series.
 - **Movies, series and catch-up TV**, for providers that offer them.
 
 ![Home](store/screenshots/1-home.png)

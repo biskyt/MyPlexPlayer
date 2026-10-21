@@ -3,7 +3,6 @@ package com.biskyt.mytvplayer.data
 import androidx.room.withTransaction
 import com.biskyt.mytvplayer.core.m3u.M3uEntry
 import com.biskyt.mytvplayer.core.m3u.M3uParser
-import com.biskyt.mytvplayer.core.vod.EpisodeName
 import com.biskyt.mytvplayer.core.vod.EpisodeNames
 import com.biskyt.mytvplayer.core.vod.VodTitles
 import com.biskyt.mytvplayer.core.xtream.EpisodeInfo
@@ -68,13 +67,10 @@ internal class M3uVod(private val db: AppDatabase, private val playlists: Playli
     private suspend fun <T> withFeeds(urls: List<String>, files: List<File> = emptyList(), block: suspend (List<File>) -> T): T =
         if (files.size == urls.size) block(files) else playlists.withM3u(urls[files.size]) { withFeeds(urls, files + it, block) }
 
-    /** Each entry, with its episode numbering if it has one and whether it's a series episode at all. */
-    private suspend fun each(feed: Feed, onEntry: suspend (M3uEntry, EpisodeName?, Boolean) -> Unit) {
+    /** Each entry, and whether it's a series episode (else a film). */
+    private suspend fun each(feed: Feed, onEntry: suspend (M3uEntry, Boolean) -> Unit) {
         feed.file.bufferedReader().use { reader ->
-            M3uParser.parse(reader) { e ->
-                val ep = EpisodeNames.parse(e.name)
-                onEntry(e, ep, ep != null || feed.seriesOnly)
-            }
+            M3uParser.parse(reader) { e -> onEntry(e, EpisodeNames.isEpisode(e, feed.seriesOnly)) }
         }
     }
 
@@ -85,7 +81,7 @@ internal class M3uVod(private val db: AppDatabase, private val playlists: Playli
         val movieGroups = LinkedHashSet<String>()
         val seriesGroups = LinkedHashSet<String>()
         feeds.forEach { feed ->
-            each(feed) { e, _, episode -> (if (episode) seriesGroups else movieGroups) += PlaylistRepository.groupOf(e) }
+            each(feed) { e, episode -> (if (episode) seriesGroups else movieGroups) += PlaylistRepository.groupOf(e) }
         }
         store(playlistId, CAT_MOVIE, movieGroups)
         store(playlistId, CAT_SERIES, seriesGroups)
@@ -114,28 +110,32 @@ internal class M3uVod(private val db: AppDatabase, private val playlists: Playli
         val shows = HashMap<Long, Int>() // series id to episodes so far
         var position = 0
         feeds.forEach { feed ->
-            each(feed) { e, ep, episode ->
+            each(feed) { e, episode ->
                 val group = PlaylistRepository.groupOf(e)
                 // Every entry gets its id, so a repeated name's id doesn't depend on which categories are included.
                 val id = playlists.uniqueId(if (episode) "episode|${e.name}" else "movie|${e.name}", ids)
                 if (!episode) {
                     if (group !in movieCats) return@each
                     val clean = VodTitles.clean(e.name)
-                    movies.add(MovieEntity(playlistId, id, clean.title, clean.year, group, e.logo, null, 0, "", position++, stamp, e.url))
+                    movies.add(
+                        MovieEntity(playlistId, id, clean.title, e.year ?: clean.year, group, e.logo, null, 0, "", position++, stamp, e.url)
+                    )
                     return@each
                 }
                 if (group !in seriesCats) return@each
-                val show = ep?.show ?: e.name
+                val ep = EpisodeNames.of(e, feed.seriesOnly) ?: return@each
                 // The show's name as listed (with any language tag) and its group keep two languages, or a 4K copy, apart.
-                val seriesId = playlists.stableId("series|$group|${show.lowercase()}")
+                val seriesId = playlists.stableId("series|$group|${ep.show.lowercase()}")
                 val before = shows[seriesId] ?: 0
                 if (before == 0) {
-                    val clean = VodTitles.clean(show)
-                    series.add(SeriesEntity(playlistId, seriesId, clean.title, clean.year, group, e.logo, null, 0, position++, stamp))
+                    val clean = VodTitles.clean(ep.show)
+                    series.add(
+                        SeriesEntity(playlistId, seriesId, clean.title, e.year ?: clean.year, group, e.logo, null, 0, position++, stamp)
+                    )
                 }
                 shows[seriesId] = before + 1
-                val number = ep?.episode ?: (before + 1) // unnumbered (in a series playlist): in listed order
-                episodes.add(EpisodeEntity(playlistId, id, seriesId, ep?.season ?: 1, number, ep?.title ?: "Episode $number", e.url, stamp))
+                val number = ep.episode ?: (before + 1) // unnumbered: in listed order
+                episodes.add(EpisodeEntity(playlistId, id, seriesId, ep.season, number, ep.title ?: "Episode $number", e.url, stamp))
             }
         }
         movies.flush()

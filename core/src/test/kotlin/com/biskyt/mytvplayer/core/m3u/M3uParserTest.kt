@@ -75,4 +75,23 @@ class M3uParserTest {
         assertEquals(Triple("append", null, "?s={utc}"), entries[1].let { Triple(it.catchup, it.catchupDays, it.catchupSource) })
         assertEquals(Triple(null, 3, null), entries[2].let { Triple(it.catchup, it.catchupDays, it.catchupSource) })
     }
+
+    @Test
+    fun `movie and series attributes, as the open M3U VOD convention has them`() = runBlocking {
+        val playlist = """
+            #EXTM3U
+            #EXTINF:4020 tvg-type="movie" tvg-id="ia.Detour" year="1945" group-title="Movies: Noir",Detour (1945)
+            https://archive.org/download/Detour/Detour.mp4
+            #EXTINF:1530 tvg-type="Series" series-name="The Beverly Hillbillies" season="1" episode="2" group-title="Series: The Beverly Hillbillies",The Beverly Hillbillies S01E02 - Getting Settled
+            https://archive.org/download/bh2.mp4
+            #EXTINF:-1 season="x" episode="-3" year="45",Garbage numbers
+            http://c.m3u8
+        """.trimIndent()
+        val entries = mutableListOf<M3uEntry>()
+        M3uParser.parse(playlist.reader().buffered()) { entries += it }
+        assertEquals(listOf("movie", "series", null), entries.map { it.type })
+        assertEquals(1945, entries[0].year)
+        assertEquals(listOf("The Beverly Hillbillies", 1, 2), entries[1].let { listOf(it.seriesName, it.season, it.episode) })
+        assertEquals(listOf(null, null, null), entries[2].let { listOf(it.season, it.episode, it.year) })
+    }
 }

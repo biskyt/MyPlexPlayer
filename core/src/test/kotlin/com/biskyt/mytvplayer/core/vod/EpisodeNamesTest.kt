@@ -37,4 +37,27 @@ class EpisodeNamesTest {
     fun `a number with no show before it isn't an episode`() {
         assertNull(EpisodeNames.parse("S01E01"))
     }
+
+    private fun entry(name: String, type: String? = null, series: String? = null, season: Int? = null, episode: Int? = null) =
+        com.biskyt.mytvplayer.core.m3u.M3uEntry(
+            name, "http://x", null, null, null, null, null, null, type = type, seriesName = series, season = season, episode = episode
+        )
+
+    @Test
+    fun `what the playlist says comes first, then the name`() {
+        // A film named like an episode, said to be a film.
+        assertNull(EpisodeNames.of(entry("Flash Gordon S01E02", type = "movie"), seriesFeed = true))
+        assertEquals(false, EpisodeNames.isEpisode(entry("Flash Gordon S01E02", type = "movie"), seriesFeed = true))
+        // Said to be an episode: its series and numbers, and the title from the name.
+        assertEquals(
+            EpisodeName("Bonanza", 1, 21, "Episode 21"),
+            EpisodeNames.of(entry("Bonanza S01E21 - Episode 21", "series", "Bonanza", 1, 21), seriesFeed = false)
+        )
+        assertEquals(EpisodeName("Bonanza", 2, null, null), EpisodeNames.of(entry("The Ride", "series", "Bonanza", season = 2), false))
+        // Nothing said: by the name, or a series playlist's.
+        assertEquals(EpisodeName("Show", 1, 2, null), EpisodeNames.of(entry("Show S01E02"), seriesFeed = false))
+        assertNull(EpisodeNames.of(entry("Dune (2021)"), seriesFeed = false))
+        assertEquals(EpisodeName("Llama Drama", 1, null, null), EpisodeNames.of(entry("Llama Drama"), seriesFeed = true))
+        assertEquals(true, EpisodeNames.isEpisode(entry("Llama Drama", type = "live"), seriesFeed = true))
+    }
 }
