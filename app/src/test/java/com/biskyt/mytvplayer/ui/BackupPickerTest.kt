@@ -11,7 +11,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.performSemanticsAction
 import com.biskyt.mytvplayer.testutil.TestApp
-import com.biskyt.mytvplayer.testutil.UI_WAIT_MS
+import com.biskyt.mytvplayer.testutil.waitAdvancingClock
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -51,7 +51,7 @@ class BackupPickerTest {
         installs(stub, Intent.ACTION_GET_CONTENT)
         installs(fileManager, Intent.ACTION_GET_CONTENT)
         compose.setContent { MyTvTheme { NavHost(remember { Navigator(Screen.Backup) }) { ScreenContent(it) } } }
-        compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasText("Restore from", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitAdvancingClock { compose.onAllNodes(hasText("Restore from", substring = true)).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasText("Restore from", substring = true) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
 

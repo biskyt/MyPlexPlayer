@@ -47,6 +47,9 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
     var vodM3u = ""
     var seriesM3u = ""
 
+    /** Live streams that connect but then send next to nothing (a few bytes a second), never enough to play. */
+    var streamsTrickle = false
+
     /** A panel that serves M3U playlists but refuses Xtream logins. */
     var loginsRefused = false
 
@@ -144,6 +147,10 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
             url.encodedPath.startsWith("/art/") ->
                 images(url.encodedPath.removePrefix("/art/"))?.let { MockResponse().setBody(Buffer().write(it)) }
                     ?: MockResponse().setResponseCode(404)
+            streamsTrickle && url.encodedPath.startsWith("/live/") ->
+                // MPEG-TS sync bytes: the player takes it for a transport stream and waits for more, never getting a picture.
+                MockResponse().setBody(Buffer().write(ByteArray(10_000) { 0x47 }))
+                    .throttleBody(1, 200, java.util.concurrent.TimeUnit.MILLISECONDS)
             url.queryParameter("password") != "secret" -> MockResponse().setBody("""{"user_info":{"auth":0}}""")
             else -> null
         }

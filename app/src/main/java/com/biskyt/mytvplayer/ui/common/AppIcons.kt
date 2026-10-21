@@ -69,6 +69,13 @@ object AppIcons {
             lineTo(4f, 18f)
             close()
         }
+    val Back = icon("back", false) {
+        moveTo(19f, 12f)
+        horizontalLineTo(5f)
+        moveTo(11f, 6f)
+        lineTo(5f, 12f)
+        lineTo(11f, 18f)
+    }
     val Search = icon("search", false) {
         moveTo(18f, 11f)
         arcTo(7f, 7f, 0f, true, true, 4f, 11f)

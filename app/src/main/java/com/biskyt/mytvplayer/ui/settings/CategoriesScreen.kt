@@ -1,13 +1,11 @@
 package com.biskyt.mytvplayer.ui.settings
 
-import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -34,7 +32,6 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.core.epg.CategoryLanguageDetector
-import com.biskyt.mytvplayer.data.FreeGuides
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
@@ -54,7 +51,6 @@ import com.biskyt.mytvplayer.ui.common.formatCount
 import com.biskyt.mytvplayer.ui.common.restoreFocusIf
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -117,22 +113,24 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
     }
 
     /** Ticks or unticks a group: while filtering, only the categories shown for it. */
-    fun toggleGroup(g: LanguageGroup) = viewModelScope.launch {
-        val t = type.value
-        val cats = shown(categories.value.filter { it.type == t }, g.code, query.trim())
-        setIncluded(t, cats.map { it.categoryId }, cats.any { !it.included })
+    fun toggleGroup(g: LanguageGroup) = setGroup(g.code, shownIn(g.code).any { !it.included })
+
+    /** Ticks or unticks every category of group [code] the right-hand list shows (while filtering, those that match). */
+    fun setGroup(code: String?, included: Boolean) = viewModelScope.launch {
+        // All of them, not just those the list shows as different: it may not have caught up with the last change yet.
+        setIncluded(type.value, shownIn(code).map { it.categoryId }, included)
     }
 
-    /** Ticks or unticks every category of the type shown: while filtering, only those that match. */
+    private fun shownIn(code: String?) = shown(categories.value.filter { it.type == type.value }, code, query.trim())
+
+    /** Ticks or unticks every language's categories of the type shown: while filtering, only those that match. */
     fun setAll(included: Boolean) = viewModelScope.launch {
         val t = type.value
         val q = query.trim()
         // What the screen shows: categories whose name, or whose group's name, matches.
         val ids = categories.value
             .filter {
-                it.type == t &&
-                    it.included != included &&
-                    (matches(it.name, q) || matches(CategoryLanguageDetector.label(it.lang), q))
+                it.type == t && (matches(it.name, q) || matches(CategoryLanguageDetector.label(it.lang), q))
             }
             .map { it.categoryId }
         setIncluded(t, ids, included)
@@ -154,27 +152,11 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
     /** Downloads again what the change affects: everything on first run or for live TV, else just movies and series. */
     fun finish(firstRun: Boolean) {
         when {
-            firstRun -> c.appScope.launch {
-                // Optional: the channels still load if this fails.
-                try {
-                    addFreeGuides()
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                    Log.w("Categories", "Couldn't add the free guides", e)
-                }
-                c.sync.refreshNow(playlistId)
-            }
+            // The guide comes with it: a playlist that names its own (as the free TV does) has it added as it loads.
+            firstRun -> c.appScope.launch { c.sync.refreshNow(playlistId) }
             CAT_LIVE in changed -> c.sync.refresh(playlistId)
             changed.isNotEmpty() -> c.sync.refreshVod(playlistId)
         }
-    }
-
-    /** Setting up the free channels: the free guides for the countries chosen (where there is one), before the first load. */
-    private suspend fun addFreeGuides() {
-        if (c.playlists.get(playlistId)?.isFree != true) return
-        val countries = c.db.categories().included(playlistId, CAT_LIVE).map { it.lang }
-        c.epg.addMissing(FreeGuides.forGroups(countries))
     }
 
     /** Focus goes to the first group once, when the screen opens (not each time filtering changes the first group). */
@@ -222,11 +204,6 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                     PillButton(label, { vm.showType(t) }, selected = t == type)
                 }
             }
-            Spacer(Modifier.weight(1f))
-            // While filtering, these apply to the matching categories only.
-            val matching = if (query.isEmpty()) "" else " matching"
-            PillButton("Select all$matching", { vm.setAll(true) })
-            PillButton("Select none$matching", { vm.setAll(false) })
         }
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             LazyColumn(
@@ -244,6 +221,13 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                     )
                 }
                 item { Text("DETECTED FROM CATEGORY NAMES", style = MaterialTheme.typography.labelMedium, color = Palette.textMuted) }
+                // Every language at once (while filtering, the matching ones).
+                if (groups.isNotEmpty()) {
+                    item {
+                        val matching = if (query.isEmpty()) "" else " matching"
+                        SelectAllRow("All$matching", "None", vm::setAll)
+                    }
+                }
                 if (groups.isEmpty() && query.isNotEmpty()) item { Muted("Nothing matches \u201c$query\u201d.") }
                 items(groups, key = { it.code ?: "" }) { g ->
                     TvCard(
@@ -294,6 +278,10 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                 Modifier.weight(1f).background(Palette.surfaceLow).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
+                // Just this language's categories: all of them, say, without choosing every language.
+                if (shown.isNotEmpty()) {
+                    item { SelectAllRow("All in ${CategoryLanguageDetector.label(selected)}", "None") { vm.setGroup(selected, it) } }
+                }
                 items(shown, key = { it.categoryId }) { cat ->
                     TvCard(onClick = { vm.toggleCategory(cat) }, color = Palette.surface, modifier = Modifier.fillMaxWidth()) {
                         Row(
@@ -316,5 +304,14 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                 }
             }
         }
+    }
+}
+
+/** "Select all" and "select none" for the list below. */
+@Composable
+private fun SelectAllRow(all: String, none: String, set: (included: Boolean) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        PillButton(all, { set(true) })
+        PillButton(none, { set(false) })
     }
 }

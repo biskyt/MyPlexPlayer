@@ -17,7 +17,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.testutil.FakeProvider
 import com.biskyt.mytvplayer.testutil.TestApp
-import com.biskyt.mytvplayer.testutil.UI_WAIT_MS
+import com.biskyt.mytvplayer.testutil.waitAdvancingClock
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -62,7 +62,7 @@ class PlayerKeysUiTest {
     }
 
     private fun waitFor(text: String) = try {
-        compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitAdvancingClock { compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
     } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
         throw AssertionError("'$text' not shown. Screen:\n" + compose.onRoot(useUnmergedTree = true).printToString(), e)
     }
@@ -84,7 +84,7 @@ class PlayerKeysUiTest {
     }
 
     private fun waitForFocus(text: String) = try {
-        compose.waitUntil(UI_WAIT_MS) { focused().contains(text) }
+        compose.waitAdvancingClock { focused().contains(text) }
     } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
         throw AssertionError("'$text' hasn't focus: ${focused()}", e)
     }
@@ -93,7 +93,7 @@ class PlayerKeysUiTest {
     fun `the controls come up with focus on play-pause, and up goes back to the video`() {
         show(Screen.Player(playlistId, 101, ChannelFilter.All))
         waitFor("Channel guide")
-        compose.waitUntil(UI_WAIT_MS) { focused().contains("Pause") || focused().contains("Play") }
+        compose.waitAdvancingClock { focused().contains("Pause") || focused().contains("Play") }
         press(Key.DirectionUp)
         assertTrue(focused(), !focused().contains("Pause") && !focused().contains("Play"))
     }
@@ -108,11 +108,11 @@ class PlayerKeysUiTest {
         press(Key.MediaFastForward)
         // The panel closes and the player answers (live TV here can't skip).
         waitFor("Skipping isn't available here")
-        compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasText("Sleep timer")).fetchSemanticsNodes().isEmpty() }
+        compose.waitAdvancingClock { compose.onAllNodes(hasText("Sleep timer")).fetchSemanticsNodes().isEmpty() }
         press(Key.Menu)
         waitFor("Sleep timer")
         press(Key.MediaStop)
-        compose.waitUntil(UI_WAIT_MS) { navigator.current.screen is Screen.Live } // stopped, back where it was opened from
+        compose.waitAdvancingClock { navigator.current.screen is Screen.Live } // stopped, back where it was opened from
     }
 
     @Test

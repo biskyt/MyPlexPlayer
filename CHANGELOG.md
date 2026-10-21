@@ -2,6 +2,33 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.0.0
+The first full release: phones and tablets now work by touch, and the free TV has its own programme guide.
+
+- **Fix: setting up or updating an M3U playlist (including the free TV) crashed the app** on Android devices since
+  0.9.0. A pattern for reading catch-up addresses that Java accepts is rejected by Android, and the tests only ran on
+  Java. A new test now checks every pattern the way Android does.
+- **Films and posters from Wikimedia and archive.org:** MyTVPlayer now tells servers who it is (its name, version and
+  web address), as Wikimedia asks of apps; without it, Wikimedia refused films ("429") and pictures could fail to load.
+- **No more endless "Loading…":** a stream that can't get started because its server sends it too slowly (a little
+  at a time, or only some of it) is now treated like one that fails: tried again a few times, then an error with
+  Retry, instead of loading for ever.
+- On phones and tablets the app now fills the screen (swipe from the edge to see the status bar), so the top bar is
+  no longer under the status bar, where taps didn't reach it.
+- Free TV now comes with its own TV guide, so setting it up no longer adds a free guide for each country you pick.
+  (Country guides can still be added in Settings › TV guide.)
+- **Touch screens:** MyTVPlayer now works on phones and tablets (in landscape) as well as with a remote. Tap anything
+  to choose it, and press and hold for its options (as holding OK does). On the player, tap the picture to show or
+  hide the controls, tap or drag along the play bar to skip in films, series and catch-up, and tap the back arrow at
+  the top left to return to the list. The TV guide has Earlier and Later buttons, and the channel guide beside the
+  picture has Previous and Next. Tap beside a side panel to close it. Nothing changes on a TV.
+- Dim text (times, counts, hints) is a little lighter, so it's easier to read on every background.
+- **If MyTVPlayer closes unexpectedly**, the next start says so and shows what went wrong, with a code to scan on your
+  phone that opens a GitHub issue with the details (logins are left out; nothing is sent unless you send it). "Continue
+  without updating" starts without refreshing your playlist, in case that's what went wrong.
+- Settings › Languages & categories: the languages and the categories each have their own Select all / none, so you
+  can choose every category of one language without choosing every language.
+
 ## 0.9.5
 - **Live TV that won't start in one format is tried in the other.** If a channel from your provider doesn't start in
   MPEG-TS, HLS is tried (or the other way round, if you chose HLS). When the other one plays, your provider's channels

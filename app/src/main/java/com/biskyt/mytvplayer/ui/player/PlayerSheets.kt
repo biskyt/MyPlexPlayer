@@ -23,9 +23,11 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
+import com.biskyt.mytvplayer.ui.common.LocalTouch
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.ScheduleList
 import com.biskyt.mytvplayer.ui.common.SidePanel
+import com.biskyt.mytvplayer.ui.common.TouchStepButtons
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.cycle
 import com.biskyt.mytvplayer.ui.common.perform
@@ -65,9 +67,10 @@ fun GuidePanel(vm: PlayerViewModel) {
                 ChannelLogo(ch.logoUrl, ch.name, 64.dp, 40.dp)
                 Column(Modifier.padding(start = 12.dp)) {
                     Text(ch.name, style = MaterialTheme.typography.titleMedium, maxLines = 1)
-                    Muted("◀ ▶ other channels · OK to watch")
+                    if (!LocalTouch.current) Muted("◀ ▶ other channels · OK to watch")
                 }
             }
+            TouchStepButtons("Previous", "Next", vm::previewGuide)
             ScheduleList(rememberSchedule(ch.playlistId, ch.streamId), onSelect = { vm.watchGuideChannel() })
         }
     }

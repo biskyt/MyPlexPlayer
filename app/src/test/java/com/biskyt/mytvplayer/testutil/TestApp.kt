@@ -7,6 +7,9 @@ import kotlinx.coroutines.cancel
 class TestApp : MyTvApp() {
     override fun scheduleDailyRefresh() = Unit
 
+    // A process-wide handler: each test's app would wrap the last one's (tests that need it install it themselves).
+    override fun installCrashLog() = Unit
+
     /**
      * Robolectric calls this after each test. Each test gets a new app, but the database and coroutine threads are
      * shared by the whole run: a test's syncs and queries left running would hold them up in the next test (seen as a

@@ -169,6 +169,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         return PlaybackEngine(appContext, settings).also {
             it.player.addListener(listener)
             it.player.addAnalyticsListener(audioFormatListener)
+            it.onStalled = listener::onPlayerError
             it.onUnsupported = { url -> fail("This uses a stream format MyTVPlayer can't play.", failureReason(null, url)) }
             engine = it
         }
@@ -294,11 +295,23 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
      */
     private fun scrub(ms: Long, repeat: Int) {
         val (range, now) = scrubBounds() ?: return flash("Skipping isn't available here")
-        val target = scrubTarget(scrubMs ?: now, ms, repeat, range)
+        if (overlay == OverlayState.NONE) showControls(forSkip = true)
+        moveScrub(scrubTarget(scrubMs ?: now, ms, repeat, range), now)
+    }
+
+    /** Touch: tapping or dragging along the play bar moves the point to play from to [fraction] of [span]. */
+    fun scrubTo(span: LongRange, fraction: Float) {
+        // Not seekable: said once, not at every step of a drag.
+        val (range, now) = scrubBounds() ?: return if (message == null) flash("Skipping isn't available here") else Unit
+        showControls(keepOverlay = true)
+        val target = span.first + ((span.last - span.first) * fraction.coerceIn(0f, 1f)).toLong()
+        moveScrub(target.coerceIn(range), now)
+    }
+
+    private fun moveScrub(target: Long, now: Long) {
         scrubMs = target
         val offset = target - now
         flash((if (offset < 0) "−" else "+") + formatDuration(kotlin.math.abs(offset)))
-        if (overlay == OverlayState.NONE) showControls(forSkip = true)
         scrubJob?.cancel()
         scrubJob = viewModelScope.launch {
             delay(SCRUB_SETTLE_MS)
@@ -330,6 +343,15 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         hideJob = viewModelScope.launch {
             delay(OVERLAY_TIMEOUT_MS)
             if (overlay == OverlayState.CONTROLS && sheet == null) overlay = OverlayState.NONE
+        }
+    }
+
+    /** Touch: tapping the video shows the controls, or hides them. */
+    fun tapVideo() {
+        when (overlay) {
+            OverlayState.NONE -> showControls()
+            OverlayState.CONTROLS -> hideOverlay()
+            OverlayState.GUIDE -> Unit
         }
     }
 

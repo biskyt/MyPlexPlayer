@@ -6,7 +6,7 @@ import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.StreamFormat
 import com.biskyt.mytvplayer.testutil.FakeProvider
 import com.biskyt.mytvplayer.testutil.TestApp
-import com.biskyt.mytvplayer.testutil.UI_WAIT_MS
+import com.biskyt.mytvplayer.testutil.waitAdvancingClock
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -42,12 +42,22 @@ class StreamFormatTest {
     fun `a provider channel that won't start in the format set is tried in the other`() {
         val vm = com.biskyt.mytvplayer.ui.player.PlayerViewModel(app.container, app, Screen.Player(playlistId, 101, ChannelFilter.All))
         // The fake provider has no streams: MPEG-TS (the default) fails, so HLS is tried, once.
-        compose.waitUntil(UI_WAIT_MS) {
-            // The player retries a failed load a few times first: let its (simulated) time pass.
-            org.robolectric.shadows.ShadowLooper.idleMainLooper(500, java.util.concurrent.TimeUnit.MILLISECONDS)
-            provider.requests.any { it.startsWith("/live/me/secret/101.m3u8") }
-        }
+        // The player retries a failed load a few times first: let its (simulated) time pass.
+        compose.waitAdvancingClock(500) { provider.requests.any { it.startsWith("/live/me/secret/101.m3u8") } }
         assertTrue(provider.requests.any { it.startsWith("/live/me/secret/101.ts") })
+        vm.engine?.release()
+    }
+
+    @Test
+    fun `a stream that trickles in, never enough to play, ends in an error rather than loading for ever`() {
+        provider.streamsTrickle = true
+        val vm = com.biskyt.mytvplayer.ui.player.PlayerViewModel(app.container, app, Screen.Player(playlistId, 101, ChannelFilter.All))
+        // The stall check and the retries run on (simulated) time; the trickling server's real time hardly passes.
+        compose.waitAdvancingClock(1_000) { vm.error != null }
+        // Each stall was handled like any failure: retried, then the other format tried (whose playlist, the same junk,
+        // fails as unreadable).
+        assertTrue(provider.requests.toString(), provider.requests.count { it.startsWith("/live/me/secret/101.ts") } > 1)
+        assertTrue(provider.requests.toString(), provider.requests.any { it.startsWith("/live/me/secret/101.m3u8") })
         vm.engine?.release()
     }
 

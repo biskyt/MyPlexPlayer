@@ -11,6 +11,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
+import com.biskyt.mytvplayer.ui.common.LocalTouch
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.PillButton
 import com.biskyt.mytvplayer.ui.common.formatDuration
@@ -35,7 +36,7 @@ private fun VodControls(vm: VodPlayerViewModel, buttons: FocusRequester, root: F
             PillButton("From the start", vm::startOver)
             if (vm.nextEpisode != null) PillButton("Next episode", vm::playNext)
         }
-        Muted("▲ then ◀ ▶ to skip (hold to scrub) · Back hides this", Modifier.align(Alignment.CenterHorizontally))
+        if (!LocalTouch.current) Muted("▲ then ◀ ▶ to skip (hold to scrub) · Back hides this", Modifier.align(Alignment.CenterHorizontally))
     }
 }
 
@@ -51,6 +52,7 @@ private fun Position(vm: VodPlayerViewModel) {
         formatDuration(pos * 1000),
         fraction(vm.positionSec),
         if (dur > 0) formatDuration(dur * 1000) else "",
-        scrub?.let { fraction(it / 1000) }
+        scrub?.let { fraction(it / 1000) },
+        onSeek = if (dur > 0) ({ vm.scrubTo(0L..dur * 1000, it) }) else null
     )
 }

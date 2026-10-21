@@ -4,7 +4,10 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -19,6 +22,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.ChannelFilter
+import com.biskyt.mytvplayer.data.Settings
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.data.db.PlaylistEntity
@@ -51,6 +55,19 @@ import com.biskyt.mytvplayer.ui.vod.VodBrowseScreen
 @Composable
 fun AppRoot() {
     val container = LocalContext.current.container
+    // A crash last time: shown first, before anything that might crash again runs (see CrashLog).
+    val crash = remember { container.crashLog.read() }
+    val root = viewModel<RootViewModel>()
+    if (crash != null && !root.crashSeen) {
+        MyTvTheme {
+            CrashScreen(crash) { updating ->
+                container.crashLog.clear()
+                root.safeStart = !updating
+                root.crashSeen = true
+            }
+        }
+        return
+    }
     val settings by container.settings.settings.collectAsState(initial = null)
     val s = settings
     if (s == null) {
@@ -60,27 +77,8 @@ fun AppRoot() {
     // Only the first settings value decides the start screen; later changes (e.g. last channel) mustn't recompose the app.
     val initial = remember { s }
     MyTvTheme(accentArgb = s.accent, largeText = s.largeText) {
-        val root = viewModel<RootViewModel>()
         LaunchedEffect(Unit) {
-            if (root.navigator != null) return@LaunchedEffect
-            // Decide the first screen once: set-up if there is no playlist yet, else Home (or the last channel).
-            val s = initial
-            val playlist =
-                container.playlists.get(s.activePlaylistId)
-                    ?: container.playlists.allIds().firstOrNull()?.let { container.playlists.get(it) }
-            root.navigator = when {
-                playlist == null -> Navigator(Screen.Welcome)
-                else -> Navigator(Screen.Home).also { nav ->
-                    if (playlist.id != s.activePlaylistId) container.settings.update { it.copy(activePlaylistId = playlist.id) }
-                    when {
-                        playlist.isStale() -> container.sync.refresh(playlist.id)
-                        needsVod(container, playlist) -> container.sync.refreshVod(playlist.id)
-                    }
-                    if (s.startOnLastChannel && s.lastChannelId != 0L && container.channels.get(playlist.id, s.lastChannelId) != null) {
-                        nav.push(Screen.Player(playlist.id, s.lastChannelId, ChannelFilter.All))
-                    }
-                }
-            }
+            if (root.navigator == null) root.navigator = firstScreen(container, initial, root.safeStart)
         }
         val nav = root.navigator ?: run {
             Box(Modifier.fillMaxSize().background(Palette.background))
@@ -96,11 +94,35 @@ fun AppRoot() {
             }
         }
         Box(
-            Modifier.fillMaxSize().background(Palette.background).guideButton(nav, hasPlaylist = s.activePlaylistId != 0L)
+            Modifier.fillMaxSize().background(Palette.background)
+                // Clear of a phone's camera cutout (TVs have none).
+                .windowInsetsPadding(WindowInsets.displayCutout)
+                .guideButton(nav, hasPlaylist = s.activePlaylistId != 0L)
         ) {
             NavHost(nav) { screen -> ScreenContent(screen) }
         }
     }
+}
+
+/**
+ * The first screen, decided once: set-up if there is no playlist yet, else Home (or the last channel), updating the
+ * playlist if it's due. [safeStart] (after a crash): neither the update nor the last channel, in case that's what crashed.
+ */
+private suspend fun firstScreen(container: AppContainer, s: Settings, safeStart: Boolean): Navigator {
+    val playlist = container.playlists.get(s.activePlaylistId)
+        ?: container.playlists.allIds().firstOrNull()?.let { container.playlists.get(it) }
+        ?: return Navigator(Screen.Welcome)
+    val nav = Navigator(Screen.Home)
+    if (playlist.id != s.activePlaylistId) container.settings.update { it.copy(activePlaylistId = playlist.id) }
+    if (safeStart) return nav
+    when {
+        playlist.isStale() -> container.sync.refresh(playlist.id)
+        needsVod(container, playlist) -> container.sync.refreshVod(playlist.id)
+    }
+    if (s.startOnLastChannel && s.lastChannelId != 0L && container.channels.get(playlist.id, s.lastChannelId) != null) {
+        nav.push(Screen.Player(playlist.id, s.lastChannelId, ChannelFilter.All))
+    }
+    return nav
 }
 
 /**
@@ -154,6 +176,12 @@ internal fun ScreenContent(screen: Screen) {
 /** Owns the back stack for the activity's lifetime and releases every screen (and the player) with it. */
 class RootViewModel : ViewModel() {
     var navigator by mutableStateOf<Navigator?>(null)
+
+    /** The last crash's report has been seen (and dealt with) this time. */
+    var crashSeen by mutableStateOf(false)
+
+    /** Chosen after a crash: start without updating the playlist or opening the last channel, in case that crashed. */
+    var safeStart = false
 
     override fun onCleared() {
         navigator?.clear()

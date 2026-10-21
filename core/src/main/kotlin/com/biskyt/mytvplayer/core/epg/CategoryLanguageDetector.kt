@@ -42,9 +42,6 @@ object CategoryLanguageDetector {
     /** The group for an ISO country code: "UK" for Great Britain, as providers write it. */
     fun groupForCountry(iso: String): String = iso.uppercase().let { if (it == "GB") "UK" else it }
 
-    /** The ISO country code (lower case) for a group, the reverse of [groupForCountry]. */
-    fun countryForGroup(group: String): String = group.lowercase().let { if (it == "uk") "gb" else it }
-
     // Whole words anywhere in the name: every country's English name (iptv-org groups channels by country), a few
     // alternative names, and language adjectives. Longest first, so the most specific name wins.
     private val words: List<Pair<String, String>> = (

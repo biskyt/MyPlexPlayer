@@ -1,6 +1,5 @@
 package com.biskyt.mytvplayer.data
 
-import com.biskyt.mytvplayer.core.epg.CategoryLanguageDetector
 import com.biskyt.mytvplayer.data.db.EpgSourceEntity
 import java.util.Locale
 
@@ -37,15 +36,5 @@ object FreeGuides {
     fun notAdded(sources: List<EpgSourceEntity>): List<FreeGuide> {
         val added = sources.mapTo(HashSet()) { it.url }
         return all().filter { it.url !in added }
-    }
-
-    /**
-     * The guides for category groups (country codes as [CategoryLanguageDetector] gives them, "UK" for Great Britain),
-     * for the countries that have one. Meant for the free channels, whose categories may start with a country (so "AR"
-     * is Argentina, not Arabic).
-     */
-    fun forGroups(groups: Collection<String?>): List<FreeGuide> {
-        val wanted = groups.mapNotNullTo(HashSet()) { it?.let(CategoryLanguageDetector::countryForGroup) }
-        return all().filter { it.code in wanted }
     }
 }
