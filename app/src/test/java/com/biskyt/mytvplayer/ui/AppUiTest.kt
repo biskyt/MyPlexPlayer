@@ -498,7 +498,17 @@ class AppUiTest {
     fun `the Catch-up tab lists catch-up channels, and OK opens their past programmes`() {
         show(Screen.Home)
         // The tab shows once the playlist is known to have catch-up channels (a database query: slow on busy CI runners).
-        compose.waitUntil(15_000) { compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+        try {
+            compose.waitUntil(15_000) { compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+        } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
+            // Seen now and then on CI only: say what the app knew, to find out why.
+            val known = runBlocking {
+                val c = app.container
+                "playlists ${c.playlists.allIds()}, active ${c.settings.current().activePlaylistId}, this one $playlistId, " +
+                    "catch-up ${c.channels.observeHasCatchup(playlistId).first()}"
+            }
+            throw AssertionError("No Catch-up tab: $known. Screen:\n" + compose.onRoot(useUnmergedTree = true).printToString(), e)
+        }
         compose.onNode(hasText("Catch-up") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
         assertEquals(Screen.Live(ChannelFilter.Catchup), navigator.current.screen)
