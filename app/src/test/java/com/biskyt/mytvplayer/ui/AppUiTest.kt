@@ -20,6 +20,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.pressKey
@@ -29,6 +30,7 @@ import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.PlaylistRepository
+import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.testutil.FakeProvider
@@ -453,8 +455,11 @@ class AppUiTest {
 
         // Focus thrown at another category (as when the row with focus goes away) goes to the selected one instead…
         compose.onNode(hasText("All channels") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
-        settle()
-        assertTrue(focusedText(), focusedText().contains("SPORT", ignoreCase = true))
+        compose.waitUntil(UI_WAIT_MS) {
+            // The column moves focus a frame later: let (simulated) time pass while waiting.
+            org.robolectric.shadows.ShadowLooper.idleMainLooper(100, java.util.concurrent.TimeUnit.MILLISECONDS)
+            focusedText().contains("SPORT", ignoreCase = true)
+        }
         assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
         // …and moving through the categories switches the list.
         press(Key.DirectionUp)
@@ -492,14 +497,29 @@ class AppUiTest {
         compose.waitUntil(UI_WAIT_MS) { focusedText().contains("UK: ARENA SPRTS 1 FHD") }
         press(Key.DirectionLeft)
         // The column scrolls to the selected category first when it's out of view, so focus can take a moment.
-        compose.waitUntil(UI_WAIT_MS) { focusedText().contains("SPORT", ignoreCase = true) }
+        compose.waitUntil(UI_WAIT_MS) {
+            // The column moves focus a frame later: let (simulated) time pass while waiting.
+            org.robolectric.shadows.ShadowLooper.idleMainLooper(100, java.util.concurrent.TimeUnit.MILLISECONDS)
+            focusedText().contains("SPORT", ignoreCase = true)
+        }
     }
 
     @Test
     fun `the Catch-up tab lists catch-up channels, and OK opens their past programmes`() {
         show(Screen.Home)
         // The tab shows once the playlist is known to have catch-up channels.
-        compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+        try {
+            compose.waitUntil(UI_WAIT_MS) {
+                compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty()
+            }
+        } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
+            val known = runBlocking {
+                val c = app.container
+                "playlists ${c.playlists.allIds()}, active ${c.settings.current().activePlaylistId}, this one $playlistId, " +
+                    "catch-up ${c.channels.observeHasCatchup(playlistId).first()}"
+            }
+            throw AssertionError("No Catch-up tab: $known. Screen:\n" + compose.onRoot(useUnmergedTree = true).printToString(), e)
+        }
         compose.onNode(hasText("Catch-up") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
         assertEquals(Screen.Live(ChannelFilter.Catchup), navigator.current.screen)
@@ -667,6 +687,28 @@ class AppUiTest {
         compose.onNode(hasSetTextAction()).performTextInput("cine")
         waitFor("FR: CINEMA")
         compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasText("UK | ENTERTAINMENT")).fetchSemanticsNodes().isEmpty() }
+    }
+
+    @Test
+    fun `select all and none tick every category, or while filtering only the matching ones`() {
+        val dao = app.container.db.categories()
+        fun included() = runBlocking { dao.included(playlistId, CAT_LIVE).map { it.name }.toSet() }
+        show(Screen.Categories(playlistId))
+        waitFor("UK | ENTERTAINMENT")
+        compose.onNode(hasText("Select none")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(UI_WAIT_MS) { included().isEmpty() }
+
+        compose.onNode(hasText("Filter countries and categories")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(UI_WAIT_MS) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasSetTextAction()).performTextInput("UK")
+        waitFor("Select all matching")
+        compose.onNode(hasText("Select all matching")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(UI_WAIT_MS) { included() == setOf("UK | ENTERTAINMENT", "UK | SPORT") }
+
+        compose.onNode(hasSetTextAction()).performTextClearance()
+        waitFor("Select all")
+        compose.onNode(hasText("Select all")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(UI_WAIT_MS) { included().size == 4 }
     }
 
     @Test

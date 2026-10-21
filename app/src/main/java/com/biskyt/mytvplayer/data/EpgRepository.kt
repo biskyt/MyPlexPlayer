@@ -13,6 +13,7 @@ import com.biskyt.mytvplayer.data.db.ChannelEpgMappingEntity
 import com.biskyt.mytvplayer.data.db.ChannelProgramme
 import com.biskyt.mytvplayer.data.db.EpgChannelEntity
 import com.biskyt.mytvplayer.data.db.EpgSourceEntity
+import com.biskyt.mytvplayer.data.db.MAX_SQL_ARGS
 import com.biskyt.mytvplayer.data.db.PlaylistEntity
 import com.biskyt.mytvplayer.data.db.ProgrammeEntity
 import java.io.BufferedInputStream
@@ -611,7 +612,6 @@ class EpgRepository(
          */
         const val REREAD_AFTER_MS = 20 * 3_600_000L
         const val PROGRESS_EVERY = 100
-        const val MAX_SQL_ARGS = 900
         const val KEEP_PAST_MS = 2 * 3_600_000L
         const val KEEP_FUTURE_MS = 3 * 24 * 3_600_000L
         const val REMAP_DEBOUNCE_MS = 1_500L

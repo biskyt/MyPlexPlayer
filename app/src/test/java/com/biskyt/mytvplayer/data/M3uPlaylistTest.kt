@@ -180,6 +180,30 @@ class M3uPlaylistTest {
     }
 
     @Test
+    fun `a playlist whose categories name no country or language has them all chosen to start with`() = runBlocking {
+        // As the free TV playlist is now: genres only, nothing to choose by country.
+        provider.m3u = """
+            #EXTM3U
+            #EXTINF:-1 group-title="Live: News",World News
+            http://stream.example/news.m3u8
+            #EXTINF:-1 group-title="FAST: Plex",Plex Movies
+            http://stream.example/plex.m3u8
+        """.trimIndent()
+        provider.vodM3u = """
+            #EXTM3U
+            #EXTINF:6000 tvg-type="movie" group-title="Movies: Drama",Detour (1945)
+            https://archive.org/download/detour.mp4
+        """.trimIndent()
+        val id = playlists.addM3u("Free", provider.url + "free.m3u", moviesUrl = provider.url + "vod.m3u")
+        playlists.syncChannels(id)
+        vod.sync(playlists.get(id)!!)
+
+        assertTrue(db.categories().all(id, com.biskyt.mytvplayer.data.db.CAT_LIVE).all { it.included })
+        assertEquals(2, db.channels().idsAll(id).size)
+        assertEquals(listOf("Detour"), db.vod().searchMovies(id, "%", 10).map { it.title })
+    }
+
+    @Test
     fun `a playlist that says what each title is (tvg-type) is taken at its word`() = runBlocking {
         provider.vodM3u = """
             #EXTM3U
