@@ -105,7 +105,13 @@ fun CatchupScreen(screen: Screen.Catchup) {
     var placed by remember { mutableStateOf(false) }
     TabScaffold(Tab.LIVE) {
         Row(Modifier.fillMaxSize().padding(horizontal = 56.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            CategoryColumn(entries, day, vm.days::focus, vm.days::select, right = firstProgramme.takeIf { programmes.isNotEmpty() })
+            CategoryColumn(
+                entries,
+                day,
+                vm.days::focus,
+                vm.days::select,
+                right = if (programmes.isEmpty()) FocusRequester.Default else firstProgramme
+            )
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Catch-up · ${ch?.name.orEmpty()}", style = MaterialTheme.typography.headlineSmall, maxLines = 1)
                 // The focused programme's description, in a fixed space so the list doesn't jump.

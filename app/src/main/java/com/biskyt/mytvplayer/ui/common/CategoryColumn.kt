@@ -115,7 +115,7 @@ fun <F> CategoryColumn(
     onFocus: (F) -> Unit,
     onSelect: (F) -> Unit,
     onHide: ((CategoryEntity) -> Unit)? = null,
-    right: FocusRequester? = null
+    right: FocusRequester = FocusRequester.Default
 ) {
     val selectedEntry = remember { FocusRequester() }
     var options by remember { mutableStateOf<CategoryEntity?>(null) }
@@ -167,7 +167,7 @@ fun <F> CategoryColumn(
                 color = Palette.background,
                 modifier = Modifier.fillMaxWidth()
                     .then(if (isSelected) Modifier.focusRequester(selectedEntry) else Modifier)
-                    .then(if (right != null) Modifier.focusProperties { this.right = right } else Modifier)
+                    .focusProperties { this.right = right }
                     .onPreviewKeyEvent { e ->
                         if (e.type == KeyEventType.KeyDown) {
                             val next = when (e.key) {
