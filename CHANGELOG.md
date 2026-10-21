@@ -6,6 +6,8 @@ Each version's section becomes its GitHub release notes, so it is written for th
 - **Fix: setting up or updating an M3U playlist (including the free TV) crashed the app** on Android devices since
   0.9.0. A pattern for reading catch-up addresses that Java accepts is rejected by Android, and the tests only ran on
   Java. A new test now checks every pattern the way Android does.
+- Free TV now comes with its own TV guide, so setting it up no longer adds a free guide for each country you pick.
+  (Country guides can still be added in Settings › TV guide.)
 - **Touch screens:** MyTVPlayer now works on phones and tablets (in landscape) as well as with a remote. Tap anything
   to choose it, and press and hold for its options (as holding OK does). On the player, tap the picture to show or
   hide the controls, tap or drag along the play bar to skip in films, series and catch-up, and tap the back arrow at

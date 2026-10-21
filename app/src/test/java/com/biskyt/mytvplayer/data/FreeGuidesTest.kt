@@ -17,10 +17,4 @@ class FreeGuidesTest {
         assertEquals("us", FreeGuides.all(Locale.US).first().code)
         assertTrue(FreeGuides.all(Locale("", "AQ")).first().code == "al") // no guide for the TV's country: alphabetical
     }
-
-    @Test
-    fun `category groups find their country's guide, UK as Great Britain`() {
-        val codes = FreeGuides.forGroups(listOf("UK", "FR", "EXYU", null, "fr")).map { it.code }.sorted()
-        assertEquals(listOf("fr", "gb"), codes)
-    }
 }
