@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -32,6 +33,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.db.ChannelProgramme
 import com.biskyt.mytvplayer.hideSystemBars
@@ -56,7 +58,7 @@ fun ScheduleList(programmes: List<ChannelProgramme>?, modifier: Modifier = Modif
     val first = rememberFirstFocus(programmes?.isNotEmpty() == true)
     when {
         programmes == null -> Unit
-        programmes.isEmpty() -> Muted("No guide information for this channel.", modifier, maxLines = 2)
+        programmes.isEmpty() -> Muted(stringResource(R.string.common_no_guide_for_channel), modifier, maxLines = 2)
         else -> LazyColumn(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             itemsIndexed(programmes, key = { _, p -> p.startMs }) { i, p ->
                 val live = p.isLive(now)
@@ -91,7 +93,7 @@ fun ScheduleList(programmes: List<ChannelProgramme>?, modifier: Modifier = Modif
 
 /** Marks a programme on now, wherever programmes are listed. */
 @Composable
-fun OnNowLabel() = Text("ON NOW", style = MaterialTheme.typography.labelSmall, color = Palette.live)
+fun OnNowLabel() = Text(stringResource(R.string.common_on_now), style = MaterialTheme.typography.labelSmall, color = Palette.live)
 
 /**
  * A panel sliding in from the right over a dimmed screen. Shown as a dialog so focus stays inside it and Back closes it.

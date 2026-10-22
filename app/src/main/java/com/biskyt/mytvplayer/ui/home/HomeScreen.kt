@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -28,6 +29,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.WatchProgressEntity
@@ -130,7 +132,7 @@ fun HomeScreen() {
             if (carryOn.isNotEmpty()) {
                 item {
                     Column {
-                        SectionTitle("Carry on watching")
+                        SectionTitle(stringResource(R.string.home_carry_on))
                         CarryOnRow(carryOn, { options = HomeTile.CarryOn(it) }) {
                             nav.push(Screen.VodPlayer(pid, it.itemId, it.seriesId, continueSeries = true))
                         }
@@ -139,7 +141,7 @@ fun HomeScreen() {
             }
             item {
                 Column {
-                    SectionTitle("Your channels, on now")
+                    SectionTitle(stringResource(R.string.home_on_now))
                     val favs = favourites
                     when {
                         favs == null -> Unit
@@ -153,7 +155,7 @@ fun HomeScreen() {
             if (recent.isNotEmpty()) {
                 item {
                     Column {
-                        SectionTitle("Recently watched")
+                        SectionTitle(stringResource(R.string.common_recent))
                         ChannelCardRow(recent, vm.nowNext, { options = HomeTile.Channel(it, ChannelFilter.Recent) }) {
                             nav.push(Screen.Player(pid, it.streamId, ChannelFilter.Recent))
                         }
@@ -185,8 +187,10 @@ private fun TileOptions(tile: HomeTile, vm: HomeViewModel, onDismiss: (removed: 
         is HomeTile.Channel -> {
             val ch = tile.ch
             val favourites by vm.favouriteIds.collectAsState()
+            val watch = stringResource(R.string.common_watch)
+            val removeRecent = stringResource(R.string.home_remove_recent)
             val actions = buildList {
-                add(ItemAction.Open("Watch", Screen.Player(ch.playlistId, ch.streamId, tile.list)))
+                add(ItemAction.Open(watch, Screen.Player(ch.playlistId, ch.streamId, tile.list)))
                 addAll(
                     channelActions(ch, ch.streamId in favourites) { favourite ->
                         vm.setFavourite(ch, favourite)
@@ -195,7 +199,7 @@ private fun TileOptions(tile: HomeTile, vm: HomeViewModel, onDismiss: (removed: 
                 )
                 if (tile.list == ChannelFilter.Recent) {
                     add(
-                        ItemAction.Run("Remove from Recently watched") {
+                        ItemAction.Run(removeRecent) {
                             vm.removeRecent(ch)
                             onDismiss(true)
                         }
@@ -209,17 +213,20 @@ private fun TileOptions(tile: HomeTile, vm: HomeViewModel, onDismiss: (removed: 
             val series = p.seriesId
             val actions = listOf(
                 ItemAction.Open(
-                    if (p.finished) "Play the next episode" else "Resume",
+                    stringResource(if (p.finished) R.string.home_play_next_episode else R.string.home_resume),
                     Screen.VodPlayer(p.playlistId, p.itemId, series, continueSeries = true)
                 ),
                 if (series == null) {
-                    ItemAction.Open("About this movie", Screen.MovieDetails(p.playlistId, p.itemId))
+                    ItemAction.Open(stringResource(R.string.common_about_movie), Screen.MovieDetails(p.playlistId, p.itemId))
                 } else {
-                    ItemAction.Open("All episodes", Screen.SeriesDetails(p.playlistId, series, p.season, p.episode))
+                    ItemAction.Open(
+                        stringResource(R.string.common_all_episodes),
+                        Screen.SeriesDetails(p.playlistId, series, p.season, p.episode)
+                    )
                 },
                 ItemAction.Run(
-                    "Remove from Carry on watching",
-                    if (series == null) "Forgets how far you got" else "Forgets which episodes you've watched"
+                    stringResource(R.string.home_remove_carry_on),
+                    stringResource(if (series == null) R.string.home_forget_movie else R.string.home_forget_series)
                 ) {
                     vm.forget(p)
                     onDismiss(true)
@@ -233,8 +240,8 @@ private fun TileOptions(tile: HomeTile, vm: HomeViewModel, onDismiss: (removed: 
 @Composable
 private fun EmptyFavourites(modifier: Modifier, onBrowse: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Muted("No favourites yet. On Live TV, hold OK on a channel and choose “Add to favourites”.", maxLines = 2)
-        PillButton("Browse channels", onBrowse, modifier, primary = true)
+        Muted(stringResource(R.string.home_no_favourites), maxLines = 2)
+        PillButton(stringResource(R.string.home_browse_channels), onBrowse, modifier, primary = true)
     }
 }
 
@@ -269,8 +276,11 @@ private fun ChannelCardRow(
                         overflow = TextOverflow.Ellipsis
                     )
                     Muted(
-                        nn?.now?.let { "until ${formatTime(it.stopMs)}" + (nn.next?.let { n -> " · then ${n.title}" } ?: "") }
-                            ?: "No guide information"
+                        nn?.now?.let { on ->
+                            val until = formatTime(on.stopMs)
+                            nn.next?.let { stringResource(R.string.home_until_then, until, it.title) }
+                                ?: stringResource(R.string.home_until, until)
+                        } ?: stringResource(R.string.common_no_guide)
                     )
                     ProgressLine(nn?.progress(now) ?: 0f, Modifier.fillMaxWidth())
                 }
@@ -291,10 +301,10 @@ private fun CarryOnRow(items: List<WatchProgressEntity>, onOptions: (WatchProgre
                         Text(p.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         if (p.finished) {
                             // A finished episode with another after it: the card leads on to that one.
-                            Muted("Up next after ${shortEpisodeLabel(p.season, p.episode)}")
+                            Muted(stringResource(R.string.home_up_next_after, shortEpisodeLabel(p.season, p.episode)))
                         } else {
                             if (p.season != null) Muted(shortEpisodeLabel(p.season, p.episode) + (p.episodeTitle?.let { " · $it" } ?: ""))
-                            Muted("${formatDuration(p.remainingMs)} left")
+                            Muted(stringResource(R.string.common_time_left, formatDuration(p.remainingMs)))
                             ProgressLine(p.fraction, Modifier.fillMaxWidth())
                         }
                     }

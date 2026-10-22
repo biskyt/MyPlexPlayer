@@ -1,6 +1,8 @@
 package com.biskyt.mytvplayer.data
 
 import androidx.room.withTransaction
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.core.m3u.M3uCatchup
 import com.biskyt.mytvplayer.core.m3u.M3uParser
 import com.biskyt.mytvplayer.core.xtream.XtreamCategory
@@ -77,7 +79,8 @@ class PlaylistRepository(
 
     /** Checks the login works; throws XtreamException with a readable message otherwise. */
     suspend fun testLogin(server: String, username: String, password: String) {
-        if (!client(server, username, password).account().active) throw XtreamException("This account is not active")
+        val active = withUserXtreamErrors { client(server, username, password).account().active }
+        if (!active) throw XtreamException(appString(R.string.data_account_inactive))
     }
 
     /**
@@ -86,8 +89,9 @@ class PlaylistRepository(
      */
     suspend fun add(name: String, server: String, username: String, password: String): Long {
         val c = client(server.trim(), username.trim(), password)
-        if (!c.account().active) throw XtreamException("This account is not active")
-        val remote = c.liveCategories()
+        val active = withUserXtreamErrors { c.account().active }
+        if (!active) throw XtreamException(appString(R.string.data_account_inactive))
+        val remote = withUserXtreamErrors { c.liveCategories() }
         val id =
             insertAndActivate(PlaylistEntity(name = name, server = server.trim(), username = username.trim(), password = password), remote)
         // Movie and series categories too, so they can be chosen before the first download. Providers without them
@@ -103,11 +107,11 @@ class PlaylistRepository(
      */
     @Suppress("TooGenericExceptionCaught")
     suspend fun addFree(): Result<Long> = try {
-        Result.success(addM3u(FREE_PLAYLIST_NAME, FREE_PLAYLIST_URL, FREE_MOVIES_URL, FREE_SERIES_URL))
+        Result.success(addM3u(appString(R.string.data_free_playlist_name), FREE_PLAYLIST_URL, FREE_MOVIES_URL, FREE_SERIES_URL))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        Result.failure(Exception((e as? IOException)?.message ?: "Couldn't set up the free channels", e))
+        Result.failure(Exception((e as? IOException)?.let(::userMessage) ?: appString(R.string.data_free_failed), e))
     }
 
     /**
@@ -145,9 +149,7 @@ class PlaylistRepository(
         val id = db.withTransaction {
             playlists.insert(
                 p.copy(
-                    name = p.name.ifBlank {
-                        "My TV"
-                    }
+                    name = p.name.ifBlank { appString(R.string.data_playlist_default_name) }
                 )
             ).also { categoryStore.store(it, CAT_LIVE, remote, groupByName = p.isM3u) }
         }
@@ -347,7 +349,7 @@ class PlaylistRepository(
             try {
                 fetch(url) { body -> temp.outputStream().use { body.byteStream().copyTo(it) } }
                 temp.bufferedReader().use { checkPlaylist(it) }
-                if (!temp.renameTo(cached)) throw XtreamException("Couldn't save the playlist")
+                if (!temp.renameTo(cached)) throw XtreamException(appString(R.string.data_playlist_save_failed))
             } finally {
                 temp.delete()
             }
@@ -358,22 +360,22 @@ class PlaylistRepository(
     /** Runs [block] on a successful download's body; failures become readable XtreamExceptions. */
     private fun <T> fetch(url: String, block: (ResponseBody) -> T): T {
         val request = runCatching { Request.Builder().url(url).build() }.getOrNull()
-            ?: throw XtreamException("Invalid playlist address")
+            ?: throw XtreamException(appString(R.string.data_playlist_address_invalid))
         return try {
             http.newCall(request).execute().use {
-                if (!it.isSuccessful) throw XtreamException("The server refused the playlist download (error ${it.code})")
+                if (!it.isSuccessful) throw XtreamException(appString(R.string.data_playlist_refused, it.code))
                 block(it.body!!)
             }
         } catch (e: XtreamException) {
             throw e
         } catch (e: IOException) {
-            throw XtreamException("Couldn't download the playlist: ${e.message}", e)
+            throw XtreamException(appString(R.string.data_playlist_download_failed, e.message.toString()), e)
         }
     }
 
     private fun checkPlaylist(reader: BufferedReader) {
         val first = reader.lineSequence().firstOrNull { it.isNotBlank() }
-        if (first == null || !M3uParser.looksLikePlaylist(first)) throw XtreamException("That address doesn't return an M3U playlist")
+        if (first == null || !M3uParser.looksLikePlaylist(first)) throw XtreamException(appString(R.string.data_not_m3u))
     }
 
     /** Distinct group titles in playlist order; channels without one go under "Other". */
@@ -427,7 +429,6 @@ class PlaylistRepository(
         const val FREE_PLAYLIST_URL = "$FREE_BASE/live.m3u"
         const val FREE_MOVIES_URL = "$FREE_BASE/movies.m3u"
         const val FREE_SERIES_URL = "$FREE_BASE/series.m3u"
-        const val FREE_PLAYLIST_NAME = "Free TV"
 
         /** The free playlist's addresses: now, and before 0.9.4 (iptv-org's channels by country, where users have it). */
         val FREE_PLAYLIST_URLS = setOf(FREE_PLAYLIST_URL, "https://iptv-org.github.io/iptv/index.country.m3u")

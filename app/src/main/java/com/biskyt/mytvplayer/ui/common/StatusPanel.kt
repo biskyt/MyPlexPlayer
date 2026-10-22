@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -28,6 +29,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.SyncState
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
@@ -66,7 +69,7 @@ class WorkRunner(private val appScope: CoroutineScope, private val scope: Corout
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                failed("Something went wrong", e)
+                failed(appString(R.string.common_something_went_wrong), e)
             }
         }
         return true
@@ -84,12 +87,12 @@ fun StatusPanel(status: WorkStatus?) {
     val sync = LocalContext.current.container.sync.state.collectAsState().value
     val busy = sync !is SyncState.Idle && sync !is SyncState.Failed
     // Not an earlier failure: that isn't what is happening now.
-    val progress = sync.takeUnless { it is SyncState.Failed }?.let(::syncLabel) ?: "Please wait"
+    val progress = sync.takeUnless { it is SyncState.Failed }?.let(::syncLabel) ?: stringResource(R.string.common_please_wait)
     val shown = when {
         status?.working == true -> status.copy(detail = progress)
-        busy -> WorkStatus("Updating", progress, working = true)
+        busy -> WorkStatus(stringResource(R.string.common_updating), progress, working = true)
         status != null -> status
-        sync is SyncState.Failed -> WorkStatus("The last update failed", sync.message, failed = true)
+        sync is SyncState.Failed -> WorkStatus(stringResource(R.string.common_last_update_failed), sync.message, failed = true)
         else -> return
     }
     val colour = if (shown.failed) Palette.warning else LocalAccent.current.color

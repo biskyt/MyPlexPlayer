@@ -6,13 +6,15 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.mediacodec.MediaCodecRenderer
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import java.net.UnknownHostException
 
 /** What went wrong ([message]: what happened and what to do) and, when known, why ([reason]). */
 data class PlaybackError(val message: String, val reason: String? = null)
 
 /** "Stream from lb.example.net.", naming where a stream comes from (lenient, like the player, about odd addresses). */
-fun streamSource(url: String?): String? = url?.let { android.net.Uri.parse(it).host }?.let { "Stream from $it." }
+fun streamSource(url: String?): String? = url?.let { android.net.Uri.parse(it).host }?.let { appString(R.string.player_stream_source, it) }
 
 /** Why a stream didn't play ([e], when the player said) and where it comes from, as one line; null if neither is known. */
 /** A stream that buffered for a long while without getting any further (see PlaybackEngine). */
@@ -30,43 +32,41 @@ fun explainFailure(e: PlaybackException): String {
     val http = e.causes().firstNotNullOfOrNull { it as? HttpDataSource.InvalidResponseCodeException }
     return when {
         http != null -> httpReason(http.responseCode)
-        e.causes().any { it is UnknownHostException } ->
-            "The stream's server can't be found: its address may no longer exist."
-        e.errorCode == ERROR_CODE_STALLED -> "The stream's server sent it too slowly to start. It may be busy."
-        e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
-            "The stream's server didn't answer. It may be down or busy."
-        e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ->
-            "Couldn't connect to the stream's server. It may be down, or not reachable from your network."
-        e.errorCode == PlaybackException.ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE ->
-            "The stream's address sent something that isn't video (such as a web page)."
-        e.errorCode in DRM -> "The stream is encrypted (DRM), which MyTVPlayer can't play."
-        e.errorCode in AUDIO_OUTPUT ->
-            "The sound couldn't be sent to your TV or amplifier. Try turning audio passthrough off in Settings › Playback."
-        e.errorCode in DECODING -> "This TV box can't decode the stream's ${decoderFormat(e) ?: "video or audio"}."
-        e.errorCode in PARSING -> "The stream sent data MyTVPlayer can't read (an unsupported or damaged format)."
-        e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW -> "The stream kept falling behind its live point."
-        e.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED -> "The stream stopped arriving: the connection to its server failed."
-        else -> "The player couldn't play it (${e.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' ')})."
+        e.causes().any { it is UnknownHostException } -> appString(R.string.player_error_dns)
+        e.errorCode == ERROR_CODE_STALLED -> appString(R.string.player_error_stalled)
+        e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> appString(R.string.player_error_timeout)
+        e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> appString(R.string.player_error_connection)
+        e.errorCode == PlaybackException.ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE -> appString(R.string.player_error_not_video)
+        e.errorCode in DRM -> appString(R.string.player_error_drm)
+        e.errorCode in AUDIO_OUTPUT -> appString(R.string.player_error_audio_output)
+        e.errorCode in DECODING -> decodingReason(e)
+        e.errorCode in PARSING -> appString(R.string.player_error_parsing)
+        e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW -> appString(R.string.player_error_behind_live)
+        e.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED -> appString(R.string.player_error_io)
+        // The player's own name for the error: technical, so it isn't translated.
+        else -> appString(R.string.player_error_other, e.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' '))
     }
 }
 
 private fun httpReason(code: Int) = when (code) {
-    401, 403 ->
-        "The stream's server refused to send it (error $code). It may only play in its own country, or only on its own " +
-            "website or app."
-    404, 410 -> "The stream isn't at its address any more (error $code). The channel list may be out of date."
-    in 500..599 -> "The stream's server has a problem (error $code). It may be down for now."
-    else -> "The stream's server answered with error $code."
+    401, 403 -> appString(R.string.player_error_http_refused, code)
+    404, 410 -> appString(R.string.player_error_http_gone, code)
+    in 500..599 -> appString(R.string.player_error_http_server, code)
+    else -> appString(R.string.player_error_http_other, code)
 }
 
-/** The format the decoder couldn't handle, e.g. "video (video/hevc)", when the player says. */
+/** That this TV box can't decode the stream's video, audio or other media, naming its format (e.g. video/hevc) when the player says. */
 @OptIn(UnstableApi::class)
-private fun decoderFormat(e: PlaybackException): String? {
+private fun decodingReason(e: PlaybackException): String {
     val mime = e.causes().firstNotNullOfOrNull { (it as? MediaCodecRenderer.DecoderInitializationException)?.mimeType }
         ?: (e as? ExoPlaybackException)?.takeIf { it.type == ExoPlaybackException.TYPE_RENDERER }?.rendererFormat?.sampleMimeType
-        ?: return null
-    val kind = mime.substringBefore('/').takeIf { it == "video" || it == "audio" } ?: "media"
-    return "$kind ($mime)"
+        ?: return appString(R.string.player_error_decode)
+    val sentence = when (mime.substringBefore('/')) {
+        "video" -> R.string.player_error_decode_video
+        "audio" -> R.string.player_error_decode_audio
+        else -> R.string.player_error_decode_media
+    }
+    return appString(sentence, mime)
 }
 
 private fun Throwable.causes(): Sequence<Throwable> = generateSequence(this) { it.cause }.take(MAX_CAUSES)

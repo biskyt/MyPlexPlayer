@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -48,6 +49,8 @@ import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.allowRgb565
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.VodCard
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
@@ -270,7 +273,7 @@ private val countryPrefix = Regex("^\\W*[A-Za-z]{2,3}\\s*[|:\\-]\\s*")
 fun initials(name: String): String {
     val words = name.replace(countryPrefix, "").split(' ', '-', '_').filter { it.isNotBlank() }
     return when {
-        words.isEmpty() -> "TV"
+        words.isEmpty() -> appString(R.string.common_logo_fallback)
         words.size == 1 -> words[0].take(3).uppercase()
         else -> words.take(2).joinToString("") { it.take(1) }.uppercase()
     }
@@ -343,5 +346,6 @@ fun ValueChip(value: String) {
 /** Marks a channel with catch-up (nothing for others): small and dim, there when looked for without crowding. */
 @Composable
 fun CatchupMark(ch: ChannelEntity, modifier: Modifier = Modifier) {
-    if (ch.archiveDays > 0) Icon(AppIcons.Catchup, "Catch-up", tint = Palette.textDim, modifier = modifier.size(16.dp))
+    if (ch.archiveDays <= 0) return
+    Icon(AppIcons.Catchup, stringResource(R.string.common_catchup), tint = Palette.textDim, modifier = modifier.size(16.dp))
 }

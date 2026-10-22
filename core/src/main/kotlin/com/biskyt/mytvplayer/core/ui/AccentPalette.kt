@@ -7,21 +7,25 @@ package com.biskyt.mytvplayer.core.ui
  * - [onAccent]: black or white, whichever reads better on the accent.
  */
 data class AccentPalette(val accent: Int, val tint: Int, val soft: Int, val onAccent: Int) {
+    /** A colour offered in Settings: [id] says which (never stored), [argb] is the colour. */
+    data class Preset(val id: String, val argb: Int)
+
     companion object {
         const val DEFAULT = 0xFF2BC4B0.toInt()
         private const val DARK_TEXT = 0xFF0F1114.toInt()
         private const val LIGHT_TEXT = 0xFFFFFFFF.toInt()
         private const val DARK_TEXT_LUMINANCE = 0.0056
 
-        val presets: List<Pair<String, Int>> = listOf(
-            "Mint" to DEFAULT,
-            "Amber" to 0xFFF2A93B.toInt(),
-            "Violet" to 0xFFA78BFA.toInt(),
-            "Sky" to 0xFF5AA9F2.toInt(),
-            "Coral" to 0xFFF2766B.toInt(),
-            "Lime" to 0xFFA3D44A.toInt(),
-            "Pink" to 0xFFF27BB8.toInt(),
-            "Silver" to 0xFFC7CCD4.toInt()
+        /** The colours offered in Settings, each with a stable id the app names it by (the setting stores the colour). */
+        val presets: List<Preset> = listOf(
+            Preset("mint", DEFAULT),
+            Preset("amber", 0xFFF2A93B.toInt()),
+            Preset("violet", 0xFFA78BFA.toInt()),
+            Preset("sky", 0xFF5AA9F2.toInt()),
+            Preset("coral", 0xFFF2766B.toInt()),
+            Preset("lime", 0xFFA3D44A.toInt()),
+            Preset("pink", 0xFFF27BB8.toInt()),
+            Preset("silver", 0xFFC7CCD4.toInt())
         )
 
         fun from(argb: Int): AccentPalette {

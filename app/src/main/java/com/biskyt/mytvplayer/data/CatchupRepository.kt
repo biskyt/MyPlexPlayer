@@ -1,6 +1,8 @@
 package com.biskyt.mytvplayer.data
 
 import android.util.LruCache
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.core.m3u.M3uCatchup
 import com.biskyt.mytvplayer.core.xtream.CatchupListing
 import com.biskyt.mytvplayer.core.xtream.CatchupProgramme
@@ -30,7 +32,7 @@ class CatchupRepository(private val playlists: PlaylistRepository, private val c
             return M3uCatchup.hourlyListing(clock(), ch.archiveDays).also { cache.put(key, Cached(it, hour)) }
         }
         cache[key]?.takeIf { clock() - it.at < MAX_AGE_MS }?.let { return it.listing }
-        return playlists.client(p).catchupListing(ch.streamId).also { cache.put(key, Cached(it, clock())) }
+        return withUserXtreamErrors { playlists.client(p).catchupListing(ch.streamId) }.also { cache.put(key, Cached(it, clock())) }
     }
 
     /** Programmes that can be replayed: started, kept by the provider, and within the channel's catch-up days. */
@@ -52,7 +54,7 @@ class CatchupRepository(private val playlists: PlaylistRepository, private val c
             val type = ch.catchupType
             val stream = ch.streamUrl
             return (if (type != null && stream != null) M3uCatchup.url(stream, type, ch.catchupSource, startMs, clock()) else null)
-                ?: throw IOException("This channel's catch-up can't be played")
+                ?: throw IOException(appString(R.string.data_catchup_unplayable))
         }
         // A minute over, so the stream doesn't end just short of now.
         val minutes = ((clock() - startMs) / 60_000).toInt().coerceAtLeast(1) + 1

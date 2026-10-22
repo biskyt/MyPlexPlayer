@@ -1,5 +1,8 @@
 package com.biskyt.mytvplayer.data
 
+import androidx.annotation.StringRes
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -47,7 +50,7 @@ class SyncManager(
 
     /** Looks for guides for channels without one. A failure also shows in [state]. */
     suspend fun matchMissingGuides(): Result<MatchResult> =
-        attempt("Couldn't match channels") { epg.matchMissing(playlists.allIds()) { _state.value = SyncState.Guide(it) } }
+        attempt(R.string.common_match_failed) { epg.matchMissing(playlists.allIds()) { _state.value = SyncState.Guide(it) } }
 
     /** Runs [block] while no refresh is running, e.g. replacing everything from a backup. */
     suspend fun <T> whileIdle(block: suspend () -> T): T = mutex.withLock { block() }
@@ -56,23 +59,25 @@ class SyncManager(
      * [refresh], waiting for it: the outcome is returned (with the error of each guide that couldn't be loaded, by source
      * id, as [updateGuide]), and also shows in [state].
      */
-    suspend fun refreshNow(playlistId: Long, includeGuide: Boolean = true): Result<Map<Long, String>> = attempt("Couldn't refresh") {
-        _state.value = SyncState.Channels(0)
-        playlists.syncChannels(playlistId) { _state.value = SyncState.Channels(it) }
-        val guideErrors = if (includeGuide) importGuide() else emptyMap()
-        syncVod(playlistId)
-        guideErrors
-    }
+    suspend fun refreshNow(playlistId: Long, includeGuide: Boolean = true): Result<Map<Long, String>> =
+        attempt(R.string.data_refresh_failed) {
+            _state.value = SyncState.Channels(0)
+            playlists.syncChannels(playlistId) { _state.value = SyncState.Channels(it) }
+            val guideErrors = if (includeGuide) importGuide() else emptyMap()
+            syncVod(playlistId)
+            guideErrors
+        }
 
     /**
      * Updates the guide now, with this update's own outcome (another refresh may change [state] straight after):
      * the error of each guide that couldn't be loaded, by source id. With [only], just that guide is downloaded (e.g.
      * one just added); the others are used as last loaded.
      */
-    suspend fun updateGuide(only: Long? = null): Result<Map<Long, String>> = attempt("Couldn't update the TV guide") { importGuide(only) }
+    suspend fun updateGuide(only: Long? = null): Result<Map<Long, String>> =
+        attempt(R.string.common_guide_update_failed) { importGuide(only) }
 
     /** Only movies and series (after their categories change). */
-    fun refreshVod(playlistId: Long): Job = scope.launch { guarded("Couldn't load movies and series") { syncVod(playlistId) } }
+    fun refreshVod(playlistId: Long): Job = scope.launch { guarded(R.string.data_vod_failed) { syncVod(playlistId) } }
 
     private suspend fun syncVod(playlistId: Long) {
         val p = playlists.get(playlistId) ?: return
@@ -84,20 +89,20 @@ class SyncManager(
     private suspend fun importGuide(only: Long? = null) = epg.importAll(playlists.allIds(), only) { _state.value = SyncState.Guide(it) }
 
     /** [attempt] when only the state needs to show the outcome. */
-    private suspend fun <T> guarded(failure: String, block: suspend () -> T): T? = attempt(failure, block).getOrNull()
+    private suspend fun <T> guarded(@StringRes failure: Int, block: suspend () -> T): T? = attempt(failure, block).getOrNull()
 
     /**
      * Runs one refresh at a time; any failure (network, bad data, full storage) is shown in [state] and returned
      * (with its message for the user), never allowed to crash the app.
      */
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun <T> attempt(failure: String, block: suspend () -> T): Result<T> = mutex.withLock {
+    private suspend fun <T> attempt(@StringRes failure: Int, block: suspend () -> T): Result<T> = mutex.withLock {
         try {
             Result.success(block().also { _state.value = SyncState.Idle })
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            val message = e.message ?: failure
+            val message = userMessage(e) ?: appString(failure)
             _state.value = SyncState.Failed(message)
             Result.failure(Exception(message, e))
         }

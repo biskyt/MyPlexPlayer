@@ -6,6 +6,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewModelScope
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.core.player.OverlayState
 import com.biskyt.mytvplayer.core.xtream.XtreamClient
 import com.biskyt.mytvplayer.data.StreamFormat
@@ -34,7 +36,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
 
     /** The list being zapped through (kept when going to catch-up and back). */
     val filter get() = screen.filter
-    override val failureMessage = "This channel isn't playing right now. Try again later or pick another channel."
+    override val failureMessage = R.string.player_failure_live
 
     val nowNext =
         NowNextLoader(viewModelScope, c.epg.changes) { ids, from, to ->
@@ -82,7 +84,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
     /** Typed digits switch to that channel number. */
     val numberEntry = NumberEntry(viewModelScope) { n ->
         val ch = c.channels.byNumber(screen.playlistId, n)
-        if (ch != null) tuneTo(ch.streamId) else flash("No channel $n")
+        if (ch != null) tuneTo(ch.streamId) else flash(appString(R.string.player_no_channel, n))
     }
 
     override fun typeDigit(digit: Int) = numberEntry.type(digit)

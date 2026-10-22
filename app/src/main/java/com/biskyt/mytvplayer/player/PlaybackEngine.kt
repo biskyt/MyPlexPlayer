@@ -24,7 +24,9 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.USER_AGENT
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.core.player.SubtitlePolicy
 import com.biskyt.mytvplayer.core.player.TextTrack
 import com.biskyt.mytvplayer.data.BufferSize
@@ -209,15 +211,15 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
      */
     fun audioOutputLabel(tracks: Tracks = player.currentTracks, playing: Format? = player.audioFormat): String {
         // The format being played when known (it has the real channel count); else the chosen track's.
-        val f = playing ?: selectedAudioFormat(tracks) ?: return "No audio"
+        val f = playing ?: selectedAudioFormat(tracks) ?: return appString(R.string.player_audio_none)
         val name = encodedName(f.sampleMimeType)
         if (name != null && settings.audioPassthrough) {
             val caps = AudioCapabilities.getCapabilities(context, AudioAttributes.DEFAULT, null)
-            if (caps.isPassthroughPlaybackSupported(f, AudioAttributes.DEFAULT)) return "Passthrough · $name"
+            if (caps.isPassthroughPlaybackSupported(f, AudioAttributes.DEFAULT)) return appString(R.string.player_audio_passthrough, name)
         }
         val channels = f.channelCount.takeIf { it != Format.NO_VALUE } ?: 2
-        val decoded = if (name != null) "$name decoded" else "Audio"
-        return if (channels > 2) "$decoded · ${channels}ch" else "$decoded · Stereo"
+        val layout = if (channels > 2) appString(R.string.player_track_channels, channels) else appString(R.string.player_audio_stereo)
+        return if (name != null) appString(R.string.player_audio_decoded, name, layout) else appString(R.string.player_audio_layout, layout)
     }
 
     private fun selectedAudioFormat(tracks: Tracks): Format? = tracks.groups

@@ -1,15 +1,19 @@
 package com.biskyt.mytvplayer.ui.player
 
 import android.content.Context
+import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.core.player.KeyActionMapper
 import com.biskyt.mytvplayer.core.player.OverlayState
 import com.biskyt.mytvplayer.core.player.PlayerAction
@@ -42,8 +46,9 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         private set
 
     /** Stops on an error: [message] says what happened and what to do, [reason] why (when known). */
-    protected fun fail(message: String, reason: String? = null) {
-        error = PlaybackError(message, reason)
+    /** Shows the error [message] ([failureMessage] when there's none to tell), and why: [reason]. */
+    protected fun fail(message: String? = null, reason: String? = null) {
+        error = PlaybackError(message ?: appString(failureMessage), reason)
     }
     var message by mutableStateOf<String?>(null)
         private set
@@ -97,7 +102,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     protected abstract val isLive: Boolean
 
     /** Shown when a stream keeps failing. */
-    protected abstract val failureMessage: String
+    @get:StringRes protected abstract val failureMessage: Int
 
     private val listener = object : Player.Listener {
         override fun onIsPlayingChanged(playing: Boolean) {
@@ -134,7 +139,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             playedMs = 0
             playingSince = 0
             if (!retries.take()) {
-                fail(failureMessage, failureReason(e, engine?.currentUrl))
+                fail(reason = failureReason(e, engine?.currentUrl))
                 return
             }
             if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
@@ -170,7 +175,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             it.player.addListener(listener)
             it.player.addAnalyticsListener(audioFormatListener)
             it.onStalled = listener::onPlayerError
-            it.onUnsupported = { url -> fail("This uses a stream format MyTVPlayer can't play.", failureReason(null, url)) }
+            it.onUnsupported = { url -> fail(appString(R.string.player_unsupported_format), failureReason(null, url)) }
             engine = it
         }
     }
@@ -301,7 +306,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
      * jumps there once the button rests, so scrubbing through a film doesn't reload the stream at every step.
      */
     private fun scrub(ms: Long, repeat: Int) {
-        val (range, now) = scrubBounds() ?: return flash("Skipping isn't available here")
+        val (range, now) = scrubBounds() ?: return flash(appString(R.string.player_skipping_unavailable))
         if (overlay == OverlayState.NONE) showControls(forSkip = true)
         moveScrub(scrubTarget(scrubMs ?: now, ms, repeat, range), now)
     }
@@ -309,7 +314,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     /** Touch: tapping or dragging along the play bar moves the point to play from to [fraction] of [span]. */
     fun scrubTo(span: LongRange, fraction: Float) {
         // Not seekable: said once, not at every step of a drag.
-        val (range, now) = scrubBounds() ?: return if (message == null) flash("Skipping isn't available here") else Unit
+        val (range, now) = scrubBounds() ?: return if (message == null) flash(appString(R.string.player_skipping_unavailable)) else Unit
         showControls(keepOverlay = true)
         val target = span.first + ((span.last - span.first) * fraction.coerceIn(0f, 1f)).toLong()
         moveScrub(target.coerceIn(range), now)
@@ -385,23 +390,30 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
                 delay(minutes * 60_000L)
                 stop()
             }
-            flash("Sleep timer: $minutes min")
+            flash(appString(R.string.player_sleep_timer_minutes, minutes))
         }
     }
 
     private var trackJob: Job? = null
 
     /**
-     * Plays track [index] of [group] ([type]: audio or subtitles, called [what] and [label]), then says whether it
+     * Plays track [index] of [group] ([type]: audio or subtitles, called [label]), then says whether it
      * is: what's shown is what the player did, not just what was asked.
      */
-    fun chooseTrack(type: Int, what: String, group: Tracks.Group, index: Int, label: String) {
+    fun chooseTrack(type: Int, group: Tracks.Group, index: Int, label: String) {
         val engine = engine ?: return
         engine.selectTrack(type, group, index)
         trackJob?.cancel()
         trackJob = viewModelScope.launch {
             delay(TRACK_CHECK_MS)
-            flash(if (engine.isPlaying(group, index)) "$what: $label" else "Couldn't switch the ${what.lowercase()} to $label")
+            val audio = type == C.TRACK_TYPE_AUDIO
+            val said = when {
+                !engine.isPlaying(group, index) ->
+                    if (audio) R.string.player_audio_switch_failed else R.string.player_subtitles_switch_failed
+                audio -> R.string.player_audio_switched
+                else -> R.string.player_subtitles_switched
+            }
+            flash(appString(said, label))
         }
     }
 

@@ -10,7 +10,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 
@@ -49,15 +48,15 @@ class XtreamClientTest {
         server.enqueue(MockResponse().setBody("""{"user_info":{"auth":0}}"""))
         assertFalse(client.account().active)
         server.enqueue(MockResponse().setBody("[]"))
-        expectXtreamError { client.account() }
+        expectXtreamError(XtreamException.Reason.LOGIN_FAILED) { client.account() }
     }
 
     @Test
     fun `http error and garbage are reported as XtreamException`() = runTest {
         server.enqueue(MockResponse().setResponseCode(503))
-        expectXtreamError { client.liveCategories() }
+        assertEquals(503, expectXtreamError(XtreamException.Reason.SERVER_ERROR) { client.liveCategories() }.code)
         server.enqueue(MockResponse().setBody("<html>not json</html>"))
-        expectXtreamError { client.liveCategories() }
+        expectXtreamError(XtreamException.Reason.UNEXPECTED_RESPONSE) { client.liveCategories() }
     }
 
     @Test
@@ -113,12 +112,15 @@ class XtreamClientTest {
         assertEquals("http://example.tv:8080/xmltv.php?username=a%20b&password=x%2Fy", c.xmltvUrl())
     }
 
-    private suspend fun expectXtreamError(block: suspend () -> Unit) {
+    /** Runs [block], which must fail with an XtreamException for [reason]; returns it. */
+    private suspend fun expectXtreamError(reason: XtreamException.Reason, block: suspend () -> Unit): XtreamException {
         try {
             block()
-            fail("Expected XtreamException")
-        } catch (_: XtreamException) {
+        } catch (e: XtreamException) {
+            assertEquals(reason, e.reason)
+            return e
         }
+        throw AssertionError("Expected XtreamException")
     }
 
     @Test

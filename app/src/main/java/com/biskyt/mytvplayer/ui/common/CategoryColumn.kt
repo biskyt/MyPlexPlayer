@@ -31,13 +31,15 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import com.biskyt.mytvplayer.core.epg.CategoryLanguageDetector
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.data.db.CategoryEntity
+import com.biskyt.mytvplayer.data.groupLabel
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 import kotlinx.coroutines.CoroutineScope
@@ -94,7 +96,7 @@ data class CategoryEntry<F>(val filter: F, val label: String, val count: Int? = 
 fun <F> categoryEntries(categories: List<CategoryEntity>, filter: (CategoryEntity) -> F): List<CategoryEntry<F>> {
     val shared = categories.groupingBy { it.name }.eachCount().filterValues { it > 1 }.keys
     return categories.map {
-        val label = if (it.name in shared && it.lang != null) "${it.name} · ${CategoryLanguageDetector.label(it.lang)}" else it.name
+        val label = if (it.name in shared && it.lang != null) "${it.name} · ${groupLabel(it.lang)}" else it.name
         CategoryEntry(filter(it), label, it.channelCount, it)
     }
 }
@@ -196,7 +198,7 @@ fun <F> CategoryColumn(
     }
     options?.let { cat ->
         val close = { options = null }
-        val hide = ItemAction.Run("Hide category", "Show it again in Settings › Languages & categories") {
+        val hide = ItemAction.Run(stringResource(R.string.common_hide_category), stringResource(R.string.common_hide_category_help)) {
             close()
             onHide?.invoke(cat)
             refocus++ // its entry goes, and focus with it
