@@ -51,25 +51,20 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # Built before the emulator starts, so its time limit only covers running the tests.
+      # Built before the emulator starts, so the two don't compete for the runner.
       - name: Build the app and its smoke tests
         run: ./gradlew -PemulatorAbi=${{ matrix.arch }} :app:assembleDebug :app:assembleDebugAndroidTest
 
+      - name: Start ${{ matrix.name }}
+        run: .github/scripts/start-emulator.sh ${{ matrix.api-level }} ${{ matrix.target }} ${{ matrix.arch }}
+
       - name: Run the smoke tests on ${{ matrix.name }}
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: ${{ matrix.api-level }}
-          target: ${{ matrix.target }}
-          arch: ${{ matrix.arch }}
-          profile: tv_1080p
-          # The emulator connects to adb as it starts; with no adb server yet it reconnects once booted, and the
-          # device drops out under the runner's first command ("device offline", exit 255).
-          pre-emulator-launch-script: $ANDROID_HOME/platform-tools/adb start-server
-          disable-animations: true
-          script: ./gradlew -PemulatorAbi=${{ matrix.arch }} :app:connectedDebugAndroidTest
+        run: ./gradlew -PemulatorAbi=${{ matrix.arch }} :app:connectedDebugAndroidTest
 
       - uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: smoke-test-reports-api-${{ matrix.api-level }}
-          path: app/build/reports/androidTests/
+          path: |
+            app/build/reports/androidTests/
+            emulator.log
