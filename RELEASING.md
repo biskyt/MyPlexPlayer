@@ -4,7 +4,7 @@ Releases are built and published by GitHub Actions (`.github/workflows/release.y
 - `MyTVPlayer-<version>.apk`: for sideloading onto a TV box.
 - `SHA256SUMS.txt`: the APK's checksum.
 
-The app bundle Google Play wants (`MyTVPlayer-<version>.aab`) isn't published with the release: it is kept on the workflow run's page under **Artifacts** for 90 days.
+The app bundle Google Play wants (`MyTVPlayer-<version>.aab`) isn't published with the release. It is uploaded to Google Play's closed testing track (see **Google Play** below) and kept on the workflow run's page under **Artifacts** for 90 days.
 - Release notes taken from this version's section of `CHANGELOG.md`.
 
 ## One-time setup: your own signing key
@@ -43,4 +43,17 @@ Until these secrets exist, releases still build, but they are signed with the pu
 Versions starting with `0.` are marked as pre-releases. From `1.0.0` they are full releases.
 
 ## Google Play
-Upload the `.aab` from the release run's Artifacts (GitHub › Actions › the Release run) to the Play Console. Play re-signs it with its own app-signing key, so Play installs and GitHub APK installs can't update each other. Pick one channel per device.
+Each release uploads its `.aab` to the closed testing track (**Closed testing - Alpha**), with its notes, cut to Play's 500-character limit, as "What's new". Play re-signs it with its own app-signing key, so Play installs and GitHub APK installs can't update each other. Pick one channel per device.
+
+### One-time setup
+1. **Google Cloud** (free, no billing needed): at [console.cloud.google.com](https://console.cloud.google.com/), create a project, enable the **Google Play Android Developer API**, create a service account (no roles) and download a **JSON key** for it.
+2. **Play Console** › *Users and permissions* › *Invite new users*: the service account's email, with MyTVPlayer under *App permissions* and **Release apps to testing tracks**.
+3. **GitHub** › *Settings* › *Secrets and variables* › *Actions*: a secret `PLAY_SERVICE_ACCOUNT_JSON` holding the whole JSON file.
+
+Without the secret (or for a build signed with the development key) the upload is skipped; upload the `.aab` from the run's Artifacts by hand instead.
+
+### Repository variables (optional, same settings page, *Variables* tab)
+- `PLAY_RELEASE_STATUS`: unset, each release goes to testers once Play has reviewed it. Set it to `draft` to check each one in Play Console and send it from there instead.
+- `PLAY_NOTES_LANGUAGE`: the language of "What's new", `en-GB` unless set. It must be one of the store listing's languages.
+
+Moving a release from closed testing to production is done in Play Console.

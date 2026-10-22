@@ -1,7 +1,7 @@
 name: Release
 
-# Publishes a GitHub Release with the signed APK (for sideloading). The AAB for Google Play is kept as a workflow
-# artifact on the run, not published.
+# Publishes a GitHub Release with the signed APK (for sideloading), and uploads the AAB to Google Play's closed testing
+# track (when the Play secret is set; see RELEASING.md). The AAB is also kept as a workflow artifact on the run.
 # Start it by pushing a tag that matches the app's versionName (e.g. `git tag v0.2.4 && git push origin v0.2.4`),
 # or from the Actions tab ("Run workflow"), which tags the chosen branch for you.
 
@@ -16,6 +16,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      # Secrets can't be tested in a step's `if`; this can.
+      HAS_PLAY_ACCOUNT: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
@@ -81,16 +84,19 @@ jobs:
           mkdir -p dist
           cp app/build/outputs/apk/release/app-release.apk "dist/MyTVPlayer-$v.apk"
           (cd dist && sha256sum MyTVPlayer-*.apk > SHA256SUMS.txt)
-          mkdir -p play
+          mkdir -p play/whatsnew
           cp app/build/outputs/bundle/release/app-release.aab "play/MyTVPlayer-$v.aab"
           # Release notes: this version's section of CHANGELOG.md, and any versions since the last release.
           .github/scripts/release-notes.sh "$v" > dist/notes.md
+          python3 .github/scripts/play-notes.py dist/notes.md \
+            "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/v$v" \
+            > "play/whatsnew/whatsnew-${{ vars.PLAY_NOTES_LANGUAGE || 'en-GB' }}"
           if [ "$SIGNED_WITH" = "development" ]; then
             printf '\n> **Test build:** signed with the public development key. Not for general distribution.\n' >> dist/notes.md
           fi
           printf '\n**Install on Android TV:** download the APK and sideload it (e.g. with the Downloader app or `adb install`).\n' >> dist/notes.md
 
-      # For Google Play (uploaded by hand for now): on the run's page under Artifacts, kept 90 days.
+      # For Google Play by hand, if the upload below is off or fails: on the run's page under Artifacts, kept 90 days.
       - uses: actions/upload-artifact@v6
         with:
           name: MyTVPlayer-${{ steps.version.outputs.version }}-play-bundle
@@ -107,3 +113,21 @@ jobs:
           files: |
             dist/MyTVPlayer-*.apk
             dist/SHA256SUMS.txt
+
+      # Google Play: the bundle goes to closed testing ("Closed testing - Alpha" in Play Console, "alpha" here), after
+      # the GitHub release so a Play problem can't hold that up. Skipped without the service account secret, and for a
+      # build signed with the development key, which Play would refuse.
+      # The release goes to testers after Play's review of it; set the repository variable PLAY_RELEASE_STATUS to
+      # "draft" to send each one by hand from Play Console instead.
+      - name: Upload to Google Play (closed testing)
+        if: env.HAS_PLAY_ACCOUNT == 'true' && env.SIGNED_WITH == 'release'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.biskyt.mytvplayer
+          releaseFiles: play/MyTVPlayer-${{ steps.version.outputs.version }}.aab
+          releaseName: ${{ steps.version.outputs.version }}
+          track: alpha
+          status: ${{ vars.PLAY_RELEASE_STATUS || 'completed' }}
+          whatsNewDirectory: play/whatsnew
+          mappingFile: app/build/outputs/mapping/release/mapping.txt
