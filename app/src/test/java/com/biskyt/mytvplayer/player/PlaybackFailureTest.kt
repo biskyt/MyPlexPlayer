@@ -3,6 +3,7 @@ package com.biskyt.mytvplayer.player
 import androidx.media3.common.PlaybackException
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.HttpDataSource
+import com.biskyt.mytvplayer.testutil.PlainApp
 import java.net.UnknownHostException
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -11,7 +12,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], application = android.app.Application::class)
+@Config(sdk = [34], application = PlainApp::class)
 class PlaybackFailureTest {
     private fun failure(code: Int, cause: Throwable? = null) = PlaybackException("test", cause, code)
 

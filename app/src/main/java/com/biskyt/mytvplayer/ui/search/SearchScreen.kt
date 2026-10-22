@@ -1,6 +1,7 @@
 package com.biskyt.mytvplayer.ui.search
 
 import android.util.Log
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -23,12 +24,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.SearchResults
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
@@ -142,7 +145,7 @@ fun SearchScreen(initialQuery: String = "") {
                 TvTextField(
                     value = query,
                     onValueChange = { vm.query.value = it },
-                    placeholder = "Search channels, TV programmes, movies and series",
+                    placeholder = stringResource(R.string.search_placeholder),
                     modifier = Modifier.fillMaxWidth(),
                     leading = { Icon(AppIcons.Search, null, tint = Palette.textDim, modifier = Modifier.size(20.dp)) },
                     editing = editing
@@ -150,28 +153,28 @@ fun SearchScreen(initialQuery: String = "") {
             }
             when {
                 searched.isEmpty() -> Unit
-                found.failed -> item { Muted("Search isn't working right now. Try again in a moment.") }
-                results == null -> item { Muted("Keep typing: at least 2 letters, or a channel number.") }
-                results.isEmpty -> item { Muted("Nothing found for “$searched”.") }
+                found.failed -> item { Muted(stringResource(R.string.search_failed)) }
+                results == null -> item { Muted(stringResource(R.string.search_keep_typing)) }
+                results.isEmpty -> item { Muted(stringResource(R.string.search_nothing_found, searched)) }
                 else -> {
                     // Holding OK (or the remote's Menu button) on a result opens its options.
-                    section("Channels", results.channels, { it.streamId }) {
+                    section(R.string.common_channels, results.channels, { it.streamId }) {
                         ChannelCard(it, { picked = Picked.Channel(it.streamId, it.name) }) {
                             nav.push(Screen.Player(pid, it.streamId, ChannelFilter.All))
                         }
                     }
                     if (results.programmes.isNotEmpty()) {
-                        item { SectionTitle("On TV", Modifier.padding(top = SECTION_GAP)) }
+                        item { SectionTitle(stringResource(R.string.search_on_tv), Modifier.padding(top = SECTION_GAP)) }
                         items(results.programmes, key = { "p${it.streamId}:${it.startMs}" }) { p ->
                             ProgrammeRow(p, now, { picked = Picked.Channel(p.streamId, p.channelName) }) {
                                 nav.push(Screen.Player(pid, p.streamId, ChannelFilter.All))
                             }
                         }
                     }
-                    section("Movies", results.movies, { it.id }) {
+                    section(R.string.common_tab_movies, results.movies, { it.id }) {
                         PosterCard(it, onLongClick = { picked = Picked.Vod(CAT_MOVIE, it) }) { nav.push(Screen.MovieDetails(pid, it.id)) }
                     }
-                    section("Series", results.series, { it.id }) {
+                    section(R.string.common_tab_series, results.series, { it.id }) {
                         PosterCard(it, onLongClick = { picked = Picked.Vod(CAT_SERIES, it) }) { nav.push(Screen.SeriesDetails(pid, it.id)) }
                     }
                 }
@@ -190,7 +193,7 @@ private fun ResultOptions(item: Picked, pid: Long, vm: SearchViewModel, onDismis
             val channel by produceState<ChannelEntity?>(null, item) { value = vm.channel(pid, item.streamId) }
             Triple(
                 item.name,
-                ItemAction.Open("Watch", Screen.Player(pid, item.streamId, ChannelFilter.All)),
+                ItemAction.Open(stringResource(R.string.common_watch), Screen.Player(pid, item.streamId, ChannelFilter.All)),
                 // Once both are read: a label saying "Add" for a favourite would undo it.
                 channel?.let { ch ->
                     favourites?.let { f -> channelActions(ch, ch.streamId in f) { vm.setChannelFavourite(pid, ch.streamId, it) } }
@@ -203,7 +206,7 @@ private fun ResultOptions(item: Picked, pid: Long, vm: SearchViewModel, onDismis
             Triple(
                 item.card.title,
                 ItemAction.Open(
-                    if (movie) "Open movie" else "Open series",
+                    stringResource(if (movie) R.string.search_open_movie else R.string.search_open_series),
                     if (movie) Screen.MovieDetails(pid, item.card.id) else Screen.SeriesDetails(pid, item.card.id)
                 ),
                 listOfNotNull(
@@ -216,11 +219,11 @@ private fun ResultOptions(item: Picked, pid: Long, vm: SearchViewModel, onDismis
 }
 
 /** A titled row of results, left out when there are none. */
-private fun <T> LazyListScope.section(title: String, items: List<T>, key: (T) -> Long, card: @Composable (T) -> Unit) {
+private fun <T> LazyListScope.section(@StringRes title: Int, items: List<T>, key: (T) -> Long, card: @Composable (T) -> Unit) {
     if (items.isEmpty()) return
     item {
         Column(Modifier.padding(top = SECTION_GAP)) {
-            SectionTitle(title)
+            SectionTitle(stringResource(title))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) { items(items, key = key) { card(it) } }
         }
     }

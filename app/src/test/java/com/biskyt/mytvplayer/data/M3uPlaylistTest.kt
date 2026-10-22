@@ -3,11 +3,13 @@ package com.biskyt.mytvplayer.data
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.biskyt.mytvplayer.core.xtream.SeasonInfo
 import com.biskyt.mytvplayer.data.db.AppDatabase
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.testutil.FakeProvider
+import com.biskyt.mytvplayer.testutil.PlainApp
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,7 +30,7 @@ import org.robolectric.annotation.Config
 
 /** M3U playlists' movies and series, and how their categories are filed. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], application = android.app.Application::class)
+@Config(sdk = [34], application = PlainApp::class)
 class M3uPlaylistTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val provider = FakeProvider()
@@ -91,7 +93,7 @@ class M3uPlaylistTest {
         val show = db.vod().searchSeries(id, "%", 10).single()
         assertEquals("Caminandes", show.title)
         val details = vod.seriesDetails(p, show.id)
-        assertEquals(listOf("Season 1"), details.seasons.map { it.name })
+        assertEquals(listOf(SeasonInfo(1, null)), details.seasons)
         assertEquals(listOf("Llama Drama", "Gran Dillama"), details.episodes.map { it.title })
         assertEquals("http://vod.example/series/cam1.mp4", vod.episodeUrl(p, details.episodes[0].id, ""))
         assertEquals(null, vod.movieDetails(p, bunny.streamId).plot)

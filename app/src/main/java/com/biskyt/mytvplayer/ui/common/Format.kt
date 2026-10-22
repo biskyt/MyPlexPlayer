@@ -1,5 +1,8 @@
 package com.biskyt.mytvplayer.ui.common
 
+import com.biskyt.mytvplayer.AppText
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.ChannelProgramme
 import java.text.DateFormat
@@ -19,23 +22,29 @@ fun formatRange(startMs: Long, stopMs: Long) = "${formatTime(startMs)} – ${for
 
 fun formatDateTime(epochMs: Long): String = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(epochMs))
 
-// The app's words are English, so day names are too.
-private val dayFormat = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)
+// Day names are in the app's language (AppText.locale), not the device's. Built once per language.
+private class DateFormats(val locale: Locale) {
+    val day: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE", locale)
+    val date: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d MMM", locale)
+}
+
+@Volatile private var formats = DateFormats(AppText.locale)
+
+private fun formats(): DateFormats = formats.takeIf { it.locale == AppText.locale } ?: DateFormats(AppText.locale).also { formats = it }
 
 /** "Mon 19 Oct". */
-val dateFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
+val dateFormat: DateTimeFormatter get() = formats().date
 
 /** When something starts, relative to [now]: "Today 20:00", "Tomorrow 06:30", "Wed 21:00" or "Wed 3 Dec 21:00". */
 fun formatDayTime(epochMs: Long, now: Long = System.currentTimeMillis()): String {
     val zone = ZoneId.systemDefault()
     val date = Instant.ofEpochMilli(epochMs).atZone(zone).toLocalDate()
-    val day = when (ChronoUnit.DAYS.between(Instant.ofEpochMilli(now).atZone(zone).toLocalDate(), date)) {
-        0L -> "Today"
-        1L -> "Tomorrow"
-        in 2L..6L -> dayFormat.format(date)
-        else -> dateFormat.format(date)
+    val time = formatTime(epochMs)
+    return when (val days = ChronoUnit.DAYS.between(Instant.ofEpochMilli(now).atZone(zone).toLocalDate(), date)) {
+        0L -> appString(R.string.common_today_at, time)
+        1L -> appString(R.string.common_tomorrow_at, time)
+        else -> "${(if (days in 2L..6L) formats().day else dateFormat).format(date)} $time"
     }
-    return "$day ${formatTime(epochMs)}"
 }
 
 fun formatCount(n: Int): String = "%,d".format(n)
@@ -53,9 +62,9 @@ fun formatDuration(ms: Long): String {
 fun formatRuntime(seconds: Int): String {
     val minutes = (seconds + 30) / 60
     return when {
-        minutes < 60 -> "$minutes min"
-        minutes % 60 == 0 -> "${minutes / 60} h"
-        else -> "${minutes / 60} h ${minutes % 60} min"
+        minutes < 60 -> appString(R.string.common_runtime_min, minutes)
+        minutes % 60 == 0 -> appString(R.string.common_runtime_h, minutes / 60)
+        else -> appString(R.string.common_runtime_h_min, minutes / 60, minutes % 60)
     }
 }
 

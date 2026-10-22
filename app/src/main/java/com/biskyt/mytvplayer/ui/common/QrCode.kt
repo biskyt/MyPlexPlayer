@@ -10,8 +10,10 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import com.biskyt.mytvplayer.R
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.common.BitMatrix
@@ -26,8 +28,9 @@ import kotlin.math.floor
 @Composable
 fun QrCode(text: String, modifier: Modifier = Modifier) {
     val matrix = remember(text) { encode(text) }
+    val description = stringResource(R.string.common_qr_description, text)
     Spacer(
-        modifier.semantics { contentDescription = "QR code for $text" }.drawWithCache {
+        modifier.semantics { contentDescription = description }.drawWithCache {
             // Whole pixels per module (no blurred seams between them for a camera to trip on), centred.
             val cell = floor(size.minDimension / matrix.width).coerceAtLeast(1f)
             val side = cell * matrix.width

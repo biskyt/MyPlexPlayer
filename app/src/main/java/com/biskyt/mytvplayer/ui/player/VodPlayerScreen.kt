@@ -6,9 +6,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.LocalTouch
@@ -33,10 +35,10 @@ private fun VodControls(vm: VodPlayerViewModel, buttons: FocusRequester, root: F
         }
         Position(vm)
         ControlsBar(vm, buttons, root) {
-            PillButton("From the start", vm::startOver)
-            if (vm.nextEpisode != null) PillButton("Next episode", vm::playNext)
+            PillButton(stringResource(R.string.common_from_start), vm::startOver)
+            if (vm.nextEpisode != null) PillButton(stringResource(R.string.player_next_episode), vm::playNext)
         }
-        if (!LocalTouch.current) Muted("▲ then ◀ ▶ to skip (hold to scrub) · Back hides this", Modifier.align(Alignment.CenterHorizontally))
+        if (!LocalTouch.current) Muted(stringResource(R.string.player_hint_skip), Modifier.align(Alignment.CenterHorizontally))
     }
 }
 

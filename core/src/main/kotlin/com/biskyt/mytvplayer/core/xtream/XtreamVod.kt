@@ -42,7 +42,8 @@ data class VodDetails(
     val rating: Double?
 )
 
-data class SeasonInfo(val number: Int, val name: String)
+/** A season; [name] is the provider's, null when it gives none (the app then names it by [number]). */
+data class SeasonInfo(val number: Int, val name: String?)
 
 data class EpisodeInfo(
     val id: Long,
@@ -127,7 +128,7 @@ internal fun JsonElement.toSeriesDetails(): SeriesDetails? {
     val seasons = (o["seasons"] as? JsonArray).orEmpty().mapNotNull { el ->
         val s = el as? JsonObject ?: return@mapNotNull null
         val n = s.int("season_number") ?: return@mapNotNull null
-        SeasonInfo(n, s.str("name") ?: "Season $n")
+        SeasonInfo(n, s.str("name"))
     }
     // Episodes come grouped by season, as an object keyed by season number or (on some panels) an array of arrays;
     // the group's season counts when an episode doesn't say.
@@ -155,7 +156,7 @@ internal fun JsonElement.toSeriesDetails(): SeriesDetails? {
         )
     }.sortedWith(compareBy({ it.season }, { it.number }))
     // Some panels list no seasons, only episodes: derive them.
-    val allSeasons = seasons.ifEmpty { episodes.map { it.season }.distinct().map { SeasonInfo(it, "Season $it") } }
+    val allSeasons = seasons.ifEmpty { episodes.map { it.season }.distinct().map { SeasonInfo(it, null) } }
         .filter { s -> episodes.any { it.season == s.number } }
         .sortedBy { it.number }
     return SeriesDetails(o.obj("info").toDetails(), allSeasons, episodes)

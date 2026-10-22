@@ -16,11 +16,14 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.C
 import androidx.media3.common.Tracks
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
 import com.biskyt.mytvplayer.ui.common.LocalTouch
@@ -67,10 +70,10 @@ fun GuidePanel(vm: PlayerViewModel) {
                 ChannelLogo(ch.logoUrl, ch.name, 64.dp, 40.dp)
                 Column(Modifier.padding(start = 12.dp)) {
                     Text(ch.name, style = MaterialTheme.typography.titleMedium, maxLines = 1)
-                    if (!LocalTouch.current) Muted("◀ ▶ other channels · OK to watch")
+                    if (!LocalTouch.current) Muted(stringResource(R.string.player_guide_hint))
                 }
             }
-            TouchStepButtons("Previous", "Next", vm::previewGuide)
+            TouchStepButtons(stringResource(R.string.player_guide_previous), stringResource(R.string.player_guide_next), vm::previewGuide)
             ScheduleList(rememberSchedule(ch.playlistId, ch.streamId), onSelect = { vm.watchGuideChannel() })
         }
     }
@@ -86,53 +89,60 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
         LazyColumn(Modifier.mediaKeys(vm), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             when (sheet) {
                 PlaybackViewModel.Sheet.AUDIO -> {
-                    item { Header("Audio", vm.audioLabel) }
+                    item { Header(stringResource(R.string.player_audio), vm.audioLabel) }
                     val options = trackOptions(vm.tracks, C.TRACK_TYPE_AUDIO)
                     items(options) { o ->
                         Choice(o.label, o.selected, if (o == options.first()) first else Modifier) {
                             close()
-                            vm.chooseTrack(C.TRACK_TYPE_AUDIO, "Audio", o.group, o.index, o.label)
+                            vm.chooseTrack(C.TRACK_TYPE_AUDIO, o.group, o.index, o.label)
                         }
                     }
-                    if (options.isEmpty()) item { Muted("No audio tracks") }
+                    if (options.isEmpty()) item { Muted(stringResource(R.string.player_no_audio_tracks)) }
                 }
                 PlaybackViewModel.Sheet.SUBTITLES -> {
-                    item { Header("Subtitles", null) }
+                    item { Header(stringResource(R.string.player_subtitles), null) }
                     val options = trackOptions(vm.tracks, C.TRACK_TYPE_TEXT)
                     item {
-                        Choice("Off", options.none { it.selected }, first) {
+                        Choice(stringResource(R.string.common_subtitles_off), options.none { it.selected }, first) {
                             engine.selectTrack(C.TRACK_TYPE_TEXT, null, 0)
                             close()
-                            vm.flash("Subtitles off")
+                            vm.flash(appString(R.string.player_subtitles_off))
                         }
                     }
                     items(options) { o ->
                         Choice(o.label, o.selected) {
                             close()
-                            vm.chooseTrack(C.TRACK_TYPE_TEXT, "Subtitles", o.group, o.index, o.label)
+                            vm.chooseTrack(C.TRACK_TYPE_TEXT, o.group, o.index, o.label)
                         }
                     }
                 }
                 PlaybackViewModel.Sheet.MORE -> {
-                    item { Header("More", null) }
+                    item { Header(stringResource(R.string.player_more), null) }
                     val actions = vm.menuActions()
                     itemsIndexed(actions) { i, a ->
                         // A screen pushed over the player stops it while it's covered.
                         Choice(a.label, false, if (i == 0) first else Modifier) { a.perform(nav, close, vm::beforeLeaving) }
                     }
                     item {
-                        Choice("Picture: ${vm.picture.label}", false, if (actions.isEmpty()) first else Modifier) {
-                            vm.picture = vm.picture.next
-                            vm.flash("Picture: ${vm.picture.label}")
+                        // What it says now, and what it flashes once pressed (the next mode).
+                        val label = stringResource(R.string.player_picture, stringResource(vm.picture.label))
+                        val next = vm.picture.next
+                        val nextLabel = stringResource(R.string.player_picture, stringResource(next.label))
+                        Choice(label, false, if (actions.isEmpty()) first else Modifier) {
+                            vm.picture = next
+                            vm.flash(nextLabel)
                         }
                     }
                     item {
                         val next = listOf(0, 15, 30, 60, 90, 120).cycle(vm.sleepMinutes)
-                        Choice("Sleep timer: ${if (vm.sleepMinutes == 0) "Off" else "${vm.sleepMinutes} min"}", false) {
-                            vm.setSleepTimer(next)
+                        val sleep = if (vm.sleepMinutes == 0) {
+                            stringResource(R.string.player_sleep_timer_off)
+                        } else {
+                            stringResource(R.string.player_sleep_timer_minutes, vm.sleepMinutes)
                         }
+                        Choice(sleep, false) { vm.setSleepTimer(next) }
                     }
-                    item { Muted("Audio output: ${vm.audioLabel}", maxLines = 2) }
+                    item { Muted(stringResource(R.string.player_audio_output, vm.audioLabel), maxLines = 2) }
                     item { Muted(videoInfo(vm.tracks), maxLines = 2) }
                 }
             }
@@ -162,9 +172,9 @@ private fun trackOptions(tracks: Tracks, type: Int): List<TrackOption> = tracks.
         val f = g.getTrackFormat(i)
         val lang = f.language?.let { Locale.forLanguageTag(it).displayLanguage.ifEmpty { it } }
         val parts = listOfNotNull(
-            f.label ?: lang ?: "Track ${i + 1}",
-            if ((f.selectionFlags and C.SELECTION_FLAG_FORCED) != 0) "forced" else null,
-            f.channelCount.takeIf { type == C.TRACK_TYPE_AUDIO && it > 2 }?.let { "${it}ch" }
+            f.label ?: lang ?: appString(R.string.player_track_number, i + 1),
+            if ((f.selectionFlags and C.SELECTION_FLAG_FORCED) != 0) appString(R.string.player_track_forced) else null,
+            f.channelCount.takeIf { type == C.TRACK_TYPE_AUDIO && it > 2 }?.let { appString(R.string.player_track_channels, it) }
         )
         TrackOption(parts.joinToString(" · "), g, i, g.isTrackSelected(i))
     }
@@ -175,6 +185,6 @@ private fun videoInfo(tracks: Tracks): String {
         tracks.groups.firstOrNull {
             it.type == C.TRACK_TYPE_VIDEO && it.isSelected
         }?.let { g -> (0 until g.length).firstOrNull { g.isTrackSelected(it) }?.let(g::getTrackFormat) }
-            ?: return "Video: unknown"
-    return "Video: ${f.width}×${f.height} · ${f.sampleMimeType?.substringAfter('/') ?: "?"}"
+            ?: return appString(R.string.player_video_unknown)
+    return appString(R.string.player_video_info, f.width, f.height, f.sampleMimeType?.substringAfter('/') ?: "?")
 }

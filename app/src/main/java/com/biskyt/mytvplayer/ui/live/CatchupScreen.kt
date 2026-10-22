@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -30,6 +31,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.core.xtream.CatchupProgramme
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.ui.LocalNavigator
@@ -84,14 +87,14 @@ class CatchupViewModel(private val c: AppContainer, private val screen: Screen.C
                 .groupBy { ChronoUnit.DAYS.between(Instant.ofEpochMilli(it.startMs).atZone(zone).toLocalDate(), today).toInt() }
                 .mapValues { (_, list) -> list.sortedByDescending { it.startMs } }
         } catch (e: java.io.IOException) {
-            error = e.message ?: "Couldn't load catch-up"
+            error = e.message ?: appString(R.string.live_catchup_load_failed)
         }
     }
 }
 
 private fun dayLabel(daysAgo: Int): String = when (daysAgo) {
-    0 -> "Today"
-    1 -> "Yesterday"
+    0 -> appString(R.string.common_today)
+    1 -> appString(R.string.common_yesterday)
     else -> LocalDate.now().minusDays(daysAgo.toLong()).format(dateFormat)
 }
 
@@ -126,17 +129,21 @@ fun CatchupScreen(screen: Screen.Catchup) {
                 )
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Catch-up · ${ch?.name.orEmpty()}", style = MaterialTheme.typography.headlineSmall, maxLines = 1)
+                Text(
+                    stringResource(R.string.live_catchup_title, ch?.name.orEmpty()),
+                    style = MaterialTheme.typography.headlineSmall,
+                    maxLines = 1
+                )
                 // The focused programme's description, in a fixed space so the list doesn't jump.
                 Muted(focused?.description.orEmpty(), Modifier.height(44.dp), maxLines = 2)
                 val byDay = vm.byDay
                 when {
                     vm.error != null -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Muted(vm.error.orEmpty())
-                        PillButton("Try again", { vm.load() }, rememberFirstFocus())
+                        PillButton(stringResource(R.string.common_retry), { vm.load() }, rememberFirstFocus())
                     }
-                    byDay == null -> Muted("Loading…")
-                    programmes.isEmpty() -> Muted("Nothing to catch up on for this day.")
+                    byDay == null -> Muted(stringResource(R.string.common_loading))
+                    programmes.isEmpty() -> Muted(stringResource(R.string.live_catchup_empty_day))
                     else -> LazyColumn(
                         Modifier.focusRequester(list),
                         verticalArrangement = Arrangement.spacedBy(6.dp),

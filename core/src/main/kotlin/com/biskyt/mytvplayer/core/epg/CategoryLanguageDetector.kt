@@ -9,15 +9,13 @@ import java.util.Locale
  * so this is a best guess the user can override per category. Returns a group code such as `UK`, `FR`, or null.
  */
 object CategoryLanguageDetector {
-    /** Group code → display label. Codes are what providers put in front of category names. */
-    val groups: Map<String, String> = linkedMapOf(
-        "UK" to "English (UK)", "US" to "English (US)", "CA" to "English (Canada)", "AU" to "English (Australia)",
-        "IE" to "English (Ireland)", "FR" to "French", "DE" to "German", "ES" to "Spanish", "IT" to "Italian",
-        "PT" to "Portuguese", "BR" to "Portuguese (Brazil)", "NL" to "Dutch", "BE" to "Belgian", "PL" to "Polish",
-        "TR" to "Turkish", "AR" to "Arabic", "IN" to "Indian", "PK" to "Pakistani", "GR" to "Greek",
-        "RO" to "Romanian", "AL" to "Albanian", "EXYU" to "Balkan", "SE" to "Swedish", "NO" to "Norwegian",
-        "DK" to "Danish", "FI" to "Finnish", "RU" to "Russian", "LAT" to "Latino", "MX" to "Mexican",
-        "AF" to "African", "CN" to "Chinese", "KR" to "Korean", "JP" to "Japanese"
+    /**
+     * The group codes with a label of their own (the app names them, e.g. UK → "English (UK)"). Codes are what
+     * providers put in front of category names.
+     */
+    val groups: Set<String> = linkedSetOf(
+        "UK", "US", "CA", "AU", "IE", "FR", "DE", "ES", "IT", "PT", "BR", "NL", "BE", "PL", "TR", "AR", "IN", "PK", "GR",
+        "RO", "AL", "EXYU", "SE", "NO", "DK", "FI", "RU", "LAT", "MX", "AF", "CN", "KR", "JP"
     )
 
     private val aliases = mapOf(
@@ -95,12 +93,5 @@ object CategoryLanguageDetector {
         if (c != null && (c in groups || c in isoCountries)) return groupForCountry(c)
         val code = language?.let(Languages::code) ?: return null
         return languageGroups[code]?.first() ?: Locale(code).getDisplayLanguage(Locale.ENGLISH).ifEmpty { null }
-    }
-
-    fun label(code: String?): String = when {
-        code == null -> "Other"
-        code in groups -> groups.getValue(code)
-        code.length == 2 -> Locale("", code).getDisplayCountry(Locale.ENGLISH).ifEmpty { code }
-        else -> code
     }
 }

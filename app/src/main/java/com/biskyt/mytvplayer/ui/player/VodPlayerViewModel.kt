@@ -7,6 +7,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewModelScope
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.core.player.OverlayState
 import com.biskyt.mytvplayer.core.xtream.EpisodeInfo
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
@@ -48,7 +50,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         private set
 
     override val isLive = false
-    override val failureMessage = "This can't be played right now. Try again later."
+    override val failureMessage = R.string.player_failure_vod
 
     private var playlist: PlaylistEntity? = null
     private var current: Playing? = null
@@ -79,11 +81,11 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         },
         // In place of the player: playing from there starts a new player, not a second one over this.
         if (series == null) {
-            ItemAction.Open("About this movie", Screen.MovieDetails(screen.playlistId, screen.itemId), replace = true)
+            ItemAction.Open(appString(R.string.common_about_movie), Screen.MovieDetails(screen.playlistId, screen.itemId), replace = true)
         } else {
             val episode = current?.episode
             ItemAction.Open(
-                "All episodes",
+                appString(R.string.common_all_episodes),
                 Screen.SeriesDetails(screen.playlistId, series, episode?.season, episode?.number),
                 replace = true
             )
@@ -102,7 +104,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
                 val seriesId = screen.seriesId
                 if (seriesId == null) startMovie(p) else startEpisode(p, seriesId, screen.itemId, screen.fromStart, screen.continueSeries)
             } catch (e: java.io.IOException) {
-                fail(e.message ?: failureMessage)
+                fail(e.message)
             }
         }
     }
@@ -143,7 +145,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         val saved = if (fromStart) null else c.vod.progress(p.id, playing.kind, playing.itemId)
         if (saved != null && !saved.finished && saved.positionMs > RESUME_AFTER_MS) {
             engine.player.seekTo(saved.positionMs)
-            flash("Resuming from ${formatDuration(saved.positionMs)}")
+            flash(appString(R.string.player_resuming_from, formatDuration(saved.positionMs)))
         }
         showControls()
         startTicking()
@@ -243,10 +245,15 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     }
 }
 
-/** "Series 1 · Episode 2 · Title" (the title only when it says more than "Episode 2"). */
-fun episodeLabel(e: EpisodeInfo): String =
-    listOfNotNull("Series ${e.season}", "Episode ${e.number}", e.title.takeUnless { it.equals("Episode ${e.number}", ignoreCase = true) })
-        .joinToString(" · ")
+/**
+ * "Series 1 · Episode 2 · Title" (the title only when it says more than "Episode 2", matched in English as providers
+ * write it).
+ */
+fun episodeLabel(e: EpisodeInfo): String = if (e.title.equals("Episode ${e.number}", ignoreCase = true)) {
+    appString(R.string.player_episode_label, e.season, e.number)
+} else {
+    appString(R.string.player_episode_label_titled, e.season, e.number, e.title)
+}
 
 /** "S1 E2". */
-fun shortEpisodeLabel(season: Int?, episode: Int?) = "S$season E$episode"
+fun shortEpisodeLabel(season: Int?, episode: Int?) = appString(R.string.player_short_episode_label, season.toString(), episode.toString())

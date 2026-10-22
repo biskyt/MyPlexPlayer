@@ -12,6 +12,8 @@ import android.os.Environment
 import android.provider.MediaStore.Downloads
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -82,7 +84,7 @@ class BackupFile(private val context: Context) {
             writeLegacy(bytes)
         } else {
             writeToMediaStore(bytes)
-            findInMediaStore() ?: throw IOException("Couldn't save the backup file")
+            findInMediaStore() ?: throw IOException(appString(R.string.settings_backup_save_failed))
         }
     }
 
@@ -91,19 +93,19 @@ class BackupFile(private val context: Context) {
      * then shown to the media index, so file managers and a computer over USB see it.
      */
     private fun writeLegacy(bytes: ByteArray): Saved {
-        if (needsPermission) throw BackupException("MyTVPlayer needs permission to save to the Download folder.")
+        if (needsPermission) throw BackupException(appString(R.string.settings_backup_need_permission))
         if (Environment.getExternalStorageState() != Environment.MEDIA_MOUNTED) {
-            throw BackupException("This TV's storage isn't available right now, so the backup can't be saved.")
+            throw BackupException(appString(R.string.settings_backup_no_storage))
         }
         val target = legacyFile
         val folder = target.parentFile
         if (folder != null && !folder.isDirectory && !folder.mkdirs()) {
-            throw BackupException("Couldn't create the folder Download/MyTVPlayer for the backup.")
+            throw BackupException(appString(R.string.settings_backup_no_folder))
         }
         val part = File(target.path + ".part")
         try {
             part.writeBytes(bytes)
-            if (!part.renameTo(target)) throw IOException("Couldn't save the backup file")
+            if (!part.renameTo(target)) throw IOException(appString(R.string.settings_backup_save_failed))
         } finally {
             part.delete() // gone already once renamed
         }
@@ -123,15 +125,15 @@ class BackupFile(private val context: Context) {
                 put(Downloads.RELATIVE_PATH, FOLDER)
                 put(Downloads.IS_PENDING, 1)
             }
-        ) ?: throw IOException("Couldn't create the backup file")
-        val out = resolver.openOutputStream(uri, "wt") ?: throw IOException("Couldn't write the backup file")
+        ) ?: throw IOException(appString(R.string.settings_backup_create_failed))
+        val out = resolver.openOutputStream(uri, "wt") ?: throw IOException(appString(R.string.settings_backup_write_failed))
         out.use { it.write(bytes) }
         if (existing == null) resolver.update(uri, ContentValues().apply { put(Downloads.IS_PENDING, 0) }, null, null)
     }
 
     /** Hands [read] the file's contents as they stream in. */
     suspend fun <T> read(uri: Uri, read: suspend (InputStream) -> T): T = withContext(Dispatchers.IO) {
-        val input = resolver.openInputStream(uri) ?: throw IOException("Couldn't open the file")
+        val input = resolver.openInputStream(uri) ?: throw IOException(appString(R.string.settings_backup_open_failed))
         input.buffered().use { read(it) }
     }
 

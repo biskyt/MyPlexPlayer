@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -27,6 +28,7 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import androidx.paging.map
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.data.VodFilter
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CategoryEntity
@@ -113,11 +115,14 @@ fun VodBrowseScreen(type: String, initialFilter: VodFilter) {
     val filter by vm.filters.value.collectAsState()
     val categories by vm.categories.collectAsState()
     val playlist by vm.playlist.collectAsState()
-    val entries = remember(categories) {
+    val favourites = stringResource(R.string.common_favourites)
+    val newest = stringResource(if (vm.isMovies) R.string.vod_recently_added else R.string.vod_recently_updated)
+    val all = stringResource(if (vm.isMovies) R.string.vod_all_movies else R.string.vod_all_series)
+    val entries = remember(categories, favourites, newest, all) {
         listOf<CategoryEntry<VodFilter>>(
-            CategoryEntry(VodFilter.Favourites, "Favourites"),
-            CategoryEntry(VodFilter.Newest, if (vm.isMovies) "Recently added" else "Recently updated"),
-            CategoryEntry(VodFilter.All, if (vm.isMovies) "All movies" else "All series")
+            CategoryEntry(VodFilter.Favourites, favourites),
+            CategoryEntry(VodFilter.Newest, newest),
+            CategoryEntry(VodFilter.All, all)
         ) + categoryEntries<VodFilter>(categories) { VodFilter.Category(it.categoryId) }
     }
     TabScaffold(if (vm.isMovies) Tab.MOVIES else Tab.SERIES) {
@@ -128,8 +133,7 @@ fun VodBrowseScreen(type: String, initialFilter: VodFilter) {
                 val p = playlist
                 when {
                     p != null && !p.hasVod -> Muted(
-                        "This playlist only has live channels. To add movies and series, give its movie or series " +
-                            "playlist address in Settings › Playlists.",
+                        stringResource(R.string.vod_live_only),
                         Modifier.padding(top = 24.dp),
                         maxLines = 2
                     )
@@ -145,7 +149,7 @@ private fun Header(vm: VodBrowseViewModel, entry: CategoryEntry<VodFilter>?) {
     val total by vm.total.collectAsState()
     val query by vm.query.collectAsState()
     val count = entry?.count ?: total.takeIf { entry?.filter == VodFilter.All }
-    ListHeader(entry?.label.orEmpty(), count, query, { vm.query.value = it }, "Filter by title")
+    ListHeader(entry?.label.orEmpty(), count, query, { vm.query.value = it }, stringResource(R.string.vod_filter_hint))
 }
 
 @Composable
@@ -154,13 +158,13 @@ private fun PosterGrid(vm: VodBrowseViewModel, pid: Long) {
     val items = vm.items.collectAsLazyPagingItems()
     if (items.itemCount == 0) {
         if (vm.filters.value.collectAsState().value == VodFilter.Favourites) {
-            Muted("No favourites yet. Open a title and choose “Add to favourites”.", Modifier.padding(top = 24.dp))
+            Muted(stringResource(R.string.vod_no_favourites), Modifier.padding(top = 24.dp))
         } else {
             Column(Modifier.padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Muted("Nothing here yet. Load them now, or choose which categories to load.", maxLines = 2)
+                Muted(stringResource(R.string.vod_nothing_here), maxLines = 2)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    PillButton("Load now", vm::loadNow, primary = true)
-                    PillButton("Choose categories", { nav.push(Screen.Categories(pid)) })
+                    PillButton(stringResource(R.string.vod_load_now), vm::loadNow, primary = true)
+                    PillButton(stringResource(R.string.vod_choose_categories), { nav.push(Screen.Categories(pid)) })
                 }
             }
         }

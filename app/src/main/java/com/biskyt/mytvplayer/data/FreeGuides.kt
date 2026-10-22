@@ -1,5 +1,6 @@
 package com.biskyt.mytvplayer.data
 
+import com.biskyt.mytvplayer.AppText
 import com.biskyt.mytvplayer.data.db.EpgSourceEntity
 import java.util.Locale
 
@@ -20,15 +21,20 @@ object FreeGuides {
             "it jm jp kr lt lu lv me mt mx my ng ni nl no nz pa pe pl pt py rs ru se sg sv th tr tt tw ua ug us uy ve za zw"
         ).split(' ')
 
-    private var cached: Pair<Locale, List<FreeGuide>>? = null
+    /** What a list was made for: the TV's locale (whose country goes first) and the language of the country names. */
+    private data class Key(val locale: Locale, val names: Locale)
+
+    private var cached: Pair<Key, List<FreeGuide>>? = null
 
     /** Every country, the TV's own first, then by name (kept: the country names take a while to look up). */
-    fun all(locale: Locale = Locale.getDefault()): List<FreeGuide> =
-        cached?.takeIf { it.first == locale }?.second ?: build(locale).also { cached = locale to it }
+    fun all(locale: Locale = Locale.getDefault()): List<FreeGuide> {
+        val key = Key(locale, AppText.locale)
+        return cached?.takeIf { it.first == key }?.second ?: build(key).also { cached = key to it }
+    }
 
-    private fun build(locale: Locale): List<FreeGuide> {
-        val own = locale.country.lowercase()
-        return codes.map { FreeGuide(it, Locale("", it).getDisplayCountry(Locale.ENGLISH).ifEmpty { it.uppercase() }, "$BASE$it.xml.gz") }
+    private fun build(key: Key): List<FreeGuide> {
+        val own = key.locale.country.lowercase()
+        return codes.map { FreeGuide(it, Locale("", it).getDisplayCountry(key.names).ifEmpty { it.uppercase() }, "$BASE$it.xml.gz") }
             .sortedWith(compareBy<FreeGuide> { it.code != own }.thenBy { it.country })
     }
 

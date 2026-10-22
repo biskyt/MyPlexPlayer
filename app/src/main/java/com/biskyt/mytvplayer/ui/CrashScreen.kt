@@ -12,9 +12,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.data.CrashLog
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.PillButton
@@ -37,15 +39,11 @@ fun CrashScreen(report: String, onContinue: (updating: Boolean) -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(40.dp)
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text("MyTVPlayer closed unexpectedly last time", style = MaterialTheme.typography.headlineMedium)
-            Muted(
-                "To help fix it, scan the code with your phone: it opens a GitHub issue with the details below, ready " +
-                    "to send. Logins are left out, and nothing is sent unless you send it.",
-                maxLines = 3
-            )
+            Text(stringResource(R.string.app_crash_title), style = MaterialTheme.typography.headlineMedium)
+            Muted(stringResource(R.string.app_crash_help), maxLines = 3)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                PillButton("Continue", { onContinue(true) }, rememberFirstFocus(), primary = true)
-                PillButton("Continue without updating", { onContinue(false) })
+                PillButton(stringResource(R.string.app_crash_continue), { onContinue(true) }, rememberFirstFocus(), primary = true)
+                PillButton(stringResource(R.string.app_crash_continue_no_update), { onContinue(false) })
             }
             // The whole report, in focusable blocks so the remote can scroll through it.
             LazyColumn(Modifier.weight(1f).background(Palette.surfaceLow).padding(12.dp)) {

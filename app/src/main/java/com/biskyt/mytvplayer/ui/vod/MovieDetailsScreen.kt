@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -30,6 +31,7 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.allowRgb565
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.core.xtream.VodDetails
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.MovieEntity
@@ -83,19 +85,22 @@ fun MovieDetailsScreen(screen: Screen.MovieDetails) {
         Text(movie.title, style = MaterialTheme.typography.displaySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Muted(metaLine(movie.year ?: d?.year, d?.durationSec, d?.genre, movie.rating ?: d?.rating))
         d?.plot?.let { Text(it, style = MaterialTheme.typography.bodyLarge, maxLines = 6, overflow = TextOverflow.Ellipsis) }
-        d?.director?.let { Muted("Director: $it") }
-        d?.cast?.let { Muted("Cast: $it", maxLines = 2) }
+        d?.director?.let { Muted(stringResource(R.string.vod_director, it)) }
+        d?.cast?.let { Muted(stringResource(R.string.vod_cast, it), maxLines = 2) }
         ResumeBar(progress)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
             val resumable = progress?.takeUnless { it.finished }
             PillButton(
-                resumable?.let { "Resume from ${formatDuration(it.positionMs)}" } ?: "Play",
+                resumable?.let { stringResource(R.string.vod_resume_from, formatDuration(it.positionMs)) }
+                    ?: stringResource(R.string.common_play),
                 { nav.push(Screen.VodPlayer(screen.playlistId, movie.streamId)) },
                 rememberFirstFocus(),
                 primary = true
             )
             if (resumable != null) {
-                PillButton("From the start", { nav.push(Screen.VodPlayer(screen.playlistId, movie.streamId, fromStart = true)) })
+                PillButton(stringResource(R.string.common_from_start), {
+                    nav.push(Screen.VodPlayer(screen.playlistId, movie.streamId, fromStart = true))
+                })
             }
             PillButton(favouriteLabel(favourite), { vm.toggleFavourite() })
         }
@@ -115,7 +120,7 @@ internal fun ResumeBar(progress: WatchProgressEntity?) {
     if (progress == null || progress.finished || progress.durationMs <= 0) return
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.widthIn(max = 520.dp)) {
         ProgressLine(progress.fraction, Modifier.weight(1f).padding(top = 8.dp))
-        Muted("${formatDuration(progress.remainingMs)} left")
+        Muted(stringResource(R.string.common_time_left, formatDuration(progress.remainingMs)))
     }
 }
 

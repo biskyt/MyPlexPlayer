@@ -7,6 +7,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewModelScope
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.core.m3u.M3uCatchup
 import com.biskyt.mytvplayer.core.player.OverlayState
 import com.biskyt.mytvplayer.core.xtream.CatchupListing
@@ -47,7 +49,7 @@ class CatchupPlayerViewModel(
         private set
 
     override val isLive = false
-    override val failureMessage = "This can't be replayed right now. Try again later."
+    override val failureMessage = R.string.player_failure_catchup
 
     private var playlist: PlaylistEntity? = null
     private var listing: CatchupListing? = null
@@ -67,10 +69,10 @@ class CatchupPlayerViewModel(
                 val l = c.catchup.listing(p, ch).let { if (p.isM3u) withGuide(p, ch, it) else it }
                 listing = l
                 val start = screen.startMs ?: c.catchup.onNow(l)?.startMs
-                if (start == null) fail("There's nothing to start over on this channel right now.") else open(start)
+                if (start == null) fail(appString(R.string.player_catchup_nothing_to_start_over)) else open(start)
                 startTicking()
             } catch (e: java.io.IOException) {
-                fail(e.message ?: failureMessage)
+                fail(e.message)
             }
         }
     }
@@ -107,7 +109,7 @@ class CatchupPlayerViewModel(
         val url = try {
             c.catchup.url(p, ch, l, startMs)
         } catch (e: java.io.IOException) {
-            return fail(e.message ?: failureMessage)
+            return fail(e.message)
         }
         // Xtream archives are MPEG-TS; M3U ones may be either (told by the address when it can), and may need the
         // channel's headers.
@@ -159,7 +161,7 @@ class CatchupPlayerViewModel(
      * that ends almost at once won't do better if asked again.
      */
     override fun onEnded() {
-        if ((engine?.player?.currentPosition ?: 0) < MIN_PLAYED_MS) fail(failureMessage) else open(position())
+        if ((engine?.player?.currentPosition ?: 0) < MIN_PLAYED_MS) fail() else open(position())
     }
 
     // Coming back to the app, or trying again after an error, carries on from where playback was (the same address
