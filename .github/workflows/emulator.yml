@@ -1,0 +1,70 @@
+name: Emulator smoke tests
+
+# The app on a real Android TV (an emulator), the oldest supported and a current one: what the JVM-based tests can't
+# show, such as Android's own regex engine (ICU) or SQLite. Free on GitHub's standard Linux runners for a public
+# repository, which have hardware acceleration (KVM) for the emulator. Pull requests only (main gets them through
+# those), and not for documentation-only changes.
+
+on:
+  pull_request:
+    paths-ignore: ["**.md", "docs/**", "store/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The oldest the app supports (as on Fire OS 7 and older TV boxes); Android TV images are x86 only.
+          - name: Android TV 9
+            api-level: 28
+            target: android-tv
+            arch: x86
+          - name: Google TV 16
+            api-level: 36
+            target: google-tv
+            arch: x86_64
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          # CI's own runs keep the shared cache; these only read it.
+          cache-read-only: true
+
+      - name: Let the emulator use hardware acceleration (KVM)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # Built before the emulator starts, so the two don't compete for the runner.
+      - name: Build the app and its smoke tests
+        run: ./gradlew -PemulatorAbi=${{ matrix.arch }} :app:assembleDebug :app:assembleDebugAndroidTest
+
+      - name: Start ${{ matrix.name }}
+        run: .github/scripts/start-emulator.sh ${{ matrix.api-level }} ${{ matrix.target }} ${{ matrix.arch }}
+
+      - name: Run the smoke tests on ${{ matrix.name }}
+        run: ./gradlew -PemulatorAbi=${{ matrix.arch }} :app:connectedDebugAndroidTest
+
+      - uses: actions/upload-artifact@v6
+        if: failure()
+        with:
+          name: smoke-test-reports-api-${{ matrix.api-level }}
+          path: |
+            app/build/reports/androidTests/
+            emulator.log
