@@ -31,9 +31,12 @@
     <!-- Subtitle choices, shown in a small value box. -->
     <string name="settings_subtitles_forced_only">Forced only</string>
     <string name="settings_subtitles_always">Always</string>
+    <!-- Settings row choosing the app's language (its value shows each language's own name). -->
+    <string name="settings_language">Language</string>
     <string name="settings_subtitle_language">Subtitle language</string>
-    <!-- Follow the device's language. %1$s: that language's name, e.g. "System (English)". -->
-    <string name="settings_subtitle_language_system">System (%1$s)</string>
+    <!-- Value of the Language and Subtitle language settings when they follow the device. %1$s: the language's
+         name, e.g. "System (English)". -->
+    <string name="settings_language_system">System (%1$s)</string>
     <string name="settings_buffer">Stream buffer</string>
     <string name="settings_buffer_help">Larger is smoother on weak Wi-Fi but slower to change channel</string>
     <!-- Buffer sizes, shown in a small value box. -->
@@ -149,10 +152,9 @@
 
     <!-- Languages & categories page. -->
     <string name="settings_categories_intro">Only the categories you tick are downloaded, so lists load faster and use less storage.</string>
-    <!-- %1$d: categories ticked; %2$d: all categories (the count the plural follows). English says "categories"
-         either way. -->
+    <!-- %1$d: categories ticked; %2$d: all categories (the count the plural follows). -->
     <plurals name="settings_categories_loading">
-        <item quantity="one">Loading %1$d of %2$d categories</item>
+        <item quantity="one">Loading %1$d of %2$d category</item>
         <item quantity="other">Loading %1$d of %2$d categories</item>
     </plurals>
     <!-- Buttons. -->
@@ -170,9 +172,9 @@
     <!-- %1$s: what was typed in the filter box. -->
     <string name="settings_categories_no_match">Nothing matches “%1$s”.</string>
     <!-- Under a language or country. %1$d: categories ticked; %2$d: all of its categories (the count the plural
-         follows). English says "categories" either way. -->
+         follows). -->
     <plurals name="settings_categories_count">
-        <item quantity="one">%1$d of %2$d categories</item>
+        <item quantity="one">%1$d of %2$d category</item>
         <item quantity="other">%1$d of %2$d categories</item>
     </plurals>
     <!-- A heading, in capitals. -->

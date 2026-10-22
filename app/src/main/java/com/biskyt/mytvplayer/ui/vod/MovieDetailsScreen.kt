@@ -31,6 +31,7 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.allowRgb565
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.AppText
 import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.core.xtream.VodDetails
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
@@ -112,7 +113,7 @@ fun metaLine(year: Int?, durationSec: Int?, genre: String?, rating: Double?): St
     year?.toString(),
     durationSec?.takeIf { it > 0 }?.let(::formatRuntime),
     genre,
-    rating?.let { "★ %.1f".format(it) }
+    rating?.let { "★ %.1f".format(AppText.locale, it) }
 ).joinToString(" · ")
 
 @Composable

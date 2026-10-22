@@ -105,4 +105,6 @@
     <string name="data_playlist_default_name">My TV</string>
     <!-- Name of the playlist of free channels the app offers to add. Stored with it; the user can rename it. -->
     <string name="data_free_playlist_name">Free TV</string>
+    <!-- Name of the TV guide that comes with a playlist, saved when the playlist is added. %1$s: the playlist's name. -->
+    <string name="data_provider_guide_name">%1$s guide</string>
 </resources>

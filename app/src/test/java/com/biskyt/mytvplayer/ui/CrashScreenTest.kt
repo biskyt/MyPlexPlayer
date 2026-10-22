@@ -20,7 +20,7 @@ import org.robolectric.annotation.Config
 
 /** After a crash, the next start says so, offers to send it, and can start without updating. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-tvdpi")
+@Config(sdk = [34], application = TestApp::class, qualifiers = "+w960dp-h540dp-tvdpi")
 class CrashScreenTest {
     @get:Rule val compose = createEmptyComposeRule()
 

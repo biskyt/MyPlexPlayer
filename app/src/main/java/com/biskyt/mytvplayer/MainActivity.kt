@@ -29,7 +29,7 @@ class MainActivity : ComponentActivity() {
         }
         // Only when first opened with it: recreated, or reopened from Recents, it's the same file, already dealt with.
         if (savedInstanceState == null && intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) takeOpenedFile(intent)
-        setContent { AppRoot() }
+        setContent { InAppLanguage { AppRoot() } }
     }
 
     // Already running (it's the only one, singleTask): a file opened with it arrives here.

@@ -44,7 +44,10 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.SingletonImageLoader
 import coil3.annotation.DelicateCoilApi
+import com.biskyt.mytvplayer.AppText
+import com.biskyt.mytvplayer.InAppLanguage
 import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.core.ui.AccentPalette
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
@@ -79,11 +82,14 @@ import org.robolectric.annotation.GraphicsMode
  * repository root. Demo channels and programmes are invented: no real broadcaster or title appears.
  *
  * xhdpi on a 960×540 dp screen gives the 1920×1080 pixels Play asks for in TV screenshots.
+ *
+ * With `-PstoreLanguage=<tag>` (one of AppText.languages) the screenshots are in that language, with some settings
+ * pages too, in app/build/store-assets/<tag>/: for checking that the translated text fits.
  */
 @OptIn(ExperimentalTestApi::class, DelicateCoilApi::class)
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-xhdpi")
+@Config(sdk = [34], application = TestApp::class, qualifiers = "+w960dp-h540dp-xhdpi")
 class StoreAssetsTest {
     @get:Rule val compose = createUiComposeRule()
 
@@ -168,10 +174,14 @@ class StoreAssetsTest {
     }
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
     private var playlistId = 0L
+    private val language = System.getProperty("storeLanguage").orEmpty()
+    private val out = if (language.isEmpty()) OUT else "build/store-assets/$language"
 
     @Before
     fun setUp() = runBlocking {
         assumeTrue("Run with -PstoreAssets", System.getProperty("storeAssets") == "true")
+        require(language.isEmpty() || language in AppText.languages) { "-PstoreLanguage: one of ${AppText.languages}" }
+        AppText.setLanguage(app, language)
         val c = app.container
         // Robolectric's native graphics can only decode images on the main thread.
         SingletonImageLoader.setUnsafe(app.newImageLoader(app).newBuilder().decoderCoroutineContext(Dispatchers.Main.immediate).build())
@@ -193,6 +203,7 @@ class StoreAssetsTest {
     fun tearDown() {
         provider.close()
         SingletonImageLoader.reset()
+        AppText.setLanguage(app, "")
     }
 
     /** A movie's poster file in demo-art/, from its title ("Big Buck Bunny (2008)" → big-buck-bunny.jpg). */
@@ -220,7 +231,7 @@ class StoreAssetsTest {
 
     private fun screenshot(name: String, start: Screen, ready: String, then: () -> Unit = {}) {
         val navigator = navigators.new(start)
-        compose.setContent { MyTvTheme { NavHost(remember { navigator }) { ScreenContent(it) } } }
+        compose.setContent { InAppLanguage { MyTvTheme { NavHost(remember { navigator }) { ScreenContent(it) } } } }
         runCatching { waitFor(ready) }.onFailure {
             compose.onRoot().captureRoboImage("build/store-assets/stuck-$name.png")
             throw AssertionError("'$ready' not shown on $name", it)
@@ -229,8 +240,8 @@ class StoreAssetsTest {
         // Logos and posters load in the background: wait until none is still showing its initials.
         idleUntil(15_000) { compose.onAllNodes(placeholder).fetchSemanticsNodes().isEmpty() }
         compose.waitForIdle()
-        compose.onRoot().captureRoboImage("$OUT/screenshots/$name.png")
-        flatten("$OUT/screenshots/$name.png")
+        compose.onRoot().captureRoboImage("$out/screenshots/$name.png")
+        flatten("$out/screenshots/$name.png")
     }
 
     // Part-way through a film and a series, as well as the channels.
@@ -288,8 +299,23 @@ class StoreAssetsTest {
         screenshot("6-guide-matching", Screen.GuideMatching(playlistId), "Meadow Comedy") {
             // As AppUiTest does: performClick() doesn't reach the TV card's onClick under Robolectric.
             compose.onAllNodes(hasText("Harbour Sport 2") and hasClickAction())[0].performSemanticsAction(SemanticsActions.OnClick)
-            waitFor("Time shift")
+            waitFor(appString(R.string.live_guide_time_shift, 0).substringBefore(':'))
         }
+    }
+
+    // Not in the store listing: settings pages, whose long labels are the likeliest not to fit when translated.
+    @Test fun settings() = translatedOnly { screenshot("9-settings", Screen.Settings, appString(R.string.settings_playlists_title)) }
+
+    @Test fun playbackSettings() =
+        translatedOnly { screenshot("10-playback-settings", Screen.PlaybackSettings, appString(R.string.settings_subtitle_language)) }
+
+    @Test fun playlists() = translatedOnly { screenshot("11-playlists", Screen.Playlists, "My TV provider") }
+
+    @Test fun categories() = translatedOnly { screenshot("12-categories", Screen.Categories(playlistId), "Documentaries") }
+
+    private fun translatedOnly(shot: () -> Unit) {
+        assumeTrue("Run with -PstoreLanguage", language.isNotEmpty())
+        shot()
     }
 
     @Test fun icon() = graphic("icon-512", 256.dp, 256.dp) { Icon() }
@@ -315,9 +341,9 @@ class StoreAssetsTest {
                 }
             }
         }
-        compose.onNodeWithTag(name).captureRoboImage("$OUT/graphics/$name.png")
+        compose.onNodeWithTag(name).captureRoboImage("$out/graphics/$name.png")
         // Play's icon may be transparent; everything else (Amazon's icons too) is without (24-bit).
-        if (name != "icon-512") flatten("$OUT/graphics/$name.png")
+        if (name != "icon-512") flatten("$out/graphics/$name.png")
     }
 
     /** Rewrites a PNG without its alpha channel. */

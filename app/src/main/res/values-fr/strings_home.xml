@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_carry_on">Continuer à regarder</string>
+    <string name="home_on_now">Vos chaînes en ce moment</string>
+
+    <string name="home_remove_recent">Retirer de Vus récemment</string>
+
+    <string name="home_play_next_episode">Lire l\'épisode suivant</string>
+    <string name="home_resume">Reprendre</string>
+    <string name="home_remove_carry_on">Retirer de Continuer à regarder</string>
+    <string name="home_forget_movie">Oublie où vous en étiez</string>
+    <string name="home_forget_series">Oublie les épisodes que vous avez vus</string>
+
+    <string name="home_no_favourites">Pas encore de favoris. Dans TV en direct, maintenez OK sur une chaîne et choisissez « Ajouter aux favoris ».</string>
+    <string name="home_browse_channels">Parcourir les chaînes</string>
+
+    <string name="home_until">jusqu\'à %1$s</string>
+    <string name="home_until_then">jusqu\'à %1$s · puis %2$s</string>
+
+    <string name="home_up_next_after">À suivre après %1$s</string>
+</resources>

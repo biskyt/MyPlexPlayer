@@ -399,7 +399,7 @@ fun GuideMatchingScreen(playlistId: Long, streamId: Long?) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.common_guide_matching), style = MaterialTheme.typography.headlineLarge)
-                Muted(stringResource(R.string.live_guide_matching_intro))
+                Muted(stringResource(R.string.live_guide_matching_intro), maxLines = 2)
             }
             MatchTab.entries.forEach { t ->
                 PillButton(

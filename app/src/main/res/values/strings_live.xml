@@ -72,9 +72,9 @@
     <string name="live_guide_free_note">From iptv-epg.org. Large countries can take a few minutes to load on a TV box.</string>
     <!-- A guide's details, joined with " · ": where it comes from -->
     <string name="live_guide_from_provider">From your provider</string>
-    <!-- A guide's details: how many channels it has. %1$s is the number. English uses "channels" for 1 too (unchanged so far) -->
+    <!-- A guide's details: how many channels it has. %1$s is the number. -->
     <plurals name="live_guide_source_channels">
-        <item quantity="one">%1$s channels</item>
+        <item quantity="one">%1$s channel</item>
         <item quantity="other">%1$s channels</item>
     </plurals>
     <!-- A guide's details: the guide is switched off -->

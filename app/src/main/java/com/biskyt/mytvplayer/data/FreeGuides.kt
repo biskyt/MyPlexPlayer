@@ -2,6 +2,7 @@ package com.biskyt.mytvplayer.data
 
 import com.biskyt.mytvplayer.AppText
 import com.biskyt.mytvplayer.data.db.EpgSourceEntity
+import java.text.Collator
 import java.util.Locale
 
 /** A free XMLTV guide for one country. */
@@ -26,16 +27,19 @@ object FreeGuides {
 
     private var cached: Pair<Key, List<FreeGuide>>? = null
 
-    /** Every country, the TV's own first, then by name (kept: the country names take a while to look up). */
-    fun all(locale: Locale = Locale.getDefault()): List<FreeGuide> {
-        val key = Key(locale, AppText.locale)
+    /**
+     * Every country, the TV's own ([locale]'s) first, then by name in [names]' language (kept: the country names take a
+     * while to look up).
+     */
+    fun all(locale: Locale = Locale.getDefault(), names: Locale = AppText.locale): List<FreeGuide> {
+        val key = Key(locale, names)
         return cached?.takeIf { it.first == key }?.second ?: build(key).also { cached = key to it }
     }
 
     private fun build(key: Key): List<FreeGuide> {
         val own = key.locale.country.lowercase()
         return codes.map { FreeGuide(it, Locale("", it).getDisplayCountry(key.names).ifEmpty { it.uppercase() }, "$BASE$it.xml.gz") }
-            .sortedWith(compareBy<FreeGuide> { it.code != own }.thenBy { it.country })
+            .sortedWith(compareBy<FreeGuide> { it.code != own }.thenBy(Collator.getInstance(key.names)) { it.country })
     }
 
     /** Every free guide not among [sources] yet, the TV's own country first. */
