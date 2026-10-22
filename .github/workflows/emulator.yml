@@ -61,6 +61,10 @@ jobs:
           api-level: ${{ matrix.api-level }}
           target: ${{ matrix.target }}
           arch: ${{ matrix.arch }}
+          profile: tv_1080p
+          # The emulator connects to adb as it starts; with no adb server yet it reconnects once booted, and the
+          # device drops out under the runner's first command ("device offline", exit 255).
+          pre-emulator-launch-script: $ANDROID_HOME/platform-tools/adb start-server
           disable-animations: true
           script: ./gradlew -PemulatorAbi=${{ matrix.arch }} :app:connectedDebugAndroidTest
 
