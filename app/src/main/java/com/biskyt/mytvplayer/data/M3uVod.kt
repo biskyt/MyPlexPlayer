@@ -136,7 +136,7 @@ internal class M3uVod(private val db: AppDatabase, private val playlists: Playli
                 }
                 shows[seriesId] = before + 1
                 val number = ep.episode ?: (before + 1) // unnumbered: in listed order
-                episodes.add(EpisodeEntity(playlistId, id, seriesId, ep.season, number, ep.title ?: "Episode $number", e.url, stamp))
+                episodes.add(EpisodeEntity(playlistId, id, seriesId, ep.season, number, ep.title.orEmpty(), e.url, stamp))
             }
         }
         movies.flush()

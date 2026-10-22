@@ -34,4 +34,6 @@
     <string name="vod_watched">Watched</string>
     <!-- A season's button, when the provider gives it no name. %1$d: the season's number. Short. -->
     <string name="vod_season">Season %1$d</string>
+    <!-- An episode the provider gave no title. %1$d: its number. -->
+    <string name="vod_episode">Episode %1$d</string>
 </resources>

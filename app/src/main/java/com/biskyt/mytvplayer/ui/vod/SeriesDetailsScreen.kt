@@ -46,6 +46,7 @@ import com.biskyt.mytvplayer.ui.common.favouriteLabel
 import com.biskyt.mytvplayer.ui.common.formatRuntime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.common.restoreFocusIf
+import com.biskyt.mytvplayer.ui.player.episodeName
 import com.biskyt.mytvplayer.ui.player.shortEpisodeLabel
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
@@ -193,7 +194,7 @@ private fun EpisodeRow(e: EpisodeInfo, progress: WatchProgressEntity?, modifier:
         Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("${e.number}", style = MaterialTheme.typography.titleSmall, color = Palette.textDim, modifier = Modifier.width(36.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(e.title, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                Text(episodeName(e), style = MaterialTheme.typography.titleSmall, maxLines = 1)
                 e.plot?.let { Muted(it) }
                 if (progress != null && !progress.finished && progress.durationMs > 0) {
                     ProgressLine(progress.fraction, Modifier.width(220.dp).padding(top = 4.dp))

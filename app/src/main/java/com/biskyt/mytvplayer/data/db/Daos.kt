@@ -342,15 +342,12 @@ interface EpgDao {
     @Query("UPDATE epg_source SET lastError = :error WHERE id = :id")
     suspend fun setSourceError(id: Long, error: String?)
 
-    // Only these columns: a long import mustn't write back an older copy of the rest (its name, say).
+    // Only these columns: a long import mustn't write back an older copy of the rest (a new address, say).
     @Query("UPDATE epg_source SET lastImportAt = :at, channelCount = :channelCount, lastError = :error WHERE id = :id")
     suspend fun setImportResult(id: Long, at: Long, channelCount: Int, error: String?)
 
     @Query("UPDATE epg_source SET enabled = :enabled WHERE id = :id")
     suspend fun setSourceEnabled(id: Long, enabled: Boolean)
-
-    @Query("UPDATE epg_source SET name = :name WHERE id = :id")
-    suspend fun setSourceName(id: Long, name: String)
 
     @Query("SELECT xmlId FROM epg_channel WHERE sourceId = :sourceId")
     suspend fun channelXmlIds(sourceId: Long): List<String>

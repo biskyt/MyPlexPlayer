@@ -233,7 +233,8 @@ class M3uPlaylistTest {
         val show = db.vod().searchSeries(id, "%", 10).single()
         assertEquals("The Beverly Hillbillies", show.title)
         val details = vod.seriesDetails(p, show.id)
-        assertEquals(listOf("The Clampetts Strike Oil", "Episode 2"), details.episodes.map { it.title })
+        // An episode with no title of its own saves none; the app names it when shown, in its language.
+        assertEquals(listOf("The Clampetts Strike Oil", ""), details.episodes.map { it.title })
     }
 
     @Test
