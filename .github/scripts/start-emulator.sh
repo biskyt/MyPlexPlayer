@@ -12,6 +12,9 @@ api=$1 target=$2 arch=$3
 image="system-images;android-$api;$target;$arch"
 tools=$ANDROID_HOME/cmdline-tools/latest/bin
 adb=$ANDROID_HOME/platform-tools/adb
+# One place for the AVD: avdmanager and the emulator otherwise look in different ones.
+export ANDROID_AVD_HOME=$HOME/.android/avd
+mkdir -p "$ANDROID_AVD_HOME"
 
 yes | "$tools/sdkmanager" --licenses > /dev/null || true
 "$tools/sdkmanager" --install emulator platform-tools "$image" > /dev/null
@@ -20,10 +23,16 @@ echo no | "$tools/avdmanager" create avd --force --name tv --package "$image" --
 "$adb" start-server
 nohup "$ANDROID_HOME/emulator/emulator" -avd tv -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim \
     > emulator.log 2>&1 &
+emulator=$!
 
 deadline=$((SECONDS + 600))
 waitFor() {
     until "$@"; do
+        if ! kill -0 "$emulator" 2> /dev/null; then
+            echo "The emulator stopped." >&2
+            tail -n 50 emulator.log >&2
+            exit 1
+        fi
         if ((SECONDS > deadline)); then
             echo "The emulator wasn't ready within 10 minutes." >&2
             tail -n 50 emulator.log >&2
