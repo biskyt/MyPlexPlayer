@@ -31,28 +31,19 @@ object AppText {
 
     @Volatile private var resources: Resources? = null
 
-    @Volatile private var app: Context? = null
-
-    /** The language shown, changing with Settings › Language or the device's: what was named in another follows it. */
-    val shown = MutableStateFlow<Locale?>(null)
-
     /** The chosen language's tag, or "" to follow the device. Screens follow it as it changes. */
     internal val chosen = MutableStateFlow("")
 
     /** Called by the application at start, when the device's settings change, and by [setLanguage]. */
     fun init(context: Context) {
-        val app = (context.applicationContext ?: context).also { this.app = it }
+        val app = context.applicationContext ?: context
         // A language no longer offered counts as none: the device's is followed.
         val tag = prefs(app).getString(KEY, "").orEmpty().takeIf { it in languages }.orEmpty()
         resources = inLanguage(app, tag).resources
-        // After the words, so whoever sees the new language gets its words too.
-        chosen.value = tag
-        shown.value = locale
+        chosen.value = tag // After the words, so whoever sees the new language gets its words too.
     }
 
-    internal val res: Resources get() = checkNotNull(resources) { NOT_STARTED }
-    private val appContext: Context get() = checkNotNull(app) { NOT_STARTED }
-    private const val NOT_STARTED = "AppText.init wasn't called"
+    internal val res: Resources get() = checkNotNull(resources) { "AppText.init wasn't called" }
 
     /** The language the app is shown in: dates, numbers and language names are written in it too. */
     val locale: Locale get() = res.configuration.locales[0]
@@ -85,12 +76,6 @@ object AppText {
     }
 
     private val supported = languages.map(Locale::forLanguageTag)
-
-    /** Each of strings [ids] in every language the app has: to recognise text the app wrote in another one. */
-    fun inEveryLanguage(vararg ids: Int): Map<Int, Set<String>> {
-        val all = languages.map { inLanguage(appContext, it).resources }
-        return ids.associateWith { id -> all.mapTo(HashSet()) { it.getString(id) } }
-    }
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 }

@@ -1,7 +1,6 @@
 package com.biskyt.mytvplayer.data
 
 import androidx.room.withTransaction
-import com.biskyt.mytvplayer.AppText
 import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.core.m3u.M3uCatchup
@@ -167,22 +166,6 @@ class PlaylistRepository(
     suspend fun testConnection(m3u: Boolean, server: String, username: String, password: String) =
         if (m3u) testM3u(server) else testLogin(server, username, password)
 
-    /**
-     * Playlists still called what the app named them ("My TV", "Free TV", in any of its languages) take those names in
-     * the app's language, and every provider guide its playlist's name. Run when the language changes; changes nothing
-     * when they already match.
-     */
-    suspend fun followLanguage() {
-        val names = AppText.inEveryLanguage(R.string.data_playlist_default_name, R.string.data_free_playlist_name)
-        db.withTransaction {
-            playlists.all().forEach { p ->
-                val name = names.entries.firstOrNull { p.name in it.value }?.let { appString(it.key) }
-                if (name != null && name != p.name) playlists.upsert(p.copy(name = name))
-            }
-            epg.nameProviderGuides(playlists.all())
-        }
-    }
-
     suspend fun update(p: PlaylistEntity) {
         val old = playlists.get(p.id)
         if (old != null && (old.server != p.server || old.username != p.username || old.password != p.password)) {
@@ -191,7 +174,6 @@ class PlaylistRepository(
             settings.forgetStreamFormat(p.id)
         }
         playlists.upsert(p)
-        if (old?.name != p.name) epg.nameProviderGuides(listOf(p))
     }
 
     /**

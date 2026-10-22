@@ -102,20 +102,12 @@ class EpgRepository(
         epg.pageForMatching(playlistId, likeArg(query), status)
     }.flow
 
-    private fun guideName(p: PlaylistEntity) = appString(R.string.data_provider_guide_name, p.name)
-
-    /** Each of [playlists]' own guides named after it, in the app's language ("My TV guide"). */
-    suspend fun nameProviderGuides(playlists: List<PlaylistEntity>) = playlists.forEach { p ->
-        val source = epg.providerSource(p.id) ?: return@forEach
-        val name = guideName(p)
-        if (source.name != name) epg.setSourceName(source.id, name)
-    }
-
+    /** The playlist's own guide, named once when added ("My TV guide"); like any saved name, never translated after. */
     suspend fun ensureProviderSource(p: PlaylistEntity, xmltvUrl: String) {
         val existing = epg.providerSource(p.id)
         if (existing == null) {
             epg.insertSource(
-                EpgSourceEntity(name = guideName(p), url = xmltvUrl, playlistId = p.id)
+                EpgSourceEntity(name = appString(R.string.data_provider_guide_name, p.name), url = xmltvUrl, playlistId = p.id)
             )
         } else if (existing.url != xmltvUrl) {
             epg.upsertSource(existing.copy(url = xmltvUrl, lastImportAt = 0)) // a different guide: match everything again

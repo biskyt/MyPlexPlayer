@@ -172,7 +172,7 @@ class XtreamClientTest {
         server.enqueue(
             MockResponse().setBody(
                 """{"seasons":[],"info":{"plot":"Corruption.","episode_run_time":"60"},
-                   "episodes":{"2":[{"id":"9002","episode_num":"1","title":"S2 E1","container_extension":"mp4"}],
+                   "episodes":{"2":[{"id":"9002","episode_num":"1","container_extension":"mp4"}],
                                "1":[{"id":"9001","episode_num":1,"title":"S1 E1","container_extension":"mkv","season":1,
                                      "info":{"plot":"Pilot","duration_secs":3600}}]}}"""
             )
@@ -182,6 +182,8 @@ class XtreamClientTest {
         assertEquals(listOf(1, 2), s.seasons.map { it.number })
         assertEquals(listOf(9001L, 9002L), s.episodes.map { it.id })
         assertEquals("Pilot", s.episodes[0].plot)
+        // No title of its own: none is made up here (the app names it when shown, in its language).
+        assertEquals(listOf("S1 E1", ""), s.episodes.map { it.title })
     }
 
     @Test

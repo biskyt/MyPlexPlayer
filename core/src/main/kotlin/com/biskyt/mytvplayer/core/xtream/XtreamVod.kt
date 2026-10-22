@@ -49,6 +49,7 @@ data class EpisodeInfo(
     val id: Long,
     val season: Int,
     val number: Int,
+    /** The provider's title; blank when it gave none (the app then names it, see episodeTitle). */
     val title: String,
     val extension: String,
     val plot: String?,
@@ -148,7 +149,7 @@ internal fun JsonElement.toSeriesDetails(): SeriesDetails? {
             id = id,
             season = e.int("season") ?: groupSeason ?: 1,
             number = number,
-            title = e.str("title")?.trim() ?: "Episode $number",
+            title = e.str("title")?.trim().orEmpty(), // none: the app names it ("Episode 3", in its language)
             extension = e.str("container_extension") ?: "mp4",
             plot = info?.str("plot"),
             durationSec = info?.int("duration_secs"),
