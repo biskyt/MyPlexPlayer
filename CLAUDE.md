@@ -34,7 +34,10 @@ See also:
 5. Add a `## x.y.z` section at the top of `CHANGELOG.md`, written for people using the app. It becomes the release notes.
 6. Commit with the session's attribution trailers, then push to the working branch and open a PR to `main`.
 7. When CI is green on both the push and PR runs, merge the PR (merge commit).
-8. Run `release.yml` on `main` via workflow_dispatch. It re-tests, signs, tags `v<versionName>` and publishes the GitHub release with the APK and SHA256SUMS.
+8. Releases are built only for a tag, never for a plain merge to `main`. When the owner wants one, push the tag
+   `v<versionName>` on `main` (`git tag v1.0.2 && git push origin v1.0.2`); `release.yml` runs on `v*` tags. It re-tests,
+   signs and publishes the GitHub release with the APK and SHA256SUMS.
+   - A change with no app changes (CI, tests, docs) is merged without a version bump, changelog entry or release.
    - The signed Play bundle (`.aab`) is a run artifact called `MyTVPlayer-<version>-play-bundle`, kept 90 days.
    - Versions `0.x` (or dev-key signed builds) are pre-releases. `1.x` and later are full releases.
 9. Confirm the release exists, then give the owner the release link and the `.aab` artifact link.
@@ -78,7 +81,8 @@ See also:
 
 ## Open items (as of 1.0.1, released)
 - **Next:** a Google Play store deployment pipeline. The owner planned this after 1.0.0. The `.aab` is uploaded by hand for now.
-- **In progress:** emulator smoke tests on CI (`.github/workflows/emulator.yml`: Android TV 9 and Google TV 16 images,
-  free on GitHub's standard runners for a public repo). Tests live in `app/src/androidTest`; the debug build adds an
-  x86/x86_64 ABI only with `-PemulatorAbi=<arch>`. Release them on their own after the owner has tested.
+- **Done:** emulator smoke tests on CI for pull requests (`.github/workflows/emulator.yml`: Android TV 9 and Google TV
+  16, free on GitHub's standard runners for a public repo). Tests live in `app/src/androidTest`; the debug build adds an
+  x86/x86_64 ABI only with `-PemulatorAbi=<arch>`. `.github/scripts/start-emulator.sh` boots the emulator itself:
+  Google TV 16 drops off adb for a second or two after boot, which the usual runner action doesn't wait out.
 - **Optional:** per-entry user agent / referrer for M3U films and episodes.
