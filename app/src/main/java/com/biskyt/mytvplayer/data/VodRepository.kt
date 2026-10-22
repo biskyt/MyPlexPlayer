@@ -129,14 +129,15 @@ class VodRepository(private val db: AppDatabase, private val playlists: Playlist
     suspend fun movieDetails(p: PlaylistEntity, streamId: Long): VodDetails = if (p.isM3u) {
         M3uVod.NO_DETAILS
     } else {
-        movieDetails["${p.id}:$streamId"] ?: playlists.client(p).movieDetails(streamId).also { movieDetails.put("${p.id}:$streamId", it) }
+        movieDetails["${p.id}:$streamId"]
+            ?: withUserXtreamErrors { playlists.client(p).movieDetails(streamId) }.also { movieDetails.put("${p.id}:$streamId", it) }
     }
 
     suspend fun seriesDetails(p: PlaylistEntity, seriesId: Long): SeriesDetails = if (p.isM3u) {
         m3u.seriesDetails(p.id, seriesId)
     } else {
         seriesDetails["${p.id}:$seriesId"]
-            ?: playlists.client(p).seriesDetails(seriesId).also { seriesDetails.put("${p.id}:$seriesId", it) }
+            ?: withUserXtreamErrors { playlists.client(p).seriesDetails(seriesId) }.also { seriesDetails.put("${p.id}:$seriesId", it) }
     }
 
     suspend fun movieUrl(p: PlaylistEntity, m: MovieEntity): String = m.streamUrl ?: playlists.client(p).movieUrl(m.streamId, m.extension)

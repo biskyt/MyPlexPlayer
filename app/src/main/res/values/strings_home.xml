@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Home screen row headings. "Carry on watching" and "Recently watched" are also named in the remove actions below. -->
+    <string name="home_carry_on">Carry on watching</string>
+    <string name="home_on_now">Your channels, on now</string>
+
+    <!-- Options for a channel card (hold OK on it). -->
+    <string name="home_remove_recent">Remove from Recently watched</string>
+
+    <!-- Options for a movie or episode card in "Carry on watching". -->
+    <string name="home_play_next_episode">Play the next episode</string>
+    <string name="home_resume">Resume</string>
+    <string name="home_remove_carry_on">Remove from Carry on watching</string>
+    <!-- Explains "Remove from Carry on watching" for a movie. -->
+    <string name="home_forget_movie">Forgets how far you got</string>
+    <!-- Explains "Remove from Carry on watching" for a series. -->
+    <string name="home_forget_series">Forgets which episodes you\'ve watched</string>
+
+    <!-- "Add to favourites" is the name of an action in the channel options: keep it the same as there. Up to 2 lines. -->
+    <string name="home_no_favourites">No favourites yet. On Live TV, hold OK on a channel and choose “Add to favourites”.</string>
+    <string name="home_browse_channels">Browse channels</string>
+
+    <!-- Channel card, under the programme on now. %1$s: the time it ends, e.g. 21:30. One short line. -->
+    <string name="home_until">until %1$s</string>
+    <!-- Channel card. %1$s: the time the programme on now ends; %2$s: the title of the one after it. One short line. -->
+    <string name="home_until_then">until %1$s · then %2$s</string>
+
+    <!-- Carry on card for a finished episode. %1$s: the episode, written short, e.g. "S1 E2". -->
+    <string name="home_up_next_after">Up next after %1$s</string>
+</resources>

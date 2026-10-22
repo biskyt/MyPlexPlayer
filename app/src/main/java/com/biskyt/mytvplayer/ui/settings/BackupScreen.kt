@@ -22,12 +22,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.data.BackupException
 import com.biskyt.mytvplayer.data.BackupFile
 import com.biskyt.mytvplayer.ui.LocalNavigator
@@ -41,9 +44,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
-
-private const val PERMISSION_DENIED =
-    "Without storage permission the backup can't be saved. Allow it in the TV's Settings › Apps › MyTVPlayer › Permissions."
 
 class BackupViewModel(private val c: AppContainer) : ViewModel() {
     private val file = c.backupFile
@@ -68,10 +68,10 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch { saved = runCatching { file.find() }.getOrNull() }
     }
 
-    fun backUp() = run("Saving…") {
+    fun backUp() = run(appString(R.string.settings_backup_saving)) {
         val s = file.write(c.backup.export())
         saved = s
-        "Saved to ${s.path}"
+        appString(R.string.settings_backup_saved_to, s.path)
     }
 
     fun ask(uri: Uri) {
@@ -116,7 +116,7 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
         val backUpNext = backUpAfterPermission
         backUpAfterPermission = false
         // Declined on opening the page: fine for restoring from a file, so nothing to report until "Back up now".
-        if (!granted) return if (backUpNext) failed(PERMISSION_DENIED) else Unit
+        if (!granted) return if (backUpNext) failed(appString(R.string.settings_backup_permission_denied)) else Unit
         viewModelScope.launch {
             // Not knowing whether one is there, nothing is saved over it.
             val found = try {
@@ -124,12 +124,12 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                return@launch failed("Couldn't look for a backup: ${e.message ?: e.javaClass.simpleName}")
+                return@launch failed(appString(R.string.settings_backup_find_failed, e.message ?: e.javaClass.simpleName))
             }
             saved = found
             when {
                 !backUpNext -> Unit
-                found != null -> status = "There's a backup here already. Restore it, or press Back up now again to replace it."
+                found != null -> status = appString(R.string.settings_backup_already_there)
                 else -> backUp()
             }
         }
@@ -140,7 +140,7 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
         val uri = confirming ?: return
         if (busy) return
         confirming = null
-        run("Restoring…") {
+        run(appString(R.string.settings_backup_restoring)) {
             // In the app's scope: leaving the page mustn't stop a restore halfway.
             done(c.appScope.async { file.read(uri) { c.backup.restore(it) } }.await())
             null
@@ -161,7 +161,7 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
             } catch (e: BackupException) {
                 e.message
             } catch (e: Exception) {
-                "Something went wrong: ${e.message ?: e.javaClass.simpleName}"
+                appString(R.string.settings_backup_failed, e.message ?: e.javaClass.simpleName)
             }
             busy = false
         }
@@ -202,6 +202,8 @@ fun BackupScreen() {
     LaunchedEffect(Unit) { if (vm.needsPermission && !vm.askedOnOpening) askPermission(forBackUp = false) }
     val backUp = { if (vm.needsPermission) askPermission(forBackUp = true) else vm.backUp() }
     val context = LocalContext.current
+    val chooserTitle = stringResource(R.string.settings_backup_choose_file)
+    val noPicker = stringResource(R.string.settings_backup_no_picker)
     val chooseFile = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) result.data?.data?.let(vm::ask)
     }
@@ -214,7 +216,7 @@ fun BackupScreen() {
         val (standIns, fileManagers) = context.handlers(get).partition { it.isStandIn }
         val tries = listOfNotNull(
             picker?.let { Intent(open).setPackage(it.packageName) },
-            Intent.createChooser(get, "Choose the backup file")
+            Intent.createChooser(get, chooserTitle)
                 .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, standIns.map { ComponentName(it.packageName, it.name) }.toTypedArray())
                 .takeIf { fileManagers.isNotEmpty() },
             // Last, whatever else answers for the picker (a maker's own, perhaps), as before.
@@ -229,51 +231,46 @@ fun BackupScreen() {
                 false
             }
         }
-        if (!opened) {
-            vm.failed(
-                "This TV has no way to choose a file. Open the backup with MyTVPlayer from a file manager app such as " +
-                    "X-plore (Open with, or Share), or install one and try again."
-            )
-        }
+        if (!opened) vm.failed(noPicker)
     }
 
     LaunchedEffect(vm) { vm.takeOpenedFiles() }
 
-    SettingsPage("Backup & restore") {
+    SettingsPage(stringResource(R.string.settings_backup_title)) {
         item {
             Column(Modifier.width(760.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Muted(
-                    "Saves your playlists (with their logins), channel and category choices, favourites, TV guide " +
-                        "sources and settings to a file. Copy it with a file manager app to keep it somewhere else. The file " +
-                        "isn't encrypted, so keep it private.",
-                    maxLines = 4
-                )
+                Muted(stringResource(R.string.settings_backup_intro), maxLines = 4)
                 val last = vm.saved?.let { s ->
                     listOfNotNull(s.modifiedAt.takeIf { it > 0 }?.let(::formatDayTime), s.path).joinToString(" · ")
                 }
-                Muted(last?.let { "Last backup: $it" } ?: "No backup on this TV yet.", maxLines = 2)
+                Muted(
+                    if (last != null) {
+                        stringResource(R.string.settings_backup_last, last)
+                    } else {
+                        stringResource(R.string.settings_backup_none)
+                    },
+                    maxLines = 2
+                )
             }
         }
         item {
             if (vm.confirming != null) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        "This replaces your playlists and settings with the backup's. Restore?",
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                    Text(stringResource(R.string.settings_backup_confirm), style = MaterialTheme.typography.titleMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        PillButton("Restore", {
+                        PillButton(stringResource(R.string.settings_backup_restore), {
                             vm.restore { hasPlaylists -> nav.reset(if (hasPlaylists) Screen.Home else Screen.Welcome) }
                         }, rememberFirstFocus(), primary = true)
-                        PillButton("Cancel", vm::cancel)
+                        PillButton(stringResource(R.string.settings_backup_cancel), vm::cancel)
                     }
                 }
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    PillButton("Back up now", backUp, rememberFirstFocus(), primary = true)
+                    PillButton(stringResource(R.string.settings_backup_now), backUp, rememberFirstFocus(), primary = true)
                     val s = vm.saved
-                    if (s != null) PillButton("Restore", { vm.ask(s.uri) })
-                    PillButton(if (s == null) "Restore from a file…" else "Restore from another file…", ::pick)
+                    if (s != null) PillButton(stringResource(R.string.settings_backup_restore), { vm.ask(s.uri) })
+                    val restoreFile = if (s == null) R.string.settings_backup_restore_file else R.string.settings_backup_restore_other_file
+                    PillButton(stringResource(restoreFile), ::pick)
                 }
             }
         }

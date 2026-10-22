@@ -1,6 +1,7 @@
 package com.biskyt.mytvplayer.ui.player
 
 import androidx.annotation.OptIn
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
@@ -12,15 +13,16 @@ import androidx.media3.common.Player
 import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.SubtitleView
+import com.biskyt.mytvplayer.R
 import kotlin.math.roundToInt
 
 /** How the picture fills the screen. The fixed shapes fix channels whose picture is flagged with the wrong one. */
-enum class PictureMode(val label: String, private val shape: Float?) {
-    FIT("Fit", null),
-    ZOOM("Zoom to fill", null),
-    STRETCH("Stretch", null),
-    WIDE("16:9", 16f / 9),
-    STANDARD("4:3", 4f / 3);
+enum class PictureMode(@StringRes val label: Int, private val shape: Float?) {
+    FIT(R.string.player_picture_fit, null),
+    ZOOM(R.string.player_picture_zoom, null),
+    STRETCH(R.string.player_picture_stretch, null),
+    WIDE(R.string.player_picture_wide, 16f / 9),
+    STANDARD(R.string.player_picture_standard, 4f / 3);
 
     val next: PictureMode get() = entries[(ordinal + 1) % entries.size]
 

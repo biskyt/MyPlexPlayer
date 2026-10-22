@@ -7,9 +7,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
@@ -41,7 +43,8 @@ private fun CatchupControls(vm: CatchupPlayerViewModel, buttons: FocusRequester,
     ControlsPanel {
         Column {
             val behind = ((System.currentTimeMillis() - at) / 1000).toInt()
-            Muted(listOfNotNull(vm.channel?.name, "Catch-up · ${formatRuntime(behind)} behind live").joinToString(" · "))
+            val catchup = stringResource(R.string.player_catchup_behind_live, formatRuntime(behind))
+            Muted(listOfNotNull(vm.channel?.name, catchup).joinToString(" · "))
             Text(
                 p?.title ?: vm.channel?.name.orEmpty(),
                 style = MaterialTheme.typography.displaySmall,
@@ -56,9 +59,9 @@ private fun CatchupControls(vm: CatchupPlayerViewModel, buttons: FocusRequester,
             }
         }
         ControlsBar(vm, buttons, root) {
-            PillButton("From the start", vm::fromStart)
-            PillButton("Watch live", vm::watchLive)
+            PillButton(stringResource(R.string.common_from_start), vm::fromStart)
+            PillButton(stringResource(R.string.player_watch_live), vm::watchLive)
         }
-        if (!LocalTouch.current) Muted("▲ then ◀ ▶ to skip (hold to scrub) · Back hides this", Modifier.align(Alignment.CenterHorizontally))
+        if (!LocalTouch.current) Muted(stringResource(R.string.player_hint_skip), Modifier.align(Alignment.CenterHorizontally))
     }
 }

@@ -2,6 +2,8 @@ package com.biskyt.mytvplayer.data
 
 import android.util.Xml
 import androidx.room.withTransaction
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.core.epg.ChannelMatcher
 import com.biskyt.mytvplayer.core.epg.ChannelNames
 import com.biskyt.mytvplayer.core.epg.EpgCandidate
@@ -148,7 +150,7 @@ class EpgRepository(
             // matching adds is read.
             val mappedBefore = sources.filterNot { readInFull(it, it.id in downloads.fresh) }
                 .associate { it.id to epg.mappedXmlIds(it.id).toHashSet() }
-            onProgress("Matching channels…")
+            onProgress(appString(R.string.data_matching))
             playlistIds.forEach { autoMatch(it, downloads.scope, onProgress) }
             releaseMatcher()
             val late = HashMap<Long, List<EpgChannelEntity>>()
@@ -212,14 +214,13 @@ class EpgRepository(
         val full = readInFull(s, fresh)
         val wanted = if (full) mapped else mapped - mappedBefore
         if (wanted.isEmpty() && !full) return emptyList()
-        val label = "Loading programmes from ${s.name}"
         return runCatching {
             importProgrammes(
                 s.id,
                 wanted,
                 onlyThese = !full,
                 known = if (full) epg.channelXmlIds(s.id).toHashSet() else null,
-                onProgress = { percent -> onProgress("$label… $percent%") }
+                onProgress = { percent -> onProgress(appString(R.string.data_loading_programmes_percent, s.name, percent)) }
             ).also {
                 // Unchanged but read again in full: counts from now. (Not a guide never read well, nor one that failed.)
                 if (full && !fresh && s.lastImportAt != 0L && s.id !in errors) epg.setLastImport(s.id, clock())
@@ -254,11 +255,12 @@ class EpgRepository(
      * is read again), or why it failed (also stored with the source).
      */
     private suspend fun load(s: EpgSourceEntity, onProgress: (String) -> Unit): Result<Int?> {
-        val label = "Downloading ${s.name}"
-        onProgress("$label…")
+        onProgress(appString(R.string.data_downloading, s.name))
         val result = runCatching {
-            val tags = download(s) { percent -> onProgress("$label… $percent%") } ?: return@runCatching null
-            onProgress("Reading ${s.name}…")
+            val tags =
+                download(s) { percent -> onProgress(appString(R.string.data_downloading_percent, s.name, percent)) }
+                    ?: return@runCatching null
+            onProgress(appString(R.string.data_reading, s.name))
             // The tags only once the file has read well: a bad copy is fetched again next time, not kept as unchanged.
             importChannels(s).also { metaFile(s.id).writeText(tags) }
         }
@@ -326,7 +328,9 @@ class EpgRepository(
         releaseMatcher()
         val names = epg.enabledSources().associate { it.id to it.name }
         found.groupBy({ it.sourceId!! }, { it.xmlId!! }).forEach { (source, xmlIds) ->
-            onProgress("Loading programmes from ${names[source] ?: "the guide"}…")
+            onProgress(
+                names[source]?.let { appString(R.string.data_loading_programmes, it) } ?: appString(R.string.data_loading_programmes_guide)
+            )
             runCatching { importProgrammes(source, xmlIds.toHashSet(), onlyThese = true) }
         }
         changed()
@@ -335,7 +339,7 @@ class EpgRepository(
 
     private fun matchingLabel(done: Int, total: Int): String {
         val n = NumberFormat.getIntegerInstance()
-        return "Matching channels… ${n.format(done)} of ${n.format(total)}"
+        return appString(R.string.data_matching_progress, n.format(done), n.format(total))
     }
 
     fun releaseMatcher() {
@@ -463,7 +467,7 @@ class EpgRepository(
         }.build()
         val tags = http.newCall(request).execute().use { response ->
             if (response.code == HttpURLConnection.HTTP_NOT_MODIFIED) return null
-            if (!response.isSuccessful) throw IOException("Server returned error ${response.code}")
+            if (!response.isSuccessful) throw IOException(appString(R.string.data_server_error, response.code))
             val length = response.body!!.contentLength()
             val counted = CountingInputStream(response.body!!.byteStream(), length, onProgress)
             val body = BufferedInputStream(counted)
@@ -484,7 +488,7 @@ class EpgRepository(
             "${s.url}\n${response.header("ETag").orEmpty()}\n${response.header("Last-Modified").orEmpty()}\n"
         }
         meta.delete()
-        if (!tmp.renameTo(target)) throw IOException("Couldn't save guide file")
+        if (!tmp.renameTo(target)) throw IOException(appString(R.string.data_guide_save_failed))
         return tags
     }
 

@@ -1,6 +1,8 @@
 package com.biskyt.mytvplayer.data
 
 import androidx.room.withTransaction
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.core.m3u.M3uEntry
 import com.biskyt.mytvplayer.core.m3u.M3uParser
 import com.biskyt.mytvplayer.core.vod.EpisodeNames
@@ -35,12 +37,12 @@ internal class M3uVod(private val db: AppDatabase, private val playlists: Playli
         val episodes = vod.episodes(playlistId, seriesId).map {
             EpisodeInfo(it.episodeId, it.season, it.number, it.title, extension = "", plot = null, durationSec = null, imageUrl = null)
         }
-        val seasons = episodes.map { it.season }.distinct().map { SeasonInfo(it, "Season $it") }
+        val seasons = episodes.map { it.season }.distinct().map { SeasonInfo(it, null) }
         return SeriesDetails(NO_DETAILS, seasons, episodes)
     }
 
     suspend fun episodeUrl(playlistId: Long, episodeId: Long): String =
-        vod.episode(playlistId, episodeId)?.streamUrl ?: throw IOException("This episode is no longer in the playlist")
+        vod.episode(playlistId, episodeId)?.streamUrl ?: throw IOException(appString(R.string.data_episode_gone))
 
     suspend fun sync(p: PlaylistEntity, onProgress: (Int) -> Unit) {
         val movies = p.moviesUrl?.trim().orEmpty()

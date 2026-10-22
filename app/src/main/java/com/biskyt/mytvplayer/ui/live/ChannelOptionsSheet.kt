@@ -13,9 +13,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.core.epg.ProgrammeKind
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.ui.LocalNavigator
@@ -59,18 +62,18 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                     play(ch)
                 })
             } else {
-                MenuOption("Watch", modifier = rememberFirstFocus()) {
+                MenuOption(stringResource(R.string.common_watch), modifier = rememberFirstFocus()) {
                     close()
                     play(ch)
                 }
                 val kind = findKind
                 if (programme != null && kind != null) {
                     val label = when (kind) {
-                        ProgrammeKind.SERIES -> "Find series"
-                        ProgrammeKind.MOVIE -> "Find in Movies"
-                        else -> "Search for \u201c${programme.title}\u201d"
+                        ProgrammeKind.SERIES -> stringResource(R.string.live_option_find_series)
+                        ProgrammeKind.MOVIE -> stringResource(R.string.live_option_find_movie)
+                        else -> stringResource(R.string.live_option_search_for, programme.title)
                     }
-                    MenuOption(label, "Watch it on demand") {
+                    MenuOption(label, stringResource(R.string.live_option_find_help)) {
                         close()
                         // Only if the user is still here when the lookup finishes.
                         val from = nav.current
@@ -79,33 +82,40 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                 }
                 // Catch-up channels (known from the channel itself: nothing is asked of the provider to show these).
                 if (ch.archiveDays > 0) {
-                    MenuOption("Catch-up", "Programmes from the last ${ch.archiveDays} days") {
+                    MenuOption(
+                        stringResource(R.string.common_catchup),
+                        pluralStringResource(R.plurals.common_catchup_days, ch.archiveDays, ch.archiveDays)
+                    ) {
                         close()
                         nav.push(Screen.Catchup(ch.playlistId, ch.streamId))
                     }
-                    MenuOption("Start over", "Watch what's on from the beginning") {
+                    MenuOption(stringResource(R.string.common_start_over), stringResource(R.string.live_option_start_over_help)) {
                         close()
                         nav.push(Screen.CatchupPlayer(ch.playlistId, ch.streamId, filter = vm.filter.value))
                     }
                 }
                 MenuOption(favouriteLabel(ch.streamId in favs)) { vm.toggleFavourite(ch) }
-                MenuOption("Show TV guide for this channel", "Upcoming programmes") { showGuide = true }
+                MenuOption(stringResource(R.string.live_option_channel_guide), stringResource(R.string.live_option_channel_guide_help)) {
+                    showGuide = true
+                }
                 MenuOption(
-                    if (vm.guideMode) "Switch to channel list" else "Switch to TV guide grid",
-                    "Or press the Guide button on the remote"
+                    stringResource(if (vm.guideMode) R.string.live_option_switch_to_list else R.string.live_option_switch_to_grid),
+                    stringResource(R.string.live_option_switch_help)
                 ) {
                     close()
                     vm.showGuide(!vm.guideMode)
                 }
-                MenuOption("Change guide source…", "Pick which guide data this channel uses") {
+                MenuOption(stringResource(R.string.common_change_guide_source), stringResource(R.string.common_change_guide_source_help)) {
                     close()
                     nav.push(Screen.GuideMatching(ch.playlistId, ch.streamId))
                 }
                 if (vm.canMove) {
-                    MenuOption("Move up") { vm.move(ch, -1) }
-                    MenuOption("Move down") { vm.move(ch, 1) }
+                    MenuOption(stringResource(R.string.live_option_move_up)) { vm.move(ch, -1) }
+                    MenuOption(stringResource(R.string.live_option_move_down)) { vm.move(ch, 1) }
                 }
-                MenuOption("Hide channel", "Unhide later in Settings › Languages & categories") { vm.hide(ch) }
+                MenuOption(stringResource(R.string.live_option_hide_channel), stringResource(R.string.live_option_hide_channel_help)) {
+                    vm.hide(ch)
+                }
             }
         }
     }

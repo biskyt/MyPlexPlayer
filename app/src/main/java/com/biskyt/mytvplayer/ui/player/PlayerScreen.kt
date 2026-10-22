@@ -45,6 +45,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -57,6 +58,7 @@ import androidx.media3.ui.compose.state.rememberPresentationState
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.core.player.OverlayState
 import com.biskyt.mytvplayer.core.player.RemoteKey
 import com.biskyt.mytvplayer.core.player.isMedia
@@ -171,14 +173,23 @@ internal fun PlayerFrame(
             Subtitles(engine.player, Modifier.picture(vm.picture, presentation.videoSizeDp, onScreen = true))
         }
         if (vm.buffering && vm.error == null) {
-            Text("Loading…", style = MaterialTheme.typography.titleLarge, modifier = Modifier.align(Alignment.Center))
+            Text(
+                stringResource(R.string.common_loading),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.align(Alignment.Center)
+            )
         }
         vm.error?.let { ErrorBox(it, vm) }
         if (vm.overlay == OverlayState.CONTROLS) {
             controls(buttons, root)
             // A touch screen has no remote with a Back button in reach: this goes back to the list.
             if (LocalTouch.current) {
-                RoundButton(AppIcons.Back, "Back", modifier = Modifier.align(Alignment.TopStart).padding(24.dp), onClick = vm::stop)
+                RoundButton(
+                    AppIcons.Back,
+                    stringResource(R.string.player_back),
+                    modifier = Modifier.align(Alignment.TopStart).padding(24.dp),
+                    onClick = vm::stop
+                )
             }
         }
         vm.message?.let { FlashLabel(it, Modifier.align(Alignment.TopCenter)) }
@@ -259,7 +270,7 @@ private fun LiveControls(vm: PlayerViewModel, buttons: FocusRequester, root: Foc
             nn?.next?.let { next ->
                 Column(Modifier.width(320.dp), horizontalAlignment = Alignment.End) {
                     Text(
-                        "UP NEXT · ${formatTime(next.startMs)}",
+                        stringResource(R.string.player_up_next, formatTime(next.startMs)),
                         style = MaterialTheme.typography.labelMedium,
                         color = accent.color
                     )
@@ -269,16 +280,19 @@ private fun LiveControls(vm: PlayerViewModel, buttons: FocusRequester, root: Foc
         }
         nn?.now?.let { current -> Timeline(formatTime(current.startMs), nn.progress(now), formatTime(current.stopMs)) }
         ControlsBar(vm, buttons, root) {
-            PillButton("Channel guide", vm::openGuide)
+            PillButton(stringResource(R.string.player_channel_guide), vm::openGuide)
             if (ch.archiveDays > 0) {
                 val nav = LocalNavigator.current
-                PillButton("Start over", { nav.replace(Screen.CatchupPlayer(ch.playlistId, ch.streamId, filter = vm.filter)) })
+                PillButton(
+                    stringResource(R.string.common_start_over),
+                    { nav.replace(Screen.CatchupPlayer(ch.playlistId, ch.streamId, filter = vm.filter)) }
+                )
             }
         }
         // Remote keys: no use on a touch screen.
         if (!LocalTouch.current) {
-            val hint = if (vm.upDownZaps) "▲ ▼ change channel" else "CH + − change channel · ▲ then ◀ ▶ to skip"
-            Muted("$hint · Back hides this", Modifier.align(Alignment.CenterHorizontally))
+            val hint = if (vm.upDownZaps) R.string.player_hint_zap_up_down else R.string.player_hint_zap_channel_buttons
+            Muted(stringResource(hint), Modifier.align(Alignment.CenterHorizontally))
         }
     }
 }
@@ -349,19 +363,19 @@ internal fun ControlsBar(vm: PlaybackViewModel, buttons: FocusRequester, root: F
     ) {
         leading()
         Box(Modifier.weight(1f))
-        RoundButton(AppIcons.Rewind, "Skip back") { vm.onKey(RemoteKey.LEFT) }
+        RoundButton(AppIcons.Rewind, stringResource(R.string.common_skip_back)) { vm.onKey(RemoteKey.LEFT) }
         RoundButton(
             if (vm.isPlaying) AppIcons.Pause else AppIcons.Play,
-            if (vm.isPlaying) "Pause" else "Play",
+            stringResource(if (vm.isPlaying) R.string.player_pause else R.string.common_play),
             primary = true,
             modifier = Modifier.focusRequester(buttons)
         ) { vm.togglePlayPause() }
-        RoundButton(AppIcons.Forward, "Skip forward") { vm.onKey(RemoteKey.RIGHT) }
-        RoundButton(AppIcons.Stop, "Stop") { vm.stop() }
+        RoundButton(AppIcons.Forward, stringResource(R.string.common_skip_forward)) { vm.onKey(RemoteKey.RIGHT) }
+        RoundButton(AppIcons.Stop, stringResource(R.string.player_stop)) { vm.stop() }
         Box(Modifier.weight(1f))
-        PillButton("Audio", { vm.sheet = PlaybackViewModel.Sheet.AUDIO })
-        PillButton("Subtitles", { vm.sheet = PlaybackViewModel.Sheet.SUBTITLES })
-        PillButton("More", { vm.sheet = PlaybackViewModel.Sheet.MORE })
+        PillButton(stringResource(R.string.player_audio), { vm.sheet = PlaybackViewModel.Sheet.AUDIO })
+        PillButton(stringResource(R.string.player_subtitles), { vm.sheet = PlaybackViewModel.Sheet.SUBTITLES })
+        PillButton(stringResource(R.string.player_more), { vm.sheet = PlaybackViewModel.Sheet.MORE })
     }
 }
 
@@ -396,8 +410,8 @@ private fun ErrorBox(error: PlaybackError, vm: PlaybackViewModel) {
             Text(error.message, style = MaterialTheme.typography.titleLarge)
             error.reason?.let { Muted(it, maxLines = 4) }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                PillButton("Try again", vm::retry, retry, primary = true)
-                PillButton("Back", vm::stop)
+                PillButton(stringResource(R.string.common_retry), vm::retry, retry, primary = true)
+                PillButton(stringResource(R.string.player_back), vm::stop)
             }
         }
     }

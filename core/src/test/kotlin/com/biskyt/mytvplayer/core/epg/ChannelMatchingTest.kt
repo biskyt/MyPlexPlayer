@@ -121,7 +121,9 @@ class ChannelMatchingTest {
             "Trinidad and Tobago" to "TT", "Republic of the Congo" to "CG", "Democratic Republic of the Congo" to "CD"
         )
         cases.forEach { (input, expected) -> assertEquals(input, expected, CategoryLanguageDetector.detect(input)) }
-        assertEquals("English (UK)", CategoryLanguageDetector.label("UK"))
-        assertEquals("Other", CategoryLanguageDetector.label(null))
+        // Codes with a label of their own, which the app names (its group label test checks every one); other
+        // countries are named by their ISO code.
+        assertTrue(listOf("UK", "EXYU", "LAT").all { it in CategoryLanguageDetector.groups })
+        assertTrue("KP" !in CategoryLanguageDetector.groups)
     }
 }

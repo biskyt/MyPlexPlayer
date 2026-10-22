@@ -1,5 +1,6 @@
 package com.biskyt.mytvplayer.ui.common
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,12 +33,15 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.SyncState
@@ -47,7 +51,13 @@ import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 import kotlinx.coroutines.flow.flowOf
 
-enum class Tab(val label: String) { HOME("Home"), LIVE("Live TV"), MOVIES("Movies"), SERIES("Series"), CATCHUP("Catch-up") }
+enum class Tab(@StringRes val label: Int) {
+    HOME(R.string.common_tab_home),
+    LIVE(R.string.common_tab_live),
+    MOVIES(R.string.common_tab_movies),
+    SERIES(R.string.common_tab_series),
+    CATCHUP(R.string.common_catchup)
+}
 
 /** Top bar from the agreed design: logo, tabs, clock, search, settings and the playlist switcher. */
 @Composable
@@ -75,7 +85,7 @@ fun TopBar(selected: Tab?) {
         }
         Tab.entries.filter { it != Tab.CATCHUP || hasCatchup }.forEach { tab ->
             PillButton(
-                text = tab.label,
+                text = stringResource(tab.label),
                 selected = tab == selected,
                 onClick = {
                     nav.reset(
@@ -93,8 +103,8 @@ fun TopBar(selected: Tab?) {
         Box(Modifier.weight(1f))
         SyncStatus()
         Clock()
-        IconPill(AppIcons.Search, "Search") { nav.push(Screen.Search()) }
-        IconPill(AppIcons.Settings, "Settings") { nav.push(Screen.Settings) }
+        IconPill(AppIcons.Search, stringResource(R.string.common_search)) { nav.push(Screen.Search()) }
+        IconPill(AppIcons.Settings, stringResource(R.string.common_settings)) { nav.push(Screen.Settings) }
         if (active != null) {
             TvCard(onClick = { nav.push(Screen.Playlists) }, shape = RoundedCornerShape(50)) {
                 Row(
@@ -138,8 +148,18 @@ private fun SyncStatus() {
 /** What a background update is doing, in words (null when idle). */
 fun syncLabel(state: SyncState): String? = when (state) {
     SyncState.Idle -> null
-    is SyncState.Channels -> if (state.loaded == 0) "Updating channels…" else "Loading channels… ${formatCount(state.loaded)}"
-    is SyncState.Vod -> if (state.loaded == 0) "Updating movies and series…" else "Loading movies and series… ${formatCount(state.loaded)}"
+    is SyncState.Channels ->
+        if (state.loaded == 0) {
+            appString(R.string.common_sync_channels_start)
+        } else {
+            appString(R.string.common_sync_channels_loading, formatCount(state.loaded))
+        }
+    is SyncState.Vod ->
+        if (state.loaded == 0) {
+            appString(R.string.common_sync_vod_start)
+        } else {
+            appString(R.string.common_sync_vod_loading, formatCount(state.loaded))
+        }
     is SyncState.Guide -> state.message
     is SyncState.Failed -> state.message
 }

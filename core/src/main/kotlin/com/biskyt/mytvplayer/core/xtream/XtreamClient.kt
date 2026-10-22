@@ -1,5 +1,6 @@
 package com.biskyt.mytvplayer.core.xtream
 
+import com.biskyt.mytvplayer.core.xtream.XtreamException.Reason
 import java.io.IOException
 import java.io.InputStream
 import kotlinx.coroutines.Dispatchers
@@ -15,7 +16,31 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
-class XtreamException(message: String, cause: Throwable? = null) : IOException(message, cause)
+/**
+ * A failure talking to an Xtream server. [message] is in English, for logs; [reason] (with [code], or for
+ * [Reason.UNREACHABLE] the cause's message) lets the app tell the user in their language.
+ */
+class XtreamException(
+    message: String,
+    cause: Throwable? = null,
+    val reason: Reason = Reason.OTHER,
+    /** The server's HTTP status, for [Reason.SERVER_ERROR]. */
+    val code: Int = 0,
+) : IOException(message, cause) {
+    enum class Reason {
+        LOGIN_FAILED,
+        NO_MOVIE_DETAILS,
+        NO_EPISODES,
+        UNREACHABLE,
+        SERVER_ERROR,
+        EMPTY_RESPONSE,
+        UNEXPECTED_RESPONSE,
+        INVALID_ADDRESS,
+
+        /** Raised outside this client, with a message already meant for the user. */
+        OTHER,
+    }
+}
 
 /**
  * Minimal Xtream Codes API client. Large responses (the live stream list can hold tens of thousands of entries)
@@ -30,7 +55,7 @@ class XtreamClient(private val http: OkHttpClient, private val credentials: Xtre
 
     suspend fun account(): XtreamAccount = withContext(Dispatchers.IO) {
         get(apiUrl()) { json.decodeFromStream(it).toAccount() }
-            ?: throw XtreamException("Login failed: check the server address, username and password")
+            ?: throw XtreamException("Login failed: check the server address, username and password", reason = Reason.LOGIN_FAILED)
     }
 
     suspend fun liveCategories(): List<XtreamCategory> = categories("get_live_categories")
@@ -75,14 +100,14 @@ class XtreamClient(private val http: OkHttpClient, private val credentials: Xtre
 
     suspend fun movieDetails(streamId: Long): VodDetails = withContext(Dispatchers.IO) {
         get(apiUrl("get_vod_info") { addQueryParameter("vod_id", streamId.toString()) }) { json.decodeFromStream(it).toMovieDetails() }
-            ?: throw XtreamException("No details for this movie")
+            ?: throw XtreamException("No details for this movie", reason = Reason.NO_MOVIE_DETAILS)
     }
 
     suspend fun seriesDetails(seriesId: Long): SeriesDetails = withContext(Dispatchers.IO) {
         get(apiUrl("get_series_info") { addQueryParameter("series_id", seriesId.toString()) }) {
             json.decodeFromStream(it).toSeriesDetails()
         }
-            ?: throw XtreamException("No episodes found for this series")
+            ?: throw XtreamException("No episodes found for this series", reason = Reason.NO_EPISODES)
     }
 
     /** A channel's catch-up listing (past days and the coming hours), fetched when catch-up is opened. */
@@ -130,17 +155,17 @@ class XtreamClient(private val http: OkHttpClient, private val credentials: Xtre
         val response = try {
             http.newCall(Request.Builder().url(url).build()).execute()
         } catch (e: IOException) {
-            throw XtreamException("Couldn't reach the server: ${e.message}", e)
+            throw XtreamException("Couldn't reach the server: ${e.message}", e, Reason.UNREACHABLE)
         }
         response.use {
-            if (!it.isSuccessful) throw XtreamException("Server returned error ${it.code}")
-            val body = it.body?.byteStream() ?: throw XtreamException("Empty response from server")
+            if (!it.isSuccessful) throw XtreamException("Server returned error ${it.code}", reason = Reason.SERVER_ERROR, code = it.code)
+            val body = it.body?.byteStream() ?: throw XtreamException("Empty response from server", reason = Reason.EMPTY_RESPONSE)
             return try {
                 read(body)
             } catch (e: SerializationException) {
-                throw XtreamException("Unexpected response from server", e)
+                throw XtreamException("Unexpected response from server", e, Reason.UNEXPECTED_RESPONSE)
             } catch (e: NoSuchElementException) {
-                throw XtreamException("Empty response from server", e)
+                throw XtreamException("Empty response from server", e, Reason.EMPTY_RESPONSE)
             }
         }
     }
@@ -156,7 +181,7 @@ class XtreamClient(private val http: OkHttpClient, private val credentials: Xtre
     private fun String.toHttpUrlOrThrow(): HttpUrl = try {
         toHttpUrl()
     } catch (e: IllegalArgumentException) {
-        throw XtreamException("Invalid server address", e)
+        throw XtreamException("Invalid server address", e, Reason.INVALID_ADDRESS)
     }
 
     private fun String.enc(): String = java.net.URLEncoder.encode(this, "UTF-8").replace("+", "%20")

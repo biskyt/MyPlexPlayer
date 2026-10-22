@@ -3,6 +3,7 @@ package com.biskyt.mytvplayer.player
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.mytvplayer.data.Settings
+import com.biskyt.mytvplayer.testutil.PlainApp
 import com.biskyt.mytvplayer.ui.player.RetryBudget
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -14,7 +15,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], application = android.app.Application::class)
+@Config(sdk = [34], application = PlainApp::class)
 class PlaybackEngineTest {
     private val engine = PlaybackEngine(ApplicationProvider.getApplicationContext<Context>(), Settings())
     private var unsupported = 0
