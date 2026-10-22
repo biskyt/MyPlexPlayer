@@ -117,9 +117,8 @@ jobs:
       # Google Play: the bundle goes to closed testing ("Closed testing - Alpha" in Play Console, "alpha" here), after
       # the GitHub release so a Play problem can't hold that up. Skipped without the service account secret, and for a
       # build signed with the development key, which Play would refuse.
-      # Until the app's first release has been through Google's review, Play only takes drafts: send each one for
-      # review in Play Console. After that, set the repository variable PLAY_RELEASE_STATUS to "completed" and releases
-      # go straight to testers.
+      # The release goes to testers after Play's review of it; set the repository variable PLAY_RELEASE_STATUS to
+      # "draft" to send each one by hand from Play Console instead.
       - name: Upload to Google Play (closed testing)
         if: env.HAS_PLAY_ACCOUNT == 'true' && env.SIGNED_WITH == 'release'
         uses: r0adkll/upload-google-play@v1
@@ -129,6 +128,6 @@ jobs:
           releaseFiles: play/MyTVPlayer-${{ steps.version.outputs.version }}.aab
           releaseName: ${{ steps.version.outputs.version }}
           track: alpha
-          status: ${{ vars.PLAY_RELEASE_STATUS || 'draft' }}
+          status: ${{ vars.PLAY_RELEASE_STATUS || 'completed' }}
           whatsNewDirectory: play/whatsnew
           mappingFile: app/build/outputs/mapping/release/mapping.txt

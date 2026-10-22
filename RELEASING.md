@@ -53,7 +53,7 @@ Each release uploads its `.aab` to the closed testing track (**Closed testing - 
 Without the secret (or for a build signed with the development key) the upload is skipped; upload the `.aab` from the run's Artifacts by hand instead.
 
 ### Repository variables (optional, same settings page, *Variables* tab)
-- `PLAY_RELEASE_STATUS`: `draft` until the app's first release has passed Google's review, as Play only takes drafts until then: send each one for review in Play Console. Set it to `completed` after that, and releases go to testers without a click.
+- `PLAY_RELEASE_STATUS`: unset, each release goes to testers once Play has reviewed it. Set it to `draft` to check each one in Play Console and send it from there instead.
 - `PLAY_NOTES_LANGUAGE`: the language of "What's new", `en-GB` unless set. It must be one of the store listing's languages.
 
 Moving a release from closed testing to production is done in Play Console.
