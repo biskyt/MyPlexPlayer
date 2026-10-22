@@ -6,7 +6,6 @@ Each version's section becomes its GitHub release notes, so it is written for th
 - **MyTVPlayer now speaks your language:** English (UK and US), Spanish, Portuguese (Brazil) and French. It starts
   in your TV's language, or in UK English if it isn't one of these. To choose another, go to Settings › Language.
 - Times, dates, numbers and language names (in the audio and subtitle menus) follow the app's language.
-- Names the app gave, such as "My TV" and a playlist's guide, change with the language. Names you typed stay as they are.
 - "1 of 1 category", "1 channel" and "the last 1 day" now read correctly.
 
 ## 1.0.1

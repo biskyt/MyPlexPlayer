@@ -113,18 +113,6 @@ class Navigator(start: Screen) {
         push(screen)
     }
 
-    /**
-     * Gives the screens below the top new ViewModels (and fresh state), so they're built again when shown: after the
-     * language changed, the words their ViewModels made are in the one shown before.
-     */
-    fun renewBelowTop() {
-        for (i in 0 until stack.lastIndex) {
-            val old = stack[i]
-            stack[i] = NavEntry(old.screen, nextId++)
-            drop(old)
-        }
-    }
-
     /** Releases every screen's ViewModels (and so the player) when the activity is finishing. */
     fun clear() {
         stack.forEach { it.viewModelStore.clear() }

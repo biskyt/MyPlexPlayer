@@ -400,7 +400,7 @@ class RepositoriesTest {
 
     @Test
     fun `a backup restores playlists, choices, favourites, guide choices and settings`() = runBlocking {
-        val backup = BackupRepository(db, settings, epg, SyncManager(scope, playlists, vod, epg), playlists)
+        val backup = BackupRepository(db, settings, epg, SyncManager(scope, playlists, vod, epg))
         fun import(text: String) = runBlocking { backup.apply(backup.read(text.byteInputStream())) }
         val id = addPlaylist()
         playlists.syncChannels(id)

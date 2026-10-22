@@ -129,10 +129,11 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         var index = episodes.indexOfFirst { it.id == episodeId }.takeIf { it >= 0 } ?: return stop()
         if (continueSeries && c.vod.progress(p.id, VOD_EPISODE, episodeId)?.finished == true && index < episodes.lastIndex) index++
         val e = episodes[index]
-        title = show?.title ?: e.title
+        title = show?.title ?: episodeName(e)
         subtitle = episodeLabel(e)
         nextEpisode = episodes.getOrNull(index + 1)
-        val playing = Playing(VOD_EPISODE, e.id, title, show?.coverUrl ?: e.imageUrl, e)
+        // Saved for Carry on watching: the provider's words only, never the app's (they'd stay in today's language).
+        val playing = Playing(VOD_EPISODE, e.id, show?.title ?: e.title, show?.coverUrl ?: e.imageUrl, e)
         play(p, playing, c.vod.episodeUrl(p, e.id, e.extension), fromStart)
     }
 
@@ -198,7 +199,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
             seriesId = screen.seriesId,
             season = item.episode?.season,
             episode = item.episode?.number,
-            episodeTitle = item.episode?.title,
+            episodeTitle = item.episode?.let(::providerTitle),
             hasNext = nextEpisode != null
         )
     }
@@ -245,15 +246,19 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     }
 }
 
+/** The provider's title for [e], as it gave it; null when it gave none. */
+fun providerTitle(e: EpisodeInfo): String? = e.title.ifBlank { null }
+
 /**
- * "Series 1 · Episode 2 · Title" (the title only when it says more than "Episode 2", matched in English as providers
- * write it).
+ * "Series 1 · Episode 2 · Title": the provider's title only when it says more than "Episode 2" (matched in English, as
+ * providers write it), so the number isn't there twice. Left out, never reworded.
  */
-fun episodeLabel(e: EpisodeInfo): String = if (e.title.equals("Episode ${e.number}", ignoreCase = true)) {
-    appString(R.string.player_episode_label, e.season, e.number)
-} else {
-    appString(R.string.player_episode_label_titled, e.season, e.number, e.title)
-}
+fun episodeLabel(e: EpisodeInfo): String = providerTitle(e)?.takeUnless { it.equals("Episode ${e.number}", ignoreCase = true) }
+    ?.let { appString(R.string.player_episode_label_titled, e.season, e.number, it) }
+    ?: appString(R.string.player_episode_label, e.season, e.number)
+
+/** How [e] is shown: the provider's title, or the app's "Episode 2" (in its language) when it gave none. Never saved. */
+fun episodeName(e: EpisodeInfo): String = providerTitle(e) ?: appString(R.string.vod_episode, e.number)
 
 /** "S1 E2". */
 fun shortEpisodeLabel(season: Int?, episode: Int?) = appString(R.string.player_short_episode_label, season.toString(), episode.toString())
