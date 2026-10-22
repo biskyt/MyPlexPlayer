@@ -33,7 +33,7 @@ import org.robolectric.annotation.Config
 /** Remote buttons on the player and the live screen, through the app's own screens. */
 @OptIn(ExperimentalTestApi::class)
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-tvdpi")
+@Config(sdk = [34], application = TestApp::class, qualifiers = "+w960dp-h540dp-tvdpi")
 class PlayerKeysUiTest {
     @get:Rule val compose = createUiComposeRule()
 

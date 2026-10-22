@@ -2,7 +2,9 @@ package com.biskyt.mytvplayer
 
 import android.app.Application
 import android.content.Context
+import android.content.res.Configuration
 import android.net.Uri
+import android.os.LocaleList
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -85,9 +87,19 @@ open class MyTvApp : Application(), SingletonImageLoader.Factory {
         // First, so a crash while setting up the rest is recorded too.
         installCrashLog()
         AppText.init(this)
+        deviceLocales = resources.configuration.locales
         container = AppContainer(this)
         scheduleDailyRefresh()
     }
+
+    // The device's language changed: words from AppText follow it (unless a language is chosen in Settings).
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (newConfig.locales != deviceLocales) AppText.init(this)
+        deviceLocales = newConfig.locales
+    }
+
+    private var deviceLocales: LocaleList? = null
 
     protected open fun installCrashLog() = CrashLog(filesDir, BuildConfig.VERSION_NAME).install()
 

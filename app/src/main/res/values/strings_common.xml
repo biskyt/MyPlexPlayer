@@ -77,9 +77,9 @@
     <string name="common_favourite_added">Added to favourites</string>
     <!-- Brief notice after removing a channel or film from favourites -->
     <string name="common_favourite_removed">Removed from favourites</string>
-    <!-- Help under the Catch-up menu entry. %1$d is a number of days. English uses "days" for 1 too (unchanged so far) -->
+    <!-- Help under the Catch-up menu entry. %1$d is a number of days. -->
     <plurals name="common_catchup_days">
-        <item quantity="one">Programmes from the last %1$d days</item>
+        <item quantity="one">Programmes from the last %1$d day</item>
         <item quantity="other">Programmes from the last %1$d days</item>
     </plurals>
     <!-- Menu entry: opens the screen that picks a channel's TV guide data -->

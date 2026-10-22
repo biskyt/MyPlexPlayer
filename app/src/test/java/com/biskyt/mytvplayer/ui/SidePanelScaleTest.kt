@@ -16,7 +16,7 @@ import org.robolectric.annotation.Config
 
 /** On a 1080p TV (system density 2.0, the app's scaled density 1.5), panels must use the app's scale too. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-xhdpi")
+@Config(sdk = [34], application = TestApp::class, qualifiers = "+w960dp-h540dp-xhdpi")
 class SidePanelScaleTest {
     @get:Rule val compose = createUiComposeRule()
 

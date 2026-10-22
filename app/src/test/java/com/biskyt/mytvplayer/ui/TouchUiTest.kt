@@ -30,7 +30,7 @@ import org.robolectric.annotation.Config
 
 /** A phone or tablet: taps and long presses instead of the remote. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-tvdpi")
+@Config(sdk = [34], application = TestApp::class, qualifiers = "+w960dp-h540dp-tvdpi")
 class TouchUiTest {
     @get:Rule val compose = createUiComposeRule()
 

@@ -2,6 +2,7 @@ package com.biskyt.mytvplayer.data
 
 import android.util.Xml
 import androidx.room.withTransaction
+import com.biskyt.mytvplayer.AppText
 import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.core.epg.ChannelMatcher
@@ -104,7 +105,9 @@ class EpgRepository(
     suspend fun ensureProviderSource(p: PlaylistEntity, xmltvUrl: String) {
         val existing = epg.providerSource(p.id)
         if (existing == null) {
-            epg.insertSource(EpgSourceEntity(name = "${p.name} guide", url = xmltvUrl, playlistId = p.id))
+            epg.insertSource(
+                EpgSourceEntity(name = appString(R.string.data_provider_guide_name, p.name), url = xmltvUrl, playlistId = p.id)
+            )
         } else if (existing.url != xmltvUrl) {
             epg.upsertSource(existing.copy(url = xmltvUrl, lastImportAt = 0)) // a different guide: match everything again
         }
@@ -338,7 +341,7 @@ class EpgRepository(
     }
 
     private fun matchingLabel(done: Int, total: Int): String {
-        val n = NumberFormat.getIntegerInstance()
+        val n = NumberFormat.getIntegerInstance(AppText.locale)
         return appString(R.string.data_matching_progress, n.format(done), n.format(total))
     }
 

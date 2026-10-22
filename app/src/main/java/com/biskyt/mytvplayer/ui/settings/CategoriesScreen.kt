@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -33,6 +34,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.AppText
 import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
@@ -54,6 +56,7 @@ import com.biskyt.mytvplayer.ui.common.formatCount
 import com.biskyt.mytvplayer.ui.common.restoreFocusIf
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
+import java.text.Collator
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -107,7 +110,11 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
     fun groups(list: List<CategoryEntity>, q: String = ""): List<LanguageGroup> = list.groupBy { it.lang }
         .filter { (code, items) -> matches(groupLabel(code), q) || items.any { matches(it.name, q) } }
         .map { (code, items) -> LanguageGroup(code, groupLabel(code), items.size, items.count { it.included }) }
-        .sortedWith(compareByDescending<LanguageGroup> { it.included > 0 }.thenBy { it.code == null }.thenBy { it.label })
+        .sortedWith(
+            compareByDescending<LanguageGroup> {
+                it.included > 0
+            }.thenBy { it.code == null }.thenBy(Collator.getInstance(AppText.locale)) { it.label }
+        )
 
     /** A group's categories, narrowed by [q] unless the group itself is what matched. */
     fun shown(list: List<CategoryEntity>, group: String?, q: String): List<CategoryEntity> {
@@ -180,7 +187,8 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
     val type by vm.type.collectAsState()
     val hidden by vm.hidden.collectAsState()
     val query = vm.query.trim()
-    val groups = remember(categories, query) { vm.groups(categories, query) }
+    // Their names are in the app's language: built again when it changes (LocalConfiguration follows it).
+    val groups = remember(categories, query, LocalConfiguration.current) { vm.groups(categories, query) }
     val hiddenShown = remember(hidden, query) { hidden.filter { CategoriesViewModel.matches(it.name, query) } }
     if (vm.selectedGroup == CategoriesViewModel.UNSET && groups.isNotEmpty()) vm.selectedGroup = groups.first().code
     val done: () -> Unit = {

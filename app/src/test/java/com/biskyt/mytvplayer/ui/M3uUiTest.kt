@@ -36,7 +36,7 @@ import org.robolectric.annotation.Config
 
 /** M3U playlists' movies, series and catch-up, through the screens. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-tvdpi")
+@Config(sdk = [34], application = TestApp::class, qualifiers = "+w960dp-h540dp-tvdpi")
 class M3uUiTest {
     @get:Rule val compose = createUiComposeRule()
 

@@ -15,11 +15,18 @@ android {
         applicationId = "com.biskyt.mytvplayer"
         minSdk = 28
         targetSdk = 36
-        versionCode = 33
-        versionName = "1.0.1"
+        versionCode = 34
+        versionName = "1.1.0"
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+
+    // Only the languages the app has words for (AppText.languages): libraries' others would add size for nothing.
+    androidResources { localeFilters += listOf("en", "en-rGB", "en-rUS", "es", "pt", "pt-rBR", "fr") }
+
+    // The language is chosen in the app, not only by the device's: Play must install every language, not just the
+    // device's (a few hundred KB).
+    bundle { language { enableSplit = false } }
 
     signingConfigs {
         // A shared, public debug key so builds from any machine (or CI) install over each other when sideloading.
@@ -77,6 +84,7 @@ android {
             it.systemProperty("robolectric.graphicsMode", "NATIVE")
             // Store graphics and screenshots (StoreAssetsTest) are only made when asked for: -PstoreAssets
             it.systemProperty("storeAssets", project.hasProperty("storeAssets").toString())
+            it.systemProperty("storeLanguage", project.findProperty("storeLanguage")?.toString().orEmpty())
         }
     }
 

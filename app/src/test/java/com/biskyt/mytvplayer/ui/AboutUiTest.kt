@@ -25,7 +25,7 @@ import org.robolectric.annotation.Config
 
 /** About and its open-source licences page. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-tvdpi")
+@Config(sdk = [34], application = TestApp::class, qualifiers = "+w960dp-h540dp-tvdpi")
 class AboutUiTest {
     @get:Rule val compose = createUiComposeRule()
 

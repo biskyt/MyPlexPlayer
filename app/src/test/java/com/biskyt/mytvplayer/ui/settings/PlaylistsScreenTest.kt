@@ -26,7 +26,7 @@ import org.robolectric.annotation.Config
 
 /** Settings › Playlists: Update now shows how the update is going, then how it went. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-tvdpi")
+@Config(sdk = [34], application = TestApp::class, qualifiers = "+w960dp-h540dp-tvdpi")
 class PlaylistsScreenTest {
     @get:Rule val compose = createUiComposeRule()
 
