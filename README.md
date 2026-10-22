@@ -96,7 +96,7 @@ What's planned is in [ROADMAP.md](ROADMAP.md); what's changed in each version is
 
 ## Install on your TV (sideload)
 
-1. Download `MyTVPlayer-<version>.apk` from the latest [release](../../releases) (or a CI run's `MyTVPlayer-apk`).
+1. Download `MyTVPlayer-<version>.apk` from the latest [release](../../releases).
 2. Copy the APK to the TV (e.g. with the *Downloader* or *Send Files to TV* app, or a USB stick) and open it with a
    file manager; allow installs from that app when asked.
 
