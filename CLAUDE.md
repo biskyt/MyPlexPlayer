@@ -13,7 +13,8 @@ See also:
 - **Run `/simplify` and `/code-review` before every commit.**
   - Apply their findings, or note why one is skipped.
   - Never commit first and review afterwards.
-- **No test APKs unless asked.** Don't send CI APK links by default.
+- **No test APKs unless asked.** CI builds no APK on pushes; APKs are built only for release tags. Build a debug APK
+  only when the owner asks for one.
 - **Steer clear of any reference to, or hint of, piracy.** This applies to code, docs, store text, changelog and commit messages.
 - **Keep overhead and risk low.** Prefer small, well-tested changes, and don't widen a release on your own initiative.
 - **Flaky tests must be root-caused and fixed.**
