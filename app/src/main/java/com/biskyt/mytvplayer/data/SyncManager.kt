@@ -19,7 +19,11 @@ sealed interface SyncState {
     data class Channels(val loaded: Int) : SyncState
     data class Vod(val loaded: Int) : SyncState
     data class Guide(val message: String) : SyncState
-    data class Failed(val message: String) : SyncState
+
+    /** [message] is worked out when shown, so it's in the language shown then. */
+    data class Failed(val error: Throwable, @StringRes val fallback: Int) : SyncState {
+        val message: String get() = userMessage(error) ?: appString(fallback)
+    }
 }
 
 /**
@@ -102,9 +106,9 @@ class SyncManager(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            val message = userMessage(e) ?: appString(failure)
-            _state.value = SyncState.Failed(message)
-            Result.failure(Exception(message, e))
+            val failed = SyncState.Failed(e, failure)
+            _state.value = failed
+            Result.failure(Exception(failed.message, e))
         }
     }
 }

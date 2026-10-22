@@ -21,6 +21,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -100,11 +101,13 @@ fun OnNowLabel() = Text(stringResource(R.string.common_on_now), style = Material
  */
 @Composable
 fun SidePanel(onDismiss: () -> Unit, width: Dp = 430.dp, dim: Boolean = true, content: @Composable () -> Unit) {
-    // A dialog is its own window, which resets the density to the system's; keep the app's scaling (see MyTvTheme)
-    // so panels are the same size as everything else.
+    // A dialog is its own window, which resets the density to the system's and the context to the Activity's; keep
+    // the app's scaling (see MyTvTheme) and language (see InAppLanguage) so panels match everything else.
     val density = LocalDensity.current
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        CompositionLocalProvider(LocalDensity provides density) {
+        CompositionLocalProvider(LocalDensity provides density, LocalContext provides context, LocalConfiguration provides configuration) {
             // A dialog is its own window: on a phone its bars would come back over the app otherwise.
             if (LocalTouch.current) {
                 val dialogView = LocalView.current

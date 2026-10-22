@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="common_retry">Tentar de novo</string>
+    <string name="common_remove">Remover</string>
+    <string name="common_loading">Carregando…</string>
+    <string name="common_search">Pesquisar</string>
+    <string name="common_settings">Configurações</string>
+
+    <string name="common_tab_home">Início</string>
+    <string name="common_tab_live">TV ao vivo</string>
+    <string name="common_tab_movies">Filmes</string>
+    <string name="common_tab_series">Séries</string>
+    <string name="common_catchup">Reprises</string>
+
+    <string name="common_continue">Continuar</string>
+    <string name="common_watch">Assistir</string>
+    <string name="common_play">Reproduzir</string>
+    <string name="common_from_start">Do início</string>
+    <string name="common_start_over">Começar de novo</string>
+    <string name="common_skip_back">Voltar</string>
+    <string name="common_skip_forward">Avançar</string>
+    <string name="common_subtitles_off">Desativadas</string>
+    <string name="common_about_movie">Sobre este filme</string>
+    <string name="common_all_episodes">Todos os episódios</string>
+
+    <string name="common_favourites">Favoritos</string>
+    <string name="common_recent">Assistidos recentemente</string>
+    <string name="common_channels">Canais</string>
+    <string name="common_time_left">Faltam %1$s</string>
+    <string name="common_no_guide">Sem informações do guia</string>
+
+    <string name="common_guide_sources">Fontes do guia de TV</string>
+    <string name="common_guide_matching">Associação do guia de TV</string>
+    <string name="common_guide_update_failed">Não foi possível atualizar o guia de TV</string>
+    <string name="common_match_failed">Não foi possível associar os canais</string>
+    <string name="common_updated_at">atualizado em %1$s</string>
+
+    <string name="common_today">Hoje</string>
+    <string name="common_yesterday">Ontem</string>
+    <string name="common_today_at">Hoje %1$s</string>
+    <string name="common_tomorrow_at">Amanhã %1$s</string>
+
+    <string name="common_runtime_min">%1$d min</string>
+    <string name="common_runtime_h">%1$d h</string>
+    <string name="common_runtime_h_min">%1$d h %2$d min</string>
+
+    <string name="common_favourite_add">Adicionar aos favoritos</string>
+    <string name="common_favourite_remove">Remover dos favoritos</string>
+    <string name="common_favourite_added">Adicionado aos favoritos</string>
+    <string name="common_favourite_removed">Removido dos favoritos</string>
+    <plurals name="common_catchup_days">
+        <item quantity="one">Programas do último %1$d dia</item>
+        <item quantity="many">Programas dos últimos %1$d dias</item>
+        <item quantity="other">Programas dos últimos %1$d dias</item>
+    </plurals>
+    <string name="common_change_guide_source">Mudar fonte do guia…</string>
+    <string name="common_change_guide_source_help">Escolha quais dados de guia este canal usa</string>
+
+    <string name="common_hide_category">Ocultar categoria</string>
+    <string name="common_hide_category_help">Mostre de novo em Configurações › Idiomas e categorias</string>
+
+    <string name="common_logo_fallback">TV</string>
+    <string name="common_qr_description">QR code de %1$s</string>
+
+    <string name="common_link_scan_hint">Leia com a câmera do celular para abrir a página nele.</string>
+    <string name="common_link_open_here">Abrir nesta TV</string>
+    <string name="common_link_no_browser">Esta TV não tem navegador. Leia o código com o celular.</string>
+    <string name="common_link_open_failed">Não foi possível abrir a página nesta TV (%1$s). Leia o código com o celular.</string>
+
+    <string name="common_no_guide_for_channel">Sem informações do guia para este canal.</string>
+    <string name="common_on_now">AGORA</string>
+
+    <string name="common_something_went_wrong">Algo deu errado</string>
+    <string name="common_please_wait">Aguarde</string>
+    <string name="common_updating">Atualizando</string>
+    <string name="common_last_update_failed">A última atualização falhou</string>
+
+    <string name="common_sync_channels_start">Atualizando canais…</string>
+    <string name="common_sync_channels_loading">Carregando canais… %1$s</string>
+    <string name="common_sync_vod_start">Atualizando filmes e séries…</string>
+    <string name="common_sync_vod_loading">Carregando filmes e séries… %1$s</string>
+</resources>

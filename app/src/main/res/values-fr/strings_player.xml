@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="player_back">Retour</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_stop">Arrêter</string>
+    <string name="player_audio">Audio</string>
+    <string name="player_subtitles">Sous-titres</string>
+    <string name="player_more">Plus</string>
+    <string name="player_channel_guide">Guide chaîne</string>
+    <string name="player_watch_live">Voir le direct</string>
+    <string name="player_next_episode">Épisode suivant</string>
+    <string name="player_up_next">À SUIVRE · %1$s</string>
+    <string name="player_catchup_behind_live">Replay · %1$s de retard sur le direct</string>
+
+    <string name="player_hint_skip">▲ puis ◀ ▶ pour avancer ou reculer (maintenir pour défiler) · Retour pour masquer</string>
+    <string name="player_hint_zap_up_down">▲ ▼ changer de chaîne · Retour pour masquer</string>
+    <string name="player_hint_zap_channel_buttons">CH + − changer de chaîne · ▲ puis ◀ ▶ pour avancer ou reculer · Retour pour masquer</string>
+    <string name="player_guide_hint">◀ ▶ autres chaînes · OK pour regarder</string>
+    <string name="player_guide_previous">Précédente</string>
+    <string name="player_guide_next">Suivante</string>
+
+    <string name="player_skipping_unavailable">Impossible d\'avancer ou de reculer ici</string>
+    <string name="player_sleep_timer_minutes">Mise en veille : %1$d min</string>
+    <string name="player_sleep_timer_off">Mise en veille : désactivée</string>
+    <string name="player_audio_switched">Audio : %1$s</string>
+    <string name="player_audio_switch_failed">Impossible de passer l\'audio en %1$s</string>
+    <string name="player_subtitles_switched">Sous-titres : %1$s</string>
+    <string name="player_subtitles_switch_failed">Impossible de passer les sous-titres en %1$s</string>
+    <string name="player_subtitles_off">Sous-titres désactivés</string>
+    <string name="player_no_channel">Aucune chaîne n° %1$d</string>
+    <string name="player_resuming_from">Reprise à %1$s</string>
+
+    <string name="player_no_audio_tracks">Aucune piste audio</string>
+    <string name="player_picture">Image : %1$s</string>
+    <string name="player_audio_output">Sortie audio : %1$s</string>
+    <string name="player_video_unknown">Vidéo : inconnue</string>
+    <string name="player_video_info">Vidéo : %1$d×%2$d · %3$s</string>
+    <string name="player_track_number">Piste %1$d</string>
+    <string name="player_track_forced">forcés</string>
+    <string name="player_track_channels">%1$d can.</string>
+
+    <string name="player_picture_fit">Ajuster</string>
+    <string name="player_picture_zoom">Remplir l\'écran</string>
+    <string name="player_picture_stretch">Étirer</string>
+    <string name="player_picture_wide">16:9</string>
+    <string name="player_picture_standard">4:3</string>
+
+    <string name="player_audio_none">Aucun son</string>
+    <string name="player_audio_passthrough">Passthrough · %1$s</string>
+    <string name="player_audio_decoded">%1$s décodé · %2$s</string>
+    <string name="player_audio_layout">Audio · %1$s</string>
+    <string name="player_audio_stereo">Stéréo</string>
+
+    <string name="player_episode_label">Saison %1$d · Épisode %2$d</string>
+    <string name="player_episode_label_titled">Saison %1$d · Épisode %2$d · %3$s</string>
+    <string name="player_short_episode_label">S%1$s É%2$s</string>
+
+    <string name="player_failure_live">Cette chaîne ne diffuse pas pour le moment. Réessayez plus tard ou choisissez une autre chaîne.</string>
+    <string name="player_failure_vod">Impossible de lire ce contenu pour le moment. Réessayez plus tard.</string>
+    <string name="player_failure_catchup">Impossible de revoir ce programme pour le moment. Réessayez plus tard.</string>
+    <string name="player_catchup_nothing_to_start_over">Rien à revoir depuis le début sur cette chaîne pour le moment.</string>
+    <string name="player_unsupported_format">Ce flux utilise un format que MyTVPlayer ne peut pas lire.</string>
+
+    <string name="player_stream_source">Flux provenant de %1$s.</string>
+    <string name="player_error_dns">Le serveur du flux est introuvable : son adresse n\'existe peut-être plus.</string>
+    <string name="player_error_stalled">Le serveur du flux l\'a envoyé trop lentement pour démarrer. Il est peut-être surchargé.</string>
+    <string name="player_error_timeout">Le serveur du flux n\'a pas répondu. Il est peut-être hors service ou surchargé.</string>
+    <string name="player_error_connection">Impossible de se connecter au serveur du flux. Il est peut-être hors service, ou inaccessible depuis votre réseau.</string>
+    <string name="player_error_not_video">L\'adresse du flux a renvoyé autre chose que de la vidéo (une page web, par exemple).</string>
+    <string name="player_error_drm">Le flux est chiffré (DRM) et MyTVPlayer ne peut pas le lire.</string>
+    <string name="player_error_audio_output">Le son n\'a pas pu être envoyé à votre téléviseur ou amplificateur. Essayez de désactiver le passthrough audio dans Paramètres › Lecture.</string>
+    <string name="player_error_decode_video">Ce boîtier TV ne peut pas décoder la vidéo du flux (%1$s).</string>
+    <string name="player_error_decode_audio">Ce boîtier TV ne peut pas décoder l\'audio du flux (%1$s).</string>
+    <string name="player_error_decode_media">Ce boîtier TV ne peut pas décoder le contenu du flux (%1$s).</string>
+    <string name="player_error_decode">Ce boîtier TV ne peut pas décoder la vidéo ou l\'audio du flux.</string>
+    <string name="player_error_parsing">Le flux a envoyé des données que MyTVPlayer ne peut pas lire (format non pris en charge ou endommagé).</string>
+    <string name="player_error_behind_live">Le flux prenait sans cesse du retard sur le direct.</string>
+    <string name="player_error_io">Le flux a cessé d\'arriver : la connexion à son serveur a échoué.</string>
+    <string name="player_error_other">Le lecteur n\'a pas pu le lire (%1$s).</string>
+    <string name="player_error_http_refused">Le serveur du flux a refusé de l\'envoyer (erreur %1$d). Il n\'est peut-être lisible que dans son pays, ou que sur son propre site ou sa propre appli.</string>
+    <string name="player_error_http_gone">Le flux n\'est plus à cette adresse (erreur %1$d). La liste des chaînes n\'est peut-être plus à jour.</string>
+    <string name="player_error_http_server">Le serveur du flux rencontre un problème (erreur %1$d). Il est peut-être hors service pour le moment.</string>
+    <string name="player_error_http_other">Le serveur du flux a répondu avec l\'erreur %1$d.</string>
+</resources>

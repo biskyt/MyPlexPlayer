@@ -36,7 +36,7 @@ import org.robolectric.annotation.Config
 /** Focus in the TV guide on a slow box, where a row's programmes arrive after the user has moved on. */
 @OptIn(ExperimentalTestApi::class)
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-tvdpi")
+@Config(sdk = [34], application = TestApp::class, qualifiers = "+w960dp-h540dp-tvdpi")
 class GuideFocusUiTest {
     @get:Rule val compose = createUiComposeRule()
 

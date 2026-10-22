@@ -6,7 +6,6 @@ import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.ChannelProgramme
 import java.text.DateFormat
-import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -14,23 +13,38 @@ import java.time.temporal.ChronoUnit
 import java.util.Date
 import java.util.Locale
 
-private val timeFormat = ThreadLocal.withInitial { SimpleDateFormat("HH:mm", Locale.getDefault()) }
-
-fun formatTime(epochMs: Long): String = timeFormat.get()!!.format(Date(epochMs))
+fun formatTime(epochMs: Long): String = formats().time.format(Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()))
 
 fun formatRange(startMs: Long, stopMs: Long) = "${formatTime(startMs)} – ${formatTime(stopMs)}"
 
-fun formatDateTime(epochMs: Long): String = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(epochMs))
+fun formatDateTime(epochMs: Long): String =
+    DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, AppText.locale).format(Date(epochMs))
+
+/** A date written out in the app's language, e.g. "12 Mar 2027". */
+fun formatDate(epochMs: Long): String = DateFormat.getDateInstance(DateFormat.MEDIUM, AppText.locale).format(Date(epochMs))
+
+/** A language's name in the app's language, as a label ("fr" → "French", "Français" → "Anglais"), or [tag] when unknown. */
+fun displayLanguage(tag: String): String =
+    Locale.forLanguageTag(tag).getDisplayLanguage(AppText.locale).ifEmpty { tag }.replaceFirstChar { it.titlecase(AppText.locale) }
+
+/**
+ * A language's name in itself ("pt-BR" → "Português (Brasil)"), so it can be found whatever the app is showing;
+ * without the country when [withCountry] is false ("Português").
+ */
+fun nativeLanguageName(tag: String, withCountry: Boolean = true): String = Locale.forLanguageTag(tag).let {
+    (if (withCountry) it.getDisplayName(it) else it.getDisplayLanguage(it)).replaceFirstChar { c -> c.titlecase(it) }
+}
 
 // Day names are in the app's language (AppText.locale), not the device's. Built once per language.
 private class DateFormats(val locale: Locale) {
+    val time: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", locale)
     val day: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE", locale)
     val date: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d MMM", locale)
 }
 
-@Volatile private var formats = DateFormats(AppText.locale)
+@Volatile private var formats: DateFormats? = null
 
-private fun formats(): DateFormats = formats.takeIf { it.locale == AppText.locale } ?: DateFormats(AppText.locale).also { formats = it }
+private fun formats(): DateFormats = formats?.takeIf { it.locale == AppText.locale } ?: DateFormats(AppText.locale).also { formats = it }
 
 /** "Mon 19 Oct". */
 val dateFormat: DateTimeFormatter get() = formats().date
@@ -47,7 +61,7 @@ fun formatDayTime(epochMs: Long, now: Long = System.currentTimeMillis()): String
     }
 }
 
-fun formatCount(n: Int): String = "%,d".format(n)
+fun formatCount(n: Int): String = "%,d".format(AppText.locale, n)
 
 /** A playback position: "12:34" or "1:02:03". */
 fun formatDuration(ms: Long): String {

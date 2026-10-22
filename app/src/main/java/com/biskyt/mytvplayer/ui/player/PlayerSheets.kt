@@ -33,12 +33,12 @@ import com.biskyt.mytvplayer.ui.common.SidePanel
 import com.biskyt.mytvplayer.ui.common.TouchStepButtons
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.cycle
+import com.biskyt.mytvplayer.ui.common.displayLanguage
 import com.biskyt.mytvplayer.ui.common.perform
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.common.rememberSchedule
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
-import java.util.Locale
 
 /** The channel guide beside the video (agreed side-overlay design); ◀ ▶ previews other channels' guides. */
 @Composable
@@ -170,7 +170,7 @@ private data class TrackOption(val label: String, val group: Tracks.Group, val i
 private fun trackOptions(tracks: Tracks, type: Int): List<TrackOption> = tracks.groups.filter { it.type == type }.flatMap { g ->
     (0 until g.length).filter { g.isTrackSupported(it) }.map { i ->
         val f = g.getTrackFormat(i)
-        val lang = f.language?.let { Locale.forLanguageTag(it).displayLanguage.ifEmpty { it } }
+        val lang = f.language?.let(::displayLanguage)
         val parts = listOfNotNull(
             f.label ?: lang ?: appString(R.string.player_track_number, i + 1),
             if ((f.selectionFlags and C.SELECTION_FLAG_FORCED) != 0) appString(R.string.player_track_forced) else null,

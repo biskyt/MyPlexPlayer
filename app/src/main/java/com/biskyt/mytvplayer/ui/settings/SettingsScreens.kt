@@ -33,6 +33,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.AppText
 import com.biskyt.mytvplayer.BuildConfig
 import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.container
@@ -51,6 +52,8 @@ import com.biskyt.mytvplayer.ui.common.Toggle
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.ValueChip
 import com.biskyt.mytvplayer.ui.common.cycle
+import com.biskyt.mytvplayer.ui.common.displayLanguage
+import com.biskyt.mytvplayer.ui.common.nativeLanguageName
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.theme.Palette
 import java.util.Locale
@@ -87,6 +90,7 @@ fun SettingsScreen() {
                 rememberFirstFocus()
             )
         }
+        item { LanguageRow() }
         item {
             SettingRow(stringResource(R.string.settings_playback_title), stringResource(R.string.settings_playback_help), {
                 nav.push(Screen.PlaybackSettings)
@@ -168,9 +172,9 @@ fun PlaybackSettingsScreen() {
         item {
             val languages = listOf("", "en", "fr", "de", "es", "it", "pt", "nl", "pl", "tr", "ar")
             val label = if (s.subtitleLanguage.isEmpty()) {
-                stringResource(R.string.settings_subtitle_language_system, Locale.getDefault().displayLanguage)
+                stringResource(R.string.settings_language_system, displayLanguage(Locale.getDefault().language))
             } else {
-                Locale.forLanguageTag(s.subtitleLanguage).displayLanguage
+                displayLanguage(s.subtitleLanguage)
             }
             SettingRow(stringResource(R.string.settings_subtitle_language), null, {
                 vm.update { it.copy(subtitleLanguage = languages.cycle(it.subtitleLanguage)) }
@@ -210,6 +214,21 @@ fun PlaybackSettingsScreen() {
             }
         }
     }
+}
+
+/** The app's language: each press moves to the next, and the screens switch to it straight away. */
+@Composable
+private fun LanguageRow() {
+    val context = LocalContext.current
+    val chosen by AppText.chosen.collectAsState()
+    val label = if (chosen.isEmpty()) {
+        stringResource(R.string.settings_language_system, nativeLanguageName(AppText.locale.toLanguageTag(), withCountry = false))
+    } else {
+        nativeLanguageName(chosen)
+    }
+    SettingRow(stringResource(R.string.settings_language), null, {
+        AppText.setLanguage(context, (listOf("") + AppText.languages).cycle(chosen))
+    }) { ValueChip(label) }
 }
 
 @Composable

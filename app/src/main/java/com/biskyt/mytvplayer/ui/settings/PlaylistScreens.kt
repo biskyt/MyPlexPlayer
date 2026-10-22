@@ -42,16 +42,15 @@ import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.TvTextField
 import com.biskyt.mytvplayer.ui.common.WorkRunner
 import com.biskyt.mytvplayer.ui.common.WorkStatus
+import com.biskyt.mytvplayer.ui.common.formatDate
 import com.biskyt.mytvplayer.ui.common.formatDateTime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 import java.io.IOException
-import java.text.DateFormat
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
-import java.util.Date
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -184,8 +183,8 @@ fun PlaylistsScreen() {
 /** How near a provider's expiry date is: past, today, within [EXPIRY_WARNING_DAYS] days, or later. */
 internal enum class ExpiryKind { EXPIRED, TODAY, SOON, LATER }
 
-/** A provider's expiry [date] (written out, e.g. "12 Mar 2027"), [days] away in calendar days. */
-internal data class Expiry(val kind: ExpiryKind, val date: String, val days: Int) {
+/** A provider's expiry time ([atMs]), [days] away in calendar days. */
+internal data class Expiry(val kind: ExpiryKind, val atMs: Long, val days: Int) {
     /** Close or past: shown as a warning. */
     val soon: Boolean get() = kind != ExpiryKind.LATER
 }
@@ -196,7 +195,6 @@ internal data class Expiry(val kind: ExpiryKind, val date: String, val days: Int
  */
 internal fun expiry(expiresAtSec: Long?, now: Long = System.currentTimeMillis(), zone: ZoneId = ZoneId.systemDefault()): Expiry? {
     val at = expiresAtSec?.takeIf { it > 0 }?.times(1000) ?: return null
-    val date = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(at))
 
     // Calendar days, as the date shown: tomorrow is "in 1 day" at any time of day.
     fun day(ms: Long) = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
@@ -207,18 +205,21 @@ internal fun expiry(expiresAtSec: Long?, now: Long = System.currentTimeMillis(),
         days <= EXPIRY_WARNING_DAYS -> ExpiryKind.SOON
         else -> ExpiryKind.LATER
     }
-    return Expiry(kind, date, days)
+    return Expiry(kind, at, days)
 }
 
 private const val EXPIRY_WARNING_DAYS = 14
 
 /** "Expires 12 Mar 2027", "Expires 12 Mar 2027, in 5 days" and so on. */
 @Composable
-private fun expiryText(e: Expiry): String = when (e.kind) {
-    ExpiryKind.EXPIRED -> stringResource(R.string.settings_playlist_expired, e.date)
-    ExpiryKind.TODAY -> stringResource(R.string.settings_playlist_expires_today, e.date)
-    ExpiryKind.SOON -> pluralStringResource(R.plurals.settings_playlist_expires_in, e.days, e.date, e.days)
-    ExpiryKind.LATER -> stringResource(R.string.settings_playlist_expires, e.date)
+private fun expiryText(e: Expiry): String {
+    val date = formatDate(e.atMs)
+    return when (e.kind) {
+        ExpiryKind.EXPIRED -> stringResource(R.string.settings_playlist_expired, date)
+        ExpiryKind.TODAY -> stringResource(R.string.settings_playlist_expires_today, date)
+        ExpiryKind.SOON -> pluralStringResource(R.plurals.settings_playlist_expires_in, e.days, date, e.days)
+        ExpiryKind.LATER -> stringResource(R.string.settings_playlist_expires, date)
+    }
 }
 
 private fun playlistDetails(p: PlaylistEntity): String {

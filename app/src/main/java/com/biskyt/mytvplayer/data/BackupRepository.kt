@@ -66,7 +66,8 @@ class BackupRepository(
     private val db: AppDatabase,
     private val settings: SettingsRepository,
     private val epg: EpgRepository,
-    private val sync: SyncManager
+    private val sync: SyncManager,
+    private val playlists: PlaylistRepository
 ) {
     private val dao = db.backup()
     private val json = Json {
@@ -102,6 +103,7 @@ class BackupRepository(
         val hasPlaylists = sync.whileIdle {
             apply(backup).also {
                 epg.forgetDownloads()
+                playlists.followLanguage() // a backup made in another language
                 // The old lists and guides are gone: give their space back before downloading again (optional, so
                 // a failure here mustn't fail the restore).
                 try {
