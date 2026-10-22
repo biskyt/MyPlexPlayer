@@ -18,6 +18,7 @@ android {
         versionCode = 33
         versionName = "1.0.1"
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -44,6 +45,11 @@ android {
     }
 
     buildTypes {
+        // TV boxes and phones are ARM. The emulator smoke tests on CI (x86 or x86_64) ask for theirs too:
+        // -PemulatorAbi=x86_64; other debug builds stay as devices get them.
+        debug {
+            providers.gradleProperty("emulatorAbi").orNull?.let { ndk { abiFilters += it } }
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -147,4 +153,10 @@ dependencies {
     debugImplementation(libs.compose.ui.test.manifest)
     testImplementation(libs.roborazzi)
     testImplementation(libs.roborazzi.compose)
+
+    // Smoke tests on a real Android (an emulator on CI): what Robolectric's JVM can't show, e.g. ICU regexes.
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
 }

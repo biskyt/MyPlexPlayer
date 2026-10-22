@@ -78,5 +78,7 @@ See also:
 
 ## Open items (as of 1.0.1, released)
 - **Next:** a Google Play store deployment pipeline. The owner planned this after 1.0.0. The `.aab` is uploaded by hand for now.
-- **Later:** emulator smoke tests on CI (Gradle Managed Devices, Android 9 and current), as a release of its own after the owner has tested.
+- **In progress:** emulator smoke tests on CI (`.github/workflows/emulator.yml`: Android TV 9 and Google TV 16 images,
+  free on GitHub's standard runners for a public repo). Tests live in `app/src/androidTest`; the debug build adds an
+  x86/x86_64 ABI only with `-PemulatorAbi=<arch>`. Release them on their own after the owner has tested.
 - **Optional:** per-entry user agent / referrer for M3U films and episodes.
