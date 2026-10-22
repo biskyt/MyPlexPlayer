@@ -39,7 +39,8 @@ See also:
    `v<versionName>` on `main` (`git tag v1.0.2 && git push origin v1.0.2`); `release.yml` runs on `v*` tags. It re-tests,
    signs and publishes the GitHub release with the APK and SHA256SUMS.
    - A change with no app changes (CI, tests, docs) is merged without a version bump, changelog entry or release.
-   - The signed Play bundle (`.aab`) is a run artifact called `MyTVPlayer-<version>-play-bundle`, kept 90 days.
+   - The signed Play bundle (`.aab`) goes to Play's closed testing track, and is a run artifact called
+     `MyTVPlayer-<version>-play-bundle`, kept 90 days.
    - Versions `0.x` (or dev-key signed builds) are pre-releases. `1.x` and later are full releases.
 9. Confirm the release exists, then give the owner the release link and the `.aab` artifact link.
 
@@ -81,7 +82,8 @@ See also:
   - Its group titles carry prefixes ("Movies: Open Movies"). The app doesn't add them.
 
 ## Open items (as of 1.0.1, released)
-- **Next:** a Google Play store deployment pipeline. The owner planned this after 1.0.0. The `.aab` is uploaded by hand for now.
+- **Google Play:** each release tag uploads the `.aab` to closed testing (`alpha`); set-up is in RELEASING.md.
+  Production is promoted by hand in Play Console.
 - **Done:** emulator smoke tests on CI for pull requests (`.github/workflows/emulator.yml`: Android TV 9 and Google TV
   16, free on GitHub's standard runners for a public repo). Tests live in `app/src/androidTest`; the debug build adds an
   x86/x86_64 ABI only with `-PemulatorAbi=<arch>`. `.github/scripts/start-emulator.sh` boots the emulator itself:
