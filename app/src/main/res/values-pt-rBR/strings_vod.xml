@@ -22,4 +22,5 @@
     <string name="vod_no_episodes">Nenhum episódio disponível para esta série.</string>
     <string name="vod_watched">Assistido</string>
     <string name="vod_season">Temporada %1$d</string>
+    <string name="vod_episode">Episódio %1$d</string>
 </resources>

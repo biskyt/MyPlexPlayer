@@ -21,7 +21,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** Names the app gave follow its language; names people gave stay. */
+/** Only the app's own text is translated: saved names stay as they are, whatever the language, through updates too. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = PlainApp::class)
 class LanguageNamesTest {
@@ -47,25 +47,17 @@ class LanguageNamesTest {
         provider.close()
     }
 
-    private suspend fun names() = db.playlists().all().map { it.name }
-
-    private suspend fun guides() = db.epg().enabledSources().map { it.name }
+    private suspend fun names() = db.playlists().all().map { it.name } + db.epg().enabledSources().map { it.name }
 
     @Test
-    fun `the app's names change language with it, people's names stay`() = runBlocking {
-        val unnamed = playlists.add("", provider.url, "me", "secret")
-        val named = playlists.add("Home", provider.url, "me", "secret")
-        listOf(unnamed, named).forEach { epg.ensureProviderSource(playlists.get(it)!!, "${provider.url}/xmltv.php") }
-        assertEquals(listOf("My TV", "Home"), names())
-        assertEquals(listOf("My TV guide", "Home guide"), guides())
+    fun `saved playlist and guide names stay as they are when the language changes`() = runBlocking {
+        val id = playlists.add("", provider.url, "me", "secret")
+        playlists.syncChannels(id)
+        assertEquals(listOf("My TV", "My TV guide"), names())
 
         AppText.setLanguage(context, "es")
-        playlists.followLanguage()
-        assertEquals(listOf("Mi TV", "Home"), names())
-        assertEquals(listOf("Guía de Mi TV", "Guía de Home"), guides())
-
-        // Renamed by hand: its guide follows.
-        playlists.update(playlists.get(named)!!.copy(name = "Casa"))
-        assertEquals(listOf("Guía de Mi TV", "Guía de Casa"), guides())
+        playlists.syncChannels(id)
+        epg.importAll(listOf(id))
+        assertEquals(listOf("My TV", "My TV guide"), names())
     }
 }

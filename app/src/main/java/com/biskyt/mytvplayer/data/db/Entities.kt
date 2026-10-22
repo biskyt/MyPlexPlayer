@@ -128,6 +128,7 @@ data class EpisodeEntity(
     val seriesId: Long,
     val season: Int,
     val number: Int,
+    /** The playlist's title; blank when it gave none (the app names it when shown, see episodeTitle). */
     val title: String,
     val streamUrl: String,
     val syncStamp: Long
