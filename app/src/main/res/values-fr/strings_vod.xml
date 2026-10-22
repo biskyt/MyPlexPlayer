@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vod_recently_added">Ajouts récents</string>
+    <string name="vod_recently_updated">Mis à jour récemment</string>
+    <string name="vod_all_movies">Tous les films</string>
+    <string name="vod_all_series">Toutes les séries</string>
+    <string name="vod_live_only">Cette playlist ne contient que des chaînes en direct. Pour ajouter des films et des séries, indiquez l\'adresse de sa playlist de films ou de séries dans Paramètres › Playlists.</string>
+    <string name="vod_filter_hint">Filtrer par titre</string>
+    <string name="vod_no_favourites">Pas encore de favoris. Ouvrez un titre et choisissez « Ajouter aux favoris ».</string>
+    <string name="vod_nothing_here">Rien ici pour l\'instant. Chargez-les maintenant ou choisissez les catégories à charger.</string>
+    <string name="vod_load_now">Charger maintenant</string>
+    <string name="vod_choose_categories">Choisir les catégories</string>
+
+    <string name="vod_director">Réalisation : %1$s</string>
+    <string name="vod_cast">Distribution : %1$s</string>
+    <string name="vod_resume_from">Reprendre à %1$s</string>
+
+    <string name="vod_episodes_failed">Impossible de charger les épisodes</string>
+    <string name="vod_continue_episode">Continuer : %1$s</string>
+    <string name="vod_play_episode">Lire %1$s</string>
+    <string name="vod_loading_episodes">Chargement des épisodes…</string>
+    <string name="vod_no_episodes">Aucun épisode disponible pour cette série.</string>
+    <string name="vod_watched">Vu</string>
+    <string name="vod_season">Saison %1$d</string>
+</resources>

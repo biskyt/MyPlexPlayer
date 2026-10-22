@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vod_recently_added">Agregados recientemente</string>
+    <string name="vod_recently_updated">Actualizados recientemente</string>
+    <string name="vod_all_movies">Todas las películas</string>
+    <string name="vod_all_series">Todas las series</string>
+    <string name="vod_live_only">Esta lista solo tiene canales en vivo. Para agregar películas y series, indica la dirección de su lista de películas o series en Configuración › Listas de reproducción.</string>
+    <string name="vod_filter_hint">Filtrar por título</string>
+    <string name="vod_no_favourites">Aún no hay favoritos. Abre un título y elige “Agregar a favoritos”.</string>
+    <string name="vod_nothing_here">Aún no hay nada aquí. Cárgalas ahora o elige qué categorías cargar.</string>
+    <string name="vod_load_now">Cargar ahora</string>
+    <string name="vod_choose_categories">Elegir categorías</string>
+
+    <string name="vod_director">Dirección: %1$s</string>
+    <string name="vod_cast">Reparto: %1$s</string>
+    <string name="vod_resume_from">Reanudar desde %1$s</string>
+
+    <string name="vod_episodes_failed">No se pudieron cargar los episodios</string>
+    <string name="vod_continue_episode">Continuar: %1$s</string>
+    <string name="vod_play_episode">Reproducir %1$s</string>
+    <string name="vod_loading_episodes">Cargando episodios…</string>
+    <string name="vod_no_episodes">No hay episodios disponibles para esta serie.</string>
+    <string name="vod_watched">Visto</string>
+    <string name="vod_season">Temporada %1$d</string>
+</resources>

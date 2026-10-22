@@ -27,7 +27,7 @@ import org.robolectric.annotation.Config
 
 /** Restoring from a file on a TV without Android's file picker. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], application = TestApp::class, qualifiers = "w960dp-h540dp-tvdpi")
+@Config(sdk = [34], application = TestApp::class, qualifiers = "+w960dp-h540dp-tvdpi")
 class BackupPickerTest {
     @get:Rule val compose = createUiComposeRule<ComponentActivity>()
 

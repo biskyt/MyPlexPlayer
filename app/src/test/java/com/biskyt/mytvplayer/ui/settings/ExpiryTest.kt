@@ -14,7 +14,7 @@ class ExpiryTest {
         assertNull(expiry(null, now))
         assertNull(expiry(0, now))
         val far = expiry(now / 1000 + 100 * day, now)!!
-        assertTrue(far.kind == ExpiryKind.LATER && !far.soon && far.date.isNotEmpty())
+        assertTrue(far.kind == ExpiryKind.LATER && !far.soon && far.atMs == now + 100 * day * 1000)
         val soon = expiry(now / 1000 + 5 * day + 60, now)!!
         assertTrue(soon.kind == ExpiryKind.SOON && soon.days == 5 && soon.soon)
         val past = expiry(now / 1000 - day, now)!!

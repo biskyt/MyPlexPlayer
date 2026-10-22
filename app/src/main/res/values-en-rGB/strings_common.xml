@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- UK English for the strings values-en-rUS changes: without these, Android picks US English for a UK
+     device (a same-language match beats the unqualified values). Same text as values/. -->
+<resources>
+    <string name="common_favourites">Favourites</string>
+    <plurals name="common_catchup_days">
+        <item quantity="one">Programmes from the last %1$d day</item>
+        <item quantity="other">Programmes from the last %1$d days</item>
+    </plurals>
+    <string name="common_favourite_add">Add to favourites</string>
+    <string name="common_favourite_remove">Remove from favourites</string>
+    <string name="common_favourite_added">Added to favourites</string>
+    <string name="common_favourite_removed">Removed from favourites</string>
+</resources>

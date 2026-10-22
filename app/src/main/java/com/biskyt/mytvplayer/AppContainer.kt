@@ -2,7 +2,9 @@ package com.biskyt.mytvplayer
 
 import android.app.Application
 import android.content.Context
+import android.content.res.Configuration
 import android.net.Uri
+import android.os.LocaleList
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -32,10 +34,13 @@ import com.biskyt.mytvplayer.data.SyncManager
 import com.biskyt.mytvplayer.data.VodRepository
 import com.biskyt.mytvplayer.data.db.AppDatabase
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
 /**
@@ -68,7 +73,7 @@ class AppContainer(context: Context) {
     val search = SearchRepository(db)
     val catchup = CatchupRepository(playlists)
     val sync = SyncManager(appScope, playlists, vod, epg)
-    val backup = BackupRepository(db, settings, epg, sync)
+    val backup = BackupRepository(db, settings, epg, sync, playlists)
     val backupFile = BackupFile(context)
     val crashLog = CrashLog(context.filesDir, BuildConfig.VERSION_NAME)
 
@@ -85,8 +90,31 @@ open class MyTvApp : Application(), SingletonImageLoader.Factory {
         // First, so a crash while setting up the rest is recorded too.
         installCrashLog()
         AppText.init(this)
+        deviceLocales = resources.configuration.locales
         container = AppContainer(this)
+        followLanguage()
         scheduleDailyRefresh()
+    }
+
+    // The device's language changed: words from AppText follow it (unless a language is chosen in Settings).
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (newConfig.locales != deviceLocales) AppText.init(this)
+        deviceLocales = newConfig.locales
+    }
+
+    private var deviceLocales: LocaleList? = null
+
+    /**
+     * Names the app gave (a playlist's, its guide's) follow the language: at start too, as it may have changed while the
+     * app was closed. Changes nothing when they already match; a failure is tried again with the next change or start.
+     */
+    protected open fun followLanguage() {
+        container.appScope.launch {
+            AppText.shown.filterNotNull().collect {
+                runCatching { container.playlists.followLanguage() }.onFailure { if (it is CancellationException) throw it }
+            }
+        }
     }
 
     protected open fun installCrashLog() = CrashLog(filesDir, BuildConfig.VERSION_NAME).install()
