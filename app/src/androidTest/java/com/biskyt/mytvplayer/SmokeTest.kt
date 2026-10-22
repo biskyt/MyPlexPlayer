@@ -9,11 +9,15 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import com.biskyt.mytvplayer.data.db.ChannelEntity
+import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,9 +50,23 @@ class SmokeTest {
         waitFor(hasSetTextAction())
         compose.onNode(hasSetTextAction()).performTextInput(server.url("/playlist.m3u").toString())
         click(hasText("Continue"))
-        // Downloaded and read: its categories are offered.
-        waitFor(hasText("Languages & categories"))
+        // Downloaded and its groups read: its categories are offered.
         waitFor(hasText("Smoke Test News", substring = true))
+        click(hasText("Continue"))
+        // Then its channels are read, catch-up and all (the regex that crashed 0.9.5 runs here).
+        val one = waitForChannel("Channel One {HD}")
+        assertEquals(2, one.archiveDays)
+    }
+
+    /** The channel once the playlist's channels are stored (they download in the background, after set-up). */
+    private fun waitForChannel(name: String): ChannelEntity {
+        val c = InstrumentationRegistry.getInstrumentation().targetContext.container
+        var found: ChannelEntity? = null
+        compose.waitUntil(WAIT_MS) {
+            found = runBlocking { c.playlists.allIds().firstNotNullOfOrNull { c.db.channels().search(it, name, 1).firstOrNull() } }
+            found != null
+        }
+        return found!!
     }
 
     private fun waitFor(matcher: SemanticsMatcher) =
