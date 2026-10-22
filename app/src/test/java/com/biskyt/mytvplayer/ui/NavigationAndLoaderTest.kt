@@ -33,6 +33,30 @@ class NavigationAndLoaderTest {
         assertEquals(setOf(0, 1, 2), nav.dropped.toSet())
     }
 
+    // After a language change: the screens below are made again (new ViewModels), the one on top is kept.
+    @Test
+    fun `renewing gives the screens below the top new entries and releases the old ones`() {
+        val nav = Navigator(Screen.Home)
+        nav.push(Screen.Live())
+        nav.push(Screen.Settings)
+        val old = nav.stack.toList()
+        var cleared = 0
+        old[0].viewModelStore.put(
+            "vm",
+            object : androidx.lifecycle.ViewModel() {
+                override fun onCleared() {
+                    cleared++
+                }
+            }
+        )
+        nav.renewBelowTop()
+        assertEquals(listOf(Screen.Home, Screen.Live(), Screen.Settings), nav.stack.map { it.screen })
+        assertEquals(old.last(), nav.current)
+        assertTrue(nav.stack.take(2).none { it in old })
+        assertEquals(setOf(0, 1), nav.dropped.toSet())
+        assertEquals(1, cleared)
+    }
+
     @Test
     fun `the guide button opens the guide except while watching or setting up`() {
         assertTrue(guideButtonOpensGuide(Screen.Home))

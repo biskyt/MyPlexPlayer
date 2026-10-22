@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.AppText
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.Settings
@@ -51,6 +52,7 @@ import com.biskyt.mytvplayer.ui.theme.Palette
 import com.biskyt.mytvplayer.ui.vod.MovieDetailsScreen
 import com.biskyt.mytvplayer.ui.vod.SeriesDetailsScreen
 import com.biskyt.mytvplayer.ui.vod.VodBrowseScreen
+import java.util.Locale
 import kotlinx.coroutines.flow.filterNotNull
 
 @Composable
@@ -85,6 +87,7 @@ fun AppRoot() {
             Box(Modifier.fillMaxSize().background(Palette.background))
             return@MyTvTheme
         }
+        RenewOnLanguageChange(nav, root)
         // A backup file opened with MyTVPlayer from another app: Backup & restore offers to restore it.
         LaunchedEffect(nav) {
             container.openedFile.filterNotNull().collect { if (nav.current.screen != Screen.Backup) nav.push(Screen.Backup) }
@@ -106,6 +109,19 @@ fun AppRoot() {
         ) {
             NavHost(nav) { screen -> ScreenContent(screen) }
         }
+    }
+}
+
+/**
+ * A new language (chosen in Settings, or the device's): the screens below the top are built again in it, with new
+ * ViewModels. The one on top follows straight away (InAppLanguage), apart from words its ViewModel already made.
+ */
+@Composable
+private fun RenewOnLanguageChange(nav: Navigator, root: RootViewModel) {
+    val locale by AppText.shown.collectAsState()
+    LaunchedEffect(nav, locale) {
+        if (root.locale != null && root.locale != locale) nav.renewBelowTop()
+        root.locale = locale
     }
 }
 
@@ -192,6 +208,9 @@ class RootViewModel : ViewModel() {
 
     /** Chosen after a crash: start without updating the playlist or opening the last channel, in case that crashed. */
     var safeStart = false
+
+    /** The language the screens were last shown in. */
+    var locale: Locale? = null
 
     override fun onCleared() {
         navigator?.clear()
