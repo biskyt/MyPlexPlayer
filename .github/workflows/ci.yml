@@ -30,17 +30,6 @@ jobs:
       - name: Unit, Robolectric and UI tests (records screenshots)
         run: ./gradlew :core:test :app:recordRoborazziDebug koverXmlReport
 
-      # Built even when a test fails (the run still fails), so a test APK is there to try.
-      - name: Build sideloadable APK
-        if: ${{ !cancelled() }}
-        run: ./gradlew :app:assembleRelease
-
-      - uses: actions/upload-artifact@v6
-        if: ${{ !cancelled() }}
-        with:
-          name: MyTVPlayer-apk
-          path: app/build/outputs/apk/release/*.apk
-
       - uses: actions/upload-artifact@v6
         if: always()
         with:
