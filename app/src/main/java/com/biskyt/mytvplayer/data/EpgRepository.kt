@@ -102,11 +102,20 @@ class EpgRepository(
         epg.pageForMatching(playlistId, likeArg(query), status)
     }.flow
 
+    private fun guideName(p: PlaylistEntity) = appString(R.string.data_provider_guide_name, p.name)
+
+    /** Each of [playlists]' own guides named after it, in the app's language ("My TV guide"). */
+    suspend fun nameProviderGuides(playlists: List<PlaylistEntity>) = playlists.forEach { p ->
+        val source = epg.providerSource(p.id) ?: return@forEach
+        val name = guideName(p)
+        if (source.name != name) epg.setSourceName(source.id, name)
+    }
+
     suspend fun ensureProviderSource(p: PlaylistEntity, xmltvUrl: String) {
         val existing = epg.providerSource(p.id)
         if (existing == null) {
             epg.insertSource(
-                EpgSourceEntity(name = appString(R.string.data_provider_guide_name, p.name), url = xmltvUrl, playlistId = p.id)
+                EpgSourceEntity(name = guideName(p), url = xmltvUrl, playlistId = p.id)
             )
         } else if (existing.url != xmltvUrl) {
             epg.upsertSource(existing.copy(url = xmltvUrl, lastImportAt = 0)) // a different guide: match everything again
@@ -125,7 +134,7 @@ class EpgRepository(
 
     suspend fun sourceUrls(): Set<String> = epg.sourceUrls().toHashSet()
 
-    suspend fun setSourceEnabled(source: EpgSourceEntity, enabled: Boolean) = epg.upsertSource(source.copy(enabled = enabled))
+    suspend fun setSourceEnabled(source: EpgSourceEntity, enabled: Boolean) = epg.setSourceEnabled(source.id, enabled)
 
     suspend fun removeSource(id: Long) {
         db.withTransaction {
@@ -271,12 +280,11 @@ class EpgRepository(
             if (s.lastError != null) epg.setSourceError(s.id, null)
             return result
         }
-        epg.upsertSource(
-            s.copy(
-                lastImportAt = if (result.isSuccess) clock() else s.lastImportAt,
-                channelCount = result.getOrNull() ?: s.channelCount,
-                lastError = result.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName }
-            )
+        epg.setImportResult(
+            s.id,
+            at = if (result.isSuccess) clock() else s.lastImportAt,
+            channelCount = result.getOrNull() ?: s.channelCount,
+            error = result.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName }
         )
         return result
     }

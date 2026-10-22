@@ -10,6 +10,9 @@ import org.robolectric.shadows.ShadowLooper
 class TestApp : MyTvApp() {
     override fun scheduleDailyRefresh() = Unit
 
+    // A background job renaming playlists while a test runs would make it depend on timing; LanguageNamesTest covers it.
+    override fun followLanguage() = Unit
+
     // A process-wide handler: each test's app would wrap the last one's (tests that need it install it themselves).
     override fun installCrashLog() = Unit
 
