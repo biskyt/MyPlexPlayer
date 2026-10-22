@@ -13,10 +13,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.ui.common.AppIcons
 import com.biskyt.mytvplayer.ui.common.LinkPanel
 import com.biskyt.mytvplayer.ui.common.Muted
@@ -33,8 +35,8 @@ enum class SupportLink(val label: String, val url: String, val icon: ImageVector
 fun SupportSection() {
     var shown by remember { mutableStateOf<SupportLink?>(null) }
     Column(Modifier.padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Support MyTVPlayer", style = MaterialTheme.typography.titleLarge)
-        Muted("It's free, with no ads and no tracking. If you find it useful, you can support its development.", maxLines = 2)
+        Text(stringResource(R.string.settings_support_title), style = MaterialTheme.typography.titleLarge)
+        Muted(stringResource(R.string.settings_support_help), maxLines = 2)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             SupportLink.entries.forEach { link ->
                 PillButton(link.label, { shown = link }) { Icon(link.icon, null, tint = link.tint, modifier = Modifier.size(20.dp)) }

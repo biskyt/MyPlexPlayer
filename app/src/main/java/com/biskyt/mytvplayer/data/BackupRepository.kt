@@ -3,6 +3,8 @@ package com.biskyt.mytvplayer.data
 import android.database.SQLException
 import android.util.Log
 import androidx.room.withTransaction
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.data.db.AppDatabase
 import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.db.ChannelEntity
@@ -154,7 +156,7 @@ class BackupRepository(
     }
 
     private companion object {
-        const val NOT_A_BACKUP = "This isn't a MyTVPlayer backup file."
-        const val NEWER = "This backup is from a newer version of MyTVPlayer. Update the app first."
+        val NOT_A_BACKUP get() = appString(R.string.settings_backup_not_a_backup)
+        val NEWER get() = appString(R.string.settings_backup_newer)
     }
 }

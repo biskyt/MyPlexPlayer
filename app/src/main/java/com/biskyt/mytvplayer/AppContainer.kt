@@ -84,6 +84,7 @@ open class MyTvApp : Application(), SingletonImageLoader.Factory {
         super.onCreate()
         // First, so a crash while setting up the rest is recorded too.
         installCrashLog()
+        AppText.init(this)
         container = AppContainer(this)
         scheduleDailyRefresh()
     }

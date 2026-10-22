@@ -3,6 +3,7 @@ package com.biskyt.mytvplayer.data
 import androidx.room.testing.MigrationTestHelper
 import androidx.test.platform.app.InstrumentationRegistry
 import com.biskyt.mytvplayer.data.db.AppDatabase
+import com.biskyt.mytvplayer.testutil.PlainApp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -13,7 +14,7 @@ import org.robolectric.annotation.Config
 
 /** Upgrading from an earlier release keeps the user's playlists and channels. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], application = android.app.Application::class)
+@Config(sdk = [34], application = PlainApp::class)
 class MigrationTest {
     @get:Rule
     val helper = MigrationTestHelper(InstrumentationRegistry.getInstrumentation(), AppDatabase::class.java)

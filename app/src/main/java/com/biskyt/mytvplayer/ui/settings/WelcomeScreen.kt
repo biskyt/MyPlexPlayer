@@ -13,12 +13,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
@@ -60,38 +62,38 @@ fun WelcomeScreen() {
         Modifier.fillMaxSize().background(Palette.background).padding(horizontal = 96.dp, vertical = 72.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Text("Welcome to MyTVPlayer", style = MaterialTheme.typography.displaySmall)
+        Text(stringResource(R.string.settings_welcome_title), style = MaterialTheme.typography.displaySmall)
         Muted(
-            "Add the TV service you subscribe to (an Xtream Codes login or an M3U playlist address), or start with free " +
-                "TV: channels streamed free by their broadcasters, and public-domain films and series. You can add the " +
-                "other at any time in Settings › Playlists.",
+            stringResource(R.string.settings_welcome_intro),
             Modifier.widthIn(max = 820.dp),
             maxLines = 3,
         )
         val error = vm.error
         when {
-            vm.working -> Text("Downloading the channel list…", style = MaterialTheme.typography.titleMedium)
+            vm.working -> Text(stringResource(R.string.settings_welcome_downloading), style = MaterialTheme.typography.titleMedium)
             error != null -> Text(error, style = MaterialTheme.typography.titleMedium, color = Palette.warning)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             PillButton(
-                "Add my TV provider",
+                stringResource(R.string.settings_welcome_add_provider),
                 { nav.replace(Screen.PlaylistEdit(null, firstRun = true)) },
                 if (error == null) rememberFirstFocus() else Modifier,
                 primary = true,
             )
             // Stays on screen while setting up, so the button pressed keeps focus.
             PillButton(
-                when {
-                    vm.working -> "Setting up…"
-                    error != null -> "Try the free channels again"
-                    else -> "Free TV, films and series"
-                },
+                stringResource(
+                    when {
+                        vm.working -> R.string.settings_welcome_setting_up
+                        error != null -> R.string.settings_welcome_free_retry
+                        else -> R.string.settings_welcome_free
+                    }
+                ),
                 vm::start,
                 if (error != null) rememberFirstFocus(error) else Modifier,
             )
             // After reinstalling: everything back from a backup file.
-            PillButton("Restore a backup", { nav.push(Screen.Backup) })
+            PillButton(stringResource(R.string.settings_welcome_restore), { nav.push(Screen.Backup) })
         }
     }
 }

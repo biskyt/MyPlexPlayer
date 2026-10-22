@@ -14,9 +14,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 
 /**
  * A web page as a QR code to scan with a phone (paying or reading on a TV isn't for everyone), with its address, an
@@ -29,18 +32,18 @@ fun LinkPanel(title: String, url: String, note: String? = null, onDismiss: () ->
     SidePanel(onDismiss) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(title, style = MaterialTheme.typography.titleLarge)
-            Muted("Scan with your phone's camera to open the page there.", maxLines = 2)
+            Muted(stringResource(R.string.common_link_scan_hint), maxLines = 2)
             QrCode(url, Modifier.size(240.dp))
             Text(url.removePrefix("https://"), style = MaterialTheme.typography.titleSmall)
             note?.let { Muted(it, maxLines = 2) }
-            PillButton("Open on this TV", {
+            PillButton(stringResource(R.string.common_link_open_here), {
                 try {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 } catch (_: ActivityNotFoundException) {
-                    problem = "This TV has no web browser. Scan the code with your phone instead."
+                    problem = appString(R.string.common_link_no_browser)
                 } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
                     // Some TVs refuse in other ways (e.g. a browser that's switched off): never a crash.
-                    problem = "The page couldn't be opened on this TV (${e.javaClass.simpleName}). Scan the code with your phone instead."
+                    problem = appString(R.string.common_link_open_failed, e.javaClass.simpleName)
                 }
             }, rememberFirstFocus())
             problem?.let { Muted(it, maxLines = 2) }

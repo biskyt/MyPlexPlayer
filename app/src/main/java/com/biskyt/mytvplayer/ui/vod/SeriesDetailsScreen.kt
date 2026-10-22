@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -27,6 +28,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.core.xtream.EpisodeInfo
 import com.biskyt.mytvplayer.core.xtream.SeriesDetails
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
@@ -87,7 +90,7 @@ class SeriesDetailsViewModel(
             val d = c.vod.seriesDetails(p, seriesId)
             details = d
         } catch (e: java.io.IOException) {
-            error = e.message ?: "Couldn't load the episodes"
+            error = e.message ?: appString(R.string.vod_episodes_failed)
         }
     }
 
@@ -126,7 +129,10 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
             if (next != null) {
                 val started = progress.isNotEmpty()
                 PillButton(
-                    (if (started) "Continue: " else "Play ") + shortEpisodeLabel(next.season, next.number),
+                    stringResource(
+                        if (started) R.string.vod_continue_episode else R.string.vod_play_episode,
+                        shortEpisodeLabel(next.season, next.number)
+                    ),
                     { play(next) },
                     if (target == null || !vm.focusEpisodePending) rememberFirstFocus(next.id) else Modifier,
                     primary = true
@@ -137,10 +143,10 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
         when {
             vm.error != null -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Muted(vm.error.orEmpty())
-                PillButton("Try again", { vm.load() }, if (next == null) rememberFirstFocus() else Modifier)
+                PillButton(stringResource(R.string.common_retry), { vm.load() }, if (next == null) rememberFirstFocus() else Modifier)
             }
-            d == null -> Muted("Loading episodes…")
-            d.episodes.isEmpty() -> Muted("No episodes are available for this series.")
+            d == null -> Muted(stringResource(R.string.vod_loading_episodes))
+            d.episodes.isEmpty() -> Muted(stringResource(R.string.vod_no_episodes))
             else -> {
                 // A season the provider doesn't have (the guide may number them differently) shows the usual one.
                 val asked = vm.season?.takeIf { s -> d.episodes.any { it.season == s } }
@@ -162,7 +168,7 @@ private fun Episodes(
     if (d.seasons.size > 1) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(d.seasons, key = { it.number }) { s ->
-                PillButton(s.name, { vm.season = s.number }, selected = s.number == season)
+                PillButton(s.name ?: stringResource(R.string.vod_season, s.number), { vm.season = s.number }, selected = s.number == season)
             }
         }
     }
@@ -196,7 +202,7 @@ private fun EpisodeRow(e: EpisodeInfo, progress: WatchProgressEntity?, modifier:
             val duration = e.durationSec
             when {
                 progress?.finished == true -> Text(
-                    "Watched",
+                    stringResource(R.string.vod_watched),
                     style = MaterialTheme.typography.labelMedium,
                     color = LocalAccent.current.color
                 )

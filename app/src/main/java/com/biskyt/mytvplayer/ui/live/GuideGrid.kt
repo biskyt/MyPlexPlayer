@@ -37,6 +37,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.paging.compose.LazyPagingItems
@@ -44,6 +45,7 @@ import androidx.paging.compose.itemKey
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.ChannelProgramme
@@ -267,7 +269,7 @@ private fun FocusedInfo(
             Muted("${ch.name} · ${formatRange(p.startMs, p.stopMs)}" + (about?.let { " · $it" } ?: ""))
         } else {
             Text(ch.name, style = MaterialTheme.typography.titleMedium)
-            Muted("No guide information")
+            Muted(stringResource(R.string.common_no_guide))
         }
     }
 }
@@ -276,7 +278,9 @@ private fun FocusedInfo(
 private fun TimeHeader(windowStart: Long, onMove: (dir: Int) -> Unit) {
     // A touch screen has no ◀ ▶ to reach past the edge: buttons above the channels move the window instead.
     Row(Modifier.fillMaxWidth().height(if (LocalTouch.current) 48.dp else 30.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(ChannelColumn)) { TouchStepButtons("Earlier", "Later", onMove) }
+        Box(Modifier.width(ChannelColumn)) {
+            TouchStepButtons(stringResource(R.string.live_guide_earlier), stringResource(R.string.live_guide_later), onMove)
+        }
         for (i in 0 until 5) {
             Text(
                 formatTime(windowStart + i * HALF_HOUR),
@@ -305,6 +309,7 @@ private fun GuideRow(
     mayTakeFocus: () -> Boolean
 ) {
     val windowEnd = windowStart + WINDOW_MS
+    val noGuide = stringResource(R.string.common_no_guide)
     Row(Modifier.fillMaxWidth().height(60.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.width(ChannelColumn).padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(ch.numberLabel, style = MaterialTheme.typography.bodyMedium, color = Palette.textDim, modifier = Modifier.width(44.dp))
@@ -326,7 +331,7 @@ private fun GuideRow(
             Cell(
                 null, DpPerMinute * (WINDOW_MS / 60_000f), live = true, first = true, last = true,
                 focusKey = focusTime?.let { Triple(it, programmes, loaded) }, onFocus, onPlay, onOptions, onEdge, mayTakeFocus,
-                if (programmes == null) "" else "No guide information"
+                if (programmes == null) "" else noGuide
             )
         } else {
             // The cell to focus: the programme on the target time, or the nearest one after it (or the last).

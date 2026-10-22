@@ -8,6 +8,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appPlural
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Navigator
@@ -45,18 +48,23 @@ fun ItemAction.perform(nav: Navigator, close: () -> Unit, beforeReplace: () -> U
     }
 }
 
-fun favouriteLabel(favourite: Boolean) = if (favourite) "Remove from favourites" else "Add to favourites"
+fun favouriteLabel(favourite: Boolean) = appString(if (favourite) R.string.common_favourite_remove else R.string.common_favourite_add)
 
-fun favouriteFlash(added: Boolean) = if (added) "Added to favourites" else "Removed from favourites"
+fun favouriteFlash(added: Boolean) = appString(if (added) R.string.common_favourite_added else R.string.common_favourite_removed)
 
 /** What every channel menu offers (search, the player): favourites, catch-up where the provider has it, its guide. */
 fun channelActions(ch: ChannelEntity, favourite: Boolean, setFavourite: (Boolean) -> Unit): List<ItemAction> = buildList {
     add(ItemAction.Run(favouriteLabel(favourite)) { setFavourite(!favourite) })
     if (ch.archiveDays > 0) {
-        add(ItemAction.Open("Catch-up", Screen.Catchup(ch.playlistId, ch.streamId), "Programmes from the last ${ch.archiveDays} days"))
+        val help = appPlural(R.plurals.common_catchup_days, ch.archiveDays, ch.archiveDays)
+        add(ItemAction.Open(appString(R.string.common_catchup), Screen.Catchup(ch.playlistId, ch.streamId), help))
     }
     add(
-        ItemAction.Open("Change guide source…", Screen.GuideMatching(ch.playlistId, ch.streamId), "Pick which guide data this channel uses")
+        ItemAction.Open(
+            appString(R.string.common_change_guide_source),
+            Screen.GuideMatching(ch.playlistId, ch.streamId),
+            appString(R.string.common_change_guide_source_help)
+        )
     )
 }
 

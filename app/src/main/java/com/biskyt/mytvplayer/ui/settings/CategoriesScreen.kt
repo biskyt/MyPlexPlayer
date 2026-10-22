@@ -22,6 +22,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -31,13 +33,14 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
-import com.biskyt.mytvplayer.core.epg.CategoryLanguageDetector
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.MAX_SQL_ARGS
+import com.biskyt.mytvplayer.data.groupLabel
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
@@ -102,14 +105,14 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
     }
 
     fun groups(list: List<CategoryEntity>, q: String = ""): List<LanguageGroup> = list.groupBy { it.lang }
-        .filter { (code, items) -> matches(CategoryLanguageDetector.label(code), q) || items.any { matches(it.name, q) } }
-        .map { (code, items) -> LanguageGroup(code, CategoryLanguageDetector.label(code), items.size, items.count { it.included }) }
+        .filter { (code, items) -> matches(groupLabel(code), q) || items.any { matches(it.name, q) } }
+        .map { (code, items) -> LanguageGroup(code, groupLabel(code), items.size, items.count { it.included }) }
         .sortedWith(compareByDescending<LanguageGroup> { it.included > 0 }.thenBy { it.code == null }.thenBy { it.label })
 
     /** A group's categories, narrowed by [q] unless the group itself is what matched. */
     fun shown(list: List<CategoryEntity>, group: String?, q: String): List<CategoryEntity> {
         val inGroup = list.filter { it.lang == group }
-        return if (matches(CategoryLanguageDetector.label(group), q)) inGroup else inGroup.filter { matches(it.name, q) }
+        return if (matches(groupLabel(group), q)) inGroup else inGroup.filter { matches(it.name, q) }
     }
 
     /** Ticks or unticks a group: while filtering, only the categories shown for it. */
@@ -130,7 +133,7 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
         // What the screen shows: categories whose name, or whose group's name, matches.
         val ids = categories.value
             .filter {
-                it.type == t && (matches(it.name, q) || matches(CategoryLanguageDetector.label(it.lang), q))
+                it.type == t && (matches(it.name, q) || matches(groupLabel(it.lang), q))
             }
             .map { it.categoryId }
         setIncluded(t, ids, included)
@@ -192,16 +195,26 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Languages & categories", style = MaterialTheme.typography.headlineLarge)
-                Muted("Only the categories you tick are downloaded, so lists load faster and use less storage.", maxLines = 2)
+                Text(stringResource(R.string.settings_categories_title), style = MaterialTheme.typography.headlineLarge)
+                Muted(stringResource(R.string.settings_categories_intro), maxLines = 2)
             }
-            Muted("Loading ${categories.count { it.included }} of ${categories.size} categories", Modifier.padding(end = 16.dp))
-            PillButton(if (firstRun) "Continue" else "Done", done, primary = true)
+            val included = categories.count { it.included }
+            val loading = pluralStringResource(R.plurals.settings_categories_loading, categories.size, included, categories.size)
+            Muted(loading, Modifier.padding(end = 16.dp))
+            PillButton(
+                stringResource(if (firstRun) R.string.common_continue else R.string.settings_categories_done),
+                done,
+                primary = true
+            )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             if (vm.hasVod) {
-                listOf(CAT_LIVE to "Live TV", CAT_MOVIE to "Movies", CAT_SERIES to "Series").forEach { (t, label) ->
-                    PillButton(label, { vm.showType(t) }, selected = t == type)
+                listOf(
+                    CAT_LIVE to R.string.common_tab_live,
+                    CAT_MOVIE to R.string.common_tab_movies,
+                    CAT_SERIES to R.string.common_tab_series
+                ).forEach { (t, label) ->
+                    PillButton(stringResource(label), { vm.showType(t) }, selected = t == type)
                 }
             }
         }
@@ -215,20 +228,26 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                     TvTextField(
                         vm.query,
                         vm::filter,
-                        "Filter countries and categories",
+                        stringResource(R.string.settings_categories_filter),
                         Modifier.fillMaxWidth(),
                         leading = { Icon(AppIcons.Filter, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) }
                     )
                 }
-                item { Text("DETECTED FROM CATEGORY NAMES", style = MaterialTheme.typography.labelMedium, color = Palette.textMuted) }
+                item {
+                    Text(
+                        stringResource(R.string.settings_categories_detected),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Palette.textMuted
+                    )
+                }
                 // Every language at once (while filtering, the matching ones).
                 if (groups.isNotEmpty()) {
                     item {
-                        val matching = if (query.isEmpty()) "" else " matching"
-                        SelectAllRow("All$matching", "None", vm::setAll)
+                        val all = if (query.isEmpty()) R.string.settings_categories_all else R.string.settings_categories_all_matching
+                        SelectAllRow(stringResource(all), vm::setAll)
                     }
                 }
-                if (groups.isEmpty() && query.isNotEmpty()) item { Muted("Nothing matches \u201c$query\u201d.") }
+                if (groups.isEmpty() && query.isNotEmpty()) item { Muted(stringResource(R.string.settings_categories_no_match, query)) }
                 items(groups, key = { it.code ?: "" }) { g ->
                     TvCard(
                         onClick = { vm.toggleGroup(g) },
@@ -241,7 +260,7 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                         Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(g.label, style = MaterialTheme.typography.titleSmall)
-                                Muted("${g.included} of ${g.total} categories")
+                                Muted(pluralStringResource(R.plurals.settings_categories_count, g.total, g.included, g.total))
                             }
                             Toggle(g.included > 0)
                         }
@@ -250,7 +269,7 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                 if (type == CAT_LIVE && hiddenShown.isNotEmpty()) {
                     item {
                         Text(
-                            "HIDDEN CHANNELS",
+                            stringResource(R.string.settings_categories_hidden),
                             style = MaterialTheme.typography.labelMedium,
                             color = Palette.textMuted,
                             modifier = Modifier.padding(top = 16.dp)
@@ -266,7 +285,11 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
-                                Text("Unhide", style = MaterialTheme.typography.labelMedium, color = LocalAccent.current.color)
+                                Text(
+                                    stringResource(R.string.settings_categories_unhide),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = LocalAccent.current.color
+                                )
                             }
                         }
                     }
@@ -280,7 +303,11 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
             ) {
                 // Just this language's categories: all of them, say, without choosing every language.
                 if (shown.isNotEmpty()) {
-                    item { SelectAllRow("All in ${CategoryLanguageDetector.label(selected)}", "None") { vm.setGroup(selected, it) } }
+                    item {
+                        SelectAllRow(stringResource(R.string.settings_categories_all_in, groupLabel(selected))) {
+                            vm.setGroup(selected, it)
+                        }
+                    }
                 }
                 items(shown, key = { it.categoryId }) { cat ->
                     TvCard(onClick = { vm.toggleCategory(cat) }, color = Palette.surface, modifier = Modifier.fillMaxWidth()) {
@@ -307,11 +334,11 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
     }
 }
 
-/** "Select all" and "select none" for the list below. */
+/** "Select all" ([all] names it) and "select none" for the list below. */
 @Composable
-private fun SelectAllRow(all: String, none: String, set: (included: Boolean) -> Unit) {
+private fun SelectAllRow(all: String, set: (included: Boolean) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         PillButton(all, { set(true) })
-        PillButton(none, { set(false) })
+        PillButton(stringResource(R.string.settings_categories_none), { set(false) })
     }
 }

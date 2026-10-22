@@ -1,5 +1,6 @@
 package com.biskyt.mytvplayer.ui.guide
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -37,6 +39,9 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appPlural
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.core.epg.EpgCandidate
 import com.biskyt.mytvplayer.core.epg.EpgMatch
 import com.biskyt.mytvplayer.data.FreeGuide
@@ -101,29 +106,31 @@ class GuideSourcesViewModel(private val c: AppContainer) : ViewModel() {
 
     private fun addAndLoad(name: String, url: String): Boolean {
         val shown = name.trim().ifEmpty { url.trim() }
-        return work.run("Adding $shown") {
+        return work.run(appString(R.string.live_guide_adding, shown)) {
             val id = c.epg.addSource(name, url)
             // A guide that couldn't be loaded doesn't fail the update (the others still load), so look for its own error.
-            update("$shown added", only = id) { errors -> errors[id]?.let { WorkStatus("Couldn't load $shown", it, failed = true) } }
+            update(appString(R.string.live_guide_added, shown), only = id) { errors ->
+                errors[id]?.let { WorkStatus(appString(R.string.live_guide_load_failed, shown), it, failed = true) }
+            }
         }
     }
 
-    fun refresh() = work.run("Updating the TV guide") {
-        update("TV guide updated") { errors ->
+    fun refresh() = work.run(appString(R.string.live_guide_updating)) {
+        update(appString(R.string.live_guide_updated)) { errors ->
             if (errors.isEmpty()) return@update null
             val names = sources.value.filter { it.id in errors }.joinToString { it.name }
-            WorkStatus("Some guides couldn't be loaded", "$names: ${errors.values.first()}", failed = true)
+            WorkStatus(appString(R.string.live_guide_some_failed), "$names: ${errors.values.first()}", failed = true)
         }
     }
 
-    fun matchMissing() = work.run("Matching channels without a guide") {
-        val r = c.sync.matchMissingGuides().getOrElse { return@run WorkRunner.failed("Couldn't match channels", it) }
+    fun matchMissing() = work.run(appString(R.string.live_guide_matching)) {
+        val r = c.sync.matchMissingGuides().getOrElse { return@run WorkRunner.failed(appString(R.string.common_match_failed), it) }
         val now = c.epg.coverage()
         val title = when {
-            r.matched > 0 -> "Found a guide for ${channels(r.matched)} more"
-            now.noGuide == 0 -> "Every channel has a guide"
-            r.checked == 0 -> "No channels left to match"
-            else -> "No new matches found"
+            r.matched > 0 -> appPlural(R.plurals.live_guide_match_found, r.matched, formatCount(r.matched))
+            now.noGuide == 0 -> appString(R.string.live_guide_match_all)
+            r.checked == 0 -> appString(R.string.live_guide_match_none_left)
+            else -> appString(R.string.live_guide_match_none_new)
         }
         WorkStatus(title, coverageText(now, now))
     }
@@ -134,7 +141,7 @@ class GuideSourcesViewModel(private val c: AppContainer) : ViewModel() {
      */
     private suspend fun update(done: String, only: Long? = null, check: (Map<Long, String>) -> WorkStatus?): WorkStatus {
         val before = c.epg.coverage()
-        val errors = c.sync.updateGuide(only).getOrElse { return WorkRunner.failed("Couldn't update the TV guide", it) }
+        val errors = c.sync.updateGuide(only).getOrElse { return WorkRunner.failed(appString(R.string.common_guide_update_failed), it) }
         return check(errors) ?: WorkStatus(done, coverageText(before, c.epg.coverage()))
     }
 
@@ -143,19 +150,16 @@ class GuideSourcesViewModel(private val c: AppContainer) : ViewModel() {
 
     private fun coverageText(before: GuideCoverage, now: GuideCoverage): String {
         val gained = now.withGuide - before.withGuide
-        val more = if (gained > 0) " (${formatCount(gained)} more than before)" else ""
-        return "${channels(now.withGuide)} ${have(now.withGuide)} a guide$more." + stillNone(now.noGuide)
+        val n = now.withGuide
+        val coverage = if (gained > 0) {
+            appPlural(R.plurals.live_guide_coverage_more, n, formatCount(n), formatCount(gained))
+        } else {
+            appPlural(R.plurals.live_guide_coverage, n, formatCount(n))
+        }
+        if (now.noGuide == 0) return coverage
+        val none = appPlural(R.plurals.live_guide_coverage_none, now.noGuide, formatCount(now.noGuide))
+        return "$coverage $none"
     }
-
-    private fun stillNone(n: Int): String {
-        if (n == 0) return ""
-        val them = if (n == 1) "it" else "them"
-        return " ${formatCount(n)} still ${have(n)} none: you can choose $them by hand in TV guide matching."
-    }
-
-    private fun channels(n: Int) = "${formatCount(n)} ${if (n == 1) "channel" else "channels"}"
-
-    private fun have(n: Int) = if (n == 1) "has" else "have"
 }
 
 @Composable
@@ -163,21 +167,27 @@ fun GuideSourcesScreen() {
     val vm = appViewModel { GuideSourcesViewModel(it) }
     val sources by vm.sources.collectAsState()
     var adding by rememberSaveable { mutableStateOf(false) }
-    SettingsPage("TV guide sources") {
+    SettingsPage(stringResource(R.string.common_guide_sources)) {
         item {
-            Muted("Guides are updated every day. Programmes are only stored for channels that use them, for the next 3 days.", maxLines = 2)
+            Muted(stringResource(R.string.live_guide_sources_intro), maxLines = 2)
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                PillButton("Add a guide", { adding = true }, rememberFirstFocus(), primary = true)
-                PillButton("Update guide now", vm::refresh)
-                PillButton("Match channels without a guide", vm::matchMissing)
+                PillButton(stringResource(R.string.live_guide_add), { adding = true }, rememberFirstFocus(), primary = true)
+                PillButton(stringResource(R.string.live_guide_update_now), vm::refresh)
+                PillButton(stringResource(R.string.live_guide_match_missing), vm::matchMissing)
             }
         }
         // Directly under the buttons, so whatever was pressed, its progress and outcome show in the same place.
         item(key = "status") { StatusPanel(vm.status) }
-        item { Text("Your guides", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp)) }
-        if (sources.isEmpty()) item { Muted("No guides yet. Add a free guide for your country, or your own XMLTV address.") }
+        item {
+            Text(
+                stringResource(R.string.live_guide_yours),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 12.dp)
+            )
+        }
+        if (sources.isEmpty()) item { Muted(stringResource(R.string.live_guide_none_yet)) }
         items(sources, key = { it.id }) { s ->
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 TvCard(onClick = { vm.toggle(s) }, color = Palette.surfaceLow, modifier = Modifier.weight(1f)) {
@@ -187,7 +197,7 @@ fun GuideSourcesScreen() {
                             Muted(sourceDetails(s))
                             s.lastError?.let {
                                 Text(
-                                    "Last update failed: $it",
+                                    stringResource(R.string.live_guide_last_failed, it),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Palette.warning,
                                     maxLines = 1
@@ -197,7 +207,7 @@ fun GuideSourcesScreen() {
                         Toggle(s.enabled)
                     }
                 }
-                if (s.playlistId == null) PillButton("Remove", { vm.remove(s) })
+                if (s.playlistId == null) PillButton(stringResource(R.string.common_remove), { vm.remove(s) })
             }
         }
     }
@@ -210,25 +220,28 @@ private fun AddGuidePanel(vm: GuideSourcesViewModel, sources: List<EpgSourceEnti
     val free = remember(sources) { FreeGuides.notAdded(sources) }
     SidePanel(onDismiss, width = 560.dp) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            item { Text("Add a guide", style = MaterialTheme.typography.headlineSmall) }
-            vm.status?.takeIf { it.working }?.let { item { Text("Wait for this to finish first: ${it.title}", color = Palette.warning) } }
+            item { Text(stringResource(R.string.live_guide_add), style = MaterialTheme.typography.headlineSmall) }
+            vm.status?.takeIf { it.working }?.let { status ->
+                item { Text(stringResource(R.string.live_guide_wait, status.title), color = Palette.warning) }
+            }
             item {
                 Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Your own XMLTV address", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.live_guide_own_address), style = MaterialTheme.typography.titleMedium)
                     val urlEdit = rememberSaveable { mutableStateOf(false) }
-                    TvTextField(vm.name, { vm.name = it }, "Name (optional)", Modifier.fillMaxWidth(), onNext = { urlEdit.value = true })
+                    val nameHint = stringResource(R.string.live_guide_name_hint)
+                    TvTextField(vm.name, { vm.name = it }, nameHint, Modifier.fillMaxWidth(), onNext = { urlEdit.value = true })
                     TvTextField(vm.url, {
                         vm.url = it
                     }, "https://…/guide.xml.gz", Modifier.fillMaxWidth(), keyboardType = KeyboardType.Uri, editing = urlEdit)
-                    PillButton("Add this guide", {
+                    PillButton(stringResource(R.string.live_guide_add_this), {
                         if (vm.add()) onDismiss()
                     }, if (free.isEmpty()) rememberFirstFocus() else Modifier, primary = true)
                 }
             }
             item {
                 Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Free guides by country", style = MaterialTheme.typography.titleMedium)
-                    Muted("From iptv-epg.org. Large countries can take a few minutes to load on a TV box.", maxLines = 2)
+                    Text(stringResource(R.string.live_guide_free_title), style = MaterialTheme.typography.titleMedium)
+                    Muted(stringResource(R.string.live_guide_free_note), maxLines = 2)
                 }
             }
             items(free, key = { it.code }) { g ->
@@ -249,21 +262,21 @@ private fun AddGuidePanel(vm: GuideSourcesViewModel, sources: List<EpgSourceEnti
 }
 
 private fun sourceDetails(s: EpgSourceEntity): String {
-    val parts = mutableListOf(if (s.playlistId != null) "From your provider" else s.url)
-    if (s.channelCount > 0) parts += "${formatCount(s.channelCount)} channels"
-    if (s.lastImportAt > 0) parts += "updated ${formatDateTime(s.lastImportAt)}"
-    if (!s.enabled) parts += "off"
+    val parts = mutableListOf(if (s.playlistId != null) appString(R.string.live_guide_from_provider) else s.url)
+    if (s.channelCount > 0) parts += appPlural(R.plurals.live_guide_source_channels, s.channelCount, formatCount(s.channelCount))
+    if (s.lastImportAt > 0) parts += appString(R.string.common_updated_at, formatDateTime(s.lastImportAt))
+    if (!s.enabled) parts += appString(R.string.live_guide_source_off)
     return parts.joinToString(" · ")
 }
 
 // ---------------------------------------------------------------- matching
 
 /** [status] is what the matching query filters on; [count] the tab's number. */
-enum class MatchTab(val label: String, val status: Int, val count: (MatchCounts) -> Int) {
-    ALL("All", 0, { it.total }),
-    UNMATCHED("No guide", 1, { it.unmatched }),
-    AUTO("Automatic", 2, { it.auto }),
-    MANUAL("Set by you", 3, { it.manual })
+enum class MatchTab(@StringRes val label: Int, val status: Int, val count: (MatchCounts) -> Int) {
+    ALL(R.string.live_guide_tab_all, 0, { it.total }),
+    UNMATCHED(R.string.live_guide_no_guide, 1, { it.unmatched }),
+    AUTO(R.string.live_guide_tab_auto, 2, { it.auto }),
+    MANUAL(R.string.live_guide_tab_manual, 3, { it.manual })
 }
 
 /** One candidate in the right-hand panel: from the matcher (with a score) or from a name search. */
@@ -385,12 +398,12 @@ fun GuideMatchingScreen(playlistId: Long, streamId: Long?) {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("TV guide matching", style = MaterialTheme.typography.headlineLarge)
-                Muted("Pick which guide data each channel uses. Your choices are kept when the playlist updates.")
+                Text(stringResource(R.string.common_guide_matching), style = MaterialTheme.typography.headlineLarge)
+                Muted(stringResource(R.string.live_guide_matching_intro))
             }
             MatchTab.entries.forEach { t ->
                 PillButton(
-                    "${t.label} ${formatCount(t.count(counts))}",
+                    "${stringResource(t.label)} ${formatCount(t.count(counts))}",
                     { vm.tab.value = t },
                     Modifier.padding(start = 8.dp),
                     primary =
@@ -403,7 +416,7 @@ fun GuideMatchingScreen(playlistId: Long, streamId: Long?) {
                 TvTextField(
                     filter,
                     { vm.filter.value = it },
-                    "Filter your channels by name",
+                    stringResource(R.string.live_guide_filter_hint),
                     rememberFirstFocus().fillMaxWidth(),
                     leading = { Icon(AppIcons.Filter, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) }
                 )
@@ -431,7 +444,7 @@ private fun MatchRowCard(row: MatchRow, selected: Boolean, onClick: () -> Unit) 
             ChannelLogo(ch.logoUrl, ch.name, 52.dp, 30.dp)
             Column(Modifier.weight(1f)) {
                 Text(ch.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Muted(row.guideName?.let { "$it (${row.sourceName})" } ?: "No guide data")
+                Muted(row.guideName?.let { "$it (${row.sourceName})" } ?: stringResource(R.string.live_guide_no_data))
             }
             StatusChip(row)
         }
@@ -441,9 +454,13 @@ private fun MatchRowCard(row: MatchRow, selected: Boolean, onClick: () -> Unit) 
 @Composable
 private fun StatusChip(row: MatchRow) {
     val (label, fg, bg) = when {
-        row.mapSourceId == null -> Triple("NO GUIDE", Palette.danger, Palette.danger.copy(alpha = 0.15f))
-        row.mapManual == true -> Triple("SET", LocalAccent.current.soft, LocalAccent.current.tint)
-        else -> Triple("AUTO ${((row.mapScore ?: 0.0) * 100).toInt()}%", Palette.warning, Palette.warning.copy(alpha = 0.15f))
+        row.mapSourceId == null -> Triple(stringResource(R.string.live_guide_chip_none), Palette.danger, Palette.danger.copy(alpha = 0.15f))
+        row.mapManual == true -> Triple(stringResource(R.string.live_guide_chip_set), LocalAccent.current.soft, LocalAccent.current.tint)
+        else -> Triple(
+            stringResource(R.string.live_guide_chip_auto, ((row.mapScore ?: 0.0) * 100).toInt()),
+            Palette.warning,
+            Palette.warning.copy(alpha = 0.15f)
+        )
     }
     Text(
         label,
@@ -461,24 +478,30 @@ private fun ChoicePanel(vm: GuideMatchingViewModel, modifier: Modifier) {
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         if (ch == null) {
-            Muted("Select a channel on the left to choose its guide.", maxLines = 2)
+            Muted(stringResource(R.string.live_guide_select_channel), maxLines = 2)
             return@Column
         }
-        Muted("Choose a guide for")
+        Muted(stringResource(R.string.live_guide_choose_for))
         Text(ch.name, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
         val m = vm.mapping
         Muted(
             when {
-                m == null || m.sourceId == null -> "Currently: no guide"
-                else ->
-                    "Currently: ${m.displayName ?: m.xmlId} (${m.sourceName ?: ""})" +
-                        (if (m.offsetMinutes != 0) " · shifted ${m.offsetMinutes / 60}h" else "")
+                m == null || m.sourceId == null -> stringResource(R.string.live_guide_current_none)
+                else -> {
+                    val name = (m.displayName ?: m.xmlId).toString()
+                    val src = m.sourceName ?: ""
+                    if (m.offsetMinutes == 0) {
+                        stringResource(R.string.live_guide_current, name, src)
+                    } else {
+                        stringResource(R.string.live_guide_current_shifted, name, src, m.offsetMinutes / 60)
+                    }
+                }
             }
         )
         TvTextField(
             vm.search,
             vm::onSearch,
-            "Search all guide channels",
+            stringResource(R.string.live_guide_search_hint),
             Modifier.fillMaxWidth(),
             leading = { Icon(AppIcons.Search, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) }
         )
@@ -498,7 +521,7 @@ private fun ChoicePanel(vm: GuideMatchingViewModel, modifier: Modifier) {
                         }
                         choice.score?.let {
                             Text(
-                                "${(it * 100).toInt()}% match",
+                                stringResource(R.string.live_guide_match_score, (it * 100).toInt()),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = LocalAccent.current.soft
                             )
@@ -508,15 +531,15 @@ private fun ChoicePanel(vm: GuideMatchingViewModel, modifier: Modifier) {
             }
             if (vm.choices.isEmpty()) {
                 item {
-                    Muted("No guide channels found. Try a shorter search, or add another guide source.", maxLines = 2)
+                    Muted(stringResource(R.string.live_guide_no_results), maxLines = 2)
                 }
             }
         }
         Box(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PillButton("Time shift: ${(m?.offsetMinutes ?: 0) / 60} h", vm::shiftTime)
-            PillButton("No guide", vm::noGuide)
-            PillButton("Reset to automatic", vm::reset)
+            PillButton(stringResource(R.string.live_guide_time_shift, (m?.offsetMinutes ?: 0) / 60), vm::shiftTime)
+            PillButton(stringResource(R.string.live_guide_no_guide), vm::noGuide)
+            PillButton(stringResource(R.string.live_guide_reset), vm::reset)
         }
     }
 }

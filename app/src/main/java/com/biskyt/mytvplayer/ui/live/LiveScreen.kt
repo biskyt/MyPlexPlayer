@@ -34,6 +34,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -43,6 +44,7 @@ import androidx.paging.compose.itemKey
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.ui.LocalNavigator
@@ -157,11 +159,14 @@ private fun BackToFilter(filterBox: FocusRequester, atTop: () -> Boolean, conten
 private fun LiveCategories(vm: LiveViewModel, selected: ChannelFilter) {
     if (vm.catchupMode) return CatchupCategories(vm, selected)
     val categories by vm.categories.collectAsState()
-    val entries = remember(categories) {
+    val favourites = stringResource(R.string.common_favourites)
+    val recent = stringResource(R.string.common_recent)
+    val all = stringResource(R.string.live_all_channels)
+    val entries = remember(categories, favourites, recent, all) {
         listOf<CategoryEntry<ChannelFilter>>(
-            CategoryEntry(ChannelFilter.Favourites, "Favourites"),
-            CategoryEntry(ChannelFilter.Recent, "Recently watched"),
-            CategoryEntry(ChannelFilter.All, "All channels")
+            CategoryEntry(ChannelFilter.Favourites, favourites),
+            CategoryEntry(ChannelFilter.Recent, recent),
+            CategoryEntry(ChannelFilter.All, all)
         ) + categoryEntries<ChannelFilter>(categories) { ChannelFilter.Category(it.categoryId) }
     }
     CategoryColumn(entries, selected, vm.filters::focus, vm.filters::select, vm::hideCategory)
@@ -171,8 +176,9 @@ private fun LiveCategories(vm: LiveViewModel, selected: ChannelFilter) {
 @Composable
 private fun CatchupCategories(vm: LiveViewModel, selected: ChannelFilter) {
     val categories by vm.catchupCategories.collectAsState()
-    val entries = remember(categories) {
-        listOf<CategoryEntry<ChannelFilter>>(CategoryEntry(ChannelFilter.Catchup, "All catch-up", categories.sumOf { it.count })) +
+    val all = stringResource(R.string.live_all_catchup)
+    val entries = remember(categories, all) {
+        listOf<CategoryEntry<ChannelFilter>>(CategoryEntry(ChannelFilter.Catchup, all, categories.sumOf { it.count })) +
             categories.map { CategoryEntry<ChannelFilter>(ChannelFilter.CatchupCategory(it.categoryId), it.name, it.count) }
     }
     CategoryColumn(entries, selected, vm.filters::focus, vm.filters::select)
@@ -185,25 +191,25 @@ private fun ListHeader(vm: LiveViewModel, filter: ChannelFilter, filterModifier:
     val (title, count) = if (vm.catchupMode) {
         val categories by vm.catchupCategories.collectAsState()
         val shown = (filter as? ChannelFilter.CatchupCategory)?.let { f -> categories.firstOrNull { it.categoryId == f.id } }
-        (shown?.name ?: "Catch-up") to (shown?.count ?: categories.sumOf { it.count })
+        (shown?.name ?: stringResource(R.string.common_catchup)) to (shown?.count ?: categories.sumOf { it.count })
     } else {
         val categories by vm.categories.collectAsState()
         val total by vm.totalCount.collectAsState()
         val favs by vm.favouriteIds.collectAsState()
         when (filter) {
-            ChannelFilter.All -> "All channels" to total
-            ChannelFilter.Favourites -> "Favourites" to favs.size
+            ChannelFilter.All -> stringResource(R.string.live_all_channels) to total
+            ChannelFilter.Favourites -> stringResource(R.string.common_favourites) to favs.size
             is ChannelFilter.Category -> categories.firstOrNull { it.categoryId == filter.id }.let {
-                (it?.name ?: "Channels") to
+                (it?.name ?: stringResource(R.string.common_channels)) to
                     it?.channelCount
             }
-            else -> "Recently watched" to null
+            else -> stringResource(R.string.common_recent) to null
         }
     }
-    ListHeader(title, count, query, { vm.query.value = it }, "Filter by name or number", filterModifier) {
+    ListHeader(title, count, query, { vm.query.value = it }, stringResource(R.string.live_filter_hint), filterModifier) {
         Row(Modifier.clip(RoundedCornerShape(12.dp)).background(Palette.surface).padding(4.dp)) {
-            PillButton("List", { vm.showGuide(false) }, primary = !vm.guideMode)
-            PillButton("TV guide", { vm.showGuide(true) }, primary = vm.guideMode)
+            PillButton(stringResource(R.string.live_view_list), { vm.showGuide(false) }, primary = !vm.guideMode)
+            PillButton(stringResource(R.string.live_view_guide), { vm.showGuide(true) }, primary = vm.guideMode)
         }
     }
 }
@@ -238,7 +244,7 @@ private fun ChannelList(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>
         }
     }
     if (items.itemCount == 0) {
-        Muted("No channels here yet.", Modifier.padding(top = 24.dp))
+        Muted(stringResource(R.string.live_no_channels), Modifier.padding(top = 24.dp))
     }
 }
 
@@ -278,7 +284,7 @@ fun ChannelRow(
                 if (favourite) {
                     Icon(
                         AppIcons.Heart,
-                        "Favourite",
+                        stringResource(R.string.live_favourite_mark),
                         tint = LocalAccent.current.color,
                         modifier = Modifier.padding(start = 6.dp).size(16.dp)
                     )
@@ -288,11 +294,12 @@ fun ChannelRow(
             Column(Modifier.weight(1f)) {
                 when {
                     nn == null -> SkeletonLines()
-                    nn.now == null -> Muted("No guide information")
+                    nn.now == null -> Muted(stringResource(R.string.common_no_guide))
                     else -> {
                         Text(nn.now.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
-                            nn.next?.let { "Next ${formatTime(it.startMs)} ${it.title}" } ?: "Until ${formatTime(nn.now.stopMs)}",
+                            nn.next?.let { stringResource(R.string.live_next, formatTime(it.startMs), it.title) }
+                                ?: stringResource(R.string.live_until, formatTime(nn.now.stopMs)),
                             style = MaterialTheme.typography.bodySmall,
                             color = Palette.textDim,
                             maxLines = 1,

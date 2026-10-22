@@ -20,6 +20,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -27,6 +29,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.data.db.PlaylistEntity
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
@@ -69,17 +73,21 @@ class PlaylistsViewModel(private val c: AppContainer) : ViewModel() {
     val status: WorkStatus? get() = work.status
 
     /** Downloads the playlist's channels, guide, movies and series again: its progress, then how it went. */
-    fun update(p: PlaylistEntity) = work.run("Updating ${p.name}") {
+    fun update(p: PlaylistEntity) = work.run(appString(R.string.settings_playlist_updating, p.name)) {
         c.sync.refreshNow(p.id).fold(
             { guideErrors ->
                 if (guideErrors.isEmpty()) {
-                    WorkStatus("${p.name} updated", "Its channels, TV guide, films and series are up to date.")
+                    WorkStatus(appString(R.string.settings_playlist_updated, p.name), appString(R.string.settings_playlist_updated_detail))
                 } else {
                     // As on the TV guide page: the channels updated, but say which guide didn't.
-                    WorkStatus("${p.name} updated, but some guides couldn't be loaded", guideErrors.values.first(), failed = true)
+                    WorkStatus(
+                        appString(R.string.settings_playlist_updated_guides_failed, p.name),
+                        guideErrors.values.first(),
+                        failed = true
+                    )
                 }
             },
-            { WorkRunner.failed("Couldn't update ${p.name}", it) }
+            { WorkRunner.failed(appString(R.string.settings_playlist_update_failed, p.name), it) }
         )
     }
 
@@ -108,7 +116,7 @@ fun PlaylistsScreen() {
     val nav = LocalNavigator.current
     val (playlists, active) = vm.state.collectAsState().value
     val accent = LocalAccent.current
-    SettingsPage("Playlists") {
+    SettingsPage(stringResource(R.string.settings_playlists_title)) {
         // Above the playlists, so "Update now" on any of them shows its progress and outcome in the same place.
         item(key = "status") { StatusPanel(vm.status) }
         items(playlists.size) { i ->
@@ -130,30 +138,38 @@ fun PlaylistsScreen() {
                         Column(Modifier.padding(start = 14.dp).weight(1f)) {
                             Text(p.name, style = MaterialTheme.typography.titleMedium)
                             Muted(playlistDetails(p))
-                            expiry(p.expiresAt)?.let { (text, soon) ->
+                            expiry(p.expiresAt)?.let {
                                 Text(
-                                    text,
+                                    expiryText(it),
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = if (soon) Palette.warning else Palette.textMuted
+                                    color = if (it.soon) Palette.warning else Palette.textMuted
                                 )
                             }
                         }
-                        if (isActive) Text("IN USE", style = MaterialTheme.typography.labelMedium, color = accent.color)
+                        if (isActive) {
+                            Text(
+                                stringResource(R.string.settings_playlist_in_use),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = accent.color
+                            )
+                        }
                     }
                 }
-                PillButton("Update now", { vm.update(p) })
-                PillButton("Edit", { nav.push(Screen.PlaylistEdit(p.id)) })
+                PillButton(stringResource(R.string.settings_playlist_update_now), { vm.update(p) })
+                PillButton(stringResource(R.string.settings_playlist_edit), { nav.push(Screen.PlaylistEdit(p.id)) })
             }
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                PillButton("+ Add playlist", {
+                PillButton(stringResource(R.string.settings_playlist_add), {
                     nav.push(Screen.PlaylistEdit(null))
                 }, if (playlists.isEmpty()) rememberFirstFocus() else Modifier, primary = playlists.isEmpty())
                 // The free channels can be typed in as an M3U address too, but that's a long one to enter with a remote.
                 if (playlists.none { it.isFree }) {
                     PillButton(
-                        if (vm.addingFree) "Downloading free channels…" else "+ Add free TV, films and series",
+                        stringResource(
+                            if (vm.addingFree) R.string.settings_playlist_downloading_free else R.string.settings_playlist_add_free
+                        ),
                         // First-run style: Continue downloads the channels and goes to Home.
                         { vm.addFree { id -> nav.push(Screen.Categories(id, firstRun = true)) } }
                     )
@@ -161,40 +177,58 @@ fun PlaylistsScreen() {
             }
         }
         vm.freeError?.let { item { Text(it, style = MaterialTheme.typography.bodyLarge, color = Palette.warning) } }
-        item { Muted("Select a playlist to switch to it.") }
+        item { Muted(stringResource(R.string.settings_playlist_select_hint)) }
     }
 }
 
+/** How near a provider's expiry date is: past, today, within [EXPIRY_WARNING_DAYS] days, or later. */
+internal enum class ExpiryKind { EXPIRED, TODAY, SOON, LATER }
+
+/** A provider's expiry [date] (written out, e.g. "12 Mar 2027"), [days] away in calendar days. */
+internal data class Expiry(val kind: ExpiryKind, val date: String, val days: Int) {
+    /** Close or past: shown as a warning. */
+    val soon: Boolean get() = kind != ExpiryKind.LATER
+}
+
 /**
- * "Expires 12 Mar 2027" from the provider's expiry date (seconds), and whether it's soon or past (shown as a warning).
- * Null when there's none: free playlists, and providers that don't say.
+ * The provider's expiry date (seconds), and how near it is. Null when there's none: free playlists, and providers
+ * that don't say.
  */
-internal fun expiry(
-    expiresAtSec: Long?,
-    now: Long = System.currentTimeMillis(),
-    zone: ZoneId = ZoneId.systemDefault()
-): Pair<String, Boolean>? {
+internal fun expiry(expiresAtSec: Long?, now: Long = System.currentTimeMillis(), zone: ZoneId = ZoneId.systemDefault()): Expiry? {
     val at = expiresAtSec?.takeIf { it > 0 }?.times(1000) ?: return null
     val date = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(at))
 
     // Calendar days, as the date shown: tomorrow is "in 1 day" at any time of day.
     fun day(ms: Long) = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
-    val days = ChronoUnit.DAYS.between(day(now), day(at))
-    return when {
-        at <= now -> "Expired on $date" to true
-        days < 1 -> "Expires today ($date)" to true
-        days <= EXPIRY_WARNING_DAYS -> "Expires $date, in $days ${if (days == 1L) "day" else "days"}" to true
-        else -> "Expires $date" to false
+    val days = ChronoUnit.DAYS.between(day(now), day(at)).toInt()
+    val kind = when {
+        at <= now -> ExpiryKind.EXPIRED
+        days < 1 -> ExpiryKind.TODAY
+        days <= EXPIRY_WARNING_DAYS -> ExpiryKind.SOON
+        else -> ExpiryKind.LATER
     }
+    return Expiry(kind, date, days)
 }
 
 private const val EXPIRY_WARNING_DAYS = 14
 
+/** "Expires 12 Mar 2027", "Expires 12 Mar 2027, in 5 days" and so on. */
+@Composable
+private fun expiryText(e: Expiry): String = when (e.kind) {
+    ExpiryKind.EXPIRED -> stringResource(R.string.settings_playlist_expired, e.date)
+    ExpiryKind.TODAY -> stringResource(R.string.settings_playlist_expires_today, e.date)
+    ExpiryKind.SOON -> pluralStringResource(R.plurals.settings_playlist_expires_in, e.days, e.date, e.days)
+    ExpiryKind.LATER -> stringResource(R.string.settings_playlist_expires, e.date)
+}
+
 private fun playlistDetails(p: PlaylistEntity): String {
     val parts = mutableListOf(if (p.isM3u) "M3U" else "Xtream")
-    if (p.lastSyncAt > 0) parts += "updated ${formatDateTime(p.lastSyncAt)}"
+    if (p.lastSyncAt > 0) parts += appString(R.string.common_updated_at, formatDateTime(p.lastSyncAt))
     return parts.joinToString(" · ")
 }
+
+/** A line under the playlist form: [ok] (it worked) shows it in the accent colour, else as a warning. */
+data class FormMessage(val text: String, val ok: Boolean = false)
 
 class PlaylistEditViewModel(private val c: AppContainer, private val id: Long?) : ViewModel() {
     var m3u by mutableStateOf(false)
@@ -208,7 +242,7 @@ class PlaylistEditViewModel(private val c: AppContainer, private val id: Long?) 
     var seriesUrl by mutableStateOf("")
     var busy by mutableStateOf(false)
         private set
-    var message by mutableStateOf<String?>(null)
+    var message by mutableStateOf<FormMessage?>(null)
         private set
     private var original: PlaylistEntity? = null
 
@@ -237,7 +271,7 @@ class PlaylistEditViewModel(private val c: AppContainer, private val id: Long?) 
             try {
                 block()
             } catch (e: IOException) {
-                message = e.message ?: "Something went wrong"
+                message = FormMessage(e.message ?: appString(R.string.common_something_went_wrong))
             } finally {
                 busy = false
             }
@@ -246,14 +280,14 @@ class PlaylistEditViewModel(private val c: AppContainer, private val id: Long?) 
 
     fun test() = run {
         c.playlists.testConnection(m3u, server, username, password)
-        message = "Connected ✓"
+        message = FormMessage(appString(R.string.settings_playlist_connected), ok = true)
     }
 
     /** Saves; [onSaved] gets the playlist id. Changing login details re-downloads the channels. */
     fun save(onSaved: (Long) -> Unit) = run {
         val old = original
         if (old == null) {
-            message = if (m3u) "Downloading playlist…" else "Checking login…"
+            message = FormMessage(appString(if (m3u) R.string.settings_playlist_downloading else R.string.settings_playlist_checking))
             val newId = if (m3u) {
                 c.playlists.addM3u(
                     name,
@@ -305,18 +339,20 @@ fun PlaylistEditScreen(id: Long?, firstRun: Boolean) {
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text(
-            when {
-                firstRun -> "Welcome to MyTVPlayer"
-                id == null -> "Add playlist"
-                else -> "Edit playlist"
-            },
+            stringResource(
+                when {
+                    firstRun -> R.string.settings_welcome_title
+                    id == null -> R.string.settings_playlist_add_title
+                    else -> R.string.settings_playlist_edit_title
+                }
+            ),
             style = MaterialTheme.typography.headlineLarge
         )
-        if (firstRun) Muted("Enter the details from your TV provider.")
+        if (firstRun) Muted(stringResource(R.string.settings_playlist_first_run_hint))
         if (id == null) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PillButton("Xtream Codes", { vm.m3u = false }, primary = !vm.m3u)
-                PillButton("M3U playlist URL", { vm.m3u = true }, primary = vm.m3u)
+                PillButton(stringResource(R.string.settings_playlist_type_xtream), { vm.m3u = false }, primary = !vm.m3u)
+                PillButton(stringResource(R.string.settings_playlist_type_m3u), { vm.m3u = true }, primary = vm.m3u)
             }
         }
         // The keyboard's Next key moves straight on to the next box, ready for typing.
@@ -327,17 +363,20 @@ fun PlaylistEditScreen(id: Long?, firstRun: Boolean) {
         val moviesEdit = rememberSaveable { mutableStateOf(false) }
         val seriesEdit = rememberSaveable { mutableStateOf(false) }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Field("Name", Modifier.weight(1f)) {
+            Field(stringResource(R.string.settings_playlist_name), Modifier.weight(1f)) {
                 TvTextField(
                     vm.name,
                     { vm.name = it },
-                    "e.g. Home TV",
+                    stringResource(R.string.settings_playlist_name_hint),
                     rememberFirstFocus().fillMaxWidth(),
                     editing = nameEdit,
                     onNext = { serverEdit.value = true }
                 )
             }
-            Field(if (vm.m3u) "Playlist address" else "Server address", Modifier.weight(1f)) {
+            Field(
+                stringResource(if (vm.m3u) R.string.settings_playlist_address else R.string.settings_playlist_server),
+                Modifier.weight(1f)
+            ) {
                 TvTextField(
                     vm.server,
                     { vm.server = it },
@@ -351,7 +390,7 @@ fun PlaylistEditScreen(id: Long?, firstRun: Boolean) {
         }
         if (vm.m3u) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Field("Movies playlist (optional)", Modifier.weight(1f)) {
+                Field(stringResource(R.string.settings_playlist_movies), Modifier.weight(1f)) {
                     TvTextField(
                         vm.moviesUrl,
                         { vm.moviesUrl = it },
@@ -362,7 +401,7 @@ fun PlaylistEditScreen(id: Long?, firstRun: Boolean) {
                         onNext = { seriesEdit.value = true }
                     )
                 }
-                Field("Series playlist (optional)", Modifier.weight(1f)) {
+                Field(stringResource(R.string.settings_playlist_series), Modifier.weight(1f)) {
                     TvTextField(
                         vm.seriesUrl,
                         { vm.seriesUrl = it },
@@ -373,26 +412,26 @@ fun PlaylistEditScreen(id: Long?, firstRun: Boolean) {
                     )
                 }
             }
-            Muted("One playlist with both is fine: episodes (\"Show S01E02\") go to Series, the rest to Movies.", maxLines = 2)
+            Muted(stringResource(R.string.settings_playlist_m3u_vod_hint), maxLines = 2)
         }
         if (!vm.m3u) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Field("Username", Modifier.weight(1f)) {
+                Field(stringResource(R.string.settings_playlist_username), Modifier.weight(1f)) {
                     TvTextField(
                         vm.username,
                         { vm.username = it },
-                        "Username",
+                        stringResource(R.string.settings_playlist_username),
                         Modifier.fillMaxWidth(),
                         autoCorrect = false,
                         editing = userEdit,
                         onNext = { passwordEdit.value = true }
                     )
                 }
-                Field("Password", Modifier.weight(1f)) {
+                Field(stringResource(R.string.settings_playlist_password), Modifier.weight(1f)) {
                     TvTextField(
                         vm.password,
                         { vm.password = it },
-                        "Password",
+                        stringResource(R.string.settings_playlist_password),
                         Modifier.fillMaxWidth(),
                         autoCorrect = false,
                         editing = passwordEdit
@@ -401,21 +440,19 @@ fun PlaylistEditScreen(id: Long?, firstRun: Boolean) {
             }
         }
         vm.message?.let {
-            Text(
-                it,
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (it.endsWith("✓")) LocalAccent.current.color else Palette.warning
-            )
+            Text(it.text, style = MaterialTheme.typography.bodyLarge, color = if (it.ok) LocalAccent.current.color else Palette.warning)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             PillButton(
-                if (vm.busy) {
-                    "Please wait…"
-                } else if (firstRun) {
-                    "Continue"
-                } else {
-                    "Save"
-                },
+                stringResource(
+                    if (vm.busy) {
+                        R.string.settings_playlist_wait
+                    } else if (firstRun) {
+                        R.string.common_continue
+                    } else {
+                        R.string.settings_playlist_save
+                    }
+                ),
                 {
                     vm.save { pid ->
                         if (id == null) nav.replace(Screen.Categories(pid, firstRun = true)) else nav.pop()
@@ -423,10 +460,10 @@ fun PlaylistEditScreen(id: Long?, firstRun: Boolean) {
                 },
                 primary = true
             )
-            PillButton("Test connection", vm::test)
+            PillButton(stringResource(R.string.settings_playlist_test), vm::test)
             if (id != null) {
                 Box(Modifier.width(40.dp))
-                PillButton("Delete playlist", {
+                PillButton(stringResource(R.string.settings_playlist_delete), {
                     vm.delete { any -> nav.reset(if (any) Screen.Home else Screen.Welcome) }
                 })
             }

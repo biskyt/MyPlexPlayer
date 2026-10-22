@@ -1,5 +1,6 @@
 package com.biskyt.mytvplayer.ui.settings
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -7,6 +8,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.ui.common.LinkPanel
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.SettingRow
@@ -26,7 +29,8 @@ enum class Licence(val title: String, val url: String) {
 data class OpenSourceNotice(
     val name: String,
     val version: String?,
-    val use: String,
+    /** What the app uses it for. */
+    @StringRes val use: Int,
     val licence: Licence,
     val url: String,
     val modules: List<String> = emptyList()
@@ -39,7 +43,7 @@ val openSourceNotices = listOf(
     OpenSourceNotice(
         "AndroidX Media3",
         "1.8.0",
-        "Video playback (ExoPlayer, HLS, DASH, subtitles)",
+        R.string.settings_lib_media3,
         Licence.APACHE,
         "https://github.com/androidx/media",
         listOf(
@@ -53,7 +57,7 @@ val openSourceNotices = listOf(
     OpenSourceNotice(
         "Jellyfin Media3 FFmpeg decoder",
         "1.8.0+1",
-        "Audio formats the TV can't decode; includes FFmpeg (LGPL 2.1 or later)",
+        R.string.settings_lib_ffmpeg,
         Licence.GPL3,
         "https://github.com/jellyfin/jellyfin-androidx-media",
         listOf("org.jellyfin.media3:media3-ffmpeg-decoder")
@@ -61,7 +65,7 @@ val openSourceNotices = listOf(
     OpenSourceNotice(
         "Jetpack Compose",
         "BOM 2025.07.00",
-        "The app's screens",
+        R.string.settings_lib_compose,
         Licence.APACHE,
         "https://developer.android.com/jetpack/androidx/releases/compose",
         listOf("androidx.compose.foundation:foundation", "androidx.compose.ui:ui", "androidx.compose.ui:ui-tooling-preview")
@@ -69,7 +73,7 @@ val openSourceNotices = listOf(
     OpenSourceNotice(
         "Compose for TV",
         "1.0.1",
-        "TV buttons, cards and focus",
+        R.string.settings_lib_tv,
         Licence.APACHE,
         "https://developer.android.com/jetpack/androidx/releases/tv",
         listOf("androidx.tv:tv-material")
@@ -77,7 +81,7 @@ val openSourceNotices = listOf(
     OpenSourceNotice(
         "AndroidX Activity",
         "1.10.1",
-        "Hosting the screens",
+        R.string.settings_lib_activity,
         Licence.APACHE,
         "https://developer.android.com/jetpack/androidx/releases/activity",
         listOf("androidx.activity:activity-compose")
@@ -85,7 +89,7 @@ val openSourceNotices = listOf(
     OpenSourceNotice(
         "AndroidX Lifecycle",
         "2.9.2",
-        "Screen state",
+        R.string.settings_lib_lifecycle,
         Licence.APACHE,
         "https://developer.android.com/jetpack/androidx/releases/lifecycle",
         listOf("androidx.lifecycle:lifecycle-viewmodel-compose", "androidx.lifecycle:lifecycle-runtime-compose")
@@ -93,7 +97,7 @@ val openSourceNotices = listOf(
     OpenSourceNotice(
         "AndroidX Room",
         "2.7.2",
-        "The channels, guide and progress database",
+        R.string.settings_lib_room,
         Licence.APACHE,
         "https://developer.android.com/jetpack/androidx/releases/room",
         listOf("androidx.room:room-runtime", "androidx.room:room-ktx", "androidx.room:room-paging")
@@ -101,7 +105,7 @@ val openSourceNotices = listOf(
     OpenSourceNotice(
         "AndroidX Paging",
         "3.3.6",
-        "Long channel lists",
+        R.string.settings_lib_paging,
         Licence.APACHE,
         "https://developer.android.com/jetpack/androidx/releases/paging",
         listOf("androidx.paging:paging-compose")
@@ -109,7 +113,7 @@ val openSourceNotices = listOf(
     OpenSourceNotice(
         "AndroidX WorkManager",
         "2.10.2",
-        "Refreshing playlists and guides in the background",
+        R.string.settings_lib_work,
         Licence.APACHE,
         "https://developer.android.com/jetpack/androidx/releases/work",
         listOf("androidx.work:work-runtime-ktx")
@@ -117,7 +121,7 @@ val openSourceNotices = listOf(
     OpenSourceNotice(
         "AndroidX DataStore",
         "1.1.7",
-        "Settings",
+        R.string.settings_lib_datastore,
         Licence.APACHE,
         "https://developer.android.com/jetpack/androidx/releases/datastore",
         listOf("androidx.datastore:datastore-preferences")
@@ -125,7 +129,7 @@ val openSourceNotices = listOf(
     OpenSourceNotice(
         "Coil",
         "3.3.0",
-        "Channel logos and posters",
+        R.string.settings_lib_coil,
         Licence.APACHE,
         "https://github.com/coil-kt/coil",
         listOf("io.coil-kt.coil3:coil-compose", "io.coil-kt.coil3:coil-network-okhttp")
@@ -133,7 +137,7 @@ val openSourceNotices = listOf(
     OpenSourceNotice(
         "OkHttp",
         "4.12.0",
-        "Downloads (with Okio)",
+        R.string.settings_lib_okhttp,
         Licence.APACHE,
         "https://github.com/square/okhttp",
         listOf("com.squareup.okhttp3:okhttp")
@@ -141,7 +145,7 @@ val openSourceNotices = listOf(
     OpenSourceNotice(
         "Kotlin coroutines",
         "1.10.2",
-        "Background work",
+        R.string.settings_lib_coroutines,
         Licence.APACHE,
         "https://github.com/Kotlin/kotlinx.coroutines",
         listOf("org.jetbrains.kotlinx:kotlinx-coroutines-core", "org.jetbrains.kotlinx:kotlinx-coroutines-android")
@@ -149,7 +153,7 @@ val openSourceNotices = listOf(
     OpenSourceNotice(
         "Kotlin serialization",
         "1.9.0",
-        "Reading provider data and backups",
+        R.string.settings_lib_serialization,
         Licence.APACHE,
         "https://github.com/Kotlin/kotlinx.serialization",
         listOf("org.jetbrains.kotlinx:kotlinx-serialization-json")
@@ -157,17 +161,17 @@ val openSourceNotices = listOf(
     OpenSourceNotice(
         "ZXing",
         "3.5.3",
-        "QR codes",
+        R.string.settings_lib_zxing,
         Licence.APACHE,
         "https://github.com/zxing/zxing",
         listOf("com.google.zxing:core")
     ),
-    OpenSourceNotice("Kotlin", "2.2.0", "The language the app is written in", Licence.APACHE, "https://github.com/JetBrains/kotlin"),
-    OpenSourceNotice("Guava", null, "Used by Media3", Licence.APACHE, "https://github.com/google/guava"),
+    OpenSourceNotice("Kotlin", "2.2.0", R.string.settings_lib_kotlin, Licence.APACHE, "https://github.com/JetBrains/kotlin"),
+    OpenSourceNotice("Guava", null, R.string.settings_lib_guava, Licence.APACHE, "https://github.com/google/guava"),
     OpenSourceNotice(
         "Nunito",
         null,
-        "The app's font",
+        R.string.settings_lib_nunito,
         Licence.OFL,
         "https://github.com/googlefonts/nunito"
     )
@@ -177,14 +181,14 @@ val openSourceNotices = listOf(
 @Composable
 fun LicencesScreen() {
     var shown by remember { mutableStateOf<OpenSourceNotice?>(null) }
-    SettingsPage("Open source licences") {
+    SettingsPage(stringResource(R.string.settings_licences_title)) {
         item {
-            Muted("MyTVPlayer is free software under the GPL 3.0. It's built with this open-source software:", maxLines = 2)
+            Muted(stringResource(R.string.settings_licences_intro), maxLines = 2)
         }
         itemsIndexed(openSourceNotices) { i, notice ->
             SettingRow(
                 notice.title,
-                "${notice.licence.title} · ${notice.use}",
+                "${notice.licence.title} · ${stringResource(notice.use)}",
                 { shown = notice },
                 if (i ==
                     0
@@ -197,7 +201,11 @@ fun LicencesScreen() {
         }
     }
     shown?.let { notice ->
-        LinkPanel(notice.name, notice.url, "Licence: ${notice.licence.title}, ${notice.licence.url.removePrefix("https://")}") {
+        LinkPanel(
+            notice.name,
+            notice.url,
+            stringResource(R.string.settings_licence_link, notice.licence.title, notice.licence.url.removePrefix("https://"))
+        ) {
             shown =
                 null
         }

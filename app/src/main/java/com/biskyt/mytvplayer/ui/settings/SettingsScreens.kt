@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -33,12 +34,14 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.BuildConfig
+import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.core.player.SubtitleMode
 import com.biskyt.mytvplayer.core.ui.AccentPalette
 import com.biskyt.mytvplayer.data.BufferSize
 import com.biskyt.mytvplayer.data.Settings
 import com.biskyt.mytvplayer.data.StreamFormat
+import com.biskyt.mytvplayer.data.accentName
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
@@ -75,17 +78,50 @@ fun SettingsPage(title: String, content: LazyListScope.() -> Unit) {
 fun SettingsScreen() {
     val nav = LocalNavigator.current
     val pid = LocalContext.current.container.settings.settings.collectAsState(initial = null).value?.activePlaylistId ?: 0
-    SettingsPage("Settings") {
-        item { SettingRow("Playlists", "Add, edit or switch IPTV accounts", { nav.push(Screen.Playlists) }, rememberFirstFocus()) }
-        item { SettingRow("Playback", "Skip times, audio passthrough, subtitles, buffer", { nav.push(Screen.PlaybackSettings) }) }
+    SettingsPage(stringResource(R.string.common_settings)) {
         item {
-            SettingRow("Languages & categories", "Choose which channels are loaded; unhide channels", { nav.push(Screen.Categories(pid)) })
+            SettingRow(
+                stringResource(R.string.settings_playlists_title),
+                stringResource(R.string.settings_playlists_help),
+                { nav.push(Screen.Playlists) },
+                rememberFirstFocus()
+            )
         }
-        item { SettingRow("TV guide sources", "Your provider's guide and extra XMLTV guides", { nav.push(Screen.GuideSources) }) }
-        item { SettingRow("TV guide matching", "Pick the guide channel used by each channel", { nav.push(Screen.GuideMatching(pid)) }) }
-        item { SettingRow("Appearance", "Accent colour and text size", { nav.push(Screen.Appearance) }) }
-        item { SettingRow("Backup & restore", "Save your playlists and choices to a file, or restore them", { nav.push(Screen.Backup) }) }
-        item { SettingRow("About", "Version, licences, storage", { nav.push(Screen.About) }) }
+        item {
+            SettingRow(stringResource(R.string.settings_playback_title), stringResource(R.string.settings_playback_help), {
+                nav.push(Screen.PlaybackSettings)
+            })
+        }
+        item {
+            SettingRow(stringResource(R.string.settings_categories_title), stringResource(R.string.settings_categories_help), {
+                nav.push(Screen.Categories(pid))
+            })
+        }
+        item {
+            SettingRow(stringResource(R.string.common_guide_sources), stringResource(R.string.settings_guide_sources_help), {
+                nav.push(Screen.GuideSources)
+            })
+        }
+        item {
+            SettingRow(stringResource(R.string.common_guide_matching), stringResource(R.string.settings_guide_matching_help), {
+                nav.push(Screen.GuideMatching(pid))
+            })
+        }
+        item {
+            SettingRow(stringResource(R.string.settings_appearance_title), stringResource(R.string.settings_appearance_help), {
+                nav.push(Screen.Appearance)
+            })
+        }
+        item {
+            SettingRow(stringResource(R.string.settings_backup_title), stringResource(R.string.settings_backup_help), {
+                nav.push(Screen.Backup)
+            })
+        }
+        item {
+            SettingRow(stringResource(R.string.settings_about_title), stringResource(R.string.settings_about_help), {
+                nav.push(Screen.About)
+            })
+        }
         item { SupportSection() }
     }
 }
@@ -95,81 +131,79 @@ fun PlaybackSettingsScreen() {
     val vm = appViewModel { SettingsViewModel(it) }
     val s = vm.settings.collectAsState().value ?: return
     val skipSteps = listOf(5, 10, 15, 20, 30, 45, 60, 90, 120)
-    SettingsPage("Playback") {
+    SettingsPage(stringResource(R.string.settings_playback_title)) {
         item {
-            SettingRow("Skip back", "Left on the remote during playback", {
+            SettingRow(stringResource(R.string.common_skip_back), stringResource(R.string.settings_skip_back_help), {
                 vm.update { it.copy(skipBackSec = skipSteps.cycle(it.skipBackSec)) }
             }, rememberFirstFocus()) {
-                ValueChip("${s.skipBackSec} s")
+                ValueChip(stringResource(R.string.settings_seconds, s.skipBackSec))
             }
         }
         item {
-            SettingRow("Skip forward", "Right on the remote during playback", {
+            SettingRow(stringResource(R.string.common_skip_forward), stringResource(R.string.settings_skip_forward_help), {
                 vm.update { it.copy(skipForwardSec = skipSteps.cycle(it.skipForwardSec)) }
             }) {
-                ValueChip("${s.skipForwardSec} s")
+                ValueChip(stringResource(R.string.settings_seconds, s.skipForwardSec))
             }
         }
         item {
             SettingRow(
-                "Audio passthrough",
-                "Send Dolby / DTS / Atmos to your soundbar or TV to decode. Turn off if you get no sound.",
+                stringResource(R.string.settings_passthrough),
+                stringResource(R.string.settings_passthrough_help),
                 { vm.update { it.copy(audioPassthrough = !it.audioPassthrough) } }
             ) { Toggle(s.audioPassthrough) }
         }
         item {
             val mode = when (s.subtitleMode) {
-                SubtitleMode.OFF -> "Off"
-                SubtitleMode.FORCED_ONLY -> "Forced only"
-                SubtitleMode.ALWAYS -> "Always"
+                SubtitleMode.OFF -> R.string.common_subtitles_off
+                SubtitleMode.FORCED_ONLY -> R.string.settings_subtitles_forced_only
+                SubtitleMode.ALWAYS -> R.string.settings_subtitles_always
             }
             SettingRow(
-                "Default subtitles",
-                "Forced only shows subtitles just for foreign-language lines",
+                stringResource(R.string.settings_subtitles),
+                stringResource(R.string.settings_subtitles_help),
                 { vm.update { it.copy(subtitleMode = SubtitleMode.entries.cycle(it.subtitleMode)) } }
-            ) { ValueChip(mode) }
+            ) { ValueChip(stringResource(mode)) }
         }
         item {
             val languages = listOf("", "en", "fr", "de", "es", "it", "pt", "nl", "pl", "tr", "ar")
             val label = if (s.subtitleLanguage.isEmpty()) {
-                "System (${Locale.getDefault().displayLanguage})"
+                stringResource(R.string.settings_subtitle_language_system, Locale.getDefault().displayLanguage)
             } else {
-                Locale.forLanguageTag(
-                    s.subtitleLanguage
-                ).displayLanguage
+                Locale.forLanguageTag(s.subtitleLanguage).displayLanguage
             }
-            SettingRow("Subtitle language", null, {
+            SettingRow(stringResource(R.string.settings_subtitle_language), null, {
                 vm.update { it.copy(subtitleLanguage = languages.cycle(it.subtitleLanguage)) }
             }) { ValueChip(label) }
         }
         item {
             val label = when (s.bufferSize) {
-                BufferSize.SMALL -> "Small"
-                BufferSize.NORMAL -> "Normal"
-                BufferSize.LARGE -> "Large"
+                BufferSize.SMALL -> R.string.settings_buffer_small
+                BufferSize.NORMAL -> R.string.settings_buffer_normal
+                BufferSize.LARGE -> R.string.settings_buffer_large
             }
-            SettingRow("Stream buffer", "Larger is smoother on weak Wi-Fi but slower to change channel", {
+            SettingRow(stringResource(R.string.settings_buffer), stringResource(R.string.settings_buffer_help), {
                 vm.update { it.copy(bufferSize = BufferSize.entries.cycle(it.bufferSize)) }
             }) {
-                ValueChip(label)
+                ValueChip(stringResource(label))
             }
         }
         item {
-            SettingRow("Stream format", "Tried first; if a channel won't start, the other is tried and kept if it works", {
+            SettingRow(stringResource(R.string.settings_stream_format), stringResource(R.string.settings_stream_format_help), {
                 vm.setStreamFormat(StreamFormat.entries.cycle(s.streamFormat))
             }) {
                 ValueChip(if (s.streamFormat == StreamFormat.TS) "MPEG-TS" else "HLS")
             }
         }
         item {
-            SettingRow("Start on last channel", "Open the app straight into the channel you watched last", {
+            SettingRow(stringResource(R.string.settings_start_last), stringResource(R.string.settings_start_last_help), {
                 vm.update { it.copy(startOnLastChannel = !it.startOnLastChannel) }
             }) {
                 Toggle(s.startOnLastChannel)
             }
         }
         item {
-            SettingRow("Change channel with up and down", "Otherwise only the channel buttons do, and up or down shows the controls", {
+            SettingRow(stringResource(R.string.settings_zap_up_down), stringResource(R.string.settings_zap_up_down_help), {
                 vm.update { it.copy(zapWithUpDown = !it.zapWithUpDown) }
             }) {
                 Toggle(s.zapWithUpDown)
@@ -186,22 +220,22 @@ fun AppearanceScreen() {
         Modifier.fillMaxSize().background(Palette.background).padding(horizontal = 96.dp, vertical = 40.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Appearance", style = MaterialTheme.typography.headlineLarge)
-        Text("Accent colour", style = MaterialTheme.typography.titleLarge)
-        Muted("Used for highlights, progress bars and buttons everywhere. Lighter and darker shades are worked out for you.", maxLines = 2)
+        Text(stringResource(R.string.settings_appearance_title), style = MaterialTheme.typography.headlineLarge)
+        Text(stringResource(R.string.settings_accent), style = MaterialTheme.typography.titleLarge)
+        Muted(stringResource(R.string.settings_accent_help), maxLines = 2)
         LazyVerticalGrid(
             GridCells.Fixed(4),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.height(140.dp)
         ) {
-            items(AccentPalette.presets) { (name, argb) ->
+            items(AccentPalette.presets) { (id, argb) ->
                 val selected = s.accent == argb
                 TvCard(
                     onClick = { vm.update { it.copy(accent = argb) } },
                     selected = selected,
                     modifier = if (argb ==
-                        AccentPalette.presets.first().second
+                        AccentPalette.presets.first().argb
                     ) {
                         rememberFirstFocus()
                     } else {
@@ -210,12 +244,16 @@ fun AppearanceScreen() {
                 ) {
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(30.dp).clip(CircleShape).background(Color(argb)))
-                        Text(name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 10.dp))
+                        Text(
+                            stringResource(accentName(id)),
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(start = 10.dp)
+                        )
                     }
                 }
             }
         }
-        SettingRow("Large text", "Bigger text is easier to read from the sofa", {
+        SettingRow(stringResource(R.string.settings_large_text), stringResource(R.string.settings_large_text_help), {
             vm.update { it.copy(largeText = !it.largeText) }
         }) { Toggle(s.largeText) }
     }
@@ -234,27 +272,28 @@ fun AboutScreen() {
     }
     fun mb(bytes: Long) = android.text.format.Formatter.formatShortFileSize(context, bytes)
     val nav = LocalNavigator.current
-    SettingsPage("About") {
+    SettingsPage(stringResource(R.string.settings_about_title)) {
         item { Text("MyTVPlayer ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleLarge) }
-        item { Muted("Free and open source (GPL 3.0). Made by biskyt.", maxLines = 2) }
+        item { Muted(stringResource(R.string.settings_about_licence), maxLines = 2) }
         item {
             SettingRow(
-                "Open source licences",
-                "The libraries and font the app is built with",
+                stringResource(R.string.settings_licences_title),
+                stringResource(R.string.settings_licences_help),
                 { nav.push(Screen.Licences) },
                 rememberFirstFocus()
             )
         }
         item {
             Column(Modifier.width(700.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Storage", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
-                Muted("Channels & guide database: ${mb(storage.first)}")
-                Muted("Downloaded guide files: ${mb(storage.second)}")
-                Muted("Channel logos: ${mb(storage.third)} (limited to 30 MB)")
-                Muted(
-                    "Storage is managed automatically: old programmes are removed every day, logos are capped, and the database is compacted when needed.",
-                    maxLines = 3
+                Text(
+                    stringResource(R.string.settings_storage),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = 16.dp)
                 )
+                Muted(stringResource(R.string.settings_storage_database, mb(storage.first)))
+                Muted(stringResource(R.string.settings_storage_guides, mb(storage.second)))
+                Muted(stringResource(R.string.settings_storage_logos, mb(storage.third)))
+                Muted(stringResource(R.string.settings_storage_help), maxLines = 3)
             }
         }
         item { SupportSection() }
