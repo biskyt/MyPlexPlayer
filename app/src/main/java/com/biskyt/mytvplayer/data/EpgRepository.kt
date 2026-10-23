@@ -21,7 +21,6 @@ import com.biskyt.mytvplayer.data.db.PlaylistEntity
 import com.biskyt.mytvplayer.data.db.ProgrammeEntity
 import java.io.BufferedInputStream
 import java.io.File
-import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.text.NumberFormat
@@ -184,7 +183,7 @@ class EpgRepository(
         val fresh = HashSet<Long>()
         for (s in sources) {
             val result = load(s, onProgress)
-            result.exceptionOrNull()?.let { errors[s.id] = it.message ?: it.javaClass.simpleName }
+            result.exceptionOrNull()?.let { errors[s.id] = describe(it) }
             val count = result.getOrNull() ?: continue // failed, or not changed on the server
             fresh += s.id
             if (s.lastImportAt == 0L) firstLoad = true
@@ -231,10 +230,8 @@ class EpgRepository(
             }
         }.onFailure { e ->
             // E.g. a file cut off part-way: the channels at its start read fine, so say so here.
-            (e.message ?: e.javaClass.simpleName).let {
-                epg.setSourceError(s.id, it)
-                errors[s.id] = it
-            }
+            epg.setSourceError(s.id, GuideError.saved(e))
+            errors[s.id] = describe(e)
         }.getOrNull()
     }
 
@@ -276,7 +273,7 @@ class EpgRepository(
             s.id,
             at = if (result.isSuccess) clock() else s.lastImportAt,
             channelCount = result.getOrNull() ?: s.channelCount,
-            error = result.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName }
+            error = result.exceptionOrNull()?.let(GuideError::saved)
         )
         return result
     }
@@ -470,7 +467,7 @@ class EpgRepository(
         }.build()
         val tags = http.newCall(request).execute().use { response ->
             if (response.code == HttpURLConnection.HTTP_NOT_MODIFIED) return null
-            if (!response.isSuccessful) throw IOException(appString(R.string.data_server_error, response.code))
+            if (!response.isSuccessful) throw GuideError.server(response.code)
             val length = response.body!!.contentLength()
             val counted = CountingInputStream(response.body!!.byteStream(), length, onProgress)
             val body = BufferedInputStream(counted)
@@ -491,7 +488,7 @@ class EpgRepository(
             "${s.url}\n${response.header("ETag").orEmpty()}\n${response.header("Last-Modified").orEmpty()}\n"
         }
         meta.delete()
-        if (!tmp.renameTo(target)) throw IOException(appString(R.string.data_guide_save_failed))
+        if (!tmp.renameTo(target)) throw GuideError.notSaved()
         return tags
     }
 

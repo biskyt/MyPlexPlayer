@@ -46,6 +46,7 @@ import com.biskyt.mytvplayer.core.epg.EpgCandidate
 import com.biskyt.mytvplayer.core.epg.EpgMatch
 import com.biskyt.mytvplayer.data.FreeGuide
 import com.biskyt.mytvplayer.data.FreeGuides
+import com.biskyt.mytvplayer.data.GuideError
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.EpgSourceEntity
 import com.biskyt.mytvplayer.data.db.GuideCoverage
@@ -55,6 +56,7 @@ import com.biskyt.mytvplayer.data.db.MatchRow
 import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.AppIcons
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
+import com.biskyt.mytvplayer.ui.common.FilterField
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.PillButton
 import com.biskyt.mytvplayer.ui.common.SidePanel
@@ -197,7 +199,7 @@ fun GuideSourcesScreen() {
                             Muted(sourceDetails(s))
                             s.lastError?.let {
                                 Text(
-                                    stringResource(R.string.live_guide_last_failed, it),
+                                    stringResource(R.string.live_guide_last_failed, GuideError.text(it)),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Palette.warning,
                                     maxLines = 1
@@ -413,13 +415,8 @@ fun GuideMatchingScreen(playlistId: Long, streamId: Long?) {
         }
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             Column(Modifier.width(480.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                TvTextField(
-                    filter,
-                    { vm.filter.value = it },
-                    stringResource(R.string.live_guide_filter_hint),
-                    rememberFirstFocus().fillMaxWidth(),
-                    leading = { Icon(AppIcons.Filter, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) }
-                )
+                val hint = stringResource(R.string.live_guide_filter_hint)
+                FilterField(filter, { vm.filter.value = it }, hint, rememberFirstFocus().fillMaxWidth())
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
                     items(count = items.itemCount, key = items.itemKey { it.channel.streamId }) { i ->
                         val row = items[i] ?: return@items

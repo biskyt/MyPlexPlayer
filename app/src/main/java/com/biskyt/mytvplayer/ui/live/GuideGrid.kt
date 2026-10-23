@@ -50,6 +50,7 @@ import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.ChannelProgramme
 import com.biskyt.mytvplayer.data.db.PlaylistEntity
+import com.biskyt.mytvplayer.data.programmeTitle
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Navigator
 import com.biskyt.mytvplayer.ui.Screen
@@ -265,7 +266,7 @@ private fun FocusedInfo(
         if (p != null) {
             var about by remember(ch.streamId, p.startMs) { mutableStateOf<String?>(null) }
             LaunchedEffect(ch.streamId, p.startMs) { about = description(ch, p) }
-            Text(p.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(programmeTitle(p.title), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Muted("${ch.name} · ${formatRange(p.startMs, p.stopMs)}" + (about?.let { " · $it" } ?: ""))
         } else {
             Text(ch.name, style = MaterialTheme.typography.titleMedium)
@@ -348,7 +349,7 @@ private fun GuideRow(
                     focusKey = if (i == focusIndex) focusTime?.let { it to loaded } else null,
                     onFocus, onPlay, onOptions, onEdge, mayTakeFocus,
                     // Marks what can be replayed.
-                    if (ch.archiveDays > 0 && p.stopMs <= now) "⟲ ${p.title}" else p.title
+                    programmeTitle(p.title).let { if (ch.archiveDays > 0 && p.stopMs <= now) "⟲ $it" else it }
                 )
                 cursor = end
             }

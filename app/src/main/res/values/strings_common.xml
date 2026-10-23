@@ -122,4 +122,8 @@
     <string name="common_sync_vod_start">Updating movies and series…</string>
     <!-- %1$s is how many movies and series have loaded so far -->
     <string name="common_sync_vod_loading">Loading movies and series… %1$s</string>
+    <!-- Box above the list of categories (Live TV, Movies, Series) that filters it by name. -->
+    <string name="common_filter_categories">Filter categories</string>
+    <!-- A TV programme its guide gave no title. -->
+    <string name="common_no_title">No title</string>
 </resources>

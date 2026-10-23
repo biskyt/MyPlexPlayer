@@ -55,10 +55,12 @@ internal fun JsonElement.toCategory(): XtreamCategory? {
 internal fun JsonElement.toLiveStream(): XtreamLiveStream? {
     val o = this as? JsonObject ?: return null
     val id = o.long("stream_id") ?: return null
+    val number = o.int("num") ?: 0
     return XtreamLiveStream(
         streamId = id,
-        number = o.int("num") ?: 0,
-        name = o.str("name")?.trim() ?: "Channel $id",
+        number = number,
+        // None: its number as the list shows it (or its id), which needs no translating.
+        name = o.str("name")?.trim() ?: "#${number.takeIf { it > 0 } ?: id}",
         categoryId = o.str("category_id") ?: "",
         logoUrl = o.str("stream_icon"),
         epgChannelId = o.str("epg_channel_id"),

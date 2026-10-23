@@ -2,6 +2,7 @@ package com.biskyt.mytvplayer.ui.common
 
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -19,6 +20,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -40,6 +42,7 @@ import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.groupLabel
+import com.biskyt.mytvplayer.data.label
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 import kotlinx.coroutines.CoroutineScope
@@ -93,11 +96,19 @@ data class CategoryEntry<F>(val filter: F, val label: String, val count: Int? = 
  * Entries for [categories], named as the playlist names them; a name shared by categories of different groups ("News"
  * from two countries' channels) gets its group's label too, so they can be told apart.
  */
-fun <F> categoryEntries(categories: List<CategoryEntity>, filter: (CategoryEntity) -> F): List<CategoryEntry<F>> {
-    val shared = categories.groupingBy { it.name }.eachCount().filterValues { it > 1 }.keys
-    return categories.map {
-        val label = if (it.name in shared && it.lang != null) "${it.name} · ${groupLabel(it.lang)}" else it.name
-        CategoryEntry(filter(it), label, it.channelCount, it)
+fun <F> categoryEntries(categories: List<CategoryEntity>, filter: (CategoryEntity) -> F): List<CategoryEntry<F>> =
+    distinctLabels(categories, { it.label }, { it.lang }) { c, label -> CategoryEntry(filter(c), label, c.channelCount, c) }
+
+/**
+ * [items] made into [entry]s, each [label] shared by more than one adding its group ([lang]) when it has one and the
+ * group isn't the label itself: "News · Sweden".
+ */
+fun <T, E> distinctLabels(items: List<T>, label: (T) -> String, lang: (T) -> String?, entry: (T, String) -> E): List<E> {
+    val labels = items.map(label)
+    val shared = labels.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+    return items.mapIndexed { i, item ->
+        val group = lang(item)?.takeIf { labels[i] in shared }?.let(::groupLabel)?.takeIf { it != labels[i] }
+        entry(item, group?.let { "${labels[i]} · $it" } ?: labels[i])
     }
 }
 
@@ -139,7 +150,7 @@ fun <F> CategoryColumn(
         }
     }
     LazyColumn(
-        Modifier.width(250.dp)
+        Modifier.width(CATEGORY_WIDTH)
             // Coming in, focus goes to the selected entry; if it isn't in view yet (a slow box still scrolling to it),
             // once the column has scrolled there.
             .focusProperties {
@@ -203,7 +214,43 @@ fun <F> CategoryColumn(
             onHide?.invoke(cat)
             refocus++ // its entry goes, and focus with it
         }
-        ItemActionsPanel(cat.name, listOf(hide), close)
+        ItemActionsPanel(cat.label, listOf(hide), close)
+    }
+}
+
+/**
+ * A [CategoryColumn] with a box above it to filter its entries by name, for playlists with hundreds of categories. The
+ * first [fixed] entries (All, Favourites…) stay, so there's always a way back to them.
+ */
+@Composable
+fun <F> FilteredCategoryColumn(
+    entries: List<CategoryEntry<F>>,
+    fixed: Int,
+    selected: F,
+    onFocus: (F) -> Unit,
+    onSelect: (F) -> Unit,
+    onHide: ((CategoryEntity) -> Unit)? = null
+) {
+    var query by rememberSaveable { mutableStateOf("") }
+    val q = query.trim()
+    // The first [fixed] entries, the one chosen when typing began and the one chosen now stay whatever is typed.
+    val kept = remember(q.isEmpty()) { selected }
+    val shown = remember(entries, fixed, kept, selected, q) {
+        // Unfiltered: the same list, so the column has nothing new to work out as the selection moves.
+        if (q.isEmpty()) {
+            entries
+        } else {
+            entries.filterIndexed { i, e ->
+                i < fixed ||
+                    e.filter == kept ||
+                    e.filter == selected ||
+                    matchesFilter(e.label, q)
+            }
+        }
+    }
+    Column(Modifier.width(CATEGORY_WIDTH), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        FilterField(query, { query = it }, stringResource(R.string.common_filter_categories), Modifier.fillMaxWidth())
+        CategoryColumn(shown, selected, onFocus, onSelect, onHide)
     }
 }
 
@@ -231,16 +278,25 @@ fun ListHeader(
             modifier = Modifier.weight(0.45f, fill = false)
         )
         if (count != null) Muted("· ${formatCount(count)}")
-        TvTextField(
-            value = query,
-            onValueChange = onQuery,
-            placeholder = placeholder,
-            modifier = filterModifier.weight(0.55f),
-            leading = { Icon(AppIcons.Filter, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) }
-        )
+        FilterField(query, onQuery, placeholder, filterModifier.weight(0.55f))
         trailing()
     }
 }
+
+/** A box that filters a list as the user types; what's typed is matched as it is (see [matchesFilter]). */
+@Composable
+fun FilterField(query: String, onQuery: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) = TvTextField(
+    value = query,
+    onValueChange = onQuery,
+    placeholder = placeholder,
+    modifier = modifier,
+    leading = { Icon(AppIcons.Filter, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) }
+)
+
+/** Whether [text] matches a (trimmed) filter [query]: anywhere in it, in any case. A blank filter matches everything. */
+fun matchesFilter(text: String, query: String) = query.isBlank() || text.contains(query, ignoreCase = true)
+
+private val CATEGORY_WIDTH = 250.dp
 
 /** How many frames focus waits for the selected entry to be laid out after scrolling to it. */
 private const val REFOCUS_FRAMES = 10

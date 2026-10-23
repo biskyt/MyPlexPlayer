@@ -126,7 +126,9 @@ internal class M3uVod(private val db: AppDatabase, private val playlists: Playli
                 if (group !in seriesCats) return@each
                 val ep = EpisodeNames.of(e, feed.seriesOnly) ?: return@each
                 // The show's name as listed (with any language tag) and its group keep two languages, or a 4K copy, apart.
-                val seriesId = playlists.stableId("series|$group|${ep.show.lowercase()}")
+                // Keyed by the group's id before 1.1.0, which keeps favourites and progress: a show both with no group
+                // and in a group called "Other" stays one series, as it was.
+                val seriesId = playlists.stableId("series|${M3uCategories.oldId(group) ?: group}|${ep.show.lowercase()}")
                 val before = shows[seriesId] ?: 0
                 if (before == 0) {
                     val clean = VodTitles.clean(ep.show)
@@ -173,10 +175,10 @@ internal class M3uVod(private val db: AppDatabase, private val playlists: Playli
         return crc.value
     }
 
-    /** [contents] with the categories chosen: if neither changed, a load would change nothing. */
+    /** [contents] with the categories chosen, and how they're filed: if none changed, a load would change nothing. */
     private suspend fun fingerprint(playlistId: Long, contents: Long): Long {
         val crc = CRC32()
-        crc.update(contents.toString().toByteArray())
+        crc.update("$FILING|$contents".toByteArray())
         listOf(CAT_MOVIE, CAT_SERIES).forEach { type ->
             included(playlistId, type).sorted().forEach { crc.update("$type|$it".toByteArray()) }
         }
@@ -187,5 +189,11 @@ internal class M3uVod(private val db: AppDatabase, private val playlists: Playli
         /** What an M3U playlist says about a title beyond its name and picture: nothing. */
         val NO_DETAILS = VodDetails(null, null, null, null, null, null, null, null, null)
         private const val BATCH = 2_000
+
+        /**
+         * How titles are filed into categories and given ids: a change to that (M3uCategories, the ids made in load)
+         * bumps it, so each playlist is loaded once more. 2: entries with no group apart from "Other" (1.1.0).
+         */
+        private const val FILING = 2
     }
 }

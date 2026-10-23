@@ -79,7 +79,7 @@ internal fun JsonElement.toMovie(): XtreamMovie? {
     return XtreamMovie(
         streamId = id,
         number = o.int("num") ?: 0,
-        name = o.str("name")?.trim() ?: "Movie $id",
+        name = o.str("name")?.trim() ?: "#$id", // none: its number, which needs no translating
         categoryId = o.str("category_id") ?: "",
         posterUrl = o.str("stream_icon"),
         rating = o.double("rating"),
@@ -94,7 +94,7 @@ internal fun JsonElement.toSeries(): XtreamSeries? {
     return XtreamSeries(
         seriesId = id,
         number = o.int("num") ?: 0,
-        name = o.str("name")?.trim() ?: "Series $id",
+        name = o.str("name")?.trim() ?: "#$id",
         categoryId = o.str("category_id") ?: "",
         coverUrl = o.str("cover"),
         rating = o.double("rating"),
