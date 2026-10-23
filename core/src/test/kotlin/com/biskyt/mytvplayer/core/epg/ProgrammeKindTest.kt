@@ -80,9 +80,10 @@ class ProgrammeKindTest {
     }
 
     /**
-     * Guide imports are the heaviest job on a slow box: reading categories and episode numbers must add next to nothing.
-     * Compares the same guide (every programme kept, the worst case) with those tags read, and with the same bytes under
-     * names the parser skips, as it did before it read them.
+     * Guide imports are the heaviest job on a slow box: reading categories and episode numbers must stay cheap, under a
+     * third more than parsing without them (by what parsing allocates, see below; today about a quarter). Compares the
+     * same guide (every programme kept, the worst case) with those tags read, and with the same bytes under names the
+     * parser skips, as it did before it read them.
      */
     @Test
     fun `reading the kind adds little to parsing`() {
@@ -97,32 +98,30 @@ class ProgrammeKindTest {
             }
             append("</tv>")
         }.toByteArray()
-        // This thread's CPU time, not the clock: other work on a shared build machine doesn't count against either side.
-        val cpu = java.lang.management.ManagementFactory.getThreadMXBean()
-        fun time(bytes: ByteArray): Long {
+        // What this thread allocates stands in for the cost: reading the tags is mostly making strings. Unlike CPU time,
+        // it doesn't depend on how busy the machine is (with other tests alongside, the extra time grew up to 1.7x, as
+        // the string-making suffers most from sharing memory and caches). Work that allocates nothing isn't counted.
+        val thread = java.lang.management.ManagementFactory.getThreadMXBean() as com.sun.management.ThreadMXBean
+        assertTrue("this JVM doesn't count allocations", thread.isThreadAllocatedMemoryEnabled)
+        fun allocated(guide: ByteArray): Long {
             var count = 0
-            val start = cpu.currentThreadCpuTime
-            runBlocking { XmltvParser({ KXmlParser() }).parse(ByteArrayInputStream(bytes), { true }, {}, { count++ }) }
+            val start = thread.currentThreadAllocatedBytes
+            runBlocking { XmltvParser({ KXmlParser() }).parse(ByteArrayInputStream(guide), { true }, {}, { count++ }) }
             assertEquals(PROGRAMMES, count)
-            return cpu.currentThreadCpuTime - start
+            return thread.currentThreadAllocatedBytes - start
         }
         val skipped = guide("categorx", "episode-nux")
         val read = guide("category", "episode-num")
         assertEquals(skipped.size, read.size)
+        // Warmed up first, so one-time set-up (classes loaded, ProgrammeKind's word lists) isn't counted.
         repeat(5) {
-            time(skipped)
-            time(read)
+            allocated(skipped)
+            allocated(read)
         }
-        // Alternated and the best of many, so a busy shared build machine evens out between the two.
-        var before = Long.MAX_VALUE
-        var after = Long.MAX_VALUE
-        repeat(12) {
-            before = minOf(before, time(skipped))
-            after = minOf(after, time(read))
-        }
-        println("Parsing $PROGRAMMES programmes: ${before / 1_000_000} ms skipping the tags, ${after / 1_000_000} ms reading them")
-        // Generous, so a busy build machine doesn't fail it; the printed numbers are the real measure.
-        assertTrue("reading ${after / 1_000_000} ms vs skipping ${before / 1_000_000} ms", after < before * 1.3)
+        val before = allocated(skipped)
+        val after = allocated(read)
+        println("Parsing $PROGRAMMES programmes: ${before / 1024} KB allocated skipping the tags, ${after / 1024} KB reading them")
+        assertTrue("reading allocates ${after / 1024} KB vs skipping ${before / 1024} KB", after < before * 1.3)
     }
 
     private companion object {
