@@ -49,9 +49,10 @@ See also:
      changed file is `.md`, `docs/` or `store/`.
 8. Releases are built only for a tag, never for a plain merge to `main`. When the owner wants one, start `release.yml`
    for `v<versionName>` on `main`. It re-tests, signs and publishes the GitHub release with the APK and SHA256SUMS.
-   - **From a Claude session, run the workflow by hand:** a tag push is refused there (the git proxy only takes the
-     working branch). Use the GitHub MCP tool `actions_run_trigger` with method `run_workflow`, `workflow_id`
-     `release.yml` and ref `main`. It tags `v<versionName>` itself.
+   - **From a Claude session, run the workflow by hand:** tag pushes from a cloud session have failed with HTTP 403
+     (with either repo name as the remote), while pushes to the working branch work. Use the GitHub MCP tool
+     `actions_run_trigger` with method `run_workflow`, `workflow_id` `release.yml` and ref `main`. It tags
+     `v<versionName>` itself.
    - **Check first** that the version bump is merged to `main`, and that neither a release nor a tag `v<versionName>`
      exists yet (`get_release_by_tag`, `list_tags`). A hand-started run doesn't check the version. It would update an
      existing release, or publish onto a stale tag left by a failed run (delete that tag first).
@@ -65,9 +66,13 @@ See also:
    RELEASING.md › Google Play.
 
 ## Working from a Claude Code cloud session
-- **GitHub MCP tools** take owner `biskyt`, repo `tvapp` (the old name, which redirects to MyTVPlayer).
-- **CI results don't wake the session** (the Claude GitHub App isn't installed on the repo). After pushing, schedule a
-  check with `send_later` (CI and the emulator runs take about 5 minutes; a release about 6) instead of waiting.
+- **GitHub tools:** use owner `biskyt`, repo `MyTVPlayer`. The old name `tvapp` redirects for most calls, but
+  `check_repo_access` reports it as not connected.
+- **CI results:** for each PR, call `subscribe_pr_activity` (repo `MyTVPlayer`) so its CI results wake the session.
+  - Each run (CI on push, CI on the PR, the emulators) reports on its own: merge only when all are green, checking
+    them with `pull_request_read` (`get_check_runs`). The push run may finish before the PR is opened.
+  - Keep one `send_later` check as a safety net (CI and the emulator runs take about 5 minutes). Use it alone for runs
+    outside a PR (a release, about 6 minutes; release notes) or if another agent already watches the PR.
 - `merge_pull_request`'s `expectedHeadSha` needs the full 40-character SHA.
 - Work on the session's designated branch. Once its PR is merged, restart the branch from `origin/main` for any
   follow-up (`git checkout -B <branch> origin/main`); never stack new work on merged history.
