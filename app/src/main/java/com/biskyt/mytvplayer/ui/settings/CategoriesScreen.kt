@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
-import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
@@ -43,16 +42,17 @@ import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.MAX_SQL_ARGS
 import com.biskyt.mytvplayer.data.groupLabel
+import com.biskyt.mytvplayer.data.label
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
-import com.biskyt.mytvplayer.ui.common.AppIcons
+import com.biskyt.mytvplayer.ui.common.FilterField
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.PillButton
 import com.biskyt.mytvplayer.ui.common.Toggle
 import com.biskyt.mytvplayer.ui.common.TvCard
-import com.biskyt.mytvplayer.ui.common.TvTextField
 import com.biskyt.mytvplayer.ui.common.formatCount
+import com.biskyt.mytvplayer.ui.common.matchesFilter
 import com.biskyt.mytvplayer.ui.common.restoreFocusIf
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
@@ -108,7 +108,7 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
     }
 
     fun groups(list: List<CategoryEntity>, q: String = ""): List<LanguageGroup> = list.groupBy { it.lang }
-        .filter { (code, items) -> matches(groupLabel(code), q) || items.any { matches(it.name, q) } }
+        .filter { (code, items) -> matchesFilter(groupLabel(code), q) || items.any { matchesFilter(it.label, q) } }
         .map { (code, items) -> LanguageGroup(code, groupLabel(code), items.size, items.count { it.included }) }
         .sortedWith(
             compareByDescending<LanguageGroup> {
@@ -119,7 +119,7 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
     /** A group's categories, narrowed by [q] unless the group itself is what matched. */
     fun shown(list: List<CategoryEntity>, group: String?, q: String): List<CategoryEntity> {
         val inGroup = list.filter { it.lang == group }
-        return if (matches(groupLabel(group), q)) inGroup else inGroup.filter { matches(it.name, q) }
+        return if (matchesFilter(groupLabel(group), q)) inGroup else inGroup.filter { matchesFilter(it.label, q) }
     }
 
     /** Ticks or unticks a group: while filtering, only the categories shown for it. */
@@ -140,7 +140,7 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
         // What the screen shows: categories whose name, or whose group's name, matches.
         val ids = categories.value
             .filter {
-                it.type == t && (matches(it.name, q) || matches(groupLabel(it.lang), q))
+                it.type == t && (matchesFilter(it.label, q) || matchesFilter(groupLabel(it.lang), q))
             }
             .map { it.categoryId }
         setIncluded(t, ids, included)
@@ -174,8 +174,6 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
 
     companion object {
         const val UNSET = "\u0000"
-
-        fun matches(text: String, q: String) = q.isBlank() || text.contains(q, ignoreCase = true)
     }
 }
 
@@ -189,7 +187,7 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
     val query = vm.query.trim()
     // Their names are in the app's language: built again when it changes (LocalConfiguration follows it).
     val groups = remember(categories, query, LocalConfiguration.current) { vm.groups(categories, query) }
-    val hiddenShown = remember(hidden, query) { hidden.filter { CategoriesViewModel.matches(it.name, query) } }
+    val hiddenShown = remember(hidden, query) { hidden.filter { matchesFilter(it.name, query) } }
     if (vm.selectedGroup == CategoriesViewModel.UNSET && groups.isNotEmpty()) vm.selectedGroup = groups.first().code
     val done: () -> Unit = {
         vm.finish(firstRun)
@@ -233,13 +231,7 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                 contentPadding = PaddingValues(bottom = 24.dp)
             ) {
                 item {
-                    TvTextField(
-                        vm.query,
-                        vm::filter,
-                        stringResource(R.string.settings_categories_filter),
-                        Modifier.fillMaxWidth(),
-                        leading = { Icon(AppIcons.Filter, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) }
-                    )
+                    FilterField(vm.query, vm::filter, stringResource(R.string.settings_categories_filter), Modifier.fillMaxWidth())
                 }
                 item {
                     Text(
@@ -326,7 +318,7 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                         ) {
                             Toggle(cat.included)
                             Text(
-                                cat.name,
+                                cat.label,
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = if (cat.included) Palette.text else Palette.textDim,
                                 modifier = Modifier.weight(1f),

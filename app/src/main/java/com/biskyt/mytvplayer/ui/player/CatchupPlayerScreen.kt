@@ -12,6 +12,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.data.programmeTitle
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
@@ -46,7 +47,7 @@ private fun CatchupControls(vm: CatchupPlayerViewModel, buttons: FocusRequester,
             val catchup = stringResource(R.string.player_catchup_behind_live, formatRuntime(behind))
             Muted(listOfNotNull(vm.channel?.name, catchup).joinToString(" · "))
             Text(
-                p?.title ?: vm.channel?.name.orEmpty(),
+                p?.let { programmeTitle(it.title) } ?: vm.channel?.name.orEmpty(),
                 style = MaterialTheme.typography.displaySmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

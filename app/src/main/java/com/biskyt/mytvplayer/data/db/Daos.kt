@@ -193,7 +193,7 @@ interface ChannelDao {
     suspend fun idsCatchupCategory(pid: Long, cat: String): List<Long>
 
     @Query(
-        """SELECT c.categoryId AS categoryId, k.name AS name, COUNT(*) AS count
+        """SELECT c.categoryId AS categoryId, k.name AS name, k.lang AS lang, COUNT(*) AS count
            FROM channel c JOIN category k ON k.playlistId = c.playlistId AND k.type = 'live' AND k.categoryId = c.categoryId
            WHERE c.playlistId = :pid AND c.hidden = 0 AND c.archiveDays > 0 AND k.included = 1
            GROUP BY c.categoryId ORDER BY k.sortOrder"""
@@ -267,7 +267,7 @@ interface ChannelDao {
 }
 
 /** A category and how many of something it has. */
-data class CategoryCount(val categoryId: String, val name: String, val count: Int)
+data class CategoryCount(val categoryId: String, val name: String, val lang: String?, val count: Int)
 
 data class ChannelName(val streamId: Long, val name: String, val providerEpgId: String?)
 

@@ -35,6 +35,7 @@ import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.core.xtream.CatchupProgramme
 import com.biskyt.mytvplayer.data.db.ChannelEntity
+import com.biskyt.mytvplayer.data.programmeTitle
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
@@ -170,7 +171,7 @@ fun CatchupScreen(screen: Screen.Catchup) {
                                         modifier = Modifier.width(64.dp)
                                     )
                                     Text(
-                                        p.title,
+                                        programmeTitle(p.title),
                                         style = MaterialTheme.typography.titleSmall,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,

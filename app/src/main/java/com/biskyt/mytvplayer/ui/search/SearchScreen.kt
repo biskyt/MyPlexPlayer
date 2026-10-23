@@ -39,6 +39,7 @@ import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.ProgrammeHit
 import com.biskyt.mytvplayer.data.db.VodCard
+import com.biskyt.mytvplayer.data.programmeTitle
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
@@ -122,7 +123,7 @@ private sealed interface Picked {
     data class Vod(val type: String, val card: VodCard) : Picked
 }
 
-/** One search box for channels, TV programmes, movies and series. */
+/** One search box for channels, movies, series and TV programmes (shown in that order). */
 @Composable
 fun SearchScreen(initialQuery: String = "") {
     val vm = appViewModel { SearchViewModel(it, initialQuery) }
@@ -157,18 +158,11 @@ fun SearchScreen(initialQuery: String = "") {
                 results == null -> item { Muted(stringResource(R.string.search_keep_typing)) }
                 results.isEmpty -> item { Muted(stringResource(R.string.search_nothing_found, searched)) }
                 else -> {
-                    // Holding OK (or the remote's Menu button) on a result opens its options.
+                    // Channels, films, series, then TV programmes. Holding OK (or the remote's Menu button) on a result
+                    // opens its options.
                     section(R.string.common_channels, results.channels, { it.streamId }) {
                         ChannelCard(it, { picked = Picked.Channel(it.streamId, it.name) }) {
                             nav.push(Screen.Player(pid, it.streamId, ChannelFilter.All))
-                        }
-                    }
-                    if (results.programmes.isNotEmpty()) {
-                        item { SectionTitle(stringResource(R.string.search_on_tv), Modifier.padding(top = SECTION_GAP)) }
-                        items(results.programmes, key = { "p${it.streamId}:${it.startMs}" }) { p ->
-                            ProgrammeRow(p, now, { picked = Picked.Channel(p.streamId, p.channelName) }) {
-                                nav.push(Screen.Player(pid, p.streamId, ChannelFilter.All))
-                            }
                         }
                     }
                     section(R.string.common_tab_movies, results.movies, { it.id }) {
@@ -176,6 +170,15 @@ fun SearchScreen(initialQuery: String = "") {
                     }
                     section(R.string.common_tab_series, results.series, { it.id }) {
                         PosterCard(it, onLongClick = { picked = Picked.Vod(CAT_SERIES, it) }) { nav.push(Screen.SeriesDetails(pid, it.id)) }
+                    }
+                    // TV programmes last: often a long list, it would push films and series out of sight.
+                    if (results.programmes.isNotEmpty()) {
+                        item { SectionTitle(stringResource(R.string.search_on_tv), Modifier.padding(top = SECTION_GAP)) }
+                        items(results.programmes, key = { "p${it.streamId}:${it.startMs}" }) { p ->
+                            ProgrammeRow(p, now, { picked = Picked.Channel(p.streamId, p.channelName) }) {
+                                nav.push(Screen.Player(pid, p.streamId, ChannelFilter.All))
+                            }
+                        }
                     }
                 }
             }
@@ -254,7 +257,7 @@ private fun ProgrammeRow(p: ProgrammeHit, now: Long, onLongClick: () -> Unit, on
         Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             ChannelLogo(p.logoUrl, p.channelName, 56.dp, 34.dp)
             Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                OneLine(p.title, MaterialTheme.typography.titleSmall)
+                OneLine(programmeTitle(p.title), MaterialTheme.typography.titleSmall)
                 OneLine(
                     listOfNotNull(p.channelName, p.subtitle).joinToString(" · "),
                     MaterialTheme.typography.bodyMedium,

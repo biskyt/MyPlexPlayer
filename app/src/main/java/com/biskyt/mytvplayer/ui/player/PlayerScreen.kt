@@ -62,6 +62,7 @@ import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.core.player.OverlayState
 import com.biskyt.mytvplayer.core.player.RemoteKey
 import com.biskyt.mytvplayer.core.player.isMedia
+import com.biskyt.mytvplayer.data.programmeTitle
 import com.biskyt.mytvplayer.player.PlaybackError
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
@@ -261,7 +262,7 @@ private fun LiveControls(vm: PlayerViewModel, buttons: FocusRequester, root: Foc
             Column(Modifier.weight(1f)) {
                 Muted(listOf(ch.numberLabel, ch.name).filter { it.isNotEmpty() }.joinToString(" · "))
                 Text(
-                    nn?.now?.title ?: ch.name,
+                    nn?.now?.let { programmeTitle(it.title) } ?: ch.name,
                     style = MaterialTheme.typography.displaySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -274,7 +275,12 @@ private fun LiveControls(vm: PlayerViewModel, buttons: FocusRequester, root: Foc
                         style = MaterialTheme.typography.labelMedium,
                         color = accent.color
                     )
-                    Text(next.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        programmeTitle(next.title),
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }

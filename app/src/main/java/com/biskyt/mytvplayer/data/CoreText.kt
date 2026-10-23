@@ -6,6 +6,9 @@ import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.core.xtream.XtreamException
 import com.biskyt.mytvplayer.core.xtream.XtreamException.Reason
+import com.biskyt.mytvplayer.data.db.CategoryCount
+import com.biskyt.mytvplayer.data.db.CategoryEntity
+import java.io.IOException
 import java.util.Locale
 
 // The app's words for what the core module reports as codes (core has no Android resources).
@@ -73,3 +76,41 @@ private val accentNames = mapOf(
     "pink" to R.string.data_accent_pink,
     "silver" to R.string.data_accent_silver,
 )
+
+/** A programme's title, or the app's "No title" (in its language) for one its guide gave none. */
+fun programmeTitle(title: String): String = title.ifBlank { appString(R.string.common_no_title) }
+
+/** A category's name as the playlist gives it, or the app's "No category" (in its language) for entries in none. */
+fun categoryLabel(name: String): String = name.ifEmpty { appString(R.string.data_ungrouped) }
+
+val CategoryEntity.label: String get() = categoryLabel(name)
+
+val CategoryCount.label: String get() = categoryLabel(name)
+
+/**
+ * A guide failing, in the app's own words: the server refusing it ([status]), or the download not being saved (null).
+ * Kept as a guide's lastError, it's saved as what failed rather than how it's put ([saved]), so it reads in the language
+ * of the moment when shown again ([text]). Other errors (a server's, a library's) are kept as they come.
+ */
+class GuideError private constructor(private val status: Int?) : IOException(words(status)) {
+    companion object {
+        // No server's or library's message starts with it.
+        private const val TAG = "\u001F"
+
+        fun server(status: Int) = GuideError(status)
+
+        fun notSaved() = GuideError(null)
+
+        /** What to keep as a guide's lastError for [e]. */
+        fun saved(e: Throwable): String = if (e is GuideError) TAG + e.status?.toString().orEmpty() else describe(e)
+
+        /** A kept lastError, as words: the app's in its language, anything else as it was. */
+        fun text(saved: String): String = if (saved.startsWith(TAG)) words(saved.removePrefix(TAG).toIntOrNull()) else saved
+
+        private fun words(status: Int?) =
+            status?.let { appString(R.string.data_server_error, it) } ?: appString(R.string.data_guide_save_failed)
+    }
+}
+
+/** What [e] says to the user (see userMessage), or its kind when it says nothing. */
+fun describe(e: Throwable): String = userMessage(e) ?: e.javaClass.simpleName

@@ -46,7 +46,7 @@ internal fun JsonElement.toCatchupListing(): CatchupListing {
         CatchupProgramme(
             startMs = start,
             stopMs = stop,
-            title = o.str("title")?.let(::decodeText)?.trim()?.ifEmpty { null } ?: "No title",
+            title = o.str("title")?.let(::decodeText)?.trim().orEmpty(), // none: the app names it when shown
             description = o.str("description")?.let(::decodeText)?.trim()?.ifEmpty { null },
             hasArchive = o.bool("has_archive"),
             serverOffsetMs = o.str("start")?.let { local -> serverLocalMs(local)?.minus(start) }

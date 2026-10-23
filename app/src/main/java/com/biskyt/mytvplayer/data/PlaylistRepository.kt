@@ -268,10 +268,11 @@ class PlaylistRepository(
             categoryStore.store(p.id, CAT_LIVE, m3uGroups(file), groupByName = true)
             known = categories.all(p.id, CAT_LIVE)
         }
-        // Included: existing groups as the user chose; new groups by the rule categoryStore.store applies when it
-        // records them below.
+        // Included: existing groups as the user chose (entries in none as "Other" was, before 1.1.0); new groups by the
+        // rule categoryStore.store applies when it records them below, from the same saved choices.
         val includesNew = categoryStore.includesNew(known, groupByName = true)
-        val include = known.associateTo(HashMap()) { it.categoryId to it.included }
+        val chosen = known.associate { it.categoryId to it.included }
+        val include = HashMap(chosen)
         val groups = LinkedHashSet<String>()
         val out = ChannelWriter(p.id, onProgress)
         val ids = HashSet<Long>()
@@ -283,7 +284,7 @@ class PlaylistRepository(
                 val id = uniqueId("${e.tvgId.orEmpty()}|${e.name}", ids)
                 val group = M3uCategories.idOf(e)
                 groups += group
-                if (!include.getOrPut(group) { includesNew(M3uCategories.category(group)) }) {
+                if (!include.getOrPut(group) { M3uCategories.inherited(chosen, group) ?: includesNew(M3uCategories.category(group)) }) {
                     return@parse
                 }
                 val catchup = M3uCatchup.typeFor(e.catchup, e.catchupSource, e.url)
@@ -378,7 +379,7 @@ class PlaylistRepository(
         if (first == null || !M3uParser.looksLikePlaylist(first)) throw XtreamException(appString(R.string.data_not_m3u))
     }
 
-    /** Distinct group titles in playlist order; channels without one go under "Other". */
+    /** Distinct group titles in playlist order; channels without one go in a category with no name (see M3uCategories). */
     private suspend fun m3uGroups(file: File): List<XtreamCategory> {
         val groups = LinkedHashSet<String>()
         file.bufferedReader().use { reader -> M3uParser.parse(reader) { groups += M3uCategories.idOf(it) } }
