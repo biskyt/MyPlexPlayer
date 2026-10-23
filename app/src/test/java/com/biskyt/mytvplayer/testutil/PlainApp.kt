@@ -9,4 +9,12 @@ class PlainApp : Application() {
         super.onCreate()
         AppText.init(this)
     }
+
+    override fun onTerminate() {
+        try {
+            resetSettings(this)
+        } finally {
+            super.onTerminate()
+        }
+    }
 }

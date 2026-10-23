@@ -14,7 +14,7 @@ import com.biskyt.mytvplayer.openedFile
 import com.biskyt.mytvplayer.testutil.Navigators
 import com.biskyt.mytvplayer.testutil.TestApp
 import com.biskyt.mytvplayer.testutil.createUiComposeRule
-import com.biskyt.mytvplayer.testutil.waitAdvancingClock
+import com.biskyt.mytvplayer.testutil.waitForText
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -61,7 +61,7 @@ class BackupPickerTest {
 
     private fun openPicker(): Intent {
         showBackup()
-        compose.waitAdvancingClock { compose.onAllNodes(hasText("Restore from", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForText("Restore from")
         compose.onNode(hasText("Restore from", substring = true) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
         return shadowOf(compose.activity).nextStartedActivityForResult.intent
@@ -93,7 +93,7 @@ class BackupPickerTest {
         assertEquals(file, Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, file).openedFile())
         app.container.openedFile.value = file
         showBackup()
-        compose.waitAdvancingClock { compose.onAllNodes(hasText("Restore?", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForText("Restore?")
         assertEquals(null, app.container.openedFile.value)
     }
 

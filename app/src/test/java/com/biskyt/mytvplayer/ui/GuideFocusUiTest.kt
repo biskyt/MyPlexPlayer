@@ -16,6 +16,7 @@ import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.testutil.FakeProvider
 import com.biskyt.mytvplayer.testutil.Navigators
 import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.testutil.addHomeTv
 import com.biskyt.mytvplayer.testutil.createUiComposeRule
 import com.biskyt.mytvplayer.testutil.focusedText
 import com.biskyt.mytvplayer.testutil.settle
@@ -49,8 +50,7 @@ class GuideFocusUiTest {
     @Before
     fun setUp() = runBlocking {
         val c = app.container
-        val playlistId = c.playlists.add("Home TV", provider.url, "me", "secret")
-        c.playlists.syncChannels(playlistId)
+        c.addHomeTv(provider)
         // Live TV opens on UK | SPORT, with one channel (no guide for it).
         c.settings.update { it.copy(lastLiveFilter = ChannelFilter.Category("2").key) }
         c.settings.current()

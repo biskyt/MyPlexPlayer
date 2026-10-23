@@ -5,9 +5,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performSemanticsAction
-import androidx.compose.ui.test.printToString
 import androidx.test.core.app.ApplicationProvider
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppText
@@ -16,7 +14,7 @@ import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.testutil.Navigators
 import com.biskyt.mytvplayer.testutil.TestApp
 import com.biskyt.mytvplayer.testutil.createUiComposeRule
-import com.biskyt.mytvplayer.testutil.waitAdvancingClock
+import com.biskyt.mytvplayer.testutil.waitForText
 import com.biskyt.mytvplayer.ui.common.SidePanel
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import org.junit.After
@@ -40,11 +38,7 @@ class LanguageUiTest {
 
     @After fun followDevice() = AppText.setLanguage(app, "")
 
-    private fun waitFor(text: String) = try {
-        compose.waitAdvancingClock { compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
-    } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
-        throw AssertionError("'$text' not shown. Screen:\n" + compose.onRoot(useUnmergedTree = true).printToString(), e)
-    }
+    private fun waitFor(text: String) = compose.waitForText(text)
 
     @Test
     fun `choosing a language switches the screen in place`() {

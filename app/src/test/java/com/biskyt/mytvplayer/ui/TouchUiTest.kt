@@ -14,6 +14,7 @@ import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.testutil.FakeProvider
 import com.biskyt.mytvplayer.testutil.Navigators
 import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.testutil.addHomeTv
 import com.biskyt.mytvplayer.testutil.createUiComposeRule
 import com.biskyt.mytvplayer.testutil.waitAdvancingClock
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
@@ -45,12 +46,7 @@ class TouchUiTest {
     @Before
     fun setUp() = runBlocking {
         shadowOf(app.packageManager).setSystemFeature(PackageManager.FEATURE_TOUCHSCREEN, true)
-        val c = app.container
-        playlistId = c.playlists.add("Home TV", provider.url, "me", "secret")
-        c.playlists.syncChannels(playlistId)
-        c.settings.update { it.copy(lastLiveFilter = "all") }
-        c.settings.current()
-        Unit
+        playlistId = app.container.addHomeTv(provider)
     }
 
     @After
