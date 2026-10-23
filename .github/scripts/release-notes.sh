@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Prints the release notes for version $1: its CHANGELOG.md section, plus the sections of any versions since the last
 # published release that never got one of their own (e.g. 0.8.1 and 0.8.2, released together in 0.8.3).
-# Needs GH_TOKEN (to list the releases) when run in a workflow.
+# Needs GH_TOKEN (to list the releases) when run in a workflow. Fails if CHANGELOG.md has no section for $1.
 set -euo pipefail
 version="$1"
 # The newest published release before this one; none means just this version's section.
@@ -15,6 +15,7 @@ awk -v v="$version" -v prev="$previous" '
   /^## / { if ($2 == v) on = 1; else if ($2 == prev || prev == "") on = 0; if (on) n++ }
   on { lines[++count] = $0 }
   END {
+    if (count == 0) { print "CHANGELOG.md has no section for " v > "/dev/stderr"; exit 1 }
     for (i = 1; i <= count; i++) {
       if (n == 1 && i == 1) continue
       if (n > 1 && lines[i] ~ /^## /) sub(/^## /, "### ", lines[i])
