@@ -8,17 +8,18 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.isRoot
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
-import androidx.compose.ui.test.printToString
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.testutil.FakeProvider
+import com.biskyt.mytvplayer.testutil.LocalMidday
 import com.biskyt.mytvplayer.testutil.Navigators
 import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.testutil.addHomeTv
 import com.biskyt.mytvplayer.testutil.createUiComposeRule
 import com.biskyt.mytvplayer.testutil.waitAdvancingClock
+import com.biskyt.mytvplayer.testutil.waitForText
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -40,6 +41,8 @@ class PlayerKeysUiTest {
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
 
+    @get:Rule val midday = LocalMidday() // catch-up is filed by local day
+
     private val provider = FakeProvider()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
     private var playlistId = 0L
@@ -47,14 +50,7 @@ class PlayerKeysUiTest {
 
     @Before
     fun setUp() = runBlocking {
-        val c = app.container
-        playlistId = c.playlists.add("Home TV", provider.url, "me", "secret")
-        c.playlists.syncChannels(playlistId)
-        c.playlists.get(playlistId)?.let { c.epg.ensureProviderSource(it, c.playlists.client(it).xmltvUrl()) }
-        c.epg.importAll(listOf(playlistId))
-        c.settings.update { it.copy(lastLiveFilter = "all") }
-        c.settings.current()
-        Unit
+        playlistId = app.container.addHomeTv(provider, guide = true)
     }
 
     @After
@@ -65,11 +61,7 @@ class PlayerKeysUiTest {
         compose.setContent { MyTvTheme { NavHost(remember { navigator }) { ScreenContent(it) } } }
     }
 
-    private fun waitFor(text: String) = try {
-        compose.waitAdvancingClock { compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
-    } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
-        throw AssertionError("'$text' not shown. Screen:\n" + compose.onRoot(useUnmergedTree = true).printToString(), e)
-    }
+    private fun waitFor(text: String) = compose.waitForText(text)
 
     /** The text and descriptions of what has focus. */
     private fun focused(): String = compose.onAllNodes(isFocused()).fetchSemanticsNodes().joinToString(" | ") { node ->

@@ -9,8 +9,10 @@ import androidx.test.core.app.ApplicationProvider
 import com.biskyt.mytvplayer.testutil.FakeProvider
 import com.biskyt.mytvplayer.testutil.Navigators
 import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.testutil.addHomeTv
 import com.biskyt.mytvplayer.testutil.createUiComposeRule
 import com.biskyt.mytvplayer.testutil.waitAdvancingClock
+import com.biskyt.mytvplayer.testutil.waitForText
 import com.biskyt.mytvplayer.ui.NavHost
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.ScreenContent
@@ -39,8 +41,7 @@ class PlaylistsScreenTest {
     @Before
     fun setUp() = runBlocking {
         val c = app.container
-        val id = c.playlists.add("Home TV", provider.url, "me", "secret")
-        c.playlists.syncChannels(id)
+        val id = c.addHomeTv(provider)
         c.playlists.get(id)?.let { c.epg.ensureProviderSource(it, c.playlists.client(it).xmltvUrl()) }
         Unit
     }
@@ -54,8 +55,7 @@ class PlaylistsScreenTest {
         compose.onNode(hasText("Update now") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
     }
 
-    private fun waitFor(text: String) =
-        compose.waitAdvancingClock(50) { compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
+    private fun waitFor(text: String) = compose.waitForText(text, stepMs = 50)
 
     @Test
     fun `update now says when the playlist is up to date`() {

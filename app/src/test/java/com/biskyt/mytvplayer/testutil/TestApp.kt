@@ -28,7 +28,11 @@ class TestApp : MyTvApp() {
             runMainLooperDown()
             container.db.close()
         } finally {
-            super.onTerminate()
+            try {
+                resetSettings(this)
+            } finally {
+                super.onTerminate()
+            }
         }
     }
 
