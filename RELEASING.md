@@ -5,7 +5,8 @@ Releases are built and published by GitHub Actions (`.github/workflows/release.y
 - `SHA256SUMS.txt`: the APK's checksum.
 
 The app bundle Google Play wants (`MyTVPlayer-<version>.aab`) isn't published with the release. It is uploaded to Google Play's closed testing track (see **Google Play** below) and kept on the workflow run's page under **Artifacts** for 90 days.
-- Release notes taken from this version's section of `CHANGELOG.md`.
+- Release notes taken from this version's section of `CHANGELOG.md`, plus those of any versions since the last release
+  that weren't released on their own.
 
 ## One-time setup: your own signing key
 
@@ -55,5 +56,8 @@ Without the secret (or for a build signed with the development key) the upload i
 ### Repository variables (optional, same settings page, *Variables* tab)
 - `PLAY_RELEASE_STATUS`: unset, each release goes to testers once Play has reviewed it. Set it to `draft` to check each one in Play Console and send it from there instead.
 - `PLAY_NOTES_LANGUAGE`: the language of "What's new", `en-GB` unless set. It must be one of the store listing's languages.
+
+A release reaches testers once Google has reviewed it, usually within a few hours. On a device, opening the Play Store
+(or the app's page) makes it check for the update.
 
 Moving a release from closed testing to production is done in Play Console.

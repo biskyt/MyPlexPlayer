@@ -23,6 +23,8 @@ See also:
   - Don't just raise timeouts.
 - **Long waits (CI, test loops, agents) go in the background**, so the conversation isn't blocked.
 - **When the owner says "don't release until X", don't merge or release** until they confirm.
+- **Only the app's own text is translated**: see **Languages** below.
+- **Release notes are English only**, on GitHub and in Play's "What's new" (translated Play notes: not worth the work).
 
 ## Process for each change or release
 1. Make the change with tests. Check that a new test fails without the fix.
@@ -31,18 +33,65 @@ See also:
    - `./gradlew :core:test :app:testDebugUnitTest`
    - `./gradlew ktlintFormat` fixes most style issues. Rerun `ktlintCheck` afterwards, because the format task itself exits non-zero when it changed something.
 3. Run `/simplify`, then `/code-review`, then apply their fixes.
-4. Bump `versionCode` (+1) and `versionName` in `app/build.gradle.kts`.
-5. Add a `## x.y.z` section at the top of `CHANGELOG.md`, written for people using the app. It becomes the release notes.
+4. Bump `versionCode` (+1) and `versionName` in `app/build.gradle.kts`, for every PR that changes the app, released or
+   not: the patch number for fixes and small changes, the minor for a notable feature (1.1.0: languages).
+5. Add a `## x.y.z` section at the top of `CHANGELOG.md`, written for people using the app.
+   - A release's notes are its section plus those of any unreleased versions since the last release
+     (`.github/scripts/release-notes.sh`). For Play's "What's new" (500 characters), `play-notes.py` keeps the whole
+     bullets that fit in about 420 and adds a link to the full notes, so put the change users notice most first.
+   - Fix a published GitHub release's notes with the **Release notes** workflow (`release-notes.yml`, input `tag`),
+     which rewrites them from CHANGELOG.md without rebuilding. It doesn't touch Play: change Play's notes in Play
+     Console.
 6. Commit with the session's attribution trailers, then push to the working branch and open a PR to `main`.
 7. When CI is green on both the push and PR runs, merge the PR (merge commit).
-8. Releases are built only for a tag, never for a plain merge to `main`. When the owner wants one, push the tag
-   `v<versionName>` on `main` (`git tag v1.0.2 && git push origin v1.0.2`); `release.yml` runs on `v*` tags. It re-tests,
-   signs and publishes the GitHub release with the APK and SHA256SUMS.
+   - CI runs `:core:test :app:recordRoborazziDebug` (the unit tests, recording screenshots to `app/screenshots/`; don't
+     commit those unless meant to). The emulator runs are on PRs (or started by hand), and skipped only when every
+     changed file is `.md`, `docs/` or `store/`.
+8. Releases are built only for a tag, never for a plain merge to `main`. When the owner wants one, start `release.yml`
+   for `v<versionName>` on `main`. It re-tests, signs and publishes the GitHub release with the APK and SHA256SUMS.
+   - **From a Claude session, run the workflow by hand:** a tag push is refused there (the git proxy only takes the
+     working branch). Use the GitHub MCP tool `actions_run_trigger` with method `run_workflow`, `workflow_id`
+     `release.yml` and ref `main`. It tags `v<versionName>` itself.
+   - **Check first** that the version bump is merged to `main`, and that neither a release nor a tag `v<versionName>`
+     exists yet (`get_release_by_tag`, `list_tags`). A hand-started run doesn't check the version. It would update an
+     existing release, or publish onto a stale tag left by a failed run (delete that tag first).
+   - From a normal checkout, pushing the tag also works: `git tag v1.0.2 && git push origin v1.0.2`.
    - A change with no app changes (CI, tests, docs) is merged without a version bump, changelog entry or release.
    - The signed Play bundle (`.aab`) goes to Play's closed testing track, and is a run artifact called
      `MyTVPlayer-<version>-play-bundle`, kept 90 days.
    - Versions `0.x` (or dev-key signed builds) are pre-releases. `1.x` and later are full releases.
-9. Confirm the release exists, then give the owner the release link and the `.aab` artifact link.
+9. Confirm the release exists (`get_release_by_tag`), then give the owner the release link and the `.aab` artifact link
+   (`actions_list` with method `list_workflow_run_artifacts` and the release run's id). For when testers see it, see
+   RELEASING.md › Google Play.
+
+## Working from a Claude Code cloud session
+- **GitHub MCP tools** take owner `biskyt`, repo `tvapp` (the old name, which redirects to MyTVPlayer).
+- **CI results don't wake the session** (the Claude GitHub App isn't installed on the repo). After pushing, schedule a
+  check with `send_later` (CI and the emulator runs take about 5 minutes; a release about 6) instead of waiting.
+- `merge_pull_request`'s `expectedHeadSha` needs the full 40-character SHA.
+- Work on the session's designated branch. Once its PR is merged, restart the branch from `origin/main` for any
+  follow-up (`git checkout -B <branch> origin/main`); never stack new work on merged history.
+- The local `main` can be stale: compare with `origin/main` after `git fetch origin main`.
+
+## Languages (since 1.1.0)
+- The app's languages are `AppText.languages`, with UK English the default in `values/`. Strings are split by area
+  (`strings_<area>.xml`).
+  - Every new string needs es, pt-BR and fr translations. If the US wording differs, it also needs entries in
+    `values-en-rUS` and `values-en-rGB` (see the comment there).
+  - A new language needs a `values-<qualifier>` folder, an entry in `AppText.languages` and one in
+    `androidResources.localeFilters` in `app/build.gradle.kts`. Otherwise release builds drop its strings;
+    `EnglishStringsTest` checks this.
+- **Text the app defines** comes from string resources: `stringResource` in composables, `appString` / `appPlural`
+  (AppText.kt) elsewhere.
+- **Text from users, playlists and guides is shown as it is:** playlist, guide, channel and category names, titles.
+- **Saved data stays language-neutral.** The app saves blank values, ids or codes and names them when shown:
+  `programmeTitle`, `categoryLabel` / `.label`, `GuideError.text`, `groupLabel` (in `data/CoreText.kt`) and the episode
+  and season names. Never save app words (an English "Other" or "No title" was saved before 1.1.0). `SavedTextTest`
+  covers this.
+- **Check that translated text fits** with the store screenshots in a language:
+  `./gradlew :app:recordRoborazziDebug --tests '*StoreAssetsTest*' -PstoreAssets -PstoreLanguage=<tag>` writes them to
+  `app/build/store-assets/<tag>/`. Without `-PstoreLanguage` it rewrites the committed store listing assets
+  (`store/graphics` and `store/screenshots`).
 
 ## Gotchas learned the hard way
 - **Android regex is ICU, not Java.** A bare `}` in a regex passes on the JVM (where Robolectric runs) but crashes on devices. That crashed M3U setup in 0.9.5. `core/src/test/.../RegexPortabilityTest.kt` checks every `Regex(...)` literal. Escape braces.
@@ -66,6 +115,14 @@ See also:
 - **Detekt limits:**
   - `AppUiTest` is near `LargeClass` (600 lines), so put new UI tests in their own class.
   - Composables near the complexity limit: `CategoryColumn`, `GuideGrid`, `AppRoot`.
+- **Performance tests assert allocations, not CPU time:** CPU time grows with other test JVMs running alongside, as
+  in CI and release (see `ProgrammeKindTest`).
+- **Reproducing a flaky test:** Gradle's build cache replays test results. Use `--no-build-cache` with
+  `:core:cleanTest :app:cleanTestDebugUnitTest`, and run core and app tests together, as release does.
+- **M3U category ids** carry history from before 1.1.0 (see `M3uCategories`).
+  - If you change how M3U titles are filed or given ids, map the new ids to the old ones (as `M3uCategories.oldId` /
+    `inherited` do), so hidden categories, favourites and progress are kept.
+  - Also bump `M3uVod.FILING`, so each playlist's films and series reload once.
 - **Touch:** tv-material `Surface` only answers D-pad OK. Taps are wired through `LocalTouch` and `Modifier.onTap` / `onPlainTap` / `onAnyTouch` in `ui/common/Touch.kt`.
 - **Never run `pkill -f <pattern>`** where the pattern also appears in your own command line, because it kills your own shell. Kill background loops by PID.
 - **Network from the sandbox and from GitHub runners:** archive.org isn't reachable from either, so the app can't be tested against it from here. Wikimedia is reachable.
@@ -81,9 +138,27 @@ See also:
   - Films are hosted on archive.org and upload.wikimedia.org.
   - Its group titles carry prefixes ("Movies: Open Movies"). The app doesn't add them.
 
-## Open items (as of 1.0.1, released)
-- **Google Play:** each release tag uploads the `.aab` to closed testing (`alpha`); set-up is in RELEASING.md.
-  Production is promoted by hand in Play Console.
+## Product decisions from the owner
+These are built in already. Keep them when changing the areas they cover.
+- **Audio passthrough** (Dolby Atmos and other surround formats go to the soundbar or TV) is on by default, with a
+  setting to turn it off.
+- **Subtitles** default to forced subtitles only, in the system language. Settings choose the default language or
+  turn subtitles off.
+- **Back stops playback.** There's no picture-in-picture.
+- **Text fields are built for a TV remote:**
+  - Server addresses get no autocorrect or capitals.
+  - Passwords are shown, not hidden.
+  - The keyboard's Next moves to the next field.
+- **Options menu:** holding OK opens it, and so does the remote's Info/Menu button. Releasing OK must not also start
+  playback.
+- **Backup:**
+  - Backup is one plain JSON file with a fixed name, overwritten each time, and no encryption or schedule.
+  - Permissions are asked for only when backing up or restoring.
+- **Licences** aren't a reason to avoid the best library.
+
+## Open items (as of 1.1.0, released)
+- **Google Play:** each release uploads the `.aab` to closed testing (`alpha`); set-up is in RELEASING.md. Production is
+  promoted by hand in Play Console.
 - **Done:** emulator smoke tests on CI for pull requests (`.github/workflows/emulator.yml`: Android TV 9 and Google TV
   16, free on GitHub's standard runners for a public repo). Tests live in `app/src/androidTest`; the debug build adds an
   x86/x86_64 ABI only with `-PemulatorAbi=<arch>`. `.github/scripts/start-emulator.sh` boots the emulator itself:
