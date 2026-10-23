@@ -24,7 +24,7 @@ class NavigationAndLoaderTest {
         nav.push(Screen.Live())
         nav.push(Screen.Player(1, 5, ChannelFilter.All))
         assertEquals(Screen.Player(1, 5, ChannelFilter.All), nav.current.screen)
-        assert(nav.pop())
+        assertTrue(nav.pop())
         assertEquals(Screen.Live(), nav.current.screen)
         nav.reset(Screen.Settings)
         assertEquals(1, nav.stack.size)

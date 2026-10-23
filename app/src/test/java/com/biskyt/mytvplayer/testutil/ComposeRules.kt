@@ -4,8 +4,10 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +40,10 @@ fun createUiComposeRule(): ComposeContentTestRule = createComposeRule(mainThread
 @OptIn(ExperimentalTestApi::class)
 inline fun <reified A : ComponentActivity> createUiComposeRule(): AndroidComposeTestRule<ActivityScenarioRule<A>, A> =
     createAndroidComposeRule<A>(mainThreadEffects())
+
+/** [createEmptyComposeRule] (for a test that launches its own activity), with the composition confined to the main thread. */
+@OptIn(ExperimentalTestApi::class)
+fun createUiEmptyComposeRule(): ComposeTestRule = createEmptyComposeRule(mainThreadEffects())
 
 /**
  * A StandardTestDispatcher whose work runs on the main thread as soon as it's queued, through the main looper (which

@@ -3,13 +3,13 @@ package com.biskyt.mytvplayer.ui
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.mytvplayer.MainActivity
 import com.biskyt.mytvplayer.testutil.TestApp
-import com.biskyt.mytvplayer.testutil.waitAdvancingClock
+import com.biskyt.mytvplayer.testutil.createUiEmptyComposeRule
+import com.biskyt.mytvplayer.testutil.waitForText
 import java.io.File
 import org.junit.Assert.assertFalse
 import org.junit.Rule
@@ -22,13 +22,12 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestApp::class, qualifiers = "+w960dp-h540dp-tvdpi")
 class CrashScreenTest {
-    @get:Rule val compose = createEmptyComposeRule()
+    @get:Rule val compose = createUiEmptyComposeRule()
 
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
     private val file get() = File(app.filesDir, "last-crash.txt")
 
-    private fun waitFor(text: String) =
-        compose.waitAdvancingClock { compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
+    private fun waitFor(text: String) = compose.waitForText(text)
 
     @Test
     fun `a crash recorded last time is shown first, and continuing clears it`() {

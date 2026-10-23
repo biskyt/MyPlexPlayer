@@ -194,9 +194,6 @@ class StoreAssetsTest {
         c.epg.importAll(listOf(playlistId))
         listOf(101L, 103L, 105L, 107L).forEach { c.channels.setFavourite(playlistId, it, true) }
         listOf(102L, 106L, 104L).forEach { c.channels.markWatched(playlistId, it) }
-        c.settings.update { it.copy(lastLiveFilter = "all") }
-        c.settings.current()
-        Unit
     }
 
     @After

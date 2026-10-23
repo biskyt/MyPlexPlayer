@@ -31,13 +31,16 @@ import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.testutil.FakeProvider
+import com.biskyt.mytvplayer.testutil.LocalMidday
 import com.biskyt.mytvplayer.testutil.Navigators
 import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.testutil.addHomeTv
 import com.biskyt.mytvplayer.testutil.createUiComposeRule
 import com.biskyt.mytvplayer.testutil.focusedText
 import com.biskyt.mytvplayer.testutil.otherThreads
 import com.biskyt.mytvplayer.testutil.settle
 import com.biskyt.mytvplayer.testutil.waitAdvancingClock
+import com.biskyt.mytvplayer.testutil.waitForText
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.guide.GuideMatchingScreen
 import com.biskyt.mytvplayer.ui.guide.GuideSourcesScreen
@@ -84,6 +87,8 @@ class AppUiTest {
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
 
+    @get:Rule val midday = LocalMidday() // catch-up is filed by local day
+
     private val provider = FakeProvider()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
     private var playlistId = 0L
@@ -91,16 +96,7 @@ class AppUiTest {
 
     @Before
     fun setUp() = runBlocking {
-        val c = app.container
-        playlistId = c.playlists.add("Home TV", provider.url, "me", "secret")
-        c.playlists.syncChannels(playlistId)
-        c.vod.sync(c.playlists.get(playlistId)!!)
-        c.playlists.get(playlistId)?.let { c.epg.ensureProviderSource(it, c.playlists.client(it).xmltvUrl()) }
-        c.epg.importAll(listOf(playlistId))
-        // Settings outlive a test (one DataStore per process): Live TV starts on All channels unless a test says otherwise.
-        c.settings.update { it.copy(lastLiveFilter = "all") }
-        c.settings.current()
-        Unit
+        playlistId = app.container.addHomeTv(provider, vod = true, guide = true)
     }
 
     @After
@@ -150,11 +146,7 @@ class AppUiTest {
         }
     }
 
-    private fun waitFor(text: String) = try {
-        compose.waitAdvancingClock(50) { compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
-    } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
-        throw AssertionError("'$text' not shown. Screen:\n" + compose.onRoot(useUnmergedTree = true).printToString(), e)
-    }
+    private fun waitFor(text: String) = compose.waitForText(text, stepMs = 50)
 
     /** Android 9 (Fire OS 7) is the oldest the app runs on; the rest of the suite runs on a current Android. */
     @Test
@@ -264,7 +256,7 @@ class AppUiTest {
         assertTrue(provider.requests.none { it.endsWith("get_simple_data_table") })
         // Left at "now" looks up how far back catch-up goes, then the guide moves back an hour.
         press(Key.DirectionLeft)
-        compose.waitAdvancingClock { compose.onAllNodes(hasText("Earlier Today", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForText("Earlier Today")
         assertTrue(provider.requests.any { it.endsWith("get_simple_data_table") })
     }
 
@@ -276,10 +268,16 @@ class AppUiTest {
         press(Key.DirectionLeft)
         // Until the provider answers, the row keeps showing (and focusing) what it had.
         val focused = LinkedHashSet<String>()
-        compose.waitUntil(8_000) {
-            org.robolectric.shadows.ShadowLooper.idleMainLooper()
-            focused += compose.focusedText()
-            compose.onAllNodes(hasText("Earlier Today", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        try {
+            compose.waitUntil(8_000) {
+                org.robolectric.shadows.ShadowLooper.idleMainLooper()
+                focused += compose.focusedText()
+                compose.onAllNodes(hasText("Earlier Today", substring = true)).fetchSemanticsNodes().isNotEmpty()
+            }
+        } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
+            // Failed once in about 50 runs (it takes under 2s, even on a loaded machine): say what held it up.
+            val screen = compose.onRoot(useUnmergedTree = true).printToString()
+            throw AssertionError("Focus $focused, requests ${provider.requests}. Screen:\n$screen\nThreads:\n${otherThreads()}", e)
         }
         assertTrue(focused.toString(), focused.none { it.isBlank() })
     }
