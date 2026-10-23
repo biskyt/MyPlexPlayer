@@ -68,9 +68,11 @@ See also:
 ## Working from a Claude Code cloud session
 - **GitHub tools:** use owner `biskyt`, repo `MyTVPlayer`. The old name `tvapp` redirects for most calls, but
   `check_repo_access` reports it as not connected.
-- **CI results:** after opening a PR, call `subscribe_pr_activity` (repo `MyTVPlayer`) so CI and review events wake the
-  session. Earlier sessions got no events (they used `tvapp`), so also schedule a check with `send_later` (CI and the
-  emulator runs take about 5 minutes; a release about 6).
+- **CI results:** for each PR, call `subscribe_pr_activity` (repo `MyTVPlayer`) so its CI results wake the session.
+  - Each run (CI on push, CI on the PR, the emulators) reports on its own: merge only when all are green, checking
+    them with `pull_request_read` (`get_check_runs`). The push run may finish before the PR is opened.
+  - Keep one `send_later` check as a safety net (CI and the emulator runs take about 5 minutes). Use it alone for runs
+    outside a PR (a release, about 6 minutes; release notes) or if another agent already watches the PR.
 - `merge_pull_request`'s `expectedHeadSha` needs the full 40-character SHA.
 - Work on the session's designated branch. Once its PR is merged, restart the branch from `origin/main` for any
   follow-up (`git checkout -B <branch> origin/main`); never stack new work on merged history.
