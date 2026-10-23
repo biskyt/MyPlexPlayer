@@ -38,12 +38,7 @@ class GuidePreviewTest {
         val playlistId = runBlocking { app.container.addHomeTv(provider) }
         ids = runBlocking { app.container.channels.ids(playlistId, ChannelFilter.All) }
         val vm = PlayerViewModel(app.container, app, Screen.Player(playlistId, ids[0], ChannelFilter.All))
-        compose.waitAdvancingClock { vm.channel != null }
-        // The channel list is looked up (off the main thread) after tuning starts, and nothing says when it's there.
-        repeat(5) {
-            Thread.sleep(100)
-            compose.idleFrames()
-        }
+        compose.waitAdvancingClock { vm.channel != null && vm.channelListLoaded }
         return vm
     }
 
@@ -56,9 +51,8 @@ class GuidePreviewTest {
                 // Two presses before any lookup has answered.
                 repeat(2) { vm.previewGuide(1) }
             }
-            compose.waitAdvancingClock { vm.guideChannel?.streamId != ids[0] }
-            compose.idleFrames()
-            assertEquals(ids[2], vm.guideChannel?.streamId)
+            // Two channels on (a lost press would leave it on the first, and the wait would time out).
+            compose.waitAdvancingClock { vm.guideChannel?.streamId == ids[2] }
         } finally {
             vm.engine?.release()
         }
@@ -73,9 +67,7 @@ class GuidePreviewTest {
                 repeat(2) { vm.previewGuide(1) }
                 vm.watchGuideChannel() // before the panel has caught up
             }
-            compose.waitAdvancingClock { vm.channel?.streamId != ids[0] }
-            compose.idleFrames()
-            assertEquals(ids[2], vm.channel?.streamId)
+            compose.waitAdvancingClock { vm.channel?.streamId == ids[2] } // watching the one before would time out
         } finally {
             vm.engine?.release()
         }

@@ -9,7 +9,7 @@ import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
-/** The most `IN (…)` arguments passed in one query (older Android SQLite allows 999). */
+/** The most `IN (…)` arguments passed in one query (Android before 12 allows 999): longer lists go in chunks. */
 const val MAX_SQL_ARGS = 900
 
 @Dao
@@ -104,8 +104,12 @@ interface CategoryDao {
     )
     suspend fun refreshCounts(pid: Long, type: String)
 
-    @Query("DELETE FROM category WHERE playlistId = :pid AND type = :type AND categoryId NOT IN (:keep)")
-    suspend fun deleteOthers(pid: Long, type: String, keep: List<String>)
+    @Query("DELETE FROM category WHERE playlistId = :pid AND type = :type")
+    suspend fun deleteAll(pid: Long, type: String)
+
+    /** At most [MAX_SQL_ARGS] [ids] at a time. */
+    @Query("DELETE FROM category WHERE playlistId = :pid AND type = :type AND categoryId IN (:ids)")
+    suspend fun delete(pid: Long, type: String, ids: List<String>)
 }
 
 /** A channel number starting with the typed digits (channels without a number are stored as 0 and never match). */
@@ -141,14 +145,14 @@ interface ChannelDao {
 
     @Query(
         """SELECT c.* FROM channel c JOIN favourite f ON f.playlistId = c.playlistId AND f.streamId = c.streamId
-           WHERE c.playlistId = :pid AND (:q = '' OR c.name $LIKE_Q OR CAST(c.number AS TEXT) LIKE :q || '%')
+           WHERE c.playlistId = :pid AND (:q = '' OR $CHANNEL_MATCH)
            ORDER BY c.position, c.name"""
     )
     fun pageFavourites(pid: Long, q: String): PagingSource<Int, ChannelEntity>
 
     @Query(
         """SELECT c.* FROM channel c JOIN recent r ON r.playlistId = c.playlistId AND r.streamId = c.streamId
-           WHERE c.playlistId = :pid AND (:q = '' OR c.name $LIKE_Q OR CAST(c.number AS TEXT) LIKE :q || '%')
+           WHERE c.playlistId = :pid AND (:q = '' OR $CHANNEL_MATCH)
            ORDER BY r.watchedAt DESC"""
     )
     fun pageRecent(pid: Long, q: String): PagingSource<Int, ChannelEntity>
@@ -376,18 +380,33 @@ interface EpgDao {
     @Query("DELETE FROM channel_epg_mapping WHERE sourceId = :sourceId")
     suspend fun deleteMappingsForSource(sourceId: Long)
 
+    /** Automatic matching that found nothing, so the next update tries again. */
+    @Query("DELETE FROM channel_epg_mapping WHERE manual = 0 AND sourceId IS NULL")
+    suspend fun deleteFailedAutoMappings()
+
+    /** Programmes of the guides switched off. */
+    @Query("DELETE FROM programme WHERE sourceId IN (SELECT id FROM epg_source WHERE enabled = 0)")
+    suspend fun clearSwitchedOffProgrammes()
+
+    /** Automatic matches to the guides switched off (the user's own choices stay, for when one is back). */
+    @Query("DELETE FROM channel_epg_mapping WHERE manual = 0 AND sourceId IN (SELECT id FROM epg_source WHERE enabled = 0)")
+    suspend fun deleteSwitchedOffAutoMappings()
+
     @Query("DELETE FROM epg_channel WHERE sourceId = :sourceId")
     suspend fun clearChannels(sourceId: Long)
 
     @Upsert
     suspend fun upsertChannels(items: List<EpgChannelEntity>)
 
-    @Query("SELECT * FROM epg_channel")
-    suspend fun allChannels(): List<EpgChannelEntity>
+    /** The channels of the guides switched on: what matching chooses from. */
+    @Query("SELECT e.* FROM epg_channel e JOIN epg_source s ON s.id = e.sourceId WHERE s.enabled = 1")
+    suspend fun enabledChannels(): List<EpgChannelEntity>
 
+    /** The guide channels to choose from by hand: those of the guides switched on. */
     @Query(
-        """SELECT * FROM epg_channel WHERE (:q = '' OR displayName $LIKE_Q OR xmlId $LIKE_Q)
-           ORDER BY displayName LIMIT :limit"""
+        """SELECT e.* FROM epg_channel e JOIN epg_source s ON s.id = e.sourceId
+           WHERE s.enabled = 1 AND (:q = '' OR e.displayName $LIKE_Q OR e.xmlId $LIKE_Q)
+           ORDER BY e.displayName LIMIT :limit"""
     )
     suspend fun searchChannels(q: String, limit: Int): List<EpgChannelEntity>
 

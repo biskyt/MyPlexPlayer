@@ -88,7 +88,7 @@ class EpgRepository(
 
     private suspend fun matcher(): ChannelMatcher = matcherCache ?: ChannelMatcher(
         // Normalized afresh rather than from nameNorm, so guides stored by an older version follow today's rules.
-        epg.allChannels().map { EpgCandidate(it.sourceId, it.xmlId, it.displayName, ChannelNames.normalize(it.displayName)) }
+        epg.enabledChannels().map { EpgCandidate(it.sourceId, it.xmlId, it.displayName, ChannelNames.normalize(it.displayName)) }
     ).also { matcherCache = it }
 
     fun observeSources() = epg.observeSources()
@@ -125,7 +125,26 @@ class EpgRepository(
 
     suspend fun sourceUrls(): Set<String> = epg.sourceUrls().toHashSet()
 
-    suspend fun setSourceEnabled(source: EpgSourceEntity, enabled: Boolean) = epg.setSourceEnabled(source.id, enabled)
+    /**
+     * Switched off, a guide's programmes go and channels matched to it automatically are matched afresh at the next
+     * update (to the other guides); the user's own choices stay, for when it's back. Switched on, the next update
+     * downloads it again (to read it in full) and tries it for channels that found no guide.
+     */
+    suspend fun setSourceEnabled(source: EpgSourceEntity, enabled: Boolean) {
+        db.withTransaction {
+            epg.setSourceEnabled(source.id, enabled)
+            if (enabled) epg.deleteFailedAutoMappings() else clearSwitchedOff()
+        }
+        if (enabled) metaFile(source.id).delete() // no "not changed" from the server: its programmes went
+        releaseMatcher()
+        changed()
+    }
+
+    /** What the guides switched off left (see [setSourceEnabled]); also for guides switched off by an older version. */
+    private suspend fun clearSwitchedOff() {
+        epg.clearSwitchedOffProgrammes()
+        epg.deleteSwitchedOffAutoMappings()
+    }
 
     suspend fun removeSource(id: Long) {
         db.withTransaction {
@@ -147,6 +166,7 @@ class EpgRepository(
     suspend fun importAll(playlistIds: List<Long>, only: Long? = null, onProgress: (String) -> Unit = {}): Map<Long, String> =
         withContext(Dispatchers.IO) {
             val errors = HashMap<Long, String>()
+            db.withTransaction { clearSwitchedOff() }
             val sources = epg.enabledSources()
             val downloads = downloadAll(sources.filter { only == null || it.id == only || !sourceFile(it.id).exists() }, errors, onProgress)
             // Sources not read in full afterwards: which guide channels they supply before matching, so only what
@@ -351,7 +371,7 @@ class EpgRepository(
             matcher().suggestions(channelName, providerEpgId, limit)
         }
 
-    suspend fun searchGuideChannels(query: String) = epg.searchChannels(query.trim(), 50)
+    suspend fun searchGuideChannels(query: String) = epg.searchChannels(likeArg(query), 50)
 
     suspend fun mappingInfo(playlistId: Long, ids: List<Long>) = if (ids.isEmpty()) emptyList() else epg.mappingInfo(playlistId, ids)
 
