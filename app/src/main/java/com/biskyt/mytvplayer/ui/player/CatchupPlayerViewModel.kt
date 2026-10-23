@@ -169,12 +169,13 @@ class CatchupPlayerViewModel(
     private var resumeAt: Long? = null
 
     override fun onAppHidden() {
-        resumeAt = position()
+        // Not before a stream has opened (its position would count from 1970): coming back then plays what opens.
+        resumeAt = position().takeIf { openedAt != 0L }
         super.onAppHidden()
     }
 
-    override fun onAppShown() {
-        val t = resumeAt ?: return super.onAppShown()
+    override fun resume() {
+        val t = resumeAt ?: return super.resume()
         resumeAt = null
         if (!exit) open(t)
     }

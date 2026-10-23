@@ -77,6 +77,7 @@ import com.biskyt.mytvplayer.ui.common.ProgressLine
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.digit
 import com.biskyt.mytvplayer.ui.common.formatTime
+import com.biskyt.mytvplayer.ui.common.ignoreHeldSelect
 import com.biskyt.mytvplayer.ui.common.numberLabel
 import com.biskyt.mytvplayer.ui.common.onAnyTouch
 import com.biskyt.mytvplayer.ui.common.onGuideKey
@@ -225,7 +226,8 @@ private fun remoteKey(key: Key): RemoteKey? = when (key) {
     Key.DirectionRight -> RemoteKey.RIGHT
     Key.DirectionUp -> RemoteKey.UP
     Key.DirectionDown -> RemoteKey.DOWN
-    Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.Info -> RemoteKey.OK
+    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> RemoteKey.OK
+    Key.Info -> RemoteKey.INFO
     Key.MediaPlayPause -> RemoteKey.PLAY_PAUSE
     Key.MediaPlay -> RemoteKey.PLAY
     Key.MediaPause -> RemoteKey.PAUSE
@@ -350,7 +352,8 @@ internal fun ControlsBar(vm: PlaybackViewModel, buttons: FocusRequester, root: F
     // As they come up (when what's playing is known), and again when a panel over them closes.
     LaunchedEffect(vm.sheet) { if (vm.sheet == null && vm.focusPlayPause) runCatching { buttons.requestFocus() } }
     Row(
-        Modifier.onPreviewKeyEvent { e ->
+        // The OK that brought the controls up is still down: its release (and repeats) mustn't press play/pause too.
+        Modifier.ignoreHeldSelect().onPreviewKeyEvent { e ->
             val upDown = e.key == Key.DirectionUp || e.key == Key.DirectionDown
             when {
                 e.type != KeyEventType.KeyDown -> false

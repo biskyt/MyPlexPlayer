@@ -46,11 +46,11 @@ import com.biskyt.mytvplayer.data.accentName
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
+import com.biskyt.mytvplayer.ui.common.CycleSettingRow
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.SettingRow
 import com.biskyt.mytvplayer.ui.common.Toggle
 import com.biskyt.mytvplayer.ui.common.TvCard
-import com.biskyt.mytvplayer.ui.common.ValueChip
 import com.biskyt.mytvplayer.ui.common.cycle
 import com.biskyt.mytvplayer.ui.common.displayLanguage
 import com.biskyt.mytvplayer.ui.common.nativeLanguageName
@@ -137,18 +137,21 @@ fun PlaybackSettingsScreen() {
     val skipSteps = listOf(5, 10, 15, 20, 30, 45, 60, 90, 120)
     SettingsPage(stringResource(R.string.settings_playback_title)) {
         item {
-            SettingRow(stringResource(R.string.common_skip_back), stringResource(R.string.settings_skip_back_help), {
-                vm.update { it.copy(skipBackSec = skipSteps.cycle(it.skipBackSec)) }
-            }, rememberFirstFocus()) {
-                ValueChip(stringResource(R.string.settings_seconds, s.skipBackSec))
-            }
+            CycleSettingRow(
+                stringResource(R.string.common_skip_back),
+                stringResource(R.string.settings_skip_back_help),
+                stringResource(R.string.settings_seconds, s.skipBackSec),
+                { d -> vm.update { it.copy(skipBackSec = skipSteps.cycle(it.skipBackSec, d)) } },
+                rememberFirstFocus()
+            )
         }
         item {
-            SettingRow(stringResource(R.string.common_skip_forward), stringResource(R.string.settings_skip_forward_help), {
-                vm.update { it.copy(skipForwardSec = skipSteps.cycle(it.skipForwardSec)) }
-            }) {
-                ValueChip(stringResource(R.string.settings_seconds, s.skipForwardSec))
-            }
+            CycleSettingRow(
+                stringResource(R.string.common_skip_forward),
+                stringResource(R.string.settings_skip_forward_help),
+                stringResource(R.string.settings_seconds, s.skipForwardSec),
+                { d -> vm.update { it.copy(skipForwardSec = skipSteps.cycle(it.skipForwardSec, d)) } }
+            )
         }
         item {
             SettingRow(
@@ -163,11 +166,12 @@ fun PlaybackSettingsScreen() {
                 SubtitleMode.FORCED_ONLY -> R.string.settings_subtitles_forced_only
                 SubtitleMode.ALWAYS -> R.string.settings_subtitles_always
             }
-            SettingRow(
+            CycleSettingRow(
                 stringResource(R.string.settings_subtitles),
                 stringResource(R.string.settings_subtitles_help),
-                { vm.update { it.copy(subtitleMode = SubtitleMode.entries.cycle(it.subtitleMode)) } }
-            ) { ValueChip(stringResource(mode)) }
+                stringResource(mode),
+                { d -> vm.update { it.copy(subtitleMode = SubtitleMode.entries.cycle(it.subtitleMode, d)) } }
+            )
         }
         item {
             val languages = listOf("", "en", "fr", "de", "es", "it", "pt", "nl", "pl", "tr", "ar")
@@ -176,9 +180,9 @@ fun PlaybackSettingsScreen() {
             } else {
                 displayLanguage(s.subtitleLanguage)
             }
-            SettingRow(stringResource(R.string.settings_subtitle_language), null, {
-                vm.update { it.copy(subtitleLanguage = languages.cycle(it.subtitleLanguage)) }
-            }) { ValueChip(label) }
+            CycleSettingRow(stringResource(R.string.settings_subtitle_language), null, label, { d ->
+                vm.update { it.copy(subtitleLanguage = languages.cycle(it.subtitleLanguage, d)) }
+            })
         }
         item {
             val label = when (s.bufferSize) {
@@ -186,18 +190,20 @@ fun PlaybackSettingsScreen() {
                 BufferSize.NORMAL -> R.string.settings_buffer_normal
                 BufferSize.LARGE -> R.string.settings_buffer_large
             }
-            SettingRow(stringResource(R.string.settings_buffer), stringResource(R.string.settings_buffer_help), {
-                vm.update { it.copy(bufferSize = BufferSize.entries.cycle(it.bufferSize)) }
-            }) {
-                ValueChip(stringResource(label))
-            }
+            CycleSettingRow(
+                stringResource(R.string.settings_buffer),
+                stringResource(R.string.settings_buffer_help),
+                stringResource(label),
+                { d -> vm.update { it.copy(bufferSize = BufferSize.entries.cycle(it.bufferSize, d)) } }
+            )
         }
         item {
-            SettingRow(stringResource(R.string.settings_stream_format), stringResource(R.string.settings_stream_format_help), {
-                vm.setStreamFormat(StreamFormat.entries.cycle(s.streamFormat))
-            }) {
-                ValueChip(if (s.streamFormat == StreamFormat.TS) "MPEG-TS" else "HLS")
-            }
+            CycleSettingRow(
+                stringResource(R.string.settings_stream_format),
+                stringResource(R.string.settings_stream_format_help),
+                if (s.streamFormat == StreamFormat.TS) "MPEG-TS" else "HLS",
+                { d -> vm.setStreamFormat(StreamFormat.entries.cycle(s.streamFormat, d)) }
+            )
         }
         item {
             SettingRow(stringResource(R.string.settings_start_last), stringResource(R.string.settings_start_last_help), {
@@ -226,9 +232,9 @@ private fun LanguageRow() {
     } else {
         nativeLanguageName(chosen)
     }
-    SettingRow(stringResource(R.string.settings_language), null, {
-        AppText.setLanguage(context, (listOf("") + AppText.languages).cycle(chosen))
-    }) { ValueChip(label) }
+    CycleSettingRow(stringResource(R.string.settings_language), null, label, { d ->
+        AppText.setLanguage(context, (listOf("") + AppText.languages).cycle(chosen, d))
+    })
 }
 
 @Composable

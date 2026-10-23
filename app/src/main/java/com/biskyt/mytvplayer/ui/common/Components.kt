@@ -32,6 +32,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -331,6 +336,24 @@ fun SettingRow(
             trailing()
         }
     }
+}
+
+/**
+ * A setting shown as "◀ [value] ▶": left and right step it back and forward ([onStep] gets -1 or 1), once a press
+ * (held, the language would switch over and over); OK, or a tap, moves it on.
+ */
+@Composable
+fun CycleSettingRow(label: String, help: String?, value: String, onStep: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val keys = Modifier.onPreviewKeyEvent { e ->
+        val step = when (e.key) {
+            Key.DirectionLeft -> -1
+            Key.DirectionRight -> 1
+            else -> return@onPreviewKeyEvent false
+        }
+        if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) onStep(step)
+        true
+    }
+    SettingRow(label, help, { onStep(1) }, modifier.then(keys)) { ValueChip(value) }
 }
 
 /** "◀ value ▶" chip for values changed with left/right (or OK to cycle). */

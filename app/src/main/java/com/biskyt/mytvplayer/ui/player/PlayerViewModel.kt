@@ -102,6 +102,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
         val client = client
         channel = ch
         guideChannel = ch
+        previewStreamId = ch.streamId
         resetForNewStream()
         if (ch.streamUrl != null) {
             // M3U channel: its own URL; the format is worked out from the stream itself.
@@ -157,21 +158,30 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
 
     override fun openGuide() {
         cancelAutoHide()
+        previewJob?.cancel()
         guideChannel = channel
+        previewStreamId = channel?.streamId
         overlay = OverlayState.GUIDE
     }
 
+    /** The channel the guide panel is moving to: set at once, so quick presses each count (as zapping's [targetStreamId]). */
+    private var previewStreamId: Long? = null
+    private var previewJob: Job? = null
+
     /** Moves the guide panel's preview to the previous/next channel without changing what is playing. */
     fun previewGuide(step: Int) {
-        val current = guideChannel?.streamId ?: return
+        val current = previewStreamId ?: return
         if (ids.isEmpty()) return
-        viewModelScope.launch { guideChannel = c.channels.get(screen.playlistId, ids.cycle(current, step)) }
+        val next = ids.cycle(current, step)
+        previewStreamId = next
+        previewJob?.cancel()
+        previewJob = viewModelScope.launch { guideChannel = c.channels.get(screen.playlistId, next) }
     }
 
     fun watchGuideChannel() {
-        val target = guideChannel ?: return
+        val target = previewStreamId ?: return
         closeGuide()
-        if (target.streamId != targetStreamId) tuneTo(target.streamId)
+        if (target != targetStreamId) tuneTo(target)
     }
 
     private companion object {

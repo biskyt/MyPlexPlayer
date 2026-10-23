@@ -7,6 +7,7 @@ enum class RemoteKey {
     UP,
     DOWN,
     OK,
+    INFO,
     BACK,
     PLAY_PAUSE,
     PLAY,
@@ -33,6 +34,7 @@ sealed interface PlayerAction {
     data class Zap(val step: Int) : PlayerAction
     data class Digit(val value: Int) : PlayerAction
     data object ToggleOverlay : PlayerAction
+    data object PauseAndShowControls : PlayerAction
     data object HideOverlay : PlayerAction
     data object TogglePlayPause : PlayerAction
     data object Play : PlayerAction
@@ -50,7 +52,9 @@ enum class OverlayState { NONE, CONTROLS, GUIDE }
 /**
  * Pure mapping from a remote key to a player action, so the behaviour is easy to test:
  * left/right always skip (by the user's settings); the channel buttons zap on live TV, and up/down too when
- * [upDownZaps] (else, with nothing open, they show the controls); Back closes the topmost overlay or stops playback.
+ * [upDownZaps] (else, with nothing open, they show the controls); OK pauses and shows the controls, but on live TV
+ * with [upDownZaps] it only shows them (there's no other easy way to); Back closes the topmost overlay or stops
+ * playback.
  * The media buttons (play/pause, rewind, fast forward, stop) work whatever is open.
  */
 class KeyActionMapper(private val skipBackMs: Long, private val skipForwardMs: Long, private val upDownZaps: Boolean = false) {
@@ -74,7 +78,11 @@ class KeyActionMapper(private val skipBackMs: Long, private val skipForwardMs: L
             }
             RemoteKey.CHANNEL_UP -> if (isLive) PlayerAction.Zap(-1) else PlayerAction.None
             RemoteKey.CHANNEL_DOWN -> if (isLive) PlayerAction.Zap(1) else PlayerAction.None
-            RemoteKey.OK -> PlayerAction.ToggleOverlay
+            RemoteKey.OK -> when {
+                overlay != OverlayState.NONE || (isLive && upDownZaps) -> PlayerAction.ToggleOverlay
+                else -> PlayerAction.PauseAndShowControls
+            }
+            RemoteKey.INFO -> PlayerAction.ToggleOverlay
             RemoteKey.BACK -> if (overlay == OverlayState.CONTROLS) PlayerAction.HideOverlay else PlayerAction.StopAndExit
             RemoteKey.STOP -> PlayerAction.StopAndExit
             RemoteKey.PLAY_PAUSE -> PlayerAction.TogglePlayPause

@@ -2,6 +2,19 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.1.1
+- **OK pauses and brings up the controls** while watching (OK on Play carries on); up, down or Info bring them up
+  without pausing. With "Change channel with up and down" on (Settings › Playback), OK only brings them up, as
+  before.
+- Pressing Home while a catch-up programme, a film or an episode was still starting could leave it playing in the
+  background. Catch-up left that way then failed to start again on coming back.
+- Settings shown as ◀ value ▶ now change with left and right (OK still moves on to the next value).
+- The channel guide over live TV kept losing its place when moving between channels: after one whose programmes
+  start at other times, or one with no guide, left and right stopped working. Quick presses could also skip a channel,
+  and OK straight after them could watch the one before.
+- The TV guide, left open past the half hour, started asking your provider for past programmes it hadn't asked for.
+- A series whose provider lists the same season twice opened with an error.
+
 ## 1.1.0
 - **MyTVPlayer now speaks your language:** English (UK and US), Spanish, Portuguese (Brazil) and French. It starts
   in your TV's language, or in UK English if it isn't one of these. To choose another, go to Settings › Language.
