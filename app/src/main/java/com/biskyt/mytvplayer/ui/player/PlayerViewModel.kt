@@ -64,6 +64,10 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
     /** The format the channel being tuned is playing in: null for an M3U one, else [format] until the other is tried. */
     private var tuning: StreamFormat? = null
     private var ids: List<Long> = emptyList()
+
+    /** Whether the channel list (for zapping and the guide panel's ◀ ▶) has loaded: it comes after tuning starts. */
+    internal val channelListLoaded: Boolean get() = ids.isNotEmpty()
+
     private var tuneJob: Job? = null
 
     /** The channel being tuned to; updated immediately so rapid zapping steps through channels one by one. */

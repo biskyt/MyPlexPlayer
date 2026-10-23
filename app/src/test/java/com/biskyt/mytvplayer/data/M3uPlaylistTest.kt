@@ -102,6 +102,18 @@ class M3uPlaylistTest {
     }
 
     @Test
+    fun `a category ticked while the films load comes in on the next update`() = runBlocking {
+        provider.vodM3u = vodPlaylist
+        val id = playlists.addM3u("Free", provider.url + "free.m3u", moviesUrl = provider.url + "vod.m3u")
+        vod.sync(playlists.get(id)!!)
+        provider.vodM3u = vodPlaylist + "\n" // changed: loaded again
+        // Ticked while that load is under way (its choices already read), which asks for another update after it.
+        vod.sync(playlists.get(id)!!) { runBlocking { db.categories().setIncluded(id, CAT_MOVIE, listOf("FR | Films"), true) } }
+        vod.sync(playlists.get(id)!!)
+        assertEquals(setOf("Big Buck Bunny", "Amélie"), db.vod().searchMovies(id, "%", 10).map { it.title }.toSet())
+    }
+
+    @Test
     fun `an unchanged M3U movie playlist isn't loaded again, and removing it removes its titles`() = runBlocking {
         provider.vodM3u = vodPlaylist
         val id = playlists.addM3u("Free", provider.url + "free.m3u", moviesUrl = provider.url + "vod.m3u")
@@ -321,7 +333,7 @@ class M3uPlaylistTest {
         for (chosen in listOf(true, false)) {
             val id = playlists.addM3u("Free $chosen", provider.url + "free.m3u")
             // As saved before 1.1.0: one "Other" for both, at the end; "News" hidden, so a new category wouldn't be shown.
-            db.categories().deleteOthers(id, CAT_LIVE, listOf("United Kingdom"))
+            db.categories().delete(id, CAT_LIVE, db.categories().all(id, CAT_LIVE).map { it.categoryId } - "United Kingdom")
             db.categories().upsert(
                 listOf(CategoryEntity(id, "News", "News", "News", false, 4), CategoryEntity(id, "Other", "Other", "Other", chosen, 5))
             )
@@ -350,7 +362,7 @@ class M3uPlaylistTest {
         val id = playlists.addM3u("Free", provider.url + "free.m3u")
         // As saved before 1.1.0: "Other" first, hidden.
         val uk = db.categories().all(id, CAT_LIVE).single { it.categoryId == "United Kingdom" }
-        db.categories().deleteOthers(id, CAT_LIVE, listOf("United Kingdom"))
+        db.categories().delete(id, CAT_LIVE, db.categories().all(id, CAT_LIVE).map { it.categoryId } - "United Kingdom")
         db.categories().upsert(listOf(CategoryEntity(id, "Other", "Other", "Other", false, 0), uk.copy(sortOrder = 1)))
         playlists.syncChannels(id)
         val cats = db.categories().all(id, CAT_LIVE)
