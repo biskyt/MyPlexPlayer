@@ -46,6 +46,15 @@ fun ComposeTestRule.focusedText(): String = onAllNodes(isFocused()).fetchSemanti
     node.config.getOrNull(SemanticsProperties.Text)?.joinToString().orEmpty()
 }
 
+/**
+ * Runs what's due on the main thread for a few frames without moving the (simulated) clock on: for work that follows
+ * a key press, without letting timed work (a player's stall check or retry) happen.
+ */
+fun ComposeTestRule.idleFrames() = repeat(10) { waitAdvancingClock { true } }
+
+/** The topmost window's root: where keys go (a side panel is a window of its own). */
+fun ComposeTestRule.topRoot() = onAllNodes(isRoot()).let { it[it.fetchSemanticsNodes().lastIndex] }
+
 /** Lets a second of (simulated) time pass, idling as it goes: for checking that something did *not* happen. */
 fun ComposeTestRule.settle() = repeat(10) {
     ShadowLooper.idleMainLooper(100, TimeUnit.MILLISECONDS)

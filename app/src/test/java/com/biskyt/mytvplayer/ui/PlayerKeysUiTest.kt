@@ -7,7 +7,6 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
-import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.test.core.app.ApplicationProvider
@@ -18,6 +17,7 @@ import com.biskyt.mytvplayer.testutil.Navigators
 import com.biskyt.mytvplayer.testutil.TestApp
 import com.biskyt.mytvplayer.testutil.addHomeTv
 import com.biskyt.mytvplayer.testutil.createUiComposeRule
+import com.biskyt.mytvplayer.testutil.topRoot
 import com.biskyt.mytvplayer.testutil.waitAdvancingClock
 import com.biskyt.mytvplayer.testutil.waitForText
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
@@ -75,7 +75,7 @@ class PlayerKeysUiTest {
 
     /** A remote button, to the topmost window (a panel over the video is a window of its own). */
     private fun press(key: Key) {
-        compose.onAllNodes(isRoot()).let { it[it.fetchSemanticsNodes().lastIndex] }.performKeyInput { pressKey(key) }
+        compose.topRoot().performKeyInput { pressKey(key) }
         compose.waitForIdle()
     }
 
@@ -109,6 +109,27 @@ class PlayerKeysUiTest {
         waitFor("Sleep timer")
         press(Key.MediaStop)
         compose.waitAdvancingClock { navigator.current.screen is Screen.Live } // stopped, back where it was opened from
+    }
+
+    @Test
+    fun `the channel guide previews channel after channel, whatever their programme times`() {
+        // Its programmes start at other times than channel one's: the one focused there isn't in this list.
+        provider.guideShiftMin = mapOf("kite.uk" to 10)
+        runBlocking {
+            val epg = app.container.epg
+            epg.setManual(playlistId, 103, app.container.db.epg().enabledSources().first().id, "kite.uk", offsetMinutes = 0)
+            epg.importAll(listOf(playlistId))
+        }
+        show(Screen.Player(playlistId, 101, ChannelFilter.All))
+        waitFor("Channel guide")
+        press(Key.Guide)
+        waitForFocus("Now on one.uk")
+        press(Key.DirectionLeft) // round to the last channel, Kite Kids
+        waitFor("Now on kite.uk")
+        press(Key.DirectionLeft)
+        waitFor("UK: ARENA SPRTS 1 FHD") // which has no guide
+        press(Key.DirectionLeft)
+        waitFor("Now on one.uk")
     }
 
     @Test

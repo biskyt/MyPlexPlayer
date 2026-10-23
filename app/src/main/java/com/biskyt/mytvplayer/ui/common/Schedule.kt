@@ -1,6 +1,7 @@
 package com.biskyt.mytvplayer.ui.common
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,14 +54,17 @@ fun rememberSchedule(playlistId: Long, streamId: Long): List<ChannelProgramme>? 
     return list
 }
 
-/** Vertical list of upcoming programmes; the current one is marked and gets focus. */
+/**
+ * Vertical list of upcoming programmes; the current one is marked and gets focus, again when the list changes channel.
+ * With none, the message takes focus (so keys still reach the panel around it).
+ */
 @Composable
 fun ScheduleList(programmes: List<ChannelProgramme>?, modifier: Modifier = Modifier, onSelect: (ChannelProgramme) -> Unit = {}) {
     val now by rememberMinuteClock()
-    val first = rememberFirstFocus(programmes?.isNotEmpty() == true)
+    val first = rememberFirstFocus(programmes?.let { it.firstOrNull()?.streamId ?: NO_PROGRAMMES })
     when {
         programmes == null -> Unit
-        programmes.isEmpty() -> Muted(stringResource(R.string.common_no_guide_for_channel), modifier, maxLines = 2)
+        programmes.isEmpty() -> Muted(stringResource(R.string.common_no_guide_for_channel), modifier.then(first).focusable(), maxLines = 2)
         else -> LazyColumn(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             itemsIndexed(programmes, key = { _, p -> p.startMs }) { i, p ->
                 val live = p.isLive(now)
@@ -97,6 +101,9 @@ fun ScheduleList(programmes: List<ChannelProgramme>?, modifier: Modifier = Modif
         }
     }
 }
+
+/** [ScheduleList]'s focus key for an empty list (programmes' keys are their channel's stream id). */
+private const val NO_PROGRAMMES = -1L
 
 /** Marks a programme on now, wherever programmes are listed. */
 @Composable
