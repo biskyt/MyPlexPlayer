@@ -53,12 +53,13 @@ internal class M3uVod(private val db: AppDatabase, private val playlists: Playli
             val feeds = urls.zip(files) { url, file -> Feed(file, seriesOnly = url == series && url != movies) }
             // Unchanged playlists and choices: nothing to do, and nothing parsed to find that out.
             val contents = checksum(movies, series, files)
-            if (fingerprint(p.id, contents) == p.vodFeedHash) return@withFeeds
+            if (fingerprint(contents, included(p.id, CAT_MOVIE), included(p.id, CAT_SERIES)) == p.vodFeedHash) return@withFeeds
             storeGroups(p.id, feeds)
             val movieCats = included(p.id, CAT_MOVIE)
             val seriesCats = included(p.id, CAT_SERIES)
             load(p.id, feeds, movieCats, seriesCats, onProgress)
-            db.playlists().setVodFeedHash(p.id, fingerprint(p.id, contents))
+            // Of the choices loaded: one changed meanwhile then differs, so the next update loads again.
+            db.playlists().setVodFeedHash(p.id, fingerprint(contents, movieCats, seriesCats))
         }
     }
 
@@ -89,7 +90,7 @@ internal class M3uVod(private val db: AppDatabase, private val playlists: Playli
     }
 
     private suspend fun store(playlistId: Long, type: String, groups: Set<String>) = if (groups.isEmpty()) {
-        categories.deleteOthers(playlistId, type, emptyList())
+        categories.deleteAll(playlistId, type)
     } else {
         categoryStore.store(playlistId, type, groups.map(M3uCategories::category))
     }
@@ -161,8 +162,8 @@ internal class M3uVod(private val db: AppDatabase, private val playlists: Playli
             dao.deleteMovies(p.id)
             dao.deleteSeries(p.id)
             dao.deleteEpisodes(p.id)
-            categories.deleteOthers(p.id, CAT_MOVIE, emptyList())
-            categories.deleteOthers(p.id, CAT_SERIES, emptyList())
+            categories.deleteAll(p.id, CAT_MOVIE)
+            categories.deleteAll(p.id, CAT_SERIES)
             dao.setVodFeedHash(p.id, null)
         }
     }
@@ -176,11 +177,11 @@ internal class M3uVod(private val db: AppDatabase, private val playlists: Playli
     }
 
     /** [contents] with the categories chosen, and how they're filed: if none changed, a load would change nothing. */
-    private suspend fun fingerprint(playlistId: Long, contents: Long): Long {
+    private fun fingerprint(contents: Long, movieCats: Set<String>, seriesCats: Set<String>): Long {
         val crc = CRC32()
         crc.update("$FILING|$contents".toByteArray())
-        listOf(CAT_MOVIE, CAT_SERIES).forEach { type ->
-            included(playlistId, type).sorted().forEach { crc.update("$type|$it".toByteArray()) }
+        mapOf(CAT_MOVIE to movieCats, CAT_SERIES to seriesCats).forEach { (type, cats) ->
+            cats.sorted().forEach { crc.update("$type|$it".toByteArray()) }
         }
         return crc.value
     }

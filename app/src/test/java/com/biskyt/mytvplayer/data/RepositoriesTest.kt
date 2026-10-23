@@ -340,10 +340,16 @@ class RepositoriesTest {
         vod.sync(p)
         assertEquals(setOf("Dune", "Amélie", "Heat"), db.vod().moviesSnapshot(id).map { it.title }.toSet())
 
-        // A movie list with nothing included (as stored by 0.3.0, which ignored untagged categories) gets its defaults again.
+        // Unticking every movie category turns movies off: the next sync doesn't tick the defaults again.
         db.categories().setIncluded(id, CAT_MOVIE, listOf("10", "11", "12"), false)
         vod.sync(p)
-        assertEquals(listOf("10", "12"), db.categories().all(id, CAT_MOVIE).filter { it.included }.map { it.categoryId })
+        assertEquals(listOf<String>(), db.categories().all(id, CAT_MOVIE).filter { it.included }.map { it.categoryId })
+        assertEquals(listOf<String>(), db.vod().moviesSnapshot(id).map { it.title })
+        // Nor does a new category the provider adds, though categories named without a language are usually ticked.
+        provider.movieCategories = provider.movieCategories + ("13" to "DOCUMENTARIES")
+        provider.movies = provider.movies + Triple(801L, "Planet (2020)", "13")
+        vod.sync(p)
+        assertEquals(listOf<String>(), db.categories().all(id, CAT_MOVIE).filter { it.included }.map { it.categoryId })
     }
 
     @Test

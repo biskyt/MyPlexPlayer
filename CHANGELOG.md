@@ -6,6 +6,12 @@ Each version's section becomes its GitHub release notes, so it is written for th
 - **OK pauses and brings up the controls** while watching (OK on Play carries on); up, down or Info bring them up
   without pausing. With "Change channel with up and down" on (Settings › Playback), OK only brings them up, as
   before.
+- **Providers with more than 999 categories** couldn't be updated on Android 9, 10 and 11 (many TVs): the update
+  failed every time.
+- **Unticking every movie or series category now turns them off.** The next update used to tick the usual ones again.
+- A TV guide source switched off (Settings › TV guide sources) is no longer used: its programmes go, its channels
+  aren't offered to choose from, and at the next update channels are matched to your other guides. Switched back on,
+  it returns with the next guide update, guide channels you chose by hand included.
 - Pressing Home while a catch-up programme, a film or an episode was still starting could leave it playing in the
   background. Catch-up left that way then failed to start again on coming back.
 - Settings shown as ◀ value ▶ now change with left and right (OK still moves on to the next value).
@@ -14,6 +20,9 @@ Each version's section becomes its GitHub release notes, so it is written for th
   and OK straight after them could watch the one before.
 - The TV guide, left open past the half hour, started asking your provider for past programmes it hadn't asked for.
 - A series whose provider lists the same season twice opened with an error.
+- With M3U playlists, a movie or series category ticked while they were loading never loaded.
+- Typing a number in Favourites and Recent now finds channels as the other lists do (a "0" listed every channel
+  without a number), and searching guide channels takes "%" and "_" as they are.
 
 ## 1.1.0
 - **MyTVPlayer now speaks your language:** English (UK and US), Spanish, Portuguese (Brazil) and French. It starts

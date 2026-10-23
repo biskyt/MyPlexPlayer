@@ -6,6 +6,7 @@ import com.biskyt.mytvplayer.core.xtream.XtreamCategory
 import com.biskyt.mytvplayer.data.db.AppDatabase
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CategoryEntity
+import com.biskyt.mytvplayer.data.db.MAX_SQL_ARGS
 import java.util.Locale
 
 /**
@@ -32,13 +33,13 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
      * Saves the provider's categories of one [type], keeping the user's choices for ones already known.
      *
      * Movie and series categories are often named without a language ("Action", "Netflix Movies"); those are taken to
-     * be in the provider's main language and included too. If none of a movie or series list is included yet (as
-     * after updating from a version that didn't do this), its defaults are applied again.
+     * be in the provider's main language and included too. A movie or series list the user unticked entirely is off:
+     * new categories in it stay unticked too.
      */
     suspend fun store(playlistId: Long, type: String, remote: List<XtreamCategory>, groupByName: Boolean = false) {
         val vod = type != CAT_LIVE
-        val known = categories.all(playlistId, type).associateBy { it.categoryId }
-        val existing = if (vod && known.values.none { it.included }) emptyMap() else known
+        val existing = categories.all(playlistId, type).associateBy { it.categoryId }
+        val switchedOff = vod && existing.isNotEmpty() && existing.values.none { it.included }
         val detected = remote.map(::detectedGroup)
         val langs = remote.mapIndexed { i, c -> detected[i] ?: genreGroup(c, groupByName) }
         val isNew: (Int) -> Boolean = if (existing.isEmpty()) {
@@ -59,16 +60,18 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
                 categoryId = c.id,
                 name = c.name,
                 lang = langs[i],
-                included = old?.included ?: (isNew(i) || (vod && langs[i] == null)),
+                included = old?.included ?: (!switchedOff && (isNew(i) || (vod && langs[i] == null))),
                 // An inherited place only once the old category has gone, so the two don't share it.
                 sortOrder = old?.takeIf { it.categoryId == c.id || it.categoryId !in remoteIds }?.sortOrder ?: (existing.size + i),
                 channelCount = old?.channelCount ?: 0,
                 type = type
             )
         }
+        // Those the provider no longer has go.
+        val gone = if (remote.isEmpty()) emptyList() else existing.keys.filter { it !in remoteIds }
         db.withTransaction {
             categories.upsert(items)
-            if (items.isNotEmpty()) categories.deleteOthers(playlistId, type, items.map { it.categoryId })
+            gone.chunked(MAX_SQL_ARGS).forEach { categories.delete(playlistId, type, it) }
         }
     }
 
