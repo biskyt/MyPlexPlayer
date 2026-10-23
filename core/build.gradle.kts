@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
+    // Test helpers the app's tests share (RegexPortability).
+    `java-test-fixtures`
 }
 
 java {
@@ -23,4 +25,5 @@ dependencies {
     testImplementation(libs.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.kxml2)
+    testFixturesImplementation(libs.junit)
 }

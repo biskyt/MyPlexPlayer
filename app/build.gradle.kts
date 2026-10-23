@@ -81,6 +81,9 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
         unitTests.all {
+            // A test JVM per two cores, up to 4 (each needs about 1 GB): about a fifth faster on CI's 4 cores. Each JVM
+            // has its own app, database and settings.
+            it.maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4)
             it.systemProperty("robolectric.graphicsMode", "NATIVE")
             // Store graphics and screenshots (StoreAssetsTest) are only made when asked for: -PstoreAssets
             it.systemProperty("storeAssets", project.hasProperty("storeAssets").toString())
@@ -147,6 +150,7 @@ dependencies {
     implementation(libs.zxing.core)
 
     testImplementation(libs.junit)
+    testImplementation(testFixtures(project(":core")))
     testImplementation(libs.coroutines.test)
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
