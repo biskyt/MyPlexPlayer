@@ -37,9 +37,9 @@ import com.biskyt.mytvplayer.data.db.VodCard
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
-import com.biskyt.mytvplayer.ui.common.CategoryColumn
 import com.biskyt.mytvplayer.ui.common.CategoryEntry
 import com.biskyt.mytvplayer.ui.common.CategoryFilter
+import com.biskyt.mytvplayer.ui.common.FilteredCategoryColumn
 import com.biskyt.mytvplayer.ui.common.ListHeader
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.POSTER_WIDTH
@@ -127,7 +127,7 @@ fun VodBrowseScreen(type: String, initialFilter: VodFilter) {
     }
     TabScaffold(if (vm.isMovies) Tab.MOVIES else Tab.SERIES) {
         Row(Modifier.fillMaxSize().padding(horizontal = 56.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            CategoryColumn(entries, filter, vm.filters::focus, vm.filters::select, vm::hideCategory)
+            FilteredCategoryColumn(entries, fixed = 3, filter, vm.filters::focus, vm.filters::select, vm::hideCategory)
             Column(Modifier.weight(1f)) {
                 Header(vm, entries.firstOrNull { it.filter == filter })
                 val p = playlist

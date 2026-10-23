@@ -47,14 +47,16 @@ import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.db.ChannelEntity
+import com.biskyt.mytvplayer.data.label
+import com.biskyt.mytvplayer.data.programmeTitle
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.AppIcons
 import com.biskyt.mytvplayer.ui.common.CatchupMark
-import com.biskyt.mytvplayer.ui.common.CategoryColumn
 import com.biskyt.mytvplayer.ui.common.CategoryEntry
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
+import com.biskyt.mytvplayer.ui.common.FilteredCategoryColumn
 import com.biskyt.mytvplayer.ui.common.FlashLabel
 import com.biskyt.mytvplayer.ui.common.ListHeader
 import com.biskyt.mytvplayer.ui.common.Muted
@@ -66,6 +68,7 @@ import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.categoryEntries
 import com.biskyt.mytvplayer.ui.common.digit
+import com.biskyt.mytvplayer.ui.common.distinctLabels
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.common.isGuide
 import com.biskyt.mytvplayer.ui.common.numberLabel
@@ -169,7 +172,7 @@ private fun LiveCategories(vm: LiveViewModel, selected: ChannelFilter) {
             CategoryEntry(ChannelFilter.All, all)
         ) + categoryEntries<ChannelFilter>(categories) { ChannelFilter.Category(it.categoryId) }
     }
-    CategoryColumn(entries, selected, vm.filters::focus, vm.filters::select, vm::hideCategory)
+    FilteredCategoryColumn(entries, fixed = 3, selected, vm.filters::focus, vm.filters::select, vm::hideCategory)
 }
 
 /** The Catch-up tab's column: all catch-up channels, then each category that has some. */
@@ -179,9 +182,11 @@ private fun CatchupCategories(vm: LiveViewModel, selected: ChannelFilter) {
     val all = stringResource(R.string.live_all_catchup)
     val entries = remember(categories, all) {
         listOf<CategoryEntry<ChannelFilter>>(CategoryEntry(ChannelFilter.Catchup, all, categories.sumOf { it.count })) +
-            categories.map { CategoryEntry<ChannelFilter>(ChannelFilter.CatchupCategory(it.categoryId), it.name, it.count) }
+            distinctLabels(categories, { it.label }, { it.lang }) { c, label ->
+                CategoryEntry<ChannelFilter>(ChannelFilter.CatchupCategory(c.categoryId), label, c.count)
+            }
     }
-    CategoryColumn(entries, selected, vm.filters::focus, vm.filters::select)
+    FilteredCategoryColumn(entries, fixed = 1, selected, vm.filters::focus, vm.filters::select)
 }
 
 @Composable
@@ -191,7 +196,7 @@ private fun ListHeader(vm: LiveViewModel, filter: ChannelFilter, filterModifier:
     val (title, count) = if (vm.catchupMode) {
         val categories by vm.catchupCategories.collectAsState()
         val shown = (filter as? ChannelFilter.CatchupCategory)?.let { f -> categories.firstOrNull { it.categoryId == f.id } }
-        (shown?.name ?: stringResource(R.string.common_catchup)) to (shown?.count ?: categories.sumOf { it.count })
+        (shown?.label ?: stringResource(R.string.common_catchup)) to (shown?.count ?: categories.sumOf { it.count })
     } else {
         val categories by vm.categories.collectAsState()
         val total by vm.totalCount.collectAsState()
@@ -200,7 +205,7 @@ private fun ListHeader(vm: LiveViewModel, filter: ChannelFilter, filterModifier:
             ChannelFilter.All -> stringResource(R.string.live_all_channels) to total
             ChannelFilter.Favourites -> stringResource(R.string.common_favourites) to favs.size
             is ChannelFilter.Category -> categories.firstOrNull { it.categoryId == filter.id }.let {
-                (it?.name ?: stringResource(R.string.common_channels)) to
+                (it?.label ?: stringResource(R.string.common_channels)) to
                     it?.channelCount
             }
             else -> stringResource(R.string.common_recent) to null
@@ -296,9 +301,14 @@ fun ChannelRow(
                     nn == null -> SkeletonLines()
                     nn.now == null -> Muted(stringResource(R.string.common_no_guide))
                     else -> {
-                        Text(nn.now.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
-                            nn.next?.let { stringResource(R.string.live_next, formatTime(it.startMs), it.title) }
+                            programmeTitle(nn.now.title),
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            nn.next?.let { stringResource(R.string.live_next, formatTime(it.startMs), programmeTitle(it.title)) }
                                 ?: stringResource(R.string.live_until, formatTime(nn.now.stopMs)),
                             style = MaterialTheme.typography.bodySmall,
                             color = Palette.textDim,

@@ -37,6 +37,7 @@ import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.db.ChannelProgramme
+import com.biskyt.mytvplayer.data.programmeTitle
 import com.biskyt.mytvplayer.hideSystemBars
 import com.biskyt.mytvplayer.ui.theme.Palette
 
@@ -72,7 +73,12 @@ fun ScheduleList(programmes: List<ChannelProgramme>?, modifier: Modifier = Modif
                             modifier = Modifier.width(52.dp)
                         )
                         Column(Modifier.weight(1f)) {
-                            Text(p.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                programmeTitle(p.title),
+                                style = MaterialTheme.typography.titleSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                             if (live) OnNowLabel()
                             val detail = p.subtitle ?: p.description
                             if (detail != null && (live || i < 3)) {
