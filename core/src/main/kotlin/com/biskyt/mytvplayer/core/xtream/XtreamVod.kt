@@ -159,6 +159,7 @@ internal fun JsonElement.toSeriesDetails(): SeriesDetails? {
     // Some panels list no seasons, only episodes: derive them.
     val allSeasons = seasons.ifEmpty { episodes.map { it.season }.distinct().map { SeasonInfo(it, null) } }
         .filter { s -> episodes.any { it.season == s.number } }
+        .distinctBy { it.number } // some panels list a season twice
         .sortedBy { it.number }
     return SeriesDetails(o.obj("info").toDetails(), allSeasons, episodes)
 }

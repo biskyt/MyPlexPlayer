@@ -60,9 +60,23 @@ class PlayerLogicTest {
         assertEquals(PlayerAction.OpenGuide, mapper.map(RemoteKey.GUIDE, NONE, isLive = true))
         assertEquals(PlayerAction.None, mapper.map(RemoteKey.GUIDE, NONE, isLive = false))
         assertEquals(PlayerAction.None, mapper.map(RemoteKey.LEFT, GUIDE, isLive = true))
-        assertEquals(PlayerAction.ToggleOverlay, mapper.map(RemoteKey.OK, NONE, isLive = true))
-        assertEquals(PlayerAction.ToggleOverlay, mapper.map(RemoteKey.OK, CONTROLS, isLive = true))
         assertEquals(PlayerAction.Digit(7), mapper.map(RemoteKey.DIGIT, NONE, isLive = true, digit = 7))
+    }
+
+    @Test
+    fun `ok pauses and shows the controls, unless up and down zap live tv`() {
+        // Up and down show the controls without pausing.
+        assertEquals(PlayerAction.PauseAndShowControls, mapper.map(RemoteKey.OK, NONE, isLive = true))
+        assertEquals(PlayerAction.PauseAndShowControls, mapper.map(RemoteKey.OK, NONE, isLive = false))
+        // Up and down zap, so OK is the way to the controls: it only shows them.
+        val zapper = KeyActionMapper(10_000, 30_000, upDownZaps = true)
+        assertEquals(PlayerAction.ToggleOverlay, zapper.map(RemoteKey.OK, NONE, isLive = true))
+        assertEquals(PlayerAction.PauseAndShowControls, zapper.map(RemoteKey.OK, NONE, isLive = false))
+        // With the controls up (and focus on the video), OK hides them.
+        assertEquals(PlayerAction.ToggleOverlay, mapper.map(RemoteKey.OK, CONTROLS, isLive = true))
+        assertEquals(PlayerAction.ToggleOverlay, zapper.map(RemoteKey.OK, CONTROLS, isLive = true))
+        // Info only shows or hides them.
+        assertEquals(PlayerAction.ToggleOverlay, mapper.map(RemoteKey.INFO, NONE, isLive = false))
     }
 
     private val tracks = listOf(

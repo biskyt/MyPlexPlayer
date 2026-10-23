@@ -119,6 +119,12 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         }
 
         override fun onPlaybackStateChanged(state: Int) {
+            // Something started a stream while the app is in the background (a lookup finishing, a retry): stop it.
+            // Coming back prepares it again (see onAppShown).
+            if (hidden && (state == Player.STATE_BUFFERING || state == Player.STATE_READY)) {
+                engine?.player?.stop()
+                return
+            }
             buffering = state == Player.STATE_BUFFERING
             if (state == Player.STATE_READY) error = null
             if (state == Player.STATE_ENDED) onEnded()
@@ -214,6 +220,8 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     /** A remote key; [repeat] counts the repeats while it's held. */
     fun onKey(key: RemoteKey, digit: Int = 0, repeat: Int = 0): Boolean {
         if (!::mapper.isInitialized) return false
+        // A held OK does it once (its repeats would toggle the controls, or the pause, back and forth).
+        if (key == RemoteKey.OK && repeat > 0) return true
         val action = mapper.map(key, overlay, isLive, digit)
         if (overlay != OverlayState.NONE) showControls(keepOverlay = true)
         return perform(action, repeat)
@@ -231,6 +239,10 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             is PlayerAction.Zap -> zap(action.step)
             is PlayerAction.Digit -> typeDigit(action.value)
             PlayerAction.ToggleOverlay -> if (overlay == OverlayState.NONE) showControls() else hideOverlay()
+            PlayerAction.PauseAndShowControls -> {
+                player?.pause()
+                showControls()
+            }
             PlayerAction.HideOverlay -> hideOverlay()
             PlayerAction.TogglePlayPause -> player?.let { if (it.isPlaying) it.pause() else it.play() }
             PlayerAction.Play -> player?.play()
@@ -256,13 +268,23 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         if (!::mapper.isInitialized) stop() else perform(mapper.map(RemoteKey.BACK, overlay, isLive))
     }
 
+    /** Whether the app is in the background, where nothing may stream. */
+    private var hidden = false
+
     /** Called when the app goes to the background / comes back: nothing is left streaming in the background. */
     open fun onAppHidden() {
+        hidden = true
         cancelScrub()
         engine?.player?.stop()
     }
 
-    open fun onAppShown() {
+    fun onAppShown() {
+        hidden = false
+        resume()
+    }
+
+    /** Back in the app: plays again what was stopped. */
+    protected open fun resume() {
         engine?.player?.let {
             if (it.playbackState == Player.STATE_IDLE && !exit) {
                 it.prepare()
