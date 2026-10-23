@@ -10,6 +10,9 @@
   - "Find in Series / Movies" from the TV guide.
 - **0.8:** Catch-up TV: per-channel catch-up page, Start over, and past programmes in the TV guide (Xtream).
 - **0.9:** Movies and series from M3U playlists, M3U catch-up, and provider M3U links added as logins.
+- **1.0:** Touch support for phones and tablets, and the free channels' own programme guide.
+- **1.1:** The app in UK and US English, Spanish, Portuguese (Brazil) and French. Also a category filter, and a new
+  search order.
 
 ## Milestone 2: Movies, Series and search
 - Programme reminders.
@@ -33,7 +36,7 @@ In the TV guide, a programme's options menu (hold OK, or Info) offers a way to w
 
 ## Later
 - Recording to USB storage (DVR).
-- Touch support for phones, foldables and tablets: touch-friendly controls, phone layouts and player gestures.
+- More touch: portrait phone layouts, foldables and player gestures (1.0 has touch in landscape).
 
 ## Not planned
 PIN lock, multi-view, Stalker portals, Trakt, voice search, picture-in-picture.
