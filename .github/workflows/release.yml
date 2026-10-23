@@ -3,7 +3,7 @@ name: Release
 # Publishes a GitHub Release with the signed APK (for sideloading), and uploads the AAB to Google Play's closed testing
 # track (when the Play secret is set; see RELEASING.md). The AAB is also kept as a workflow artifact on the run.
 # Start it by pushing a tag that matches the app's versionName (e.g. `git tag v0.2.4 && git push origin v0.2.4`),
-# or from the Actions tab ("Run workflow"), which tags the chosen branch for you.
+# or from the Actions tab ("Run workflow") on main, which tags it for you.
 
 on:
   push:
@@ -12,6 +12,11 @@ on:
 
 permissions:
   contents: write
+
+# One release at a time (a tag push and a hand-started run could otherwise both publish and upload to Play).
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -23,6 +28,36 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Before anything is set up: a release is made from main (or a tag on it), and only once.
+      - name: Read the version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          fail() { echo "::error::$1"; exit 1; }
+          case "$GITHUB_REF" in
+            "refs/tags/v$version")
+              on_main=$(gh api "repos/$GITHUB_REPOSITORY/compare/main...$GITHUB_SHA" --jq .status 2>&1) || true
+              [ "$on_main" = identical ] || [ "$on_main" = behind ] || fail "Tag v$version isn't on main: $on_main" ;;
+            refs/heads/main)
+              # Started by hand: the tag is made by this run, so one already there was left by an earlier run.
+              # (ls-remote: 0 found, 2 not found, anything else couldn't check.)
+              status=0
+              git ls-remote --exit-code --tags origin "refs/tags/v$version" > /dev/null || status=$?
+              [ "$status" != 0 ] || fail "Tag v$version already exists: delete it if a failed run left it"
+              [ "$status" = 2 ] || fail "Couldn't check for a tag v$version (git ls-remote: $status)" ;;
+            *)
+              fail "$GITHUB_REF isn't main or the tag v$version (versionName in app/build.gradle.kts)" ;;
+          esac
+          release=$(gh api -i "repos/$GITHUB_REPOSITORY/releases/tags/v$version" 2>/dev/null | head -1 | cut -d' ' -f2)
+          case "$release" in
+            404) ;;
+            200) fail "Release v$version already exists" ;;
+            *) fail "Couldn't check for an existing release (HTTP $release)" ;;
+          esac
+
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -30,15 +65,15 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
 
-      - name: Read the version
-        id: version
-        run: |
-          version=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts)
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$version" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME doesn't match versionName $version in app/build.gradle.kts"
-            exit 1
-          fi
+      # Robolectric's Android images, from CI's cache.
+      - name: Robolectric cache key
+        id: robolectric
+        run: echo "key=$(.github/scripts/robolectric-cache-key.sh)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: ${{ steps.robolectric.outputs.key }}
 
       # The upload key lives in repository secrets. Without them the build falls back to the public development key,
       # which is fine for testing but must not be used for a real release (anyone could sign an "update").

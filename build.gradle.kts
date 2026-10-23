@@ -19,6 +19,8 @@ subprojects {
     extensions.configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
         buildUponDefaultConfig = true
         config.setFrom(rootProject.file("config/detekt.yml"))
+        // Besides the default main and test sources: core's test fixtures.
+        source.from("src/testFixtures/kotlin")
         parallel = true
     }
 }
