@@ -116,7 +116,10 @@ See also:
     1.10.2; an IdlingResource isn't consulted by performScrollToNode, which then loops until out of memory). A
     coroutines upgrade that renames it fails every UI test at once.
   - **Waits:** go through `waitAdvancingClock(stepMs)` in `testutil/UiWait.kt`, because the main looper is paused. Use step 0 to run due work, and a step greater than 0 when delayed work (debounces, timeouts) must happen.
-  - **Settings outlive a test:** the settings DataStore is process-wide, so set what a test relies on in its `setUp`.
+  - **Catch-up from FakeProvider is timed from now** and filed by local day: a test that checks the days uses the
+    `LocalMidday` rule, or it fails between midnight and 2am.
+  - **Settings start from defaults:** the settings DataStore is process-wide, so `TestApp` and `PlainApp` reset it when
+    each test ends. A test sets only what differs from the defaults (in its `setUp`).
   - **A panel is its own window:** `SidePanel` dialogs are separate windows. Send keys to the right root (`onAllNodes(isRoot())`).
   - **Thread dumps on timeout:** `otherThreads()` in UiWait.kt dumps the other threads when a wait times out.
 - **Detekt limits:**

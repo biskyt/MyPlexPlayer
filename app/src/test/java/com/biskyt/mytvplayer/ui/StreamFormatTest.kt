@@ -5,6 +5,7 @@ import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.StreamFormat
 import com.biskyt.mytvplayer.testutil.FakeProvider
 import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.testutil.addHomeTv
 import com.biskyt.mytvplayer.testutil.createUiComposeRule
 import com.biskyt.mytvplayer.testutil.waitAdvancingClock
 import kotlinx.coroutines.runBlocking
@@ -30,9 +31,7 @@ class StreamFormatTest {
 
     @Before
     fun setUp() = runBlocking {
-        playlistId = app.container.playlists.add("Home TV", provider.url, "me", "secret")
-        app.container.playlists.syncChannels(playlistId)
-        Unit
+        playlistId = app.container.addHomeTv(provider)
     }
 
     @After
@@ -74,6 +73,5 @@ class StreamFormatTest {
         settings.rememberStreamFormat(playlistId, StreamFormat.TS)
         app.container.playlists.delete(playlistId)
         assertEquals(null, settings.streamFormatFor(playlistId))
-        settings.setStreamFormat(StreamFormat.TS) // settings outlive the test
     }
 }

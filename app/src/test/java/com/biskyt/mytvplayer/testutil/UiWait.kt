@@ -2,8 +2,12 @@ package com.biskyt.mytvplayer.testutil
 
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.ComposeTimeoutException
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.compose.ui.test.printToString
 import java.util.concurrent.TimeUnit
 import org.robolectric.shadows.ShadowLooper
 
@@ -21,6 +25,16 @@ const val UI_WAIT_MS = 15_000L
 fun ComposeTestRule.waitAdvancingClock(stepMs: Long = 0, condition: () -> Boolean) = waitUntil(UI_WAIT_MS) {
     ShadowLooper.idleMainLooper(stepMs, TimeUnit.MILLISECONDS)
     condition()
+}
+
+/** Waits for [text] (or text containing it) on screen, as [waitAdvancingClock] does; on a timeout, says what's shown. */
+fun ComposeTestRule.waitForText(text: String, stepMs: Long = 0) = try {
+    waitAdvancingClock(stepMs) { onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
+} catch (e: ComposeTimeoutException) {
+    // Every window: a side panel is one of its own.
+    val screen = onAllNodes(isRoot(), useUnmergedTree = true).fetchSemanticsNodes().indices
+        .joinToString("\n") { onAllNodes(isRoot(), useUnmergedTree = true)[it].printToString() }
+    throw AssertionError("'$text' not shown. Screen:\n$screen", e)
 }
 
 /** What every other thread is doing (the top of its stack), for a wait that timed out. */

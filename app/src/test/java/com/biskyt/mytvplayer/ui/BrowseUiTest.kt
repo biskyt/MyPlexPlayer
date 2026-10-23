@@ -5,19 +5,19 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
-import androidx.compose.ui.test.printToString
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.testutil.FakeProvider
 import com.biskyt.mytvplayer.testutil.Navigators
 import com.biskyt.mytvplayer.testutil.TestApp
+import com.biskyt.mytvplayer.testutil.addHomeTv
 import com.biskyt.mytvplayer.testutil.createUiComposeRule
 import com.biskyt.mytvplayer.testutil.focusedText
 import com.biskyt.mytvplayer.testutil.waitAdvancingClock
+import com.biskyt.mytvplayer.testutil.waitForText
 import com.biskyt.mytvplayer.ui.live.LiveScreen
 import com.biskyt.mytvplayer.ui.search.SearchScreen
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
@@ -45,15 +45,8 @@ class BrowseUiTest {
 
     @Before
     fun setUp() = runBlocking {
-        val c = app.container
         provider.nowProgramme = mapOf("one.uk" to "<title>Paddington Bear Live</title>")
-        val id = c.playlists.add("Home TV", provider.url, "me", "secret")
-        c.playlists.syncChannels(id)
-        c.vod.sync(c.playlists.get(id)!!)
-        c.playlists.get(id)?.let { c.epg.ensureProviderSource(it, c.playlists.client(it).xmltvUrl()) }
-        c.epg.importAll(listOf(id))
-        c.settings.update { it.copy(lastLiveFilter = "all") }
-        c.settings.current()
+        app.container.addHomeTv(provider, vod = true, guide = true)
         Unit
     }
 
@@ -77,11 +70,7 @@ class BrowseUiTest {
 
     private fun shown(text: String) = compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty()
 
-    private fun waitFor(text: String) = try {
-        compose.waitAdvancingClock(50) { shown(text) }
-    } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
-        throw AssertionError("'$text' not shown. Screen:\n" + compose.onRoot(useUnmergedTree = true).printToString(), e)
-    }
+    private fun waitFor(text: String) = compose.waitForText(text, stepMs = 50)
 
     // The list's heading names its category too: only the column's entries can be clicked.
     private fun inColumn(text: String) = compose.onAllNodes(hasText(text) and hasClickAction()).fetchSemanticsNodes().isNotEmpty()
