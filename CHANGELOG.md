@@ -7,6 +7,13 @@ Each version's section becomes its GitHub release notes, so it is written for th
   in your TV's language, or in UK English if it isn't one of these. To choose another, go to Settings › Language.
 - Times, dates, numbers and language names (in the audio and subtitle menus) follow the app's language.
 - "1 of 1 category", "1 channel" and "the last 1 day" now read correctly.
+- The app's own words for things a playlist or guide leaves unnamed ("No title"), and TV guide errors, now follow the
+  app's language too. Names from your playlists and guides, and the names you give them, never change.
+- M3U channels, films and series with no category of their own are now under "No category", apart from a category
+  the playlist itself calls "Other" (they were together). Both keep whether you chose to show them.
+- **A filter above the categories** in Live TV, Catch-up, Movies and Series: type part of a name to find a category
+  in a long list.
+- Search shows channels, then movies and series, then TV programmes.
 
 ## 1.0.1
 - **Restoring a backup on TVs without Android's file picker** (such as Philips): instead of "no application can

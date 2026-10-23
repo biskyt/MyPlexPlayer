@@ -124,7 +124,7 @@ class XmltvParser(
         }
         val ep = packedEpisode
         return XmltvProgramme(
-            channelId, start, stop, title?.ifEmpty { null } ?: "No title", sub?.ifEmpty { null }, desc?.ifEmpty { null },
+            channelId, start, stop, title.orEmpty(), sub?.ifEmpty { null }, desc?.ifEmpty { null },
             ProgrammeKind.finish(kind, ep != null), ep?.let(ProgrammeKind::season), ep?.let(ProgrammeKind::episode)
         )
     }

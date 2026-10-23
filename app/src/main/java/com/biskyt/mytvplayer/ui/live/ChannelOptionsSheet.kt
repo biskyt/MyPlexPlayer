@@ -21,6 +21,7 @@ import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.core.epg.ProgrammeKind
 import com.biskyt.mytvplayer.data.db.ChannelEntity
+import com.biskyt.mytvplayer.data.programmeTitle
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
@@ -53,7 +54,7 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                 }
             }
             if (programme != null) {
-                Text(programme.title, style = MaterialTheme.typography.titleMedium, maxLines = 2)
+                Text(programmeTitle(programme.title), style = MaterialTheme.typography.titleMedium, maxLines = 2)
                 Muted("${formatTime(programme.startMs)} – ${formatTime(programme.stopMs)}", Modifier.padding(bottom = 4.dp))
             }
             if (showGuide) {

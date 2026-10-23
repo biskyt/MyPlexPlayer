@@ -51,15 +51,17 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
             val includes = includesNew(existing.values, groupByName)
             fun(i: Int) = includes(remote[i])
         }
+        val remoteIds = remote.mapTo(HashSet()) { it.id }
         val items = remote.mapIndexed { i, c ->
-            val old = existing[c.id]
+            val old = existing[c.id] ?: M3uCategories.inherited(existing, c.id)
             CategoryEntity(
                 playlistId = playlistId,
                 categoryId = c.id,
                 name = c.name,
                 lang = langs[i],
                 included = old?.included ?: (isNew(i) || (vod && langs[i] == null)),
-                sortOrder = old?.sortOrder ?: (existing.size + i),
+                // An inherited place only once the old category has gone, so the two don't share it.
+                sortOrder = old?.takeIf { it.categoryId == c.id || it.categoryId !in remoteIds }?.sortOrder ?: (existing.size + i),
                 channelCount = old?.channelCount ?: 0,
                 type = type
             )

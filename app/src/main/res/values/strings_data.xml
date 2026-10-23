@@ -107,4 +107,7 @@
     <string name="data_free_playlist_name">Free TV</string>
     <!-- Name of the TV guide that comes with a playlist, saved when the playlist is added. %1$s: the playlist's name. -->
     <string name="data_provider_guide_name">%1$s guide</string>
+    <!-- Category for a playlist's entries that name no category of their own; kept apart from a playlist's own
+         category called "Other" (and from data_lang_other, a language group). -->
+    <string name="data_ungrouped">No category</string>
 </resources>

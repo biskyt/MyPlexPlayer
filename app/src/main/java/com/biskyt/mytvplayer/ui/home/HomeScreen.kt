@@ -33,6 +33,7 @@ import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.data.ChannelFilter
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.WatchProgressEntity
+import com.biskyt.mytvplayer.data.programmeTitle
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
@@ -270,7 +271,7 @@ private fun ChannelCardRow(
                         CatchupMark(c, Modifier.padding(start = 6.dp))
                     }
                     Text(
-                        nn?.now?.title ?: " ",
+                        nn?.now?.let { programmeTitle(it.title) } ?: " ",
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -278,7 +279,7 @@ private fun ChannelCardRow(
                     Muted(
                         nn?.now?.let { on ->
                             val until = formatTime(on.stopMs)
-                            nn.next?.let { stringResource(R.string.home_until_then, until, it.title) }
+                            nn.next?.let { stringResource(R.string.home_until_then, until, programmeTitle(it.title)) }
                                 ?: stringResource(R.string.home_until, until)
                         } ?: stringResource(R.string.common_no_guide)
                     )

@@ -139,10 +139,10 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
 
     /**
      * What "find" can offer for a guide programme (a ProgrammeKind): a series, a film, or (unknown, or a playlist
-     * without movies or series) a search for its title. Null for news, sport and the like.
+     * without movies or series) a search for its title. Null for news, sport and the like, and with no title to look for.
      */
     suspend fun findKind(ch: ChannelEntity, p: ChannelProgramme): Int? = when {
-        p.kind == ProgrammeKind.OTHER -> null
+        p.kind == ProgrammeKind.OTHER || p.title.isBlank() -> null
         c.playlists.get(ch.playlistId)?.hasVod != true -> ProgrammeKind.UNKNOWN
         else -> p.kind
     }

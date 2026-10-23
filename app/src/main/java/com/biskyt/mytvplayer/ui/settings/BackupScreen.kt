@@ -33,6 +33,7 @@ import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.data.BackupException
 import com.biskyt.mytvplayer.data.BackupFile
+import com.biskyt.mytvplayer.data.describe
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
@@ -124,7 +125,7 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                return@launch failed(appString(R.string.settings_backup_find_failed, e.message ?: e.javaClass.simpleName))
+                return@launch failed(appString(R.string.settings_backup_find_failed, describe(e)))
             }
             saved = found
             when {
@@ -161,7 +162,7 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
             } catch (e: BackupException) {
                 e.message
             } catch (e: Exception) {
-                appString(R.string.settings_backup_failed, e.message ?: e.javaClass.simpleName)
+                appString(R.string.settings_backup_failed, describe(e))
             }
             busy = false
         }

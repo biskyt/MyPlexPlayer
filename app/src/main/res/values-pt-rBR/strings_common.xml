@@ -79,4 +79,6 @@
     <string name="common_sync_channels_loading">Carregando canais… %1$s</string>
     <string name="common_sync_vod_start">Atualizando filmes e séries…</string>
     <string name="common_sync_vod_loading">Carregando filmes e séries… %1$s</string>
+    <string name="common_filter_categories">Filtrar categorias</string>
+    <string name="common_no_title">Sem título</string>
 </resources>

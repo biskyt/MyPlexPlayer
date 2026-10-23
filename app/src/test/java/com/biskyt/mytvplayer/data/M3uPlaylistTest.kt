@@ -3,11 +3,13 @@ package com.biskyt.mytvplayer.data
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.biskyt.mytvplayer.core.m3u.M3uEntry
 import com.biskyt.mytvplayer.core.xtream.SeasonInfo
 import com.biskyt.mytvplayer.data.db.AppDatabase
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.CAT_SERIES
+import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.testutil.FakeProvider
 import com.biskyt.mytvplayer.testutil.PlainApp
 import java.util.Locale
@@ -139,6 +141,19 @@ class M3uPlaylistTest {
     }
 
     @Test
+    fun `a series with no group keeps the id it had before 1_1_0, and with it its favourites and progress`() = runBlocking {
+        provider.seriesM3u = """
+            #EXTM3U
+            #EXTINF:-1,Llama Drama S01E01
+            http://vod.example/series/cam1.mp4
+        """.trimIndent()
+        val id = playlists.addM3u("Free", provider.url + "free.m3u", seriesUrl = provider.url + "series.m3u")
+        vod.sync(playlists.get(id)!!)
+        val show = db.vod().searchSeries(id, "%", 10).single()
+        assertEquals(playlists.stableId("series|Other|llama drama"), show.id)
+    }
+
+    @Test
     fun `M3U categories split by their channels' country or language, unless their name has one`() = runBlocking {
         provider.m3u = """
             #EXTM3U
@@ -263,15 +278,84 @@ class M3uPlaylistTest {
         assertEquals(2, db.vod().searchSeries(id, "%", 10).size)
     }
 
+    private fun entry(group: String?, country: String? = null) =
+        M3uEntry("x", "http://x", null, null, group, null, null, null, country = country)
+
     @Test
     fun `category ids carry their group, names stay the playlist's own`() {
-        fun entry(group: String?, country: String? = null) =
-            com.biskyt.mytvplayer.core.m3u.M3uEntry("x", "http://x", null, null, group, null, null, null, country = country)
         val news = M3uCategories.idOf(entry("Live: News", country = "SE"))
         assertEquals("SE", M3uCategories.groupOf(news))
         assertEquals("Live: News", M3uCategories.category(news).name)
         assertEquals("UK | News", M3uCategories.idOf(entry("UK | News", country = "SE"))) // the name says already
-        assertEquals("Other", M3uCategories.idOf(entry(null)))
         assertEquals(null, M3uCategories.groupOf("UK | News"))
+    }
+
+    @Test
+    fun `entries with no group go in a category of their own with no name`() {
+        val none = M3uCategories.idOf(entry(null))
+        val noneSe = M3uCategories.idOf(entry(null, country = "SE"))
+        // No name saved: the app names it ("No category", in its language) when shown. A playlist's own "Other" stays
+        // its own.
+        assertEquals("", M3uCategories.category(none).name)
+        assertEquals("No category", categoryLabel(M3uCategories.category(none).name))
+        assertEquals("SE", M3uCategories.groupOf(noneSe))
+        assertEquals("Other", M3uCategories.idOf(entry("Other")))
+        assertEquals(null, M3uCategories.oldId("Other"))
+    }
+
+    @Test
+    fun `entries with no group, and a group called Other, keep what was chosen for Other before 1_1_0`() = runBlocking {
+        provider.m3u = """
+            #EXTM3U
+            #EXTINF:-1 group-title="United Kingdom",Channel One
+            http://stream.example/one.m3u8
+            #EXTINF:-1,Lone Channel
+            http://stream.example/lone.m3u8
+            #EXTINF:-1 group-title="Other",Odd Channel
+            http://stream.example/odd.m3u8
+            #EXTINF:-1 group-title="News",News Channel
+            http://stream.example/news.m3u8
+        """.trimIndent()
+        val ungrouped = M3uCategories.idOf(entry(null))
+        // Either choice carries over, whichever a new category would get.
+        for (chosen in listOf(true, false)) {
+            val id = playlists.addM3u("Free $chosen", provider.url + "free.m3u")
+            // As saved before 1.1.0: one "Other" for both, at the end; "News" hidden, so a new category wouldn't be shown.
+            db.categories().deleteOthers(id, CAT_LIVE, listOf("United Kingdom"))
+            db.categories().upsert(
+                listOf(CategoryEntity(id, "News", "News", "News", false, 4), CategoryEntity(id, "Other", "Other", "Other", chosen, 5))
+            )
+            playlists.syncChannels(id)
+            val names = channels.ids(id, ChannelFilter.All).map { channels.get(id, it)!!.name }
+            assertEquals(chosen, "Lone Channel" in names)
+            assertEquals(chosen, "Odd Channel" in names)
+            val cats = db.categories().all(id, CAT_LIVE).associateBy { it.categoryId }
+            assertEquals(setOf("United Kingdom", "News", "Other", ungrouped), cats.keys)
+            assertEquals(chosen, cats.getValue(ungrouped).included)
+            // Old "Other" keeps its place; the new category doesn't share it.
+            assertEquals(5, cats.getValue("Other").sortOrder)
+            assertTrue(cats.getValue(ungrouped).sortOrder != 5)
+        }
+    }
+
+    @Test
+    fun `with no group called Other any more, entries with no group take its place`() = runBlocking {
+        provider.m3u = """
+            #EXTM3U
+            #EXTINF:-1 group-title="United Kingdom",Channel One
+            http://stream.example/one.m3u8
+            #EXTINF:-1,Lone Channel
+            http://stream.example/lone.m3u8
+        """.trimIndent()
+        val id = playlists.addM3u("Free", provider.url + "free.m3u")
+        // As saved before 1.1.0: "Other" first, hidden.
+        val uk = db.categories().all(id, CAT_LIVE).single { it.categoryId == "United Kingdom" }
+        db.categories().deleteOthers(id, CAT_LIVE, listOf("United Kingdom"))
+        db.categories().upsert(listOf(CategoryEntity(id, "Other", "Other", "Other", false, 0), uk.copy(sortOrder = 1)))
+        playlists.syncChannels(id)
+        val cats = db.categories().all(id, CAT_LIVE)
+        // First and hidden, as "Other" was; the old category is gone.
+        assertEquals(listOf(M3uCategories.idOf(entry(null)), "United Kingdom"), cats.map { it.categoryId })
+        assertFalse(cats.first().included)
     }
 }

@@ -71,7 +71,7 @@ class XmltvParserTest {
         assertEquals("Build-up & the full match.", first.description)
         assertEquals(XmltvParser.parseTime("20261018163000 +0000"), first.startMs)
         // Missing title and stop time fall back to defaults.
-        assertEquals("No title", programmes[3].title)
+        assertEquals("", programmes[3].title) // none: the app names it when shown, in its language
         assertEquals(30 * 60_000L, programmes[3].stopMs - programmes[3].startMs)
     }
 
