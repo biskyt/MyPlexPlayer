@@ -156,7 +156,7 @@ fun GuideGrid(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (C
                 .let { r -> ids.associateWith { r[it].orEmpty() } }
         }
     }
-    val scrolledBack = windowStart < System.currentTimeMillis() / HALF_HOUR * HALF_HOUR
+    val scrolledBack = window.inPast
     val catchupLoader = remember(chunkStart, scrolledBack) { if (scrolledBack) catchup.loader(chunkStart, chunkStart + CHUNK_MS) else null }
     // After a guide update, reload the rows already shown (keeping them on screen meanwhile).
     LaunchedEffect(guideVersion) { loader.refreshAll() }
@@ -415,9 +415,23 @@ private fun Cell(
 }
 
 /** The guide's time window, and moving it (see [nextWindow]). */
-private class GuideWindow(private val scope: CoroutineScope, private val catchup: GuideCatchup) {
-    var start by mutableLongStateOf(System.currentTimeMillis() / HALF_HOUR * HALF_HOUR)
+internal class GuideWindow(
+    private val scope: CoroutineScope,
+    private val catchup: GuideCatchup,
+    private val now: () -> Long = System::currentTimeMillis
+) {
+    /** The half hour it was opened in, or last moved in: "now", as far as the window goes. */
+    private var anchor = now() / HALF_HOUR * HALF_HOUR
+
+    var start by mutableLongStateOf(anchor)
         private set
+
+    /**
+     * Before "now" as of the last move: past programmes of catch-up channels are then fetched from the provider. Time
+     * passing doesn't count (the guide left open past the half hour mustn't start asking the provider).
+     */
+    val inPast: Boolean get() = start < anchor
+
     private var lookingUp = false
 
     /** Moves the window, then [then] gets the time to show beyond [p]. False at the limits. */
@@ -436,6 +450,7 @@ private class GuideWindow(private val scope: CoroutineScope, private val catchup
             return true
         }
         val (next, target) = nextWindow(start, dir, p, catchup.days ?: 0) ?: return false
+        anchor = now() / HALF_HOUR * HALF_HOUR
         start = next
         then(target)
         return true
@@ -453,7 +468,7 @@ private fun openProgramme(nav: Navigator, ch: ChannelEntity, p: ChannelProgramme
  * how far back it may go is looked up the first time the user presses left at "now", and past programmes of catch-up
  * channels are fetched from the provider only for rows on screen while the window is in the past.
  */
-private class GuideCatchup(private val c: AppContainer, private val scope: CoroutineScope, private val playlistId: Long) {
+internal class GuideCatchup(private val c: AppContainer, private val scope: CoroutineScope, private val playlistId: Long) {
     /** The longest catch-up in the playlist, once looked up. */
     var days by mutableStateOf<Int?>(null)
         private set

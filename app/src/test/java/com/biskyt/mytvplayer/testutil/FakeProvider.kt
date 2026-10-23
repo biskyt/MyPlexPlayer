@@ -248,6 +248,9 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
     /** Guide channel id to the title of its "next" programme, replacing "Next on <id>". */
     var nextTitle = mapOf<String, String>()
 
+    /** Guide channel id to minutes its programmes are moved by (else every channel's start at the same times). */
+    var guideShiftMin = mapOf<String, Int>()
+
     /** Each channel followed by its programmes, as some joined-up guides are (against the XMLTV format). */
     var interleavedGuide = false
 
@@ -255,14 +258,16 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
         append("<?xml version=\"1.0\"?><tv>")
         fun channel(id: String, name: String) = append("<channel id=\"$id\"><display-name>$name</display-name></channel>")
         fun programmes(id: String) {
+            val shift = guideShiftMin[id] ?: 0
+            fun at(offsetMin: Int) = t(offsetMin + shift)
             append(
-                "<programme start=\"${t(-30)}\" stop=\"${t(30)}\" channel=\"$id\">" +
+                "<programme start=\"${at(-30)}\" stop=\"${at(30)}\" channel=\"$id\">" +
                     "${nowProgramme[id] ?: "<title>Now on $id</title><desc>About $id</desc>"}</programme>"
             )
             append(
-                "<programme start=\"${t(
+                "<programme start=\"${at(
                     30
-                )}\" stop=\"${t(90)}\" channel=\"$id\"><title>${nextTitle[id] ?: "Next on $id"}</title></programme>"
+                )}\" stop=\"${at(90)}\" channel=\"$id\"><title>${nextTitle[id] ?: "Next on $id"}</title></programme>"
             )
         }
         if (interleavedGuide) {
