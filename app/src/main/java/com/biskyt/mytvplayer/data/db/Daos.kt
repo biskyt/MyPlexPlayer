@@ -554,6 +554,13 @@ data class VodCard(val id: Long, val title: String, val year: Int?, val imageUrl
 private const val MOVIE_CARD = "SELECT streamId AS id, title, year, posterUrl AS imageUrl"
 private const val SERIES_CARD = "SELECT seriesId AS id, title, year, coverUrl AS imageUrl"
 
+// Favourite movies and series of :pid, as cards (f is the favourite), and the order they're listed in.
+private const val MOVIE_FAVOURITES = """$MOVIE_CARD FROM movie m
+    JOIN vod_favourite f ON f.playlistId = m.playlistId AND f.kind = 'movie' AND f.itemId = m.streamId WHERE m.playlistId = :pid"""
+private const val SERIES_FAVOURITES = """$SERIES_CARD FROM series s
+    JOIN vod_favourite f ON f.playlistId = s.playlistId AND f.kind = 'series' AND f.itemId = s.seriesId WHERE s.playlistId = :pid"""
+private const val FAVOURITE_ORDER = "ORDER BY f.addedAt DESC"
+
 /** Movies, series, favourites among them, and how far the user has watched. */
 @Dao
 interface VodDao {
@@ -570,12 +577,11 @@ interface VodDao {
     @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid AND (:q = '' OR title $LIKE_Q) ORDER BY added DESC")
     fun pageMoviesByAdded(pid: Long, q: String): PagingSource<Int, VodCard>
 
-    @Query(
-        """SELECT m.streamId AS id, m.title, m.year, m.posterUrl AS imageUrl FROM movie m
-           JOIN vod_favourite f ON f.playlistId = m.playlistId AND f.kind = 'movie' AND f.itemId = m.streamId
-           WHERE m.playlistId = :pid AND (:q = '' OR m.title $LIKE_Q) ORDER BY f.addedAt DESC"""
-    )
+    @Query("$MOVIE_FAVOURITES AND (:q = '' OR m.title $LIKE_Q) $FAVOURITE_ORDER")
     fun pageMovieFavourites(pid: Long, q: String): PagingSource<Int, VodCard>
+
+    @Query("$MOVIE_FAVOURITES $FAVOURITE_ORDER LIMIT :limit")
+    fun observeMovieFavourites(pid: Long, limit: Int): Flow<List<VodCard>>
 
     @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND (:q = '' OR title $LIKE_Q) ORDER BY position, title")
     fun pageSeries(pid: Long, q: String): PagingSource<Int, VodCard>
@@ -588,12 +594,11 @@ interface VodDao {
     @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND (:q = '' OR title $LIKE_Q) ORDER BY lastModified DESC")
     fun pageSeriesByUpdated(pid: Long, q: String): PagingSource<Int, VodCard>
 
-    @Query(
-        """SELECT s.seriesId AS id, s.title, s.year, s.coverUrl AS imageUrl FROM series s
-           JOIN vod_favourite f ON f.playlistId = s.playlistId AND f.kind = 'series' AND f.itemId = s.seriesId
-           WHERE s.playlistId = :pid AND (:q = '' OR s.title $LIKE_Q) ORDER BY f.addedAt DESC"""
-    )
+    @Query("$SERIES_FAVOURITES AND (:q = '' OR s.title $LIKE_Q) $FAVOURITE_ORDER")
     fun pageSeriesFavourites(pid: Long, q: String): PagingSource<Int, VodCard>
+
+    @Query("$SERIES_FAVOURITES $FAVOURITE_ORDER LIMIT :limit")
+    fun observeSeriesFavourites(pid: Long, limit: Int): Flow<List<VodCard>>
 
     @Query("SELECT COUNT(*) FROM movie WHERE playlistId = :pid")
     fun observeMovieCount(pid: Long): Flow<Int>

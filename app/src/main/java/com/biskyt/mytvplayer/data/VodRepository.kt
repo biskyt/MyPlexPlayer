@@ -93,6 +93,10 @@ class VodRepository(private val db: AppDatabase, private val playlists: Playlist
     /** The favourite movies' or series' ids ([type] is CAT_MOVIE or CAT_SERIES). */
     fun observeFavouriteIds(playlistId: Long, type: String): Flow<List<Long>> = vod.observeFavouriteIds(playlistId, type)
 
+    /** The first [limit] favourite movies or series ([type]), as listed. */
+    fun observeFavouriteCards(playlistId: Long, type: String, limit: Int): Flow<List<VodCard>> =
+        if (type == CAT_MOVIE) vod.observeMovieFavourites(playlistId, limit) else vod.observeSeriesFavourites(playlistId, limit)
+
     suspend fun setFavourite(playlistId: Long, type: String, id: Long, favourite: Boolean) {
         if (favourite) {
             vod.addFavourite(VodFavouriteEntity(playlistId, type, id, System.currentTimeMillis()))
