@@ -47,6 +47,16 @@ class M3uParserTest {
     }
 
     @Test
+    fun `windows line endings are read the same`() = runBlocking {
+        val entries = mutableListOf<M3uEntry>()
+        val guides = M3uParser.parse(playlist.replace("\n", "\r\n").reader().buffered()) { entries += it }
+        assertEquals(2, guides.size)
+        assertEquals(listOf("BBC One", "Kite Kids", "No Attributes, Really"), entries.map { it.name })
+        assertEquals("http://stream.example/kite.ts", entries[1].url)
+        assertEquals("https://ref.example/", entries[1].referrer)
+    }
+
+    @Test
     fun `header after a blank line still counts`() = runBlocking {
         val guides = M3uParser.parse("\n#EXTM3U url-tvg=\"http://g\"\n#EXTINF:-1,A\nhttp://a\n".reader().buffered()) {}
         assertEquals(listOf("http://g"), guides)

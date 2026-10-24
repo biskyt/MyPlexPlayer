@@ -11,7 +11,9 @@ import java.text.Normalizer
 object ChannelNames {
     private val marks = Regex("\\p{M}+")
     private val separators = Regex("[^a-z0-9]+")
-    private val prefix = Regex("""^\s*[|\[(]?\s*[A-Za-z]{2,3}\s*[|:\-\])]\s*""")
+
+    // "UK: ", "[US] ", "UK - 5 Star", "UK-": not the dash in "HBO-2".
+    private val prefix = Regex("""^\s*[|\[(]?\s*[A-Za-z]{2,3}\s*(?:[|:\])]|-(?!\d))\s*""")
     private val noise = setOf(
         "hd", "fhd", "uhd", "sd", "4k", "8k", "hevc", "h265", "h264", "raw", "backup", "vip", "50fps", "60fps", "hq", "lq",
         "1080p", "720p", "1080", "720", "multi", "feed"

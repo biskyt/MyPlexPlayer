@@ -24,7 +24,13 @@ class ChannelMatchingTest {
             "West Virginia News" to "wv news",
             "Sky Sports Main Event (Backup 2)" to "sky sports main event",
             "Geo News (Geo-blocked)" to "geo news",
-            "E! (E)" to "e east"
+            "E! (E)" to "e east",
+            // A dash after a name and before its number isn't a country code's.
+            "HBO-2" to "hbo 2",
+            "ITV-1 HD" to "itv 1",
+            "UK-BBC One" to "bbc one",
+            "UK - 5 Star" to "5 star",
+            "US -FOX 5" to "fox 5"
         )
         cases.forEach { (input, expected) -> assertEquals(input, expected, ChannelNames.normalize(input)) }
     }

@@ -23,6 +23,10 @@ Each version's section becomes its GitHub release notes, so it is written for th
 - With M3U playlists, a movie or series category ticked while they were loading never loaded.
 - Typing a number in Favourites and Recent now finds channels as the other lists do (a "0" listed every channel
   without a number), and searching guide channels takes "%" and "_" as they are.
+- TV guides with times written "+01:00" or without seconds are now read correctly (they were an hour out, or
+  missing). A programme whose end is before its start now shows for half an hour.
+- Channel names such as "HBO-2" are matched to the guide by their whole name (they lost the "HBO").
+- Catch-up from providers that send plain text: one-word titles such as "Kids" were shown garbled.
 
 ## 1.1.0
 - **MyTVPlayer now speaks your language:** English (UK and US), Spanish, Portuguese (Brazil) and French. It starts
