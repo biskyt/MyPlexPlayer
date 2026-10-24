@@ -36,9 +36,16 @@ data class CatchupListing(val programmes: List<CatchupProgramme>) {
 private val serverTime = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 private val timeshiftTime = DateTimeFormatter.ofPattern("yyyy-MM-dd:HH-mm")
 
-/** The `get_simple_data_table` response: `{"epg_listings": [...]}`; titles and descriptions are base64. */
+/**
+ * The `get_simple_data_table` response: `{"epg_listings": [...]}`. Titles and descriptions are base64, except from a
+ * few providers that send plain text, told apart by the listing as a whole: a plain "Kids" is also valid base64, but
+ * a plain listing has words with spaces between them, which base64 never has.
+ */
 internal fun JsonElement.toCatchupListing(): CatchupListing {
     val items = ((this as? JsonObject)?.get("epg_listings") as? JsonArray).orEmpty()
+    val base64 = items.filterIsInstance<JsonObject>().flatMap { listOfNotNull(it.str("title"), it.str("description")) }
+        .none { ' ' in it.trim() }
+    fun text(s: String) = if (base64) decodeOrNull(s) ?: s else s
     val programmes = items.mapNotNull { el ->
         val o = el as? JsonObject ?: return@mapNotNull null
         val start = o.long("start_timestamp")?.times(1000) ?: return@mapNotNull null
@@ -46,8 +53,8 @@ internal fun JsonElement.toCatchupListing(): CatchupListing {
         CatchupProgramme(
             startMs = start,
             stopMs = stop,
-            title = o.str("title")?.let(::decodeText)?.trim().orEmpty(), // none: the app names it when shown
-            description = o.str("description")?.let(::decodeText)?.trim()?.ifEmpty { null },
+            title = o.str("title")?.let(::text)?.trim().orEmpty(), // none: the app names it when shown
+            description = o.str("description")?.let(::text)?.trim()?.ifEmpty { null },
             hasArchive = o.bool("has_archive"),
             serverOffsetMs = o.str("start")?.let { local -> serverLocalMs(local)?.minus(start) }
         )
@@ -60,10 +67,9 @@ internal fun JsonElement.toCatchupListing(): CatchupListing {
 private fun serverLocalMs(local: String): Long? =
     runCatching { LocalDateTime.parse(local.trim(), serverTime).toInstant(ZoneOffset.UTC).toEpochMilli() }.getOrNull()
 
-/** Providers send base64; a few send plain text, which is kept as it is. */
-internal fun decodeText(s: String): String = runCatching { String(Base64.getDecoder().decode(s.trim()), Charsets.UTF_8) }
+/** [s] decoded from base64, or null when it isn't base64 of text. */
+private fun decodeOrNull(s: String): String? = runCatching { String(Base64.getDecoder().decode(s.trim()), Charsets.UTF_8) }
     .getOrNull()?.takeIf { decoded -> decoded.none { it == '\uFFFD' || (it.isISOControl() && it != '\n' && it != '\r' && it != '\t') } }
-    ?: s
 
 /** The server-local "yyyy-MM-dd:HH-mm" a timeshift address starts at, for the moment [startMs]. */
 internal fun timeshiftStart(startMs: Long, serverOffsetMs: Long): String =

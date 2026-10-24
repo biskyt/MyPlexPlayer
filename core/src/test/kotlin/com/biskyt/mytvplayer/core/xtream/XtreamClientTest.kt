@@ -4,6 +4,7 @@ import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -97,7 +98,7 @@ class XtreamClientTest {
             body.writeUtf8("""{"num":$i,"name":"Channel $i","stream_id":$i,"category_id":"${i % 400}","stream_icon":"","tv_archive":0}""")
         }
         body.writeUtf8("]")
-        server.enqueue(MockResponse().setBody(body))
+        server.enqueue(MockResponse().setBody(body.copy()))
         var seen = 0
         var last = -1L
         client.liveStreams {
@@ -106,6 +107,12 @@ class XtreamClientTest {
         }
         assertEquals(5000, seen)
         assertEquals(4999L, last)
+
+        // Cut off halfway: the channels before the cut have already arrived, so the list wasn't read whole first.
+        server.enqueue(MockResponse().setBody(body).setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY))
+        seen = 0
+        runCatching { client.liveStreams { seen++ } }
+        assertTrue("$seen", seen in 1 until 5000)
     }
 
     @Test
@@ -203,7 +210,7 @@ class XtreamClientTest {
                 """{"epg_listings":[
                      {"title":"TmV3cyBhdCBTaXg=","description":"VGhlIG5ld3Mu","start":"2026-10-18 18:00:00",
                       "start_timestamp":"1792342800","stop_timestamp":1792344600,"has_archive":1},
-                     {"title":"Plain title","start":"2026-10-18 18:30:00","start_timestamp":1792344600,
+                     {"title":"TGF0ZSBuZXdz","description":"Cw==","start":"2026-10-18 18:30:00","start_timestamp":1792344600,
                       "stop_timestamp":"1792348200","has_archive":"0"},
                      {"title":"bm8gdGltZXM="}
                    ]}"""
@@ -211,7 +218,9 @@ class XtreamClientTest {
         )
         val listing = client.catchupListing(42)
         assertTrue(server.takeRequest().path!!.contains("action=get_simple_data_table&stream_id=42"))
-        assertEquals(listOf("News at Six", "Plain title"), listing.programmes.map { it.title })
+        // A description that isn't text when decoded stays as it came; the rest are still decoded.
+        assertEquals(listOf("News at Six", "Late news"), listing.programmes.map { it.title })
+        assertEquals("Cw==", listing.programmes[1].description)
         assertEquals("The news.", listing.programmes[0].description)
         assertEquals(listOf(true, false), listing.programmes.map { it.hasArchive })
         assertEquals(3_600_000L, listing.serverOffsetAt(1_792_342_800_000L))
@@ -219,6 +228,21 @@ class XtreamClientTest {
         // The address starts at the server's own local time: 17:30 UTC is 18:30 there.
         val url = client.catchupUrl(42, 1_792_344_600_000L, listing, durationMin = 95)
         assertTrue(url, url.endsWith("/timeshift/user%20one/p%40ss/95/2026-10-18:18-30/42.ts"))
+    }
+
+    @Test
+    fun `a catch-up listing in plain text stays as it is`() = runTest {
+        // One-word titles such as "Kids" are also valid base64, of nonsense.
+        server.enqueue(
+            MockResponse().setBody(
+                """{"epg_listings":[
+                     {"title":"Kids","description":"Cartoons all morning.","start_timestamp":1792342800,"stop_timestamp":1792344600},
+                     {"title":"Wild","description":"Animals at night.","start_timestamp":1792344600,"stop_timestamp":1792348200},
+                     {"title":"News at Six","start_timestamp":1792348200,"stop_timestamp":1792350000}
+                   ]}"""
+            )
+        )
+        assertEquals(listOf("Kids", "Wild", "News at Six"), client.catchupListing(42).programmes.map { it.title })
     }
 
     @Test
