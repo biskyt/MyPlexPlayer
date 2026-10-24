@@ -1,5 +1,6 @@
 package com.biskyt.mytvplayer.ui.home
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,7 +32,10 @@ import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.data.ChannelFilter
+import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.ChannelEntity
+import com.biskyt.mytvplayer.data.db.VOD_TYPES
+import com.biskyt.mytvplayer.data.db.VodCard
 import com.biskyt.mytvplayer.data.db.WatchProgressEntity
 import com.biskyt.mytvplayer.data.programmeTitle
 import com.biskyt.mytvplayer.ui.LocalNavigator
@@ -45,6 +49,7 @@ import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.NowNextLoader
 import com.biskyt.mytvplayer.ui.common.PillButton
 import com.biskyt.mytvplayer.ui.common.Poster
+import com.biskyt.mytvplayer.ui.common.PosterCard
 import com.biskyt.mytvplayer.ui.common.ProgressLine
 import com.biskyt.mytvplayer.ui.common.SectionTitle
 import com.biskyt.mytvplayer.ui.common.Tab
@@ -56,13 +61,20 @@ import com.biskyt.mytvplayer.ui.common.formatDuration
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
+import com.biskyt.mytvplayer.ui.common.titledRow
+import com.biskyt.mytvplayer.ui.common.vodActions
+import com.biskyt.mytvplayer.ui.common.vodDetails
 import com.biskyt.mytvplayer.ui.player.shortEpisodeLabel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+/** How many favourite movies, and series, Home shows. */
+private const val VOD_ROW_LIMIT = 20
 
 class HomeViewModel(private val c: AppContainer) : ViewModel() {
     private val activePlaylist = c.settings.activePlaylistId
@@ -78,11 +90,23 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
         c.channels.observeRecent(it, 12)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** The first favourite series and movies, by type ([VOD_TYPES]). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val favouriteVod: Map<String, StateFlow<List<VodCard>>> = VOD_TYPES.associateWith { type ->
+        activePlaylist.flatMapLatest { c.vod.observeFavouriteCards(it, type, VOD_ROW_LIMIT) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    }
+
+    fun setVodFavourite(type: String, id: Long, favourite: Boolean) = viewModelScope.launch {
+        c.vod.setFavourite(playlistId.value, type, id, favourite)
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val carryOn = activePlaylist.flatMapLatest { c.vod.observeCarryOn(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val favouriteIds = c.favourites.channels
+    /** Which channels, movies and series are favourites, for their options. */
+    val favouriteSets = c.favourites
 
     fun setFavourite(ch: ChannelEntity, favourite: Boolean) = viewModelScope.launch {
         c.channels.setFavourite(ch.playlistId, ch.streamId, favourite)
@@ -104,6 +128,8 @@ fun HomeScreen() {
     val favourites by vm.favourites.collectAsState()
     val recent by vm.recent.collectAsState()
     val carryOn by vm.carryOn.collectAsState()
+    // States, read where used: shown() below must see a row change after its card is taken off.
+    val favouriteVod = VOD_TYPES.associateWith { vm.favouriteVod.getValue(it).collectAsState() }
     val pid = vm.playlistId.collectAsState().value
     // Again after a card is taken off its row (focus would otherwise go with it): back to the first card.
     var refocus by remember { mutableIntStateOf(0) }
@@ -121,6 +147,7 @@ fun HomeScreen() {
             }
             ).any { it.streamId == tile.ch.streamId }
         is HomeTile.CarryOn -> carryOn.any { it.kind == tile.p.kind && it.itemId == tile.p.itemId }
+        is HomeTile.Vod -> favouriteVod.getValue(tile.type).value.any { it.id == tile.card.id }
     }
 
     TabScaffold(Tab.HOME) {
@@ -161,31 +188,42 @@ fun HomeScreen() {
                     }
                 }
             }
+            // Favourite series, then movies.
+            favouriteVod.forEach { (type, cards) ->
+                titledRow(favouriteRowTitle(type), cards.value, { it.id }) { card ->
+                    PosterCard(card, onLongClick = { options = HomeTile.Vod(type, card) }) { nav.push(vodDetails(pid, type, card.id)) }
+                }
+            }
         }
     }
     options?.let { tile ->
-        TileOptions(tile, vm) { removed ->
+        TileOptions(tile, vm, pid) { removed ->
             options = null
             if (removed) scope.launch { snapshotFlow { shown(tile) }.first { !it }.also { refocus++ } }
         }
     }
 }
 
-/** A Home card whose options are open: a channel (from [list]: favourites or recently watched), or a title carried on. */
+/**
+ * A Home card whose options are open: a channel (from [list]: favourites or recently watched), a title carried on, or a
+ * favourite movie or series.
+ */
 private sealed interface HomeTile {
     data class Channel(val ch: ChannelEntity, val list: ChannelFilter) : HomeTile
 
     data class CarryOn(val p: WatchProgressEntity) : HomeTile
+
+    data class Vod(val type: String, val card: VodCard) : HomeTile
 }
 
 /** Holding OK on a Home card: watch it, and favourites, catch-up and the guide source, or take it off its row. */
 @Composable
-private fun TileOptions(tile: HomeTile, vm: HomeViewModel, onDismiss: (removed: Boolean) -> Unit) {
+private fun TileOptions(tile: HomeTile, vm: HomeViewModel, pid: Long, onDismiss: (removed: Boolean) -> Unit) {
     val close = { onDismiss(false) }
     when (tile) {
         is HomeTile.Channel -> {
             val ch = tile.ch
-            val favourites = vm.favouriteIds.collectIds()
+            val favourites = vm.favouriteSets.channels.collectIds()
             val watch = stringResource(R.string.common_watch)
             val removeRecent = stringResource(R.string.home_remove_recent)
             val actions = buildList {
@@ -232,6 +270,14 @@ private fun TileOptions(tile: HomeTile, vm: HomeViewModel, onDismiss: (removed: 
                 }
             )
             ItemActionsPanel(p.title, actions, close)
+        }
+        is HomeTile.Vod -> {
+            // A card on these rows is a favourite.
+            val actions = vodActions(pid, tile.type, tile.card.id, favourite = true) { favourite ->
+                vm.setVodFavourite(tile.type, tile.card.id, favourite)
+                if (!favourite) onDismiss(true)
+            }
+            ItemActionsPanel(tile.card.title, actions, close)
         }
     }
 }
@@ -312,3 +358,7 @@ private fun CarryOnRow(items: List<WatchProgressEntity>, onOptions: (WatchProgre
         }
     }
 }
+
+/** The title of Home's row of favourite movies or series ([type]). */
+@StringRes
+private fun favouriteRowTitle(type: String) = if (type == CAT_MOVIE) R.string.home_favourite_movies else R.string.home_favourite_series

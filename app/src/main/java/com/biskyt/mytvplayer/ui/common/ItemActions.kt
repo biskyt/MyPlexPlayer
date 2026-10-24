@@ -11,6 +11,7 @@ import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.appPlural
 import com.biskyt.mytvplayer.appString
+import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Navigator
@@ -67,6 +68,23 @@ fun channelActions(ch: ChannelEntity, favourite: Boolean, setFavourite: (Boolean
         )
     )
 }
+
+/**
+ * What a movie or series menu offers (search, Home): open it, and add or remove it from favourites once that's known
+ * ([favourite] null until read: "Add" for a favourite would undo it).
+ */
+fun vodActions(playlistId: Long, type: String, id: Long, favourite: Boolean?, setFavourite: (Boolean) -> Unit): List<ItemAction> =
+    listOfNotNull(
+        ItemAction.Open(
+            appString(if (type == CAT_MOVIE) R.string.search_open_movie else R.string.search_open_series),
+            vodDetails(playlistId, type, id)
+        ),
+        favourite?.let { f -> ItemAction.Run(favouriteLabel(f)) { setFavourite(!f) } }
+    )
+
+/** A movie's or series' page ([type] is CAT_MOVIE or CAT_SERIES). */
+fun vodDetails(playlistId: Long, type: String, id: Long): Screen =
+    if (type == CAT_MOVIE) Screen.MovieDetails(playlistId, id) else Screen.SeriesDetails(playlistId, id)
 
 /** A side panel of what can be done with something: [actions] in order, the first with focus. */
 @Composable

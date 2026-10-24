@@ -3,6 +3,8 @@
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
 ## 1.2.0
+- **Home has rows for your favourite series and movies,** below Recently watched. Hold OK on one to open it or
+  take it off your favourites.
 - **Favourites are marked with a heart** on their logo or poster wherever they're listed: the TV guide, the channel
   list, Movies, Series and Search.
 - Series now come before movies: in the menu bar, in Search and in Settings › Languages & categories.
