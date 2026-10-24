@@ -67,8 +67,8 @@
     <string name="data_lang_jp">Japonés</string>
     <string name="data_lang_other">Otros</string>
 
+    <string name="data_accent_yellow">Amarillo</string>
     <string name="data_accent_mint">Menta</string>
-    <string name="data_accent_amber">Ámbar</string>
     <string name="data_accent_violet">Violeta</string>
     <string name="data_accent_sky">Cielo</string>
     <string name="data_accent_coral">Coral</string>

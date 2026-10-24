@@ -1,8 +1,15 @@
-# CLAUDE.md: working on MyTVPlayer
+# CLAUDE.md: working on MyPlexPlayer
 
-MyTVPlayer is an Android TV IPTV player that also runs on phones and tablets by touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
-- Modules: `app` (Android) and `core` (pure Kotlin: parsers, key mapping, Xtream client).
-- The repo is `biskyt/MyTVPlayer` on GitHub. It moved from `biskyt/tvapp`, which still redirects.
+MyPlexPlayer is an Android TV client for the owner's own Plex Media Server that also runs on phones and tablets by
+touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
+- Modules: `app` (Android) and `core` (pure Kotlin: source clients, parsers, key mapping).
+- The repo is `biskyt/MyPlexPlayer` on GitHub.
+- **It started as a copy of MyTVPlayer** (`biskyt/MyTVPlayer`, an IPTV player), imported with its history at
+  `caad9d7` (1.2.1). The two apps are developed separately and are expected to drift apart. A fix worth having in
+  both is ported by hand (`git cherry-pick` from a fetch of MyTVPlayer usually applies, since it follows the package
+  rename); never merge MyTVPlayer's `main` wholesale.
+- **The move to Plex is under way:** the plan, step by step, is in `ROADMAP.md`. Until those steps land, much of the
+  code (Xtream, M3U, XMLTV guides, catch-up, the free playlist) is MyTVPlayer's and is due to be replaced.
 
 See also:
 - `RELEASING.md`: signing and how releases work.
@@ -62,16 +69,15 @@ See also:
    - From a normal checkout, pushing the tag also works: `git tag v1.0.2 && git push origin v1.0.2`.
    - A change with no app changes (CI, tests, docs) is merged without a version bump, changelog entry or release.
    - The signed Play bundle (`.aab`) goes to Play's closed testing track, and is a run artifact called
-     `MyTVPlayer-<version>-play-bundle`, kept 90 days.
+     `MyPlexPlayer-<version>-play-bundle`, kept 90 days.
    - Versions `0.x` (or dev-key signed builds) are pre-releases. `1.x` and later are full releases.
 9. Confirm the release exists (`get_release_by_tag`), then give the owner the release link and the `.aab` artifact link
    (`actions_list` with method `list_workflow_run_artifacts` and the release run's id). For when testers see it, see
    RELEASING.md › Google Play.
 
 ## Working from a Claude Code cloud session
-- **GitHub tools:** use owner `biskyt`, repo `MyTVPlayer`. The old name `tvapp` redirects for most calls, but
-  `check_repo_access` reports it as not connected.
-- **CI results:** for each PR, call `subscribe_pr_activity` (repo `MyTVPlayer`) so its CI results wake the session.
+- **GitHub tools:** use owner `biskyt`, repo `MyPlexPlayer`.
+- **CI results:** for each PR, call `subscribe_pr_activity` (repo `MyPlexPlayer`) so its CI results wake the session.
   - Each run (CI, the emulators) reports on its own: check them all with `pull_request_read` (`get_check_runs`).
   - Keep one `send_later` check as a safety net (CI and the emulator runs take about 5 minutes). Use it alone for runs
     outside a PR (a release, about 6 minutes; release notes) or if another agent already watches the PR.
@@ -140,18 +146,36 @@ See also:
 - **Network from the sandbox and from GitHub runners:** archive.org isn't reachable from either, so the app can't be tested against it from here. Wikimedia is reachable.
 - **Android TV stand-in pickers:** some TVs (e.g. a Philips 48OLED806 on Android TV 10) ship stand-in "pickers" that only say "no application can handle this request".
   - The backup screen opens a picker directly only if it's Android's own (`…documentsui`). Otherwise it offers the installed file managers.
-  - MyTVPlayer also accepts backup files via Open with / Share (JSON).
-- **User-Agent:** every stream and download sends `MyTVPlayer/<version> (+https://github.com/biskyt/MyTVPlayer)`. Wikimedia requires an identifying UA. A per-entry `http-user-agent` in an M3U overrides it for live channels.
+  - MyPlexPlayer also accepts backup files via Open with / Share (JSON).
+- **User-Agent:** every stream and download sends `MyPlexPlayer/<version> (+https://github.com/biskyt/MyPlexPlayer)`. Wikimedia requires an identifying UA. A per-entry `http-user-agent` in an M3U overrides it for live channels.
   - Films and episodes from M3U feeds don't store a per-entry UA yet. That was offered and isn't done.
 
-## The owner's setup and the free playlist
+## The owner's setup
 - **Owner's devices:** they test on a Philips 48OLED806 TV (Android TV 10) and an Android phone. The phone needs the touch UI.
-- **The free channels, films and series** come from the owner's own playlist project, https://biskyt.github.io/legalFreeIPTVplaylist/, with its own EPG at `epg.xml.gz`.
-  - Films are hosted on archive.org and upload.wikimedia.org.
-  - Its group titles carry prefixes ("Movies: Open Movies"). The app doesn't add them.
+- **Their Plex server** has Plex Pass and a tuner (Live TV and DVR). It is on their home network and can't be reached
+  from a cloud session or CI: anything that needs it (sign-in, Live TV, DVR captures) is a script the owner runs.
+- **Plex API references:** [Plexopedia](https://www.plexopedia.com/plex-media-server/api/) first (the owner's
+  preferred source), then Plex's official OpenAPI spec at https://developer.plex.tv/pms/. Plexopedia has no Live TV,
+  DVR or EPG pages. [Plezy](https://github.com/edde746/plezy) (GPL-3.0, Plex and Jellyfin) shows working Live TV,
+  DVR, sign-in and playback calls. Check every endpoint against them, and prove assumptions with a spike
+  (`spikes/plex_spike.py`) before building on them; the results live in `docs/plex-api.md`.
+- **A real Plex server in CI and in the sandbox:** `.github/scripts/start-plex.sh <dir>` starts an unclaimed PMS (from
+  Plex's .deb; Docker Hub rate-limits) with a generated film and series in about 20 s. PMS ignores play progress in
+  a title's first minute, hence the 10-minute clips. It can't do sign-in, Live TV or DVR.
 
 ## Product decisions from the owner
-These are built in already. Keep them when changing the areas they cover.
+These are built in already (or planned, for the Plex ones). Keep them when changing the areas they cover.
+- **Plex, not IPTV:** Plex sign-in (PIN, entered at plex.tv/link) and Plex servers replace Xtream and M3U playlists.
+  There is no free playlist and no way to add other guides: the TV guide comes from the Plex server.
+- **One account, several servers:** each server is a source in the top bar's switcher. Plex Home users come later.
+- **Yellow accent by default** (Plex-style `#E5A00D`); the other accent presets stay.
+- **Icon:** the yellow accent with a bold, rounded chevron of our own. Never Plex's own logo shape, and the app never
+  claims to be made or endorsed by Plex ("for Plex" wording only).
+- **Live TV goes last:** in the menu, on Home and in search results.
+- **DVR replaces Catch-up.**
+- **Home rows:** Continue watching, recently added series, recently added movies, favourite series, favourite movies,
+  favourite Live TV channels. Empty rows are hidden.
+- **Favourites** for channels, films and series stay as in MyTVPlayer.
 - **Audio passthrough** (Dolby Atmos and other surround formats go to the soundbar or TV) is on by default, with a
   setting to turn it off.
 - **Subtitles** default to forced subtitles only, in the system language. Settings choose the default language or
@@ -168,11 +192,10 @@ These are built in already. Keep them when changing the areas they cover.
   - Permissions are asked for only when backing up or restoring.
 - **Licences** aren't a reason to avoid the best library.
 
-## Open items (as of 1.1.0, released)
-- **Google Play:** each release uploads the `.aab` to closed testing (`alpha`); set-up is in RELEASING.md. Production is
-  promoted by hand in Play Console.
-- **Done:** emulator smoke tests on CI for pull requests (`.github/workflows/emulator.yml`: Android TV 9 and Google TV
-  16, free on GitHub's standard runners for a public repo). Tests live in `app/src/androidTest`; the debug build adds an
-  x86/x86_64 ABI only with `-PemulatorAbi=<arch>`. `.github/scripts/start-emulator.sh` boots the emulator itself:
-  Google TV 16 drops off adb for a second or two after boot, which the usual runner action doesn't wait out.
-- **Optional:** per-entry user agent / referrer for M3U films and episodes.
+## Open items (as of 0.1.0)
+- **Google Play:** MyPlexPlayer needs its own Play listing, release keystore (`MYPLEX_*` secrets) and service account
+  before the first signed release; until then release builds fall back to the debug key (see RELEASING.md).
+- **Emulator smoke tests** on CI for pull requests (`.github/workflows/emulator.yml`: Android TV 9 and Google TV 16).
+  Tests live in `app/src/androidTest`; the debug build adds an x86/x86_64 ABI only with `-PemulatorAbi=<arch>`.
+  `.github/scripts/start-emulator.sh` boots the emulator itself: Google TV 16 drops off adb for a second or two after
+  boot, which the usual runner action doesn't wait out.

@@ -89,7 +89,7 @@
     <string name="player_failure_vod">This can\'t be played right now. Try again later.</string>
     <string name="player_failure_catchup">This can\'t be replayed right now. Try again later.</string>
     <string name="player_catchup_nothing_to_start_over">There\'s nothing to start over on this channel right now.</string>
-    <string name="player_unsupported_format">This uses a stream format MyTVPlayer can\'t play.</string>
+    <string name="player_unsupported_format">This uses a stream format MyPlexPlayer can\'t play.</string>
 
     <!-- Playback errors: why (shown under the message above). %1$s: the server's host name, e.g. lb.example.net -->
     <string name="player_stream_source">Stream from %1$s.</string>
@@ -98,7 +98,7 @@
     <string name="player_error_timeout">The stream\'s server didn\'t answer. It may be down or busy.</string>
     <string name="player_error_connection">Couldn\'t connect to the stream\'s server. It may be down, or not reachable from your network.</string>
     <string name="player_error_not_video">The stream\'s address sent something that isn\'t video (such as a web page).</string>
-    <string name="player_error_drm">The stream is encrypted (DRM), which MyTVPlayer can\'t play.</string>
+    <string name="player_error_drm">The stream is encrypted (DRM), which MyPlexPlayer can\'t play.</string>
     <!-- Settings › Playback is the place in the app's settings: keep it matching the settings screen -->
     <string name="player_error_audio_output">The sound couldn\'t be sent to your TV or amplifier. Try turning audio passthrough off in Settings › Playback.</string>
     <!-- %1$s: the format's technical name, e.g. video/hevc (not translated) -->
@@ -108,7 +108,7 @@
     <!-- %1$s: the format's technical name, e.g. application/x-subrip (not translated) -->
     <string name="player_error_decode_media">This TV box can\'t decode the stream\'s media (%1$s).</string>
     <string name="player_error_decode">This TV box can\'t decode the stream\'s video or audio.</string>
-    <string name="player_error_parsing">The stream sent data MyTVPlayer can\'t read (an unsupported or damaged format).</string>
+    <string name="player_error_parsing">The stream sent data MyPlexPlayer can\'t read (an unsupported or damaged format).</string>
     <string name="player_error_behind_live">The stream kept falling behind its live point.</string>
     <string name="player_error_io">The stream stopped arriving: the connection to its server failed.</string>
     <!-- %1$s: the player's technical error name, e.g. "io bad http status" (not translated) -->

@@ -59,7 +59,7 @@
     <string name="player_failure_vod">Impossible de lire ce contenu pour le moment. Réessayez plus tard.</string>
     <string name="player_failure_catchup">Impossible de revoir ce programme pour le moment. Réessayez plus tard.</string>
     <string name="player_catchup_nothing_to_start_over">Rien à revoir depuis le début sur cette chaîne pour le moment.</string>
-    <string name="player_unsupported_format">Ce flux utilise un format que MyTVPlayer ne peut pas lire.</string>
+    <string name="player_unsupported_format">Ce flux utilise un format que MyPlexPlayer ne peut pas lire.</string>
 
     <string name="player_stream_source">Flux provenant de %1$s.</string>
     <string name="player_error_dns">Le serveur du flux est introuvable : son adresse n\'existe peut-être plus.</string>
@@ -67,13 +67,13 @@
     <string name="player_error_timeout">Le serveur du flux n\'a pas répondu. Il est peut-être hors service ou surchargé.</string>
     <string name="player_error_connection">Impossible de se connecter au serveur du flux. Il est peut-être hors service, ou inaccessible depuis votre réseau.</string>
     <string name="player_error_not_video">L\'adresse du flux a renvoyé autre chose que de la vidéo (une page web, par exemple).</string>
-    <string name="player_error_drm">Le flux est chiffré (DRM) et MyTVPlayer ne peut pas le lire.</string>
+    <string name="player_error_drm">Le flux est chiffré (DRM) et MyPlexPlayer ne peut pas le lire.</string>
     <string name="player_error_audio_output">Le son n\'a pas pu être envoyé à votre téléviseur ou amplificateur. Essayez de désactiver le passthrough audio dans Paramètres › Lecture.</string>
     <string name="player_error_decode_video">Ce boîtier TV ne peut pas décoder la vidéo du flux (%1$s).</string>
     <string name="player_error_decode_audio">Ce boîtier TV ne peut pas décoder l\'audio du flux (%1$s).</string>
     <string name="player_error_decode_media">Ce boîtier TV ne peut pas décoder le contenu du flux (%1$s).</string>
     <string name="player_error_decode">Ce boîtier TV ne peut pas décoder la vidéo ou l\'audio du flux.</string>
-    <string name="player_error_parsing">Le flux a envoyé des données que MyTVPlayer ne peut pas lire (format non pris en charge ou endommagé).</string>
+    <string name="player_error_parsing">Le flux a envoyé des données que MyPlexPlayer ne peut pas lire (format non pris en charge ou endommagé).</string>
     <string name="player_error_behind_live">Le flux prenait sans cesse du retard sur le direct.</string>
     <string name="player_error_io">Le flux a cessé d\'arriver : la connexion à son serveur a échoué.</string>
     <string name="player_error_other">Le lecteur n\'a pas pu le lire (%1$s).</string>

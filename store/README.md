@@ -1,6 +1,9 @@
 # Store listings
 
-Everything for MyTVPlayer's Google Play and Amazon Appstore (Fire TV) listings: graphics, screenshots and the text to
+**Still MyTVPlayer's listing:** the text, screenshots and feature graphic below are rewritten for Plex once the app
+signs in to Plex (see ROADMAP.md). Don't publish them as they are.
+
+Everything for MyPlexPlayer's Google Play and Amazon Appstore (Fire TV) listings: graphics, screenshots and the text to
 paste in.
 
 ## Graphics
@@ -27,7 +30,7 @@ They're drawn by the app itself (`app/src/test/.../ui/StoreAssetsTest.kt`), with
 they never show a real broadcaster or programme. The channel logos are original, drawn by `demo-logos.py`. The movies
 and series are the Blender Foundation's open movies, with their posters and stills, which are licensed CC BY. If a store asks, or the
 listing has room, credit them: "Movie and series art © Blender Foundation and the films' artists (Big Buck Bunny,
-Elephants Dream, Sintel, Tears of Steel, Cosmos Laundromat, Charge, Caminandes), CC BY 3.0/4.0, cropped. Credits: https://github.com/biskyt/MyTVPlayer/blob/main/app/src/test/resources/demo-art/CREDITS.md". To make them again after the app's look changes:
+Elephants Dream, Sintel, Tears of Steel, Cosmos Laundromat, Charge, Caminandes), CC BY 3.0/4.0, cropped. Credits: https://github.com/biskyt/MyPlexPlayer/blob/main/app/src/test/resources/demo-art/CREDITS.md". To make them again after the app's look changes:
 
 ```
 ./gradlew :app:recordRoborazziDebug --tests '*StoreAssetsTest*' -PstoreAssets
@@ -35,11 +38,11 @@ Elephants Dream, Sintel, Tears of Steel, Cosmos Laundromat, Charge, Caminandes),
 
 ## Privacy policy
 
-`docs/privacy.html`, published with GitHub Pages at **https://biskyt.github.io/MyTVPlayer/privacy.html**.
+`docs/privacy.html`, published with GitHub Pages at **https://biskyt.github.io/MyPlexPlayer/privacy.html**.
 
 ## Listing text
 
-**App name** (30 characters max): `MyTVPlayer`
+**App name** (30 characters max): `MyPlexPlayer`
 
 **Short description** (80 max):
 
@@ -47,9 +50,9 @@ Elephants Dream, Sintel, Tears of Steel, Cosmos Laundromat, Charge, Caminandes),
 
 **Full description** (4000 max):
 
-> MyTVPlayer is a fast, simple player for Android TV and Fire TV that brings your own IPTV service to the big screen.
+> MyPlexPlayer is a fast, simple player for Android TV and Fire TV that brings your own IPTV service to the big screen.
 >
-> MyTVPlayer does not include any channels or content. Add the IPTV service you subscribe to (Xtream Codes login or
+> MyPlexPlayer does not include any channels or content. Add the IPTV service you subscribe to (Xtream Codes login or
 > M3U playlist), or start with free TV: channels streamed free by their broadcasters, and public-domain films and
 > series.
 >

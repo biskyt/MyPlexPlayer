@@ -67,8 +67,8 @@
     <string name="data_lang_jp">Japonais</string>
     <string name="data_lang_other">Autres</string>
 
+    <string name="data_accent_yellow">Jaune</string>
     <string name="data_accent_mint">Menthe</string>
-    <string name="data_accent_amber">Ambre</string>
     <string name="data_accent_violet">Violet</string>
     <string name="data_accent_sky">Ciel</string>
     <string name="data_accent_coral">Corail</string>

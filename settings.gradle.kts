@@ -18,6 +18,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MyTVPlayer"
+rootProject.name = "MyPlexPlayer"
 
 include(":core", ":app")

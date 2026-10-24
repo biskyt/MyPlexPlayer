@@ -1,42 +1,26 @@
-# MyTVPlayer roadmap
+# MyPlexPlayer roadmap
 
-## Done
-- **0.1–0.2:** Live TV (list and TV guide), player, guide matching, playlists (Xtream and M3U), free iptv-org channels, settings.
-- **0.3–0.7:**
-  - Movies and Series, with resume and "Carry on watching".
-  - Global search.
-  - Backup and restore.
-  - Better guide matching.
-  - "Find in Series / Movies" from the TV guide.
-- **0.8:** Catch-up TV: per-channel catch-up page, Start over, and past programmes in the TV guide (Xtream).
-- **0.9:** Movies and series from M3U playlists, M3U catch-up, and provider M3U links added as logins.
-- **1.0:** Touch support for phones and tablets, and the free channels' own programme guide.
-- **1.1:** The app in UK and US English, Spanish, Portuguese (Brazil) and French. Also a category filter, and a new
-  search order.
+MyPlexPlayer is a Plex client built from [MyTVPlayer](https://github.com/biskyt/MyTVPlayer)'s code. The two apps are
+developed separately; fixes worth having in both are copied across by hand.
 
-## Milestone 2: Movies, Series and search
-- Programme reminders.
-- Optional TMDB artwork and details for movies and series (can be turned off).
-- OpenSubtitles (off by default).
-
-### "Find in Series / Movies" from the TV guide (done in 0.7.0)
-In the TV guide, a programme's options menu (hold OK, or Info) offers a way to watch it on demand.
-
-- **What the menu shows:**
-  - **Series** (an episode number, or a series-type category): **Find series** opens the series, or the exact episode when it can be matched.
-  - **Film:** **Find in Movies**.
-  - **Clearly neither** (news, sport, live events): no option at all.
-  - **Unknown:** **Search for "<title>"**, which opens search pre-filled with the title.
-- **How it works:**
-  - Take two things from the guide data the importer already reads: the XMLTV `<category>` and `<episode-num>` (`xmltv_ns` "S.E.P", or onscreen "S01E02").
-  - Store them as a tiny `kind` (series / movie / other / unknown) plus season and episode numbers on each programme.
-  - No extra downloads or lookups.
-  - Search by normalised title (reusing the channel-name normaliser). It opens the series, then the episode if the season and episode numbers match.
-  - If any of this turns out to be costly, fall back to the pre-filled search alone.
+## 0.x: from MyTVPlayer to Plex
+Each step is its own pull request.
+0. **Plex API check and spikes:** every endpoint the app relies on is checked against
+   [Plexopedia](https://www.plexopedia.com/plex-media-server/api/) and the official spec, then proven with a small
+   spike. Results go in `docs/plex-api.md`.
+1. **New app identity** (0.1.0): name, package, yellow accent, icon, docs and CI.
+2. **Plex client** in `core`: plex.tv sign-in (PIN at plex.tv/link), servers and connections, libraries, hubs,
+   playback, progress, Live TV, guide and DVR. Tested against fixtures captured from real servers.
+3. **Sign in to Plex and choose a server**, in place of Xtream, M3U, the free playlist and added guides. Several
+   servers on one account, switched from the top bar. The website (`docs/index.html`, `docs/privacy.html`) and the
+   store listing (`store/`) are rewritten for Plex in the same step: until then they still describe MyTVPlayer.
+4. **Home, menu and search:** Continue watching, recently added series and movies, favourite series and movies, then
+   favourite Live TV channels. Live TV goes last in the menu, on Home and in search results. Empty rows are hidden.
+5. **Playback from Plex:** direct play, with the server's transcoder as the fallback; resume points and watched state
+   kept in Plex.
+6. **Live TV and the TV guide from Plex.**
+7. **DVR** in place of Catch-up: recordings, what's scheduled, and Record from the TV guide.
 
 ## Later
-- Recording to USB storage (DVR).
-- More touch: portrait phone layouts, foldables and player gestures (1.0 has touch in landscape).
-
-## Not planned
-PIN lock, multi-view, Stalker portals, Trakt, voice search, picture-in-picture.
+- Plex Home users (switching between the users of one account).
+- Plex's newer JWT sign-in.
