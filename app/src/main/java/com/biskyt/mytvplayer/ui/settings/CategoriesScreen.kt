@@ -1,6 +1,7 @@
 package com.biskyt.mytvplayer.ui.settings
 
 import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -37,10 +38,10 @@ import com.biskyt.mytvplayer.AppText
 import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
-import com.biskyt.mytvplayer.data.db.CAT_SERIES
 import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.MAX_SQL_ARGS
+import com.biskyt.mytvplayer.data.db.VOD_TYPES
 import com.biskyt.mytvplayer.data.groupLabel
 import com.biskyt.mytvplayer.data.label
 import com.biskyt.mytvplayer.ui.LocalNavigator
@@ -49,6 +50,7 @@ import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.FilterField
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.PillButton
+import com.biskyt.mytvplayer.ui.common.Tab
 import com.biskyt.mytvplayer.ui.common.Toggle
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.formatCount
@@ -215,12 +217,8 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             if (vm.hasVod) {
-                listOf(
-                    CAT_LIVE to R.string.common_tab_live,
-                    CAT_SERIES to R.string.common_tab_series,
-                    CAT_MOVIE to R.string.common_tab_movies
-                ).forEach { (t, label) ->
-                    PillButton(stringResource(label), { vm.showType(t) }, selected = t == type)
+                (listOf(CAT_LIVE) + VOD_TYPES).forEach { t ->
+                    PillButton(stringResource(typeLabel(t)), { vm.showType(t) }, selected = t == type)
                 }
             }
         }
@@ -342,3 +340,11 @@ private fun SelectAllRow(all: String, set: (included: Boolean) -> Unit) {
         PillButton(stringResource(R.string.settings_categories_none), { set(false) })
     }
 }
+
+/** The name of a type of category (CAT_LIVE, CAT_MOVIE or CAT_SERIES): its tab's in the menu bar. */
+@StringRes
+private fun typeLabel(type: String) = when (type) {
+    CAT_LIVE -> Tab.LIVE
+    CAT_MOVIE -> Tab.MOVIES
+    else -> Tab.SERIES
+}.label

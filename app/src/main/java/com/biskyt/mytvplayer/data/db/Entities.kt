@@ -48,6 +48,9 @@ const val CAT_LIVE = "live"
 const val CAT_MOVIE = "movie"
 const val CAT_SERIES = "series"
 
+/** Movies and series where they're shown side by side: series first. */
+val VOD_TYPES = listOf(CAT_SERIES, CAT_MOVIE)
+
 /**
  * A provider category of one [type] (providers number live, movie and series categories separately). Only items from
  * [included] categories are downloaded.

@@ -6,4 +6,6 @@
     <string name="home_remove_carry_on">Remove from Continue watching</string>
     <!-- "Add to favorites" is the action common_favourite_add: keep it the same as there. -->
     <string name="home_no_favourites">No favorites yet. On Live TV, hold OK on a channel and choose “Add to favorites”.</string>
+    <string name="home_favourite_series">Favorite series</string>
+    <string name="home_favourite_movies">Favorite movies</string>
 </resources>

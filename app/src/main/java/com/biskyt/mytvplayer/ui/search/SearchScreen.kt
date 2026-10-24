@@ -1,7 +1,6 @@
 package com.biskyt.mytvplayer.ui.search
 
 import android.util.Log
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,8 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -57,11 +54,13 @@ import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.TvTextField
 import com.biskyt.mytvplayer.ui.common.channelActions
 import com.biskyt.mytvplayer.ui.common.collectIds
-import com.biskyt.mytvplayer.ui.common.favouriteLabel
 import com.biskyt.mytvplayer.ui.common.formatDayTime
 import com.biskyt.mytvplayer.ui.common.isLive
 import com.biskyt.mytvplayer.ui.common.numberLabel
 import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
+import com.biskyt.mytvplayer.ui.common.titledRow
+import com.biskyt.mytvplayer.ui.common.vodActions
+import com.biskyt.mytvplayer.ui.common.vodDetails
 import com.biskyt.mytvplayer.ui.theme.Palette
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -105,8 +104,6 @@ class SearchViewModel(private val c: AppContainer, initialQuery: String = "") : 
 
     fun setChannelFavourite(pid: Long, streamId: Long, favourite: Boolean) =
         viewModelScope.launch { c.channels.setFavourite(pid, streamId, favourite) }
-
-    fun vodFavourite(pid: Long, type: String, id: Long) = c.vod.observeFavourite(pid, type, id)
 
     fun setVodFavourite(pid: Long, type: String, id: Long, favourite: Boolean) =
         viewModelScope.launch { c.vod.setFavourite(pid, type, id, favourite) }
@@ -161,19 +158,19 @@ fun SearchScreen(initialQuery: String = "") {
                 else -> {
                     // Channels, series, films, then TV programmes. Holding OK (or the remote's Menu button) on a result
                     // opens its options.
-                    section(R.string.common_channels, results.channels, { it.streamId }) {
+                    titledRow(R.string.common_channels, results.channels, { it.streamId }, SECTION_GAP) {
                         ChannelCard(it, it.streamId in favouriteChannels, { picked = Picked.Channel(it.streamId, it.name) }) {
                             nav.push(Screen.Player(pid, it.streamId, ChannelFilter.All))
                         }
                     }
-                    section(R.string.common_tab_series, results.series, { it.id }) {
+                    titledRow(R.string.common_tab_series, results.series, { it.id }, SECTION_GAP) {
                         PosterCard(it, favourite = it.id in favouriteSeries, onLongClick = { picked = Picked.Vod(CAT_SERIES, it) }) {
-                            nav.push(Screen.SeriesDetails(pid, it.id))
+                            nav.push(vodDetails(pid, CAT_SERIES, it.id))
                         }
                     }
-                    section(R.string.common_tab_movies, results.movies, { it.id }) {
+                    titledRow(R.string.common_tab_movies, results.movies, { it.id }, SECTION_GAP) {
                         PosterCard(it, favourite = it.id in favouriteMovies, onLongClick = { picked = Picked.Vod(CAT_MOVIE, it) }) {
-                            nav.push(Screen.MovieDetails(pid, it.id))
+                            nav.push(vodDetails(pid, CAT_MOVIE, it.id))
                         }
                     }
                     // TV programmes last: often a long list, it would push films and series out of sight.
@@ -195,46 +192,25 @@ fun SearchScreen(initialQuery: String = "") {
 /** What can be done with a result: watch or open it, favourites, and for channels catch-up and the guide source. */
 @Composable
 private fun ResultOptions(item: Picked, pid: Long, vm: SearchViewModel, onDismiss: () -> Unit) {
-    val (title, main, actions) = when (item) {
+    val (title, actions) = when (item) {
         is Picked.Channel -> {
             val favourites by vm.favourites.channels.collectAsState()
             val channel by produceState<ChannelEntity?>(null, item) { value = vm.channel(pid, item.streamId) }
-            Triple(
-                item.name,
-                ItemAction.Open(stringResource(R.string.common_watch), Screen.Player(pid, item.streamId, ChannelFilter.All)),
+            item.name to
+                listOf(ItemAction.Open(stringResource(R.string.common_watch), Screen.Player(pid, item.streamId, ChannelFilter.All))) +
                 // Once both are read: a label saying "Add" for a favourite would undo it.
                 channel?.let { ch ->
                     favourites?.let { f -> channelActions(ch, ch.streamId in f) { vm.setChannelFavourite(pid, ch.streamId, it) } }
                 }.orEmpty()
-            )
         }
         is Picked.Vod -> {
-            val favourite by remember(item) { vm.vodFavourite(pid, item.type, item.card.id) }.collectAsState<Boolean, Boolean?>(null)
-            val movie = item.type == CAT_MOVIE
-            Triple(
-                item.card.title,
-                ItemAction.Open(
-                    stringResource(if (movie) R.string.search_open_movie else R.string.search_open_series),
-                    if (movie) Screen.MovieDetails(pid, item.card.id) else Screen.SeriesDetails(pid, item.card.id)
-                ),
-                listOfNotNull(
-                    favourite?.let { f -> ItemAction.Run(favouriteLabel(f)) { vm.setVodFavourite(pid, item.type, item.card.id, !f) } }
-                )
-            )
+            val favourites by vm.favourites.of(item.type).collectAsState()
+            item.card.title to vodActions(pid, item.type, item.card.id, favourites?.let { item.card.id in it }) {
+                vm.setVodFavourite(pid, item.type, item.card.id, it)
+            }
         }
     }
-    ItemActionsPanel(title, listOf(main) + actions, onDismiss)
-}
-
-/** A titled row of results, left out when there are none. */
-private fun <T> LazyListScope.section(@StringRes title: Int, items: List<T>, key: (T) -> Long, card: @Composable (T) -> Unit) {
-    if (items.isEmpty()) return
-    item {
-        Column(Modifier.padding(top = SECTION_GAP)) {
-            SectionTitle(stringResource(title))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) { items(items, key = key) { card(it) } }
-        }
-    }
+    ItemActionsPanel(title, actions, onDismiss)
 }
 
 /** Long channel names are common ("UK: CHANNEL ONE HD FHD (backup)"): they scroll while the card is focused. */
