@@ -41,10 +41,8 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.R
-import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.container
 import com.biskyt.mytvplayer.data.ChannelFilter
-import com.biskyt.mytvplayer.data.SyncState
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
@@ -101,7 +99,6 @@ fun TopBar(selected: Tab?) {
             )
         }
         Box(Modifier.weight(1f))
-        SyncStatus()
         Clock()
         IconPill(AppIcons.Search, stringResource(R.string.common_search)) { nav.push(Screen.Search()) }
         IconPill(AppIcons.Settings, stringResource(R.string.common_settings)) { nav.push(Screen.Settings) }
@@ -137,31 +134,6 @@ private fun Clock() {
         color = Palette.textMuted,
         modifier = Modifier.padding(horizontal = 8.dp)
     )
-}
-
-@Composable
-private fun SyncStatus() {
-    val state by LocalContext.current.container.sync.state.collectAsState()
-    syncLabel(state)?.let { Muted(it, Modifier.padding(end = 8.dp)) }
-}
-
-/** What a background update is doing, in words (null when idle). */
-fun syncLabel(state: SyncState): String? = when (state) {
-    SyncState.Idle -> null
-    is SyncState.Channels ->
-        if (state.loaded == 0) {
-            appString(R.string.common_sync_channels_start)
-        } else {
-            appString(R.string.common_sync_channels_loading, formatCount(state.loaded))
-        }
-    is SyncState.Vod ->
-        if (state.loaded == 0) {
-            appString(R.string.common_sync_vod_start)
-        } else {
-            appString(R.string.common_sync_vod_loading, formatCount(state.loaded))
-        }
-    is SyncState.Guide -> state.message
-    is SyncState.Failed -> state.message
 }
 
 /** Screen with the top bar above [content]. */

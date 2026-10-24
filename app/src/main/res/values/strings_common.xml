@@ -112,16 +112,15 @@
     <!-- Status box on settings pages -->
     <string name="common_something_went_wrong">Something went wrong</string>
     <string name="common_please_wait">Please wait</string>
-    <string name="common_updating">Updating</string>
     <string name="common_last_update_failed">The last update failed</string>
 
-    <!-- Background update progress, in the top bar. Keep short -->
+    <!-- Background update progress, the first line of a small box in the corner of the screen. Keep short -->
     <string name="common_sync_channels_start">Updating channels…</string>
-    <!-- %1$s is how many channels have loaded so far -->
-    <string name="common_sync_channels_loading">Loading channels… %1$s</string>
     <string name="common_sync_vod_start">Updating movies and series…</string>
-    <!-- %1$s is how many movies and series have loaded so far -->
-    <string name="common_sync_vod_loading">Loading movies and series… %1$s</string>
+    <string name="common_sync_guide">Updating the guide…</string>
+    <!-- Its second line: %1$s is the playlist's name; %2$s how many channels (or movies and series) have loaded so far -->
+    <string name="common_sync_channels_loaded">%1$s: %2$s loaded</string>
+    <string name="common_sync_vod_loaded">%1$s: %2$s loaded</string>
     <!-- Box above the list of categories (Live TV, Movies, Series) that filters it by name. -->
     <string name="common_filter_categories">Filter categories</string>
     <!-- A TV programme its guide gave no title. -->

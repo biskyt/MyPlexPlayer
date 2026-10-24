@@ -10,14 +10,10 @@
     <string name="data_matching_progress">Matching channels… %1$s of %2$s</string>
     <!-- %1$s: the guide's name, e.g. "Free TV guide". -->
     <string name="data_downloading">Downloading %1$s…</string>
-    <!-- %1$s: the guide's name; %2$d: percent done. -->
-    <string name="data_downloading_percent">Downloading %1$s… %2$d%%</string>
     <!-- %1$s: the guide's name. -->
     <string name="data_reading">Reading %1$s…</string>
     <!-- %1$s: the guide's name. -->
     <string name="data_loading_programmes">Loading programmes from %1$s…</string>
-    <!-- %1$s: the guide's name; %2$d: percent done. -->
-    <string name="data_loading_programmes_percent">Loading programmes from %1$s… %2$d%%</string>
     <!-- When the guide's name isn't known. -->
     <string name="data_loading_programmes_guide">Loading programmes from the guide…</string>
 
