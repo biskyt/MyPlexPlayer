@@ -249,17 +249,17 @@ class RepositoriesTest {
         val provider101 = db.epg().mapping(id, 101)!!.xmlId
 
         // The same guide again: the server says it hasn't changed, so its channels and programmes aren't read again.
-        val again = mutableListOf<String>()
+        val again = mutableListOf<GuideStep>()
         epg.importAll(listOf(id)) { again += it }
-        assertTrue(again.none { it.startsWith("Reading") || it.startsWith("Loading programmes") })
+        assertTrue(again.none { it is GuideStep.Reading || it is GuideStep.Loading })
         assertEquals("Now on $provider101", epg.programmes(id, listOf(101), now(), now() + 60_000).getValue(101).first().title)
 
         // Adding a guide reads its own programmes, with progress; the provider's guide isn't read again.
-        val added = mutableListOf<String>()
+        val added = mutableListOf<GuideStep>()
         val extra = epg.addSource("Extra", provider.url + "xmltv.php?username=me&password=secret&extra=1")
         epg.importAll(listOf(id), only = extra) { added += it }
-        assertTrue(added.any { it.startsWith("Loading programmes from Extra… ") && it.endsWith("%") })
-        assertTrue(added.none { it.startsWith("Loading programmes from Home") })
+        assertTrue(added.any { it is GuideStep.Loading && it.guide == "Extra" && it.fraction != null })
+        assertTrue(added.none { it is GuideStep.Loading && it.guide.orEmpty().startsWith("Home") })
     }
 
     private fun now() = System.currentTimeMillis()
@@ -489,12 +489,12 @@ class RepositoriesTest {
         // The button: near-certain matches for channels without a guide (here as an older version left it),
         // with their programmes loaded.
         db.epg().upsertMappings(listOf(db.epg().mapping(id, 104)!!.copy(sourceId = null, xmlId = null, score = 0.0)))
-        val progress = mutableListOf<String>()
+        val progress = mutableListOf<GuideStep>()
         val result = epg.matchMissing(listOf(id)) { progress += it }
         assertEquals("wnbc.us", db.epg().mapping(id, 104)!!.xmlId)
         assertEquals(1, result.matched)
         assertTrue(result.checked >= 1)
-        assertTrue(progress.any { it.startsWith("Matching channels") })
+        assertTrue(progress.any { it is GuideStep.Matching && it.total > 0 })
         val now = System.currentTimeMillis()
         assertEquals("Now on wnbc.us", epg.programmes(id, listOf(104), now, now + 3_600_000).getValue(104).first().title)
 

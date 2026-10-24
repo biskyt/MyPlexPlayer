@@ -8,6 +8,10 @@ Each version's section becomes its GitHub release notes, so it is written for th
   New favourites go at the end.
 - **Home has rows for your favourite series and movies,** below Recently watched. Hold OK on one to open it or
   take it off your favourites.
+- **Updates show in the corner of the screen:** while channels, the guide or movies and series update, a small box in
+  the bottom-right corner says what's happening, with a progress bar where it can tell how far along it is. It shows on
+  every screen except while watching, and a failed update shows in red for a few seconds. The menu bar no longer
+  gets crowded by it.
 - **Favourites are marked with a heart** on their logo or poster wherever they're listed: the TV guide, the channel
   list, Movies, Series and Search.
 - Series now come before movies: in the menu bar, in Search and in Settings › Languages & categories.

@@ -85,12 +85,13 @@ class WorkRunner(private val appScope: CoroutineScope, private val scope: Corout
 fun StatusPanel(status: WorkStatus?) {
     // Read here, not by the page: progress ticks then redraw just this box.
     val sync = LocalContext.current.container.sync.state.collectAsState().value
-    val busy = sync !is SyncState.Idle && sync !is SyncState.Failed
     // Not an earlier failure: that isn't what is happening now.
-    val progress = sync.takeUnless { it is SyncState.Failed }?.let(::syncLabel) ?: stringResource(R.string.common_please_wait)
+    // The update shows in the corner too (SyncToast): here, under the page's own work.
+    val progress =
+        sync.takeUnless { it is SyncState.Failed }?.let(::syncText)?.let { listOfNotNull(it.title, it.detail).joinToString("\n") }
+            ?: stringResource(R.string.common_please_wait)
     val shown = when {
         status?.working == true -> status.copy(detail = progress)
-        busy -> WorkStatus(stringResource(R.string.common_updating), progress, working = true)
         status != null -> status
         sync is SyncState.Failed -> WorkStatus(stringResource(R.string.common_last_update_failed), sync.message, failed = true)
         else -> return

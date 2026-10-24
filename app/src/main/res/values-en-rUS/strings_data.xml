@@ -2,6 +2,5 @@
 <!-- US English overrides: only strings whose wording differs from the UK source in values/. -->
 <resources>
     <string name="data_loading_programmes">Loading programs from %1$s…</string>
-    <string name="data_loading_programmes_percent">Loading programs from %1$s… %2$d%%</string>
     <string name="data_loading_programmes_guide">Loading programs from the guide…</string>
 </resources>

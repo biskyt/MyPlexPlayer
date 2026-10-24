@@ -2,7 +2,6 @@ package com.biskyt.mytvplayer.data
 
 import android.util.Xml
 import androidx.room.withTransaction
-import com.biskyt.mytvplayer.AppText
 import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.appString
 import com.biskyt.mytvplayer.core.epg.ChannelMatcher
@@ -23,7 +22,6 @@ import java.io.BufferedInputStream
 import java.io.File
 import java.io.InputStream
 import java.net.HttpURLConnection
-import java.text.NumberFormat
 import java.util.zip.Deflater
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
@@ -163,7 +161,7 @@ class EpgRepository(
      * fails doesn't stop the others: returns each failed source's error, by id (also kept as its lastError). With
      * [only], just that source is downloaded again; the others are used as last downloaded.
      */
-    suspend fun importAll(playlistIds: List<Long>, only: Long? = null, onProgress: (String) -> Unit = {}): Map<Long, String> =
+    suspend fun importAll(playlistIds: List<Long>, only: Long? = null, onProgress: (GuideStep) -> Unit = {}): Map<Long, String> =
         withContext(Dispatchers.IO) {
             val errors = HashMap<Long, String>()
             db.withTransaction { clearSwitchedOff() }
@@ -173,7 +171,7 @@ class EpgRepository(
             // matching adds is read.
             val mappedBefore = sources.filterNot { readInFull(it, it.id in downloads.fresh) }
                 .associate { it.id to epg.mappedXmlIds(it.id).toHashSet() }
-            onProgress(appString(R.string.data_matching))
+            onProgress(GuideStep.Matching())
             playlistIds.forEach { autoMatch(it, downloads.scope, onProgress) }
             releaseMatcher()
             val late = HashMap<Long, List<EpgChannelEntity>>()
@@ -194,7 +192,7 @@ class EpgRepository(
     private suspend fun downloadAll(
         sources: List<EpgSourceEntity>,
         errors: MutableMap<Long, String>,
-        onProgress: (String) -> Unit
+        onProgress: (GuideStep) -> Unit
     ): Downloads {
         // Everything is matched again only when a guide loads for the first time; otherwise matches are kept, and
         // channels without one are tried again only if a guide's channel list changed.
@@ -230,7 +228,7 @@ class EpgRepository(
         fresh: Boolean,
         mappedBefore: Set<String>,
         errors: MutableMap<Long, String>,
-        onProgress: (String) -> Unit
+        onProgress: (GuideStep) -> Unit
     ): List<EpgChannelEntity>? {
         if (!sourceFile(s.id).exists()) return emptyList()
         val mapped = epg.mappedXmlIds(s.id).toHashSet()
@@ -243,7 +241,7 @@ class EpgRepository(
                 wanted,
                 onlyThese = !full,
                 known = if (full) epg.channelXmlIds(s.id).toHashSet() else null,
-                onProgress = { percent -> onProgress(appString(R.string.data_loading_programmes_percent, s.name, percent)) }
+                onProgress = { percent -> onProgress(GuideStep.Loading(s.name, percent / 100f)) }
             ).also {
                 // Unchanged but read again in full: counts from now. (Not a guide never read well, nor one that failed.)
                 if (full && !fresh && s.lastImportAt != 0L && s.id !in errors) epg.setLastImport(s.id, clock())
@@ -260,7 +258,7 @@ class EpgRepository(
      * channel list was read short. Adds the rest, matches again and reloads its programmes; later updates read such a
      * guide in full ([interleavedMarker]).
      */
-    private suspend fun addLateChannels(late: Map<Long, List<EpgChannelEntity>>, playlistIds: List<Long>, onProgress: (String) -> Unit) {
+    private suspend fun addLateChannels(late: Map<Long, List<EpgChannelEntity>>, playlistIds: List<Long>, onProgress: (GuideStep) -> Unit) {
         for ((id, rows) in late) {
             rows.chunked(BATCH).forEach { epg.upsertChannels(it) }
             interleavedMarker(id).createNewFile()
@@ -275,13 +273,13 @@ class EpgRepository(
      * Downloads one source and reads its channels: their number, null if the file hadn't changed on the server (nothing
      * is read again), or why it failed (also stored with the source).
      */
-    private suspend fun load(s: EpgSourceEntity, onProgress: (String) -> Unit): Result<Int?> {
-        onProgress(appString(R.string.data_downloading, s.name))
+    private suspend fun load(s: EpgSourceEntity, onProgress: (GuideStep) -> Unit): Result<Int?> {
+        onProgress(GuideStep.Downloading(s.name))
         val result = runCatching {
             val tags =
-                download(s) { percent -> onProgress(appString(R.string.data_downloading_percent, s.name, percent)) }
+                download(s) { percent -> onProgress(GuideStep.Downloading(s.name, percent / 100f)) }
                     ?: return@runCatching null
-            onProgress(appString(R.string.data_reading, s.name))
+            onProgress(GuideStep.Reading(s.name))
             // The tags only once the file has read well: a bad copy is fetched again next time, not kept as unchanged.
             importChannels(s).also { metaFile(s.id).writeText(tags) }
         }
@@ -305,7 +303,7 @@ class EpgRepository(
     suspend fun autoMatch(
         playlistId: Long,
         scope: MatchScope = MatchScope.ALL,
-        onProgress: (String) -> Unit = {}
+        onProgress: (GuideStep) -> Unit = {}
     ): List<ChannelEpgMappingEntity> = withContext(Dispatchers.Default) {
         val channels = when (scope) {
             MatchScope.ALL -> {
@@ -319,8 +317,13 @@ class EpgRepository(
         // Building the matcher is the slow part: skip it when there's nothing to match.
         if (channels.isEmpty() && scope != MatchScope.ALL) return@withContext emptyList()
         val matcher = matcher()
+        var reportedAt = 0L
         val rows = channels.mapIndexed { i, c ->
-            if (i % PROGRESS_EVERY == 0) onProgress(matchingLabel(i, channels.size))
+            // Matching is quick per channel: progress at most twice a second, as for downloads.
+            if (i % PROGRESS_EVERY == 0 && System.currentTimeMillis() - reportedAt >= REPORT_EVERY_MS) {
+                reportedAt = System.currentTimeMillis()
+                onProgress(GuideStep.Matching(i, channels.size))
+            }
             val m = matcher.autoMatch(c.name, c.providerEpgId, scope.threshold)
             ChannelEpgMappingEntity(
                 playlistId,
@@ -331,6 +334,7 @@ class EpgRepository(
                 score = m?.score ?: 0.0
             )
         }
+        onProgress(GuideStep.Matching(channels.size, channels.size))
         db.withTransaction {
             if (scope == MatchScope.ALL) epg.clearAutoMappings(playlistId)
             rows.chunked(BATCH).forEach { epg.upsertMappings(it) }
@@ -342,24 +346,17 @@ class EpgRepository(
      * Tries again, with only near-certain matches, for every visible channel without a guide (except those the user set
      * to "no guide"), then loads the programmes of the guide channels found.
      */
-    suspend fun matchMissing(playlistIds: List<Long>, onProgress: (String) -> Unit = {}): MatchResult = withContext(Dispatchers.IO) {
+    suspend fun matchMissing(playlistIds: List<Long>, onProgress: (GuideStep) -> Unit = {}): MatchResult = withContext(Dispatchers.IO) {
         val checked = playlistIds.flatMap { autoMatch(it, MatchScope.MISSING, onProgress) }
         val found = checked.filter { it.sourceId != null }
         releaseMatcher()
         val names = epg.enabledSources().associate { it.id to it.name }
         found.groupBy({ it.sourceId!! }, { it.xmlId!! }).forEach { (source, xmlIds) ->
-            onProgress(
-                names[source]?.let { appString(R.string.data_loading_programmes, it) } ?: appString(R.string.data_loading_programmes_guide)
-            )
+            onProgress(GuideStep.Loading(names[source]))
             runCatching { importProgrammes(source, xmlIds.toHashSet(), onlyThese = true) }
         }
         changed()
         MatchResult(checked.size, found.size)
-    }
-
-    private fun matchingLabel(done: Int, total: Int): String {
-        val n = NumberFormat.getIntegerInstance(AppText.locale)
-        return appString(R.string.data_matching_progress, n.format(done), n.format(total))
     }
 
     fun releaseMatcher() {
@@ -528,17 +525,13 @@ class EpgRepository(
             if (length <= 0) return
             read += n
             val percent = (read * 100 / length).toInt().coerceAtMost(100)
-            // Every progress message redraws the status line wherever it shows: at most twice a second.
+            // Every progress message redraws the progress shown: at most twice a second.
             val now = System.currentTimeMillis()
             if (percent != reported && (now - reportedAt >= REPORT_EVERY_MS || percent == 100)) {
                 reported = percent
                 reportedAt = now
                 onPercent(percent)
             }
-        }
-
-        private companion object {
-            const val REPORT_EVERY_MS = 500L
         }
     }
 
@@ -636,6 +629,9 @@ class EpgRepository(
          */
         const val REREAD_AFTER_MS = 20 * 3_600_000L
         const val PROGRESS_EVERY = 100
+
+        /** How often progress is reported, at most. */
+        const val REPORT_EVERY_MS = 500L
         const val KEEP_PAST_MS = 2 * 3_600_000L
         const val KEEP_FUTURE_MS = 3 * 24 * 3_600_000L
         const val REMAP_DEBOUNCE_MS = 1_500L
