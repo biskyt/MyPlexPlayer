@@ -21,6 +21,7 @@ import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.ChannelProgramme
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.common.CategoryFilter
+import com.biskyt.mytvplayer.ui.common.FavouriteMover
 import com.biskyt.mytvplayer.ui.common.NowNextLoader
 import com.biskyt.mytvplayer.ui.common.NumberEntry
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -225,8 +226,12 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
         restoreFocusPending = true
     }
 
-    /** Reordering only makes sense in lists sorted by position (not Favourites by name or Recent by time). */
+    /** Reordering only makes sense in lists sorted by position (not Recent, by time; Favourites have [mover]). */
     val canMove: Boolean get() = filter.value == ChannelFilter.All || filter.value is ChannelFilter.Category
+
+    /** Moving a favourite within Favourites (the list, not the guide). */
+    val mover = FavouriteMover(viewModelScope, c.favourites) { playlistId.value }
+    val canMoveFavourite: Boolean get() = filter.value == ChannelFilter.Favourites && !guideMode && query.value.isEmpty()
 
     fun move(ch: ChannelEntity, delta: Int) = viewModelScope.launch {
         c.channels.move(ch.playlistId, filter.value, ch.streamId, delta)
