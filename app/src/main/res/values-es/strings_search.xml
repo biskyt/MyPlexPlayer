@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_placeholder">Busca canales, programas de TV, películas y series</string>
+    <string name="search_failed">La búsqueda no funciona en este momento. Vuelve a intentarlo en un rato.</string>
+    <string name="search_keep_typing">Sigue escribiendo: al menos 2 letras o un número de canal.</string>
+    <string name="search_nothing_found">No se encontró nada para “%1$s”.</string>
+
+    <string name="search_on_tv">En TV</string>
+
+    <string name="search_open_movie">Abrir película</string>
+    <string name="search_open_series">Abrir serie</string>
+</resources>

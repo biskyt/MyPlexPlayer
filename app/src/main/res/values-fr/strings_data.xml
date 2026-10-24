@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_refresh_failed">Échec de l\'actualisation</string>
+    <string name="data_vod_failed">Impossible de charger les films et séries</string>
+
+    <string name="data_matching">Association des chaînes…</string>
+    <string name="data_matching_progress">Association des chaînes… %1$s sur %2$s</string>
+    <string name="data_downloading">Téléchargement de %1$s…</string>
+    <string name="data_reading">Lecture de %1$s…</string>
+    <string name="data_loading_programmes">Chargement des programmes de %1$s…</string>
+    <string name="data_loading_programmes_guide">Chargement des programmes du guide…</string>
+
+    <string name="data_server_error">Le serveur a renvoyé l\'erreur %1$d</string>
+    <string name="data_guide_save_failed">Impossible d\'enregistrer le fichier du guide</string>
+
+    <string name="data_xtream_login_failed">Échec de la connexion : vérifiez l\'adresse du serveur, le nom d\'utilisateur et le mot de passe</string>
+    <string name="data_xtream_no_movie_details">Aucun détail pour ce film</string>
+    <string name="data_xtream_no_episodes">Aucun épisode trouvé pour cette série</string>
+    <string name="data_xtream_unreachable">Impossible de joindre le serveur : %1$s</string>
+    <string name="data_xtream_empty">Réponse vide du serveur</string>
+    <string name="data_xtream_unexpected">Réponse inattendue du serveur</string>
+    <string name="data_xtream_invalid_address">Adresse du serveur non valide</string>
+    <string name="data_account_inactive">Ce compte n\'est pas actif</string>
+
+    <string name="data_free_failed">Impossible de configurer les chaînes gratuites</string>
+    <string name="data_playlist_save_failed">Impossible d\'enregistrer la playlist</string>
+    <string name="data_playlist_address_invalid">Adresse de playlist non valide</string>
+    <string name="data_playlist_refused">Le serveur a refusé le téléchargement de la playlist (erreur %1$d)</string>
+    <string name="data_playlist_download_failed">Impossible de télécharger la playlist : %1$s</string>
+    <string name="data_not_m3u">Cette adresse ne renvoie pas de playlist M3U</string>
+
+    <string name="data_catchup_unplayable">Le replay de cette chaîne ne peut pas être lu</string>
+    <string name="data_episode_gone">Cet épisode n\'est plus dans la playlist</string>
+
+    <string name="data_lang_uk">Anglais (Royaume-Uni)</string>
+    <string name="data_lang_us">Anglais (États-Unis)</string>
+    <string name="data_lang_ca">Anglais (Canada)</string>
+    <string name="data_lang_au">Anglais (Australie)</string>
+    <string name="data_lang_ie">Anglais (Irlande)</string>
+    <string name="data_lang_fr">Français</string>
+    <string name="data_lang_de">Allemand</string>
+    <string name="data_lang_es">Espagnol</string>
+    <string name="data_lang_it">Italien</string>
+    <string name="data_lang_pt">Portugais</string>
+    <string name="data_lang_br">Portugais (Brésil)</string>
+    <string name="data_lang_nl">Néerlandais</string>
+    <string name="data_lang_be">Belge</string>
+    <string name="data_lang_pl">Polonais</string>
+    <string name="data_lang_tr">Turc</string>
+    <string name="data_lang_ar">Arabe</string>
+    <string name="data_lang_in">Indien</string>
+    <string name="data_lang_pk">Pakistanais</string>
+    <string name="data_lang_gr">Grec</string>
+    <string name="data_lang_ro">Roumain</string>
+    <string name="data_lang_al">Albanais</string>
+    <string name="data_lang_exyu">Balkans</string>
+    <string name="data_lang_se">Suédois</string>
+    <string name="data_lang_no">Norvégien</string>
+    <string name="data_lang_dk">Danois</string>
+    <string name="data_lang_fi">Finnois</string>
+    <string name="data_lang_ru">Russe</string>
+    <string name="data_lang_lat">Latino</string>
+    <string name="data_lang_mx">Mexicain</string>
+    <string name="data_lang_af">Africain</string>
+    <string name="data_lang_cn">Chinois</string>
+    <string name="data_lang_kr">Coréen</string>
+    <string name="data_lang_jp">Japonais</string>
+    <string name="data_lang_other">Autres</string>
+
+    <string name="data_accent_mint">Menthe</string>
+    <string name="data_accent_amber">Ambre</string>
+    <string name="data_accent_violet">Violet</string>
+    <string name="data_accent_sky">Ciel</string>
+    <string name="data_accent_coral">Corail</string>
+    <string name="data_accent_lime">Citron vert</string>
+    <string name="data_accent_pink">Rose</string>
+    <string name="data_accent_silver">Argent</string>
+    <string name="data_playlist_default_name">Ma TV</string>
+    <string name="data_free_playlist_name">TV gratuite</string>
+    <string name="data_provider_guide_name">Guide de %1$s</string>
+    <string name="data_ungrouped">Sans catégorie</string>
+</resources>

@@ -1,0 +1,347 @@
+package com.biskyt.mytvplayer.ui.common
+
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.tv.material3.Icon
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Text
+import com.biskyt.mytvplayer.R
+import com.biskyt.mytvplayer.data.db.CategoryEntity
+import com.biskyt.mytvplayer.data.groupLabel
+import com.biskyt.mytvplayer.data.label
+import com.biskyt.mytvplayer.ui.theme.LocalAccent
+import com.biskyt.mytvplayer.ui.theme.Palette
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+
+/**
+ * The selected entry of a [CategoryColumn]. Focusing an entry switches after a short pause, so moving through
+ * categories stays smooth; selecting switches at once. [onChange] runs when the selection changes. Not [settled]
+ * (until [openOnShown] has run), the list to open on isn't known yet.
+ */
+class CategoryFilter<F>(
+    private val scope: CoroutineScope,
+    initial: F,
+    settled: Boolean = true,
+    private val onChange: (F) -> Unit = {}
+) {
+    private val state = MutableStateFlow(initial)
+    val value: StateFlow<F> = state
+    private var job: Job? = null
+
+    fun focus(f: F) {
+        job?.cancel()
+        if (f == state.value) return
+        job = scope.launch {
+            delay(FOCUS_DELAY_MS)
+            set(f)
+        }
+    }
+
+    fun select(f: F) {
+        job?.cancel()
+        set(f)
+    }
+
+    /** Whether the list shown is the one to show: so a list about to give way isn't shown (or focused) meanwhile. */
+    var settled by mutableStateOf(settled)
+        private set
+
+    // Whether the user has picked a list yet (rather than the one the screen opened on).
+    private var userPicked = false
+
+    /**
+     * Shows [f] as the list the screen opens on, unless the user has picked one already (a category being focused
+     * still switches when its pause is over). Not a pick: no [onChange].
+     */
+    fun open(f: F) {
+        if (!userPicked) state.value = f
+        settled = true
+    }
+
+    private fun set(f: F) {
+        settled = true
+        if (f == state.value) return
+        userPicked = true
+        state.value = f
+        onChange(f)
+    }
+
+    private companion object {
+        const val FOCUS_DELAY_MS = 300L
+    }
+}
+
+/**
+ * Where a screen of lists (Live TV, Movies, Series) opens, once it's known whether the list it starts on would show
+ * nothing: a category no longer shown ([gone]) gives way to [favourites], and [favourites] with none ([noFavourites])
+ * to [all].
+ */
+suspend fun <F> CategoryFilter<F>.openOnShown(favourites: F, all: F, gone: suspend (F) -> Boolean, noFavourites: suspend () -> Boolean) {
+    val start = value.value
+    var open = start
+    try {
+        val shown = if (gone(start)) favourites else start
+        open = if (shown == favourites && noFavourites()) all else shown
+    } finally {
+        // Whatever happens, a list is shown.
+        open(open)
+    }
+}
+
+/**
+ * One entry in a category column: a fixed list (Favourites, All…), or a provider [category] (which can be hidden) with
+ * its size.
+ */
+data class CategoryEntry<F>(val filter: F, val label: String, val count: Int? = null, val category: CategoryEntity? = null)
+
+/**
+ * Entries for [categories], named as the playlist names them; a name shared by categories of different groups ("News"
+ * from two countries' channels) gets its group's label too, so they can be told apart.
+ */
+fun <F> categoryEntries(categories: List<CategoryEntity>, filter: (CategoryEntity) -> F): List<CategoryEntry<F>> =
+    distinctLabels(categories, { it.label }, { it.lang }) { c, label -> CategoryEntry(filter(c), label, c.channelCount, c) }
+
+/**
+ * [items] made into [entry]s, each [label] shared by more than one adding its group ([lang]) when it has one and the
+ * group isn't the label itself: "News · Sweden".
+ */
+fun <T, E> distinctLabels(items: List<T>, label: (T) -> String, lang: (T) -> String?, entry: (T, String) -> E): List<E> {
+    val labels = items.map(label)
+    val shared = labels.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+    return items.mapIndexed { i, item ->
+        val group = lang(item)?.takeIf { labels[i] in shared }?.let(::groupLabel)?.takeIf { it != labels[i] }
+        entry(item, group?.let { "${labels[i]} · $it" } ?: labels[i])
+    }
+}
+
+/**
+ * The column of categories on the left of Live TV, Movies and Series. Moving up or down to an entry calls [onFocus]
+ * (screens switch the list after a short pause); OK calls [onSelect]. Holding OK (or Menu) on a provider category
+ * offers to hide it ([onHide]).
+ *
+ * The list follows the remote's up/down keys, not focus: focus arriving any other way (e.g. thrown out of a list that
+ * changed under it) never switches it. Coming into the column, focus goes to the selected entry. [right]: where right
+ * goes from it, when the list beside it isn't level with it (left to find, right could land on the top bar).
+ */
+@Composable
+fun <F> CategoryColumn(
+    entries: List<CategoryEntry<F>>,
+    selected: F,
+    onFocus: (F) -> Unit,
+    onSelect: (F) -> Unit,
+    onHide: ((CategoryEntity) -> Unit)? = null,
+    right: FocusRequester = FocusRequester.Default
+) {
+    val selectedEntry = remember { FocusRequester() }
+    var options by remember { mutableStateOf<CategoryEntity?>(null) }
+    val state = rememberLazyListState()
+    val selectedIndex = entries.indexOfFirst { it.filter == selected }
+    val currentIndex by rememberUpdatedState(selectedIndex)
+    fun selectedShown() = state.layoutInfo.visibleItemsInfo.any { it.index == currentIndex }
+    // Picked some other way (remembered, or the one shown was hidden): the column shows it, ready for focus.
+    LaunchedEffect(selectedIndex) { if (selectedIndex >= 0 && !selectedShown()) state.scrollToItem(selectedIndex) }
+    var refocus by remember { mutableIntStateOf(0) }
+    LaunchedEffect(refocus) {
+        if (refocus == 0) return@LaunchedEffect
+        // A slow box may take a few frames to lay out the entry it scrolls to: focus goes there once it's shown.
+        repeat(REFOCUS_FRAMES) {
+            val index = currentIndex
+            if (index >= 0 && !selectedShown()) state.scrollToItem(index)
+            withFrameNanos { }
+            if (selectedShown() && runCatching { selectedEntry.requestFocus() }.isSuccess) return@LaunchedEffect
+        }
+    }
+    LazyColumn(
+        Modifier.width(CATEGORY_WIDTH)
+            // Coming in, focus goes to the selected entry; if it isn't in view yet (a slow box still scrolling to it),
+            // once the column has scrolled there.
+            .focusProperties {
+                onEnter = {
+                    when {
+                        selectedShown() -> runCatching { selectedEntry.requestFocus(requestedFocusDirection) }
+                        selectedIndex >= 0 -> {
+                            cancelFocusChange()
+                            refocus++
+                        }
+                    }
+                }
+            }
+            .focusGroup(),
+        state = state,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        contentPadding = PaddingValues(bottom = 24.dp)
+    ) {
+        itemsIndexed(entries, key = { _, e -> e.label + e.filter.hashCode() }) { i, entry ->
+            val (f, label, count) = entry
+            val category = entry.category
+            val isSelected = f == selected
+            TvCard(
+                onClick = { onSelect(f) },
+                onLongClick = if (onHide != null && category != null) ({ options = category }) else null,
+                selected = isSelected,
+                color = Palette.background,
+                modifier = Modifier.fillMaxWidth()
+                    .then(if (isSelected) Modifier.focusRequester(selectedEntry) else Modifier)
+                    .rightTo(right)
+                    .onPreviewKeyEvent { e ->
+                        if (e.type == KeyEventType.KeyDown) {
+                            val next = when (e.key) {
+                                Key.DirectionUp -> i - 1
+                                Key.DirectionDown -> i + 1
+                                else -> -1
+                            }
+                            entries.getOrNull(next)?.let { onFocus(it.filter) }
+                        }
+                        false // focus moves as usual
+                    }
+            ) {
+                Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        label,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = if (isSelected) LocalAccent.current.color else Palette.text,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (count != null) Text(formatCount(count), style = MaterialTheme.typography.bodySmall, color = Palette.textDim)
+                }
+            }
+        }
+    }
+    options?.let { cat ->
+        val close = { options = null }
+        val hide = ItemAction.Run(stringResource(R.string.common_hide_category), stringResource(R.string.common_hide_category_help)) {
+            close()
+            onHide?.invoke(cat)
+            refocus++ // its entry goes, and focus with it
+        }
+        ItemActionsPanel(cat.label, listOf(hide), close)
+    }
+}
+
+/**
+ * A [CategoryColumn] with a box above it to filter its entries by name, for playlists with hundreds of categories. The
+ * first [fixed] entries (All, Favourites…) stay, so there's always a way back to them.
+ */
+@Composable
+fun <F> FilteredCategoryColumn(
+    entries: List<CategoryEntry<F>>,
+    fixed: Int,
+    selected: F,
+    onFocus: (F) -> Unit,
+    onSelect: (F) -> Unit,
+    onHide: ((CategoryEntity) -> Unit)? = null
+) {
+    var query by rememberSaveable { mutableStateOf("") }
+    val q = query.trim()
+    // The first [fixed] entries, the one chosen when typing began and the one chosen now stay whatever is typed.
+    val kept = remember(q.isEmpty()) { selected }
+    val shown = remember(entries, fixed, kept, selected, q) {
+        // Unfiltered: the same list, so the column has nothing new to work out as the selection moves.
+        if (q.isEmpty()) {
+            entries
+        } else {
+            entries.filterIndexed { i, e ->
+                i < fixed ||
+                    e.filter == kept ||
+                    e.filter == selected ||
+                    matchesFilter(e.label, q)
+            }
+        }
+    }
+    Column(Modifier.width(CATEGORY_WIDTH), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        FilterField(query, { query = it }, stringResource(R.string.common_filter_categories), Modifier.fillMaxWidth())
+        CategoryColumn(shown, selected, onFocus, onSelect, onHide)
+    }
+}
+
+/** Above a list or grid: its title and size, a filter box, and anything screen-specific ([trailing]). */
+@Composable
+fun ListHeader(
+    title: String,
+    count: Int?,
+    query: String,
+    onQuery: (String) -> Unit,
+    placeholder: String,
+    filterModifier: Modifier = Modifier,
+    trailing: @Composable RowScope.() -> Unit = {}
+) {
+    Row(
+        Modifier.padding(bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.headlineSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(0.45f, fill = false)
+        )
+        if (count != null) Muted("· ${formatCount(count)}")
+        FilterField(query, onQuery, placeholder, filterModifier.weight(0.55f))
+        trailing()
+    }
+}
+
+/** A box that filters a list as the user types; what's typed is matched as it is (see [matchesFilter]). */
+@Composable
+fun FilterField(query: String, onQuery: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) = TvTextField(
+    value = query,
+    onValueChange = onQuery,
+    placeholder = placeholder,
+    modifier = modifier,
+    leading = { Icon(AppIcons.Filter, null, tint = Palette.textDim, modifier = Modifier.size(18.dp)) }
+)
+
+/** Whether [text] matches a (trimmed) filter [query]: anywhere in it, in any case. A blank filter matches everything. */
+fun matchesFilter(text: String, query: String) = query.isBlank() || text.contains(query, ignoreCase = true)
+
+private val CATEGORY_WIDTH = 250.dp
+
+/** How many frames focus waits for the selected entry to be laid out after scrolling to it. */
+private const val REFOCUS_FRAMES = 10
+
+/** Right from here goes to [target]; unchanged (the usual search) when it's the default. */
+private fun Modifier.rightTo(target: FocusRequester): Modifier =
+    if (target == FocusRequester.Default) this else focusProperties { right = target }

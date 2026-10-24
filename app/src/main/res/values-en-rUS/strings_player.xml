@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- US English overrides: only strings whose wording differs from the UK source in values/. -->
+<resources>
+    <!-- In US English the numbered run of a show is a "season", not a "series". -->
+    <string name="player_episode_label">Season %1$d · Episode %2$d</string>
+    <string name="player_episode_label_titled">Season %1$d · Episode %2$d · %3$s</string>
+    <string name="player_error_http_gone">The stream isn\'t at its address anymore (error %1$d). The channel list may be out of date.</string>
+</resources>

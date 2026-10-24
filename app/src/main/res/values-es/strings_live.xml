@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="live_all_channels">Todos los canales</string>
+    <string name="live_all_catchup">Todo el diferido</string>
+    <string name="live_filter_hint">Filtrar por nombre o número</string>
+    <string name="live_view_list">Lista</string>
+    <string name="live_view_guide">Guía de TV</string>
+    <string name="live_no_channels">Aún no hay canales aquí.</string>
+    <string name="live_next">Luego %1$s %2$s</string>
+    <string name="live_until">Hasta las %1$s</string>
+
+    <string name="live_option_find_series">Buscar serie</string>
+    <string name="live_option_find_movie">Buscar en Películas</string>
+    <string name="live_option_search_for">Buscar “%1$s”</string>
+    <string name="live_option_find_help">Velo cuando quieras</string>
+    <string name="live_option_start_over_help">Ve lo que están dando desde el inicio</string>
+    <string name="live_option_channel_guide">Mostrar la guía de este canal</string>
+    <string name="live_option_channel_guide_help">Próximos programas</string>
+    <string name="live_option_switch_to_list">Cambiar a la lista de canales</string>
+    <string name="live_option_switch_to_grid">Cambiar a la cuadrícula de la guía</string>
+    <string name="live_option_switch_help">O presiona el botón Guide del control remoto</string>
+    <string name="live_option_hide_channel">Ocultar canal</string>
+    <string name="live_option_hide_channel_help">Vuelve a mostrarlo en Configuración › Idiomas y categorías</string>
+
+    <string name="live_catchup_title">Diferido · %1$s</string>
+    <string name="live_catchup_load_failed">No se pudo cargar el diferido</string>
+    <string name="live_catchup_empty_day">No hay nada en diferido para este día.</string>
+
+    <string name="live_guide_earlier">Antes</string>
+    <string name="live_guide_later">Después</string>
+
+    <string name="live_guide_sources_intro">Las guías se actualizan todos los días. Los programas solo se guardan para los canales que las usan, para los próximos 3 días.</string>
+    <string name="live_guide_add">Agregar guía</string>
+    <string name="live_guide_update_now">Actualizar guía</string>
+    <string name="live_guide_match_missing">Asignar canales sin guía</string>
+    <string name="live_guide_yours">Tus guías</string>
+    <string name="live_guide_none_yet">Aún no hay guías. Agrega una guía gratuita de tu país o tu propia dirección XMLTV.</string>
+    <string name="live_guide_last_failed">Falló la última actualización: %1$s</string>
+    <string name="live_guide_wait">Espera a que termine esto primero: %1$s</string>
+    <string name="live_guide_own_address">Tu propia dirección XMLTV</string>
+    <string name="live_guide_name_hint">Nombre (opcional)</string>
+    <string name="live_guide_add_this">Agregar guía</string>
+    <string name="live_guide_free_title">Guías gratuitas por país</string>
+    <string name="live_guide_free_note">De iptv-epg.org. Los países grandes pueden tardar unos minutos en cargar en un TV box.</string>
+    <string name="live_guide_from_provider">De tu proveedor</string>
+    <plurals name="live_guide_source_channels">
+        <item quantity="one">%1$s canal</item>
+        <item quantity="many">%1$s canales</item>
+        <item quantity="other">%1$s canales</item>
+    </plurals>
+    <string name="live_guide_source_off">desactivada</string>
+
+    <string name="live_guide_adding">Agregando %1$s</string>
+    <string name="live_guide_added">%1$s agregada</string>
+    <string name="live_guide_load_failed">No se pudo cargar %1$s</string>
+    <string name="live_guide_updating">Actualizando la guía de TV</string>
+    <string name="live_guide_updated">Guía de TV actualizada</string>
+    <string name="live_guide_some_failed">No se pudieron cargar algunas guías</string>
+    <string name="live_guide_matching">Asignando canales sin guía</string>
+    <plurals name="live_guide_match_found">
+        <item quantity="one">Se encontró guía para %1$s canal más</item>
+        <item quantity="many">Se encontró guía para %1$s canales más</item>
+        <item quantity="other">Se encontró guía para %1$s canales más</item>
+    </plurals>
+    <string name="live_guide_match_all">Todos los canales tienen guía</string>
+    <string name="live_guide_match_none_left">No quedan canales por asignar</string>
+    <string name="live_guide_match_none_new">No se encontraron nuevas coincidencias</string>
+    <plurals name="live_guide_coverage">
+        <item quantity="one">%1$s canal tiene guía.</item>
+        <item quantity="many">%1$s canales tienen guía.</item>
+        <item quantity="other">%1$s canales tienen guía.</item>
+    </plurals>
+    <plurals name="live_guide_coverage_more">
+        <item quantity="one">%1$s canal tiene guía (%2$s más que antes).</item>
+        <item quantity="many">%1$s canales tienen guía (%2$s más que antes).</item>
+        <item quantity="other">%1$s canales tienen guía (%2$s más que antes).</item>
+    </plurals>
+    <plurals name="live_guide_coverage_none">
+        <item quantity="one">%1$s sigue sin guía: puedes elegirla a mano en Asignación de la guía de TV.</item>
+        <item quantity="many">%1$s siguen sin guía: puedes elegirlas a mano en Asignación de la guía de TV.</item>
+        <item quantity="other">%1$s siguen sin guía: puedes elegirlas a mano en Asignación de la guía de TV.</item>
+    </plurals>
+
+    <string name="live_guide_matching_intro">Elige qué datos de guía usa cada canal. Tus elecciones se conservan cuando se actualiza la lista.</string>
+    <string name="live_guide_tab_all">Todos</string>
+    <string name="live_guide_tab_auto">Automático</string>
+    <string name="live_guide_tab_manual">Manual</string>
+    <string name="live_guide_no_guide">Sin guía</string>
+    <string name="live_guide_filter_hint">Filtra tus canales por nombre</string>
+    <string name="live_guide_no_data">Sin datos de guía</string>
+    <string name="live_guide_chip_none">SIN GUÍA</string>
+    <string name="live_guide_chip_set">MANUAL</string>
+    <string name="live_guide_chip_auto">AUTO %1$d%%</string>
+    <string name="live_guide_select_channel">Selecciona un canal a la izquierda para elegir su guía.</string>
+    <string name="live_guide_choose_for">Elige una guía para</string>
+    <string name="live_guide_current_none">Actual: sin guía</string>
+    <string name="live_guide_current">Actual: %1$s (%2$s)</string>
+    <string name="live_guide_current_shifted">Actual: %1$s (%2$s) · desfase %3$dh</string>
+    <string name="live_guide_search_hint">Buscar en todos los canales de guía</string>
+    <string name="live_guide_match_score">%1$d%% coincide</string>
+    <string name="live_guide_no_results">No se encontraron canales de guía. Prueba una búsqueda más corta o agrega otra fuente de guía.</string>
+    <string name="live_guide_time_shift">Desfase: %1$d h</string>
+    <string name="live_guide_reset">Volver a automático</string>
+</resources>
