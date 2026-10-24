@@ -12,11 +12,13 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -39,8 +41,15 @@ import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.CategoryEntry
 import com.biskyt.mytvplayer.ui.common.CategoryFilter
+import com.biskyt.mytvplayer.ui.common.FavouriteMover
 import com.biskyt.mytvplayer.ui.common.FilteredCategoryColumn
+import com.biskyt.mytvplayer.ui.common.ItemActionsPanel
+import com.biskyt.mytvplayer.ui.common.KeepInView
 import com.biskyt.mytvplayer.ui.common.ListHeader
+import com.biskyt.mytvplayer.ui.common.MovableTile
+import com.biskyt.mytvplayer.ui.common.MoveBackHandler
+import com.biskyt.mytvplayer.ui.common.MoveHint
+import com.biskyt.mytvplayer.ui.common.MoveLayout
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.POSTER_WIDTH
 import com.biskyt.mytvplayer.ui.common.PillButton
@@ -50,7 +59,9 @@ import com.biskyt.mytvplayer.ui.common.Tab
 import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.categoryEntries
 import com.biskyt.mytvplayer.ui.common.collectIds
+import com.biskyt.mytvplayer.ui.common.moveAction
 import com.biskyt.mytvplayer.ui.common.restoreFocusIf
+import com.biskyt.mytvplayer.ui.common.vodActions
 import com.biskyt.mytvplayer.ui.common.vodDetails
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -61,6 +72,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -91,6 +103,19 @@ class VodBrowseViewModel(private val c: AppContainer, val type: String, initialF
             .distinctUntilChanged()
             .flatMapLatest { (pid, f, q) -> c.vod.pageCards(type, pid, f, q) }
             .cachedIn(viewModelScope)
+
+    /** A poster whose options are open. */
+    var optionsFor by mutableStateOf<VodCard?>(null)
+
+    /** A poster taken off Favourites while they're shown: focus moves on once it has gone. */
+    var removedId by mutableStateOf<Long?>(null)
+
+    /** Moving a favourite within Favourites. */
+    val mover = FavouriteMover(viewModelScope, c.favourites) { playlist.value?.id ?: 0 }
+
+    fun setFavourite(card: VodCard, favourite: Boolean) = viewModelScope.launch {
+        c.vod.setFavourite(playlist.value?.id ?: return@launch, type, card.id, favourite)
+    }
 
     /** The title last opened, to return focus to it when coming back. */
     var focusId: Long? = null
@@ -135,6 +160,7 @@ fun VodBrowseScreen(type: String, initialFilter: VodFilter) {
             FilteredCategoryColumn(entries, fixed = 3, filter, vm.filters::focus, vm.filters::select, vm::hideCategory)
             Column(Modifier.weight(1f)) {
                 Header(vm, entries.firstOrNull { it.filter == filter })
+                MoveHint(vm.mover, type, MoveLayout.GRID, Modifier.padding(bottom = 8.dp))
                 val p = playlist
                 when {
                     p != null && !p.hasVod -> Muted(
@@ -147,6 +173,25 @@ fun VodBrowseScreen(type: String, initialFilter: VodFilter) {
             }
         }
     }
+    vm.optionsFor?.let { card -> PosterOptions(vm, card, filter, playlist?.id ?: 0) }
+}
+
+/** Holding OK on a poster: open it, favourites, and in Favourites, move it. */
+@Composable
+private fun PosterOptions(vm: VodBrowseViewModel, card: VodCard, filter: VodFilter, pid: Long) {
+    val close = { vm.optionsFor = null }
+    val favourites by vm.favouriteIds.collectAsState()
+    val query by vm.query.collectAsState()
+    val favourite = favourites?.let { card.id in it }
+    val inFavourites = filter == VodFilter.Favourites
+    val actions = vodActions(pid, vm.type, card.id, favourite) {
+        vm.setFavourite(card, it)
+        if (!it && inFavourites) {
+            close()
+            vm.removedId = card.id
+        }
+    } + listOfNotNull(if (inFavourites && favourite == true && query.isEmpty()) moveAction(vm.mover, vm.type, card.id, close) else null)
+    ItemActionsPanel(card.title, actions, close)
 }
 
 @Composable
@@ -176,9 +221,22 @@ private fun PosterGrid(vm: VodBrowseViewModel, pid: Long) {
         }
         return
     }
+    val filter by vm.filters.value.collectAsState()
+    val query by vm.query.collectAsState()
+    MoveBackHandler(vm.mover, filter, query)
+    val state = rememberLazyGridState()
+    vm.removedId?.let { removed ->
+        LaunchedEffect(removed) {
+            snapshotFlow { items.itemSnapshotList.none { it?.id == removed } }.first { it }
+            vm.focusId = null
+            vm.restoreFocusPending = true
+            vm.removedId = null
+        }
+    }
+    KeepInView(state) { vm.mover.movingId(vm.type)?.let { p -> items.itemSnapshotList.indexOfFirst { it?.id == p } } }
     LazyVerticalGrid(
         columns = GridCells.Fixed(COLUMNS),
-        state = rememberLazyGridState(),
+        state = state,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(bottom = 40.dp)
@@ -191,15 +249,15 @@ private fun PosterGrid(vm: VodBrowseViewModel, pid: Long) {
                     Spacer(Modifier.height(40.dp))
                 }
             } else {
-                val wantsFocus = vm.restoreFocusPending && card.id == vm.focusId
-                PosterCard(
-                    card,
-                    Modifier.restoreFocusIf(wantsFocus) {
-                        vm.restoreFocusPending = false
-                    },
-                    favourite = card.id in favourites
-                ) {
-                    nav.push(vm.open(card, pid))
+                // Back from a title, on it; after one is taken off Favourites, on the first.
+                val wantsFocus = vm.restoreFocusPending && (vm.focusId?.let { it == card.id } ?: (index == 0))
+                MovableTile(vm.mover, vm.type, card.id, MoveLayout.GRID, COLUMNS) {
+                    PosterCard(
+                        card,
+                        Modifier.restoreFocusIf(wantsFocus) { vm.restoreFocusPending = false },
+                        favourite = card.id in favourites,
+                        onLongClick = { vm.optionsFor = card }
+                    ) { nav.push(vm.open(card, pid)) }
                 }
             }
         }

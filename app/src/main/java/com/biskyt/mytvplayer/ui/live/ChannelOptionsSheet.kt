@@ -19,6 +19,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.core.epg.ProgrammeKind
+import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.programmeTitle
 import com.biskyt.mytvplayer.ui.LocalNavigator
@@ -113,6 +114,12 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                 if (vm.canMove) {
                     MenuOption(stringResource(R.string.live_option_move_up)) { vm.move(ch, -1) }
                     MenuOption(stringResource(R.string.live_option_move_down)) { vm.move(ch, 1) }
+                }
+                if (vm.canMoveFavourite) {
+                    MenuOption(stringResource(R.string.common_move)) {
+                        close()
+                        vm.mover.start(CAT_LIVE, ch.streamId)
+                    }
                 }
                 MenuOption(stringResource(R.string.live_option_hide_channel), stringResource(R.string.live_option_hide_channel_help)) {
                     vm.hide(ch)

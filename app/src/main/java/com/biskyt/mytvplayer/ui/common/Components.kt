@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -411,19 +412,29 @@ fun CatchupMark(ch: ChannelEntity, modifier: Modifier = Modifier) {
     Icon(AppIcons.Catchup, stringResource(R.string.common_catchup), tint = Palette.textDim, modifier = modifier.size(16.dp))
 }
 
-/** A titled row of cards (sideways), as on Home and in search; left out when there are none. */
+/**
+ * A titled row of cards (sideways), as on Home and in search; left out when there are none. With [move], a favourite
+ * being moved along it is kept in view, with how to move it under the title.
+ */
+@Suppress("LongParameterList") // a composable row: detekt exempts only @Composable functions
 fun <T> LazyListScope.titledRow(
     @StringRes title: Int,
     items: List<T>,
     key: (T) -> Long,
     topPadding: Dp = 0.dp,
+    move: MovableRow? = null,
     card: @Composable (T) -> Unit
 ) {
     if (items.isEmpty()) return
     item(key = title) {
         Column(Modifier.padding(top = topPadding)) {
             SectionTitle(stringResource(title))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) { items(items, key = key) { card(it) } }
+            val state = rememberLazyListState()
+            if (move != null) {
+                MoveHint(move.mover, move.type, MoveLayout.ROW)
+                KeepInView(state) { move.mover.movingId(move.type)?.let { p -> items.indexOfFirst { key(it) == p } } }
+            }
+            LazyRow(state = state, horizontalArrangement = Arrangement.spacedBy(14.dp)) { items(items, key = key) { card(it) } }
         }
     }
 }
