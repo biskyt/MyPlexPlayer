@@ -122,9 +122,8 @@ fun SettingsScreen() {
             })
         }
         item {
-            SettingRow(stringResource(R.string.settings_about_title), stringResource(R.string.settings_about_help), {
-                nav.push(Screen.About)
-            })
+            val help = stringResource(R.string.settings_about_help, BuildConfig.VERSION_NAME)
+            SettingRow(stringResource(R.string.settings_about_title), help, { nav.push(Screen.About) })
         }
         item { SupportSection() }
     }

@@ -13,7 +13,7 @@
     <string name="settings_backup_title">Copia de seguridad</string>
     <string name="settings_backup_help">Guarda tus listas y preferencias en un archivo o restáuralas</string>
     <string name="settings_about_title">Acerca de</string>
-    <string name="settings_about_help">Versión, licencias, almacenamiento</string>
+    <string name="settings_about_help">Versión %1$s, licencias, almacenamiento</string>
 
     <string name="settings_skip_back_help">Izquierda en el control remoto durante la reproducción</string>
     <string name="settings_skip_forward_help">Derecha en el control remoto durante la reproducción</string>

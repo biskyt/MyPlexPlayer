@@ -49,6 +49,7 @@ import com.biskyt.mytvplayer.ui.common.PosterCard
 import com.biskyt.mytvplayer.ui.common.Tab
 import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.categoryEntries
+import com.biskyt.mytvplayer.ui.common.collectIds
 import com.biskyt.mytvplayer.ui.common.restoreFocusIf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -80,6 +81,9 @@ class VodBrowseViewModel(private val c: AppContainer, val type: String, initialF
 
     val total: StateFlow<Int?> = activePlaylist.flatMapLatest { c.vod.observeCount(type, it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** The favourites among the titles, marked on their posters. */
+    val favouriteIds = c.favourites.of(type)
 
     val items: Flow<PagingData<VodCard>> =
         combine(activePlaylist, filters.value, query.debounce(250)) { pid, f, q -> Triple(pid, f, q) }
@@ -156,6 +160,7 @@ private fun Header(vm: VodBrowseViewModel, entry: CategoryEntry<VodFilter>?) {
 private fun PosterGrid(vm: VodBrowseViewModel, pid: Long) {
     val nav = LocalNavigator.current
     val items = vm.items.collectAsLazyPagingItems()
+    val favourites = vm.favouriteIds.collectIds()
     if (items.itemCount == 0) {
         if (vm.filters.value.collectAsState().value == VodFilter.Favourites) {
             Muted(stringResource(R.string.vod_no_favourites), Modifier.padding(top = 24.dp))
@@ -186,7 +191,15 @@ private fun PosterGrid(vm: VodBrowseViewModel, pid: Long) {
                 }
             } else {
                 val wantsFocus = vm.restoreFocusPending && card.id == vm.focusId
-                PosterCard(card, Modifier.restoreFocusIf(wantsFocus) { vm.restoreFocusPending = false }) { nav.push(vm.open(card, pid)) }
+                PosterCard(
+                    card,
+                    Modifier.restoreFocusIf(wantsFocus) {
+                        vm.restoreFocusPending = false
+                    },
+                    favourite = card.id in favourites
+                ) {
+                    nav.push(vm.open(card, pid))
+                }
             }
         }
     }

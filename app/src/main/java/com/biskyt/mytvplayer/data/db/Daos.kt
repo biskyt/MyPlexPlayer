@@ -673,6 +673,9 @@ interface VodDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun addFavourite(f: VodFavouriteEntity)
 
+    @Query("SELECT itemId FROM vod_favourite WHERE playlistId = :pid AND kind = :kind")
+    fun observeFavouriteIds(pid: Long, kind: String): Flow<List<Long>>
+
     @Query("DELETE FROM vod_favourite WHERE playlistId = :pid AND kind = :kind AND itemId = :id")
     suspend fun removeFavourite(pid: Long, kind: String, id: Long)
 

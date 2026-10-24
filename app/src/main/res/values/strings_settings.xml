@@ -15,7 +15,8 @@
     <string name="settings_backup_title">Backup &amp; restore</string>
     <string name="settings_backup_help">Save your playlists and choices to a file, or restore them</string>
     <string name="settings_about_title">About</string>
-    <string name="settings_about_help">Version, licences, storage</string>
+    <!-- %1$s is the app's version, such as 1.2.0 -->
+    <string name="settings_about_help">Version %1$s, licences, storage</string>
 
     <!-- Playback settings. "Left"/"Right" are the remote's arrow buttons. -->
     <string name="settings_skip_back_help">Left on the remote during playback</string>
