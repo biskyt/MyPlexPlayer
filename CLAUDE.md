@@ -171,6 +171,11 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
 - **Yellow accent by default** (Plex-style `#E5A00D`); the other accent presets stay.
 - **Icon:** the yellow accent with a bold, rounded chevron of our own. Never Plex's own logo shape, and the app never
   claims to be made or endorsed by Plex ("for Plex" wording only).
+- **Never transcode** (a very important requirement): the owner's server is a low-powered machine, where transcoding
+  never worked. Files are direct played; when the player can't read a file's container, it is direct streamed
+  (repackaged, video and audio copied: `PlexClient.directStream`, which checks the server's decision says `copy`
+  for every stream). Anything else is refused with a message, never sent for re-encoding. Live TV is direct
+  streamed the same way. Don't use Plex's platform profiles (Android re-encodes past 1080p or stereo AAC).
 - **Live TV goes last:** in the menu, on Home and in search results.
 - **DVR replaces Catch-up.**
 - **Home rows:** Continue watching, recently added series, recently added movies, favourite series, favourite movies,

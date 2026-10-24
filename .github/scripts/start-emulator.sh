@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Starts an Android TV emulator for the smoke tests and waits until it's ready: start-emulator.sh <api> <target> <arch>
+# Starts an Android TV emulator for the smoke tests and waits until it's ready:
+# start-emulator.sh <api> <target> <arch> [device profile, default tv_1080p; e.g. pixel_6 for a phone]
 # The emulator keeps running for the job's later steps; its log is emulator.log.
 #
 # Ready means more than sys.boot_completed: once booted, the emulator runs its own adb set-up and the device drops off
@@ -8,7 +9,7 @@
 # answer three times in a row.
 set -euo pipefail
 
-api=$1 target=$2 arch=$3
+api=$1 target=$2 arch=$3 device=${4:-tv_1080p}
 image="system-images;android-$api;$target;$arch"
 tools=$ANDROID_HOME/cmdline-tools/latest/bin
 adb=$ANDROID_HOME/platform-tools/adb
@@ -18,7 +19,7 @@ mkdir -p "$ANDROID_AVD_HOME"
 
 yes | "$tools/sdkmanager" --licenses > /dev/null || true
 "$tools/sdkmanager" --install emulator platform-tools "$image" > /dev/null
-echo no | "$tools/avdmanager" create avd --force --name tv --package "$image" --device tv_1080p
+echo no | "$tools/avdmanager" create avd --force --name tv --package "$image" --device "$device"
 
 "$adb" start-server
 nohup "$ANDROID_HOME/emulator/emulator" -avd tv -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim \

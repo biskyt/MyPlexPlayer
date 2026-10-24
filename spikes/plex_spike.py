@@ -6,6 +6,7 @@ app is built on it. Standard library only (Python 3.9+). Results go in docs/plex
 Every response is saved under --out (default spike-out/): raw/ as received, and sanitised/ with tokens, machine ids,
 addresses, account names, emails and file paths replaced, for test fixtures. report-<step>.md lists what passed.
 
+    python3 spikes/plex_spike.py all                     # everything below, in order, then spike-results.zip
     python3 spikes/plex_spike.py signin                  # S1: PIN sign-in at plex.tv/link (saves the token)
     python3 spikes/plex_spike.py servers                 # S2: your servers and which connection answers first
     python3 spikes/plex_spike.py library   [--server URL] # S3: libraries, hubs, search, progress round trip
@@ -23,18 +24,24 @@ import os
 import re
 import sys
 import time
+import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 STATE = Path.home() / ".myplexplayer-spike.json"
 PRODUCT = "MyPlexPlayer spike"
 PLEX_TV = "https://plex.tv"
+# Direct stream only, never transcoding (the owner's server is a low-powered machine): Plex's empty "Generic" profile plus
+# the codecs the app plays, so the server copies them. A platform profile (Android) re-encodes past its limits.
+# Keep the codec lists in step with PlexCodecs (core/.../plex/PlexClient.kt).
 HLS_TARGET = ("add-transcode-target(type=videoProfile&context=streaming&protocol=hls&container=mpegts"
-              "&videoCodec=h264&audioCodec=aac)")
+              "&videoCodec=h264,hevc,mpeg2video,mpeg4,vp9,av1&audioCodec=aac,ac3,eac3,mp3,mp2,dts,truehd,flac,opus,vorbis)")
+DIRECT_STREAM = {"X-Plex-Client-Profile-Name": "Generic", "X-Plex-Client-Profile-Extra": HLS_TARGET}
 
 
 # ---------------------------------------------------------------- state, output and sanitising
@@ -86,8 +93,13 @@ class Recorder:
         return text
 
     def save(self, name, body):
-        text = body if isinstance(body, str) else json.dumps(body, indent=2)
-        ext = "json" if not isinstance(body, str) or text.lstrip().startswith(("{", "[")) else "txt"
+        if not isinstance(body, str):
+            (self.raw / f"{name}.json").write_text(json.dumps(body, indent=2))
+            text = json.dumps(without_location(body), indent=2)
+            (self.clean / f"{name}.json").write_text(self.sanitise(text))
+            return
+        text = body
+        ext = "json" if text.lstrip().startswith(("{", "[")) else "txt"
         (self.raw / f"{name}.{ext}").write_text(text)
         (self.clean / f"{name}.{ext}").write_text(self.sanitise(text))
 
@@ -98,9 +110,19 @@ class Recorder:
 
     def finish(self):
         lines = [f"## {self.step} ({time.strftime('%Y-%m-%d %H:%M')})\n"]
-        lines += [f"- {'PASS' if ok else '**FAIL**'} {name}" + (f": {detail}" if detail else "") for name, ok, detail in self.results]
+        lines += [f"- {'PASS' if ok else '**FAIL**'} {name}" + (f": {detail}" if detail else "")
+                  for name, ok, detail in self.results]
         self.report.write_text("\n".join(lines) + "\n")
         print(f"\nSaved to {self.raw.parent.parent} (commit only sanitised/; check it first).")
+
+
+def without_location(body):
+    """plex.tv adds where it thinks the caller is (city, postcode, coordinates): never kept in sanitised copies."""
+    if isinstance(body, dict):
+        return {k: without_location(v) for k, v in body.items() if k not in ("location", "coordinates")}
+    if isinstance(body, list):
+        return [without_location(v) for v in body]
+    return body
 
 
 # ---------------------------------------------------------------- HTTP
@@ -185,7 +207,8 @@ def signin(args, state):
     if not rec.check("POST /api/v2/pins gives id and a short code", status == 201 and pin.get("code"), f"HTTP {status}"):
         return rec.finish()
     rec.secret(pin["code"], "ABCD")
-    print(f"\n  Go to https://plex.tv/link and enter: {pin['code']}\n  (waiting up to {pin.get('expiresIn', 900)} s)\n")
+    print(f"\n  Go to https://plex.tv/link and enter: {pin['code']}\n  (waiting up to {pin.get('expiresIn', 900)} s)\n",
+          flush=True)
     token, deadline = None, time.time() + pin.get("expiresIn", 900)
     while time.time() < deadline and not token:
         time.sleep(2)
@@ -255,7 +278,9 @@ def race(state, token, conns):
 def pick(timings):
     """Prefer a local connection, then remote, then relay; the fastest of each kind."""
     ok = [(c, ms) for c, ms, good in timings if good]
-    rank = lambda c: 0 if c.get("local") and not c.get("relay") else (2 if c.get("relay") else 1)  # noqa: E731
+
+    def rank(c):
+        return 0 if c.get("local") and not c.get("relay") else (2 if c.get("relay") else 1)
     return min(ok, key=lambda cm: (rank(cm[0]), cm[1]))[0] if ok else None
 
 
@@ -490,19 +515,25 @@ def playback(args, state):
 
     session = str(uuid.uuid4())
     common = dict(path=f"/library/metadata/{item['ratingKey']}", mediaIndex=0, partIndex=0, protocol="hls",
-                  directPlay=0, directStream=1, directStreamAudio=1, videoResolution="1920x1080",
-                  maxVideoBitrate=8000, subtitles="auto", session=session)
-    sid = {"X-Plex-Session-Identifier": session, "X-Plex-Client-Profile-Extra": HLS_TARGET}
+                  directPlay=0, directStream=1, directStreamAudio=1, subtitles="none", session=session)
+    sid = {"X-Plex-Session-Identifier": session, **DIRECT_STREAM}
     status, _, decision = http.request("GET", "/video/:/transcode/universal/decision", sid, **common)
-    rec.save("transcode-decision", decision)
-    m = mc(decision)
-    rec.check("GET /video/:/transcode/universal/decision", status == 200,
-              f"general={m.get('generalDecisionCode')} {m.get('generalDecisionText')}; "
-              f"transcode={m.get('transcodeDecisionCode')} {m.get('transcodeDecisionText')}")
-    hls_ok = check_hls(http, rec, "transcode", "/video/:/transcode/universal/start.m3u8", sid, common)
+    rec.save("direct-stream-decision", decision)
+    copied = stream_decisions(decision)
+    rec.check("direct stream: the decision copies video and audio, re-encoding nothing",
+              status == 200 and copied and all(d == "copy" for _, _, d in copied) and any(t == 1 for t, _, _ in copied),
+              f"{copied}")
+    hls_ok = check_hls(http, rec, "direct-stream", "/video/:/transcode/universal/start.m3u8", sid, common)
     status, _, _ = http.request("GET", "/video/:/transcode/universal/stop", sid, session=session)
     rec.check("GET /video/:/transcode/universal/stop?session= ends it", hls_ok and status == 200, f"HTTP {status}")
     rec.finish()
+
+
+def stream_decisions(decision):
+    """(stream type, codec, decision) for the video (1) and audio (2) streams in a transcoder decision."""
+    return [(s.get("streamType"), s.get("codec"), s.get("decision")) for m in mc(decision).get("Metadata", [])
+            for md in m.get("Media", []) for p in md.get("Part", []) for s in p.get("Stream", [])
+            if s.get("streamType") in (1, 2)]
 
 
 def check_hls(http, rec, name, endpoint, extra_headers, params):
@@ -574,8 +605,8 @@ def livetv(args, state):
         channels = channels or found
     if dvr_list:
         enabled = {m.get("channelKey") for m in dvr_list[0].get("ChannelMapping", []) if m.get("enabled") in (True, 1, "1")}
-        rec.check("channel keys match the DVR's enabled ChannelMapping", not enabled or any(channel_key(c) in enabled for c in channels),
-                  f"{len(enabled)} enabled mapping(s)")
+        rec.check("channel keys match the DVR's enabled ChannelMapping",
+                  not enabled or any(channel_key(c) in enabled for c in channels), f"{len(enabled)} enabled mapping(s)")
     if not (channels and grid):
         return rec.finish()
     now = time.time()
@@ -615,11 +646,12 @@ def tune(http, rec, dvr, ch):
     play = str(uuid.uuid4())
     params = dict(path=meta["key"], protocol="hls", directPlay=0, directStream=1, directStreamAudio=1, session=play,
                   subtitles="none", location="lan", fastSeek=1, hasMDE=1)
-    sid = {"X-Plex-Session-Identifier": session, "X-Plex-Client-Profile-Extra": HLS_TARGET}
+    sid = {"X-Plex-Session-Identifier": session, **DIRECT_STREAM}
     status, _, decision = http.request("GET", "/video/:/transcode/universal/decision", sid, **params)
     rec.save("live-decision", decision)
-    rec.check("live: transcoder decision for the session path", status == 200,
-              f"{mc(decision).get('generalDecisionText')}")
+    copied = stream_decisions(decision)
+    rec.check("live: the decision copies video and audio (a direct stream, no transcoding)",
+              status == 200 and copied and all(d == "copy" for _, _, d in copied), f"{copied}")
     check_hls(http, rec, "live", "/video/:/transcode/universal/start.m3u8", sid, params)
     status, _, sessions = http.get("/livetv/sessions")
     rec.save("livetv-sessions", sessions)
@@ -672,9 +704,32 @@ def dvr(args, state):
     rec.finish()
 
 
+def run_all(args, state):
+    """Every step in turn (signing in first if needed, tuning and recording included), carrying on past a step
+    that fails, then the shareable results zipped into spike-results.zip."""
+    args.tune = args.record = True
+    steps = ([] if state.get("token") else [signin]) + [servers, library, playback, livetv, dvr]
+    for step in steps:
+        print(f"\n=== {step.__name__} ===", flush=True)
+        try:
+            step(args, state)
+        except (Exception, SystemExit):  # noqa: BLE001 (a spike: note it and go on to the next step)
+            rec = Recorder(args.out, f"{step.__name__}-error")
+            rec.check(f"{step.__name__} ran to the end", False, traceback.format_exc(limit=3).replace("\n", " | "))
+            rec.finish()
+    zipped = Path("spike-results.zip").resolve()
+    with zipfile.ZipFile(zipped, "w", zipfile.ZIP_DEFLATED) as z:
+        for f in sorted(args.out.glob("report-*.md")) + sorted((args.out / "sanitised").rglob("*")):
+            if f.is_file():
+                z.write(f, f.relative_to(args.out))
+    print(f"\nDone. Upload this file to the conversation with Claude:\n  {zipped}\n"
+          "It holds the reports and the sanitised responses: no tokens, addresses or account details, but the "
+          "titles of your films, shows and channels are kept as they are.", flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("step", choices=["signin", "servers", "library", "playback", "livetv", "dvr"])
+    parser.add_argument("step", choices=["all", "signin", "servers", "library", "playback", "livetv", "dvr"])
     parser.add_argument("--server", help="server URL, e.g. http://192.168.1.20:32400 (default: from `servers`)")
     parser.add_argument("--token", help="token for --server (not needed for a local unclaimed test server)")
     parser.add_argument("--out", type=Path, default=Path("spike-out"))
@@ -684,7 +739,7 @@ def main():
     state = load_state()
     if args.server and not args.token and state.get("servers"):
         args.token = next((s["token"] for s in state["servers"] if s["uri"] == args.server), None)
-    globals()[args.step](args, state)
+    (run_all if args.step == "all" else globals()[args.step])(args, state)
 
 
 if __name__ == "__main__":
