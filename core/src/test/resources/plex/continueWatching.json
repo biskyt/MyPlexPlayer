@@ -1,0 +1,91 @@
+{
+  "MediaContainer": {
+    "size": 1,
+    "allowSync": true,
+    "identifier": "com.plexapp.plugins.library",
+    "Hub": [
+      {
+        "hubKey": "/library/metadata/4",
+        "key": "/hubs/continueWatching/items",
+        "title": "Continue Watching",
+        "type": "mixed",
+        "hubIdentifier": "continueWatching",
+        "context": "hub.continueWatching",
+        "size": 1,
+        "more": false,
+        "Metadata": [
+          {
+            "ratingKey": "4",
+            "key": "/library/metadata/4",
+            "parentRatingKey": "3",
+            "grandparentRatingKey": "2",
+            "guid": "tv.plex.agents.none://4",
+            "parentGuid": "tv.plex.agents.none://3",
+            "grandparentGuid": "tv.plex.agents.none://2",
+            "type": "episode",
+            "title": "Episode 1",
+            "grandparentKey": "/library/metadata/2",
+            "parentKey": "/library/metadata/3",
+            "librarySectionTitle": "TV Shows",
+            "librarySectionID": 2,
+            "librarySectionKey": "/library/sections/2",
+            "grandparentTitle": "Test Show",
+            "parentTitle": "Season 1",
+            "summary": "",
+            "index": 1,
+            "parentIndex": 1,
+            "viewOffset": 180013,
+            "lastViewedAt": 1792875393,
+            "includedAt": 1792875393,
+            "thumb": "/library/metadata/4/thumb/1792875006",
+            "duration": 600046,
+            "addedAt": 1792874999,
+            "updatedAt": 1792875006,
+            "createdAtAccuracy": "epoch",
+            "createdAtTZOffset": "0",
+            "Media": [
+              {
+                "id": 2,
+                "duration": 600046,
+                "bitrate": 97,
+                "width": 320,
+                "height": 180,
+                "aspectRatio": 1.78,
+                "audioChannels": 1,
+                "audioCodec": "aac",
+                "videoCodec": "h264",
+                "videoResolution": "sd",
+                "container": "mkv",
+                "videoProfile": "constrained baseline",
+                "Part": [
+                  {
+                    "id": 2,
+                    "key": "/library/parts/2/1792874999/file.mkv",
+                    "duration": 600046,
+                    "file": "/media/Test Show - S01E01.mkv",
+                    "size": 7264312,
+                    "container": "mkv",
+                    "videoProfile": "constrained baseline"
+                  }
+                ]
+              }
+            ],
+            "Image": [
+              {
+                "alt": "Episode 1",
+                "type": "snapshot",
+                "url": "/library/metadata/4/thumb/1792875006"
+              }
+            ],
+            "UltraBlurColors": {
+              "topLeft": "5d0000",
+              "topRight": "0504f9",
+              "bottomRight": "0a09ec",
+              "bottomLeft": "9c3004"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
