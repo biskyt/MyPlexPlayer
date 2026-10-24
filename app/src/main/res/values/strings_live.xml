@@ -10,8 +10,6 @@
     <string name="live_view_list">List</string>
     <string name="live_view_guide">TV guide</string>
     <string name="live_no_channels">No channels here yet.</string>
-    <!-- Screen reader description of the heart beside a favourite channel -->
-    <string name="live_favourite_mark">Favourite</string>
     <!-- Under the programme on now. %1$s is a start time (20:00), %2$s the next programme's title. Keep short (one line) -->
     <string name="live_next">Next %1$s %2$s</string>
     <!-- Under the programme on now, when nothing follows. %1$s is its end time (20:00) -->

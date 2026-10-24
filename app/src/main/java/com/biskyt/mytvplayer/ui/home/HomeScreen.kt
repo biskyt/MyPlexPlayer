@@ -51,6 +51,7 @@ import com.biskyt.mytvplayer.ui.common.Tab
 import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.channelActions
+import com.biskyt.mytvplayer.ui.common.collectIds
 import com.biskyt.mytvplayer.ui.common.formatDuration
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
@@ -60,7 +61,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -82,9 +82,7 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
     val carryOn = activePlaylist.flatMapLatest { c.vod.observeCarryOn(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val favouriteIds = activePlaylist.flatMapLatest { c.channels.observeFavouriteIds(it) }.map { it.toSet() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+    val favouriteIds = c.favourites.channels
 
     fun setFavourite(ch: ChannelEntity, favourite: Boolean) = viewModelScope.launch {
         c.channels.setFavourite(ch.playlistId, ch.streamId, favourite)
@@ -187,7 +185,7 @@ private fun TileOptions(tile: HomeTile, vm: HomeViewModel, onDismiss: (removed: 
     when (tile) {
         is HomeTile.Channel -> {
             val ch = tile.ch
-            val favourites by vm.favouriteIds.collectAsState()
+            val favourites = vm.favouriteIds.collectIds()
             val watch = stringResource(R.string.common_watch)
             val removeRecent = stringResource(R.string.home_remove_recent)
             val actions = buildList {

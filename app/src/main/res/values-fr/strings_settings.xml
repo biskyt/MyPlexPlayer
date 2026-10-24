@@ -13,7 +13,7 @@
     <string name="settings_backup_title">Sauvegarde et restauration</string>
     <string name="settings_backup_help">Enregistrer vos playlists et vos choix dans un fichier, ou les restaurer</string>
     <string name="settings_about_title">À propos</string>
-    <string name="settings_about_help">Version, licences, stockage</string>
+    <string name="settings_about_help">Version %1$s, licences, stockage</string>
 
     <string name="settings_skip_back_help">Gauche sur la télécommande pendant la lecture</string>
     <string name="settings_skip_forward_help">Droite sur la télécommande pendant la lecture</string>
