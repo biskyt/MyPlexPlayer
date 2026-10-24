@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings menu: each row has a title and a one-line description below it. -->
+    <string name="settings_playlists_title">Playlists</string>
+    <string name="settings_playlists_help">Add, edit or switch IPTV accounts</string>
+    <string name="settings_playback_title">Playback</string>
+    <string name="settings_playback_help">Skip times, audio passthrough, subtitles, buffer</string>
+    <string name="settings_categories_title">Languages &amp; categories</string>
+    <string name="settings_categories_help">Choose which channels are loaded; unhide channels</string>
+    <!-- "XMLTV" is a guide format's name: don't translate it. -->
+    <string name="settings_guide_sources_help">Your provider\'s guide and extra XMLTV guides</string>
+    <string name="settings_guide_matching_help">Pick the guide channel used by each channel</string>
+    <string name="settings_appearance_title">Appearance</string>
+    <string name="settings_appearance_help">Accent colour and text size</string>
+    <string name="settings_backup_title">Backup &amp; restore</string>
+    <string name="settings_backup_help">Save your playlists and choices to a file, or restore them</string>
+    <string name="settings_about_title">About</string>
+    <!-- %1$s is the app's version, such as 1.2.0 -->
+    <string name="settings_about_help">Version %1$s, licences, storage</string>
+
+    <!-- Playback settings. "Left"/"Right" are the remote's arrow buttons. -->
+    <string name="settings_skip_back_help">Left on the remote during playback</string>
+    <string name="settings_skip_forward_help">Right on the remote during playback</string>
+    <!-- A number of seconds in a small value box, e.g. "10 s". Keep it short. -->
+    <string name="settings_seconds">%1$d s</string>
+    <!-- "Dolby", "DTS" and "Atmos" are brand names: don't translate them. -->
+    <string name="settings_passthrough">Audio passthrough</string>
+    <string name="settings_passthrough_help">Send Dolby / DTS / Atmos to your soundbar or TV to decode. Turn off if you get no sound.</string>
+    <string name="settings_subtitles">Default subtitles</string>
+    <!-- "Forced only" is the name of the option settings_subtitles_forced_only. -->
+    <string name="settings_subtitles_help">Forced only shows subtitles just for foreign-language lines</string>
+    <!-- Subtitle choices, shown in a small value box. -->
+    <string name="settings_subtitles_forced_only">Forced only</string>
+    <string name="settings_subtitles_always">Always</string>
+    <!-- Settings row choosing the app's language (its value shows each language's own name). -->
+    <string name="settings_language">Language</string>
+    <string name="settings_subtitle_language">Subtitle language</string>
+    <!-- Value of the Language and Subtitle language settings when they follow the device. %1$s: the language's
+         name, e.g. "System (English)". -->
+    <string name="settings_language_system">System (%1$s)</string>
+    <string name="settings_buffer">Stream buffer</string>
+    <string name="settings_buffer_help">Larger is smoother on weak Wi-Fi but slower to change channel</string>
+    <!-- Buffer sizes, shown in a small value box. -->
+    <string name="settings_buffer_small">Small</string>
+    <string name="settings_buffer_normal">Normal</string>
+    <string name="settings_buffer_large">Large</string>
+    <!-- The value shown is "MPEG-TS" or "HLS" (format names, not translated). -->
+    <string name="settings_stream_format">Stream format</string>
+    <string name="settings_stream_format_help">Tried first; if a channel won\'t start, the other is tried and kept if it works</string>
+    <string name="settings_start_last">Start on last channel</string>
+    <string name="settings_start_last_help">Open the app straight into the channel you watched last</string>
+    <string name="settings_zap_up_down">Change channel with up and down</string>
+    <string name="settings_zap_up_down_help">Otherwise only the channel buttons do, and up or down shows the controls</string>
+
+    <!-- Appearance -->
+    <string name="settings_accent">Accent colour</string>
+    <string name="settings_accent_help">Used for highlights, progress bars and buttons everywhere. Lighter and darker shades are worked out for you.</string>
+    <string name="settings_large_text">Large text</string>
+    <string name="settings_large_text_help">Bigger text is easier to read from the sofa</string>
+
+    <!-- About. "biskyt" is the author's name: don't translate it. -->
+    <string name="settings_about_licence">Free and open source (GPL 3.0). Made by biskyt.</string>
+    <string name="settings_licences_title">Open source licences</string>
+    <string name="settings_licences_help">The libraries and font the app is built with</string>
+    <string name="settings_storage">Storage</string>
+    <!-- %1$s: a size, e.g. "12 MB". -->
+    <string name="settings_storage_database">Channels &amp; guide database: %1$s</string>
+    <!-- %1$s: a size, e.g. "12 MB". -->
+    <string name="settings_storage_guides">Downloaded guide files: %1$s</string>
+    <!-- %1$s: a size, e.g. "12 MB". -->
+    <string name="settings_storage_logos">Channel logos: %1$s (limited to 30 MB)</string>
+    <string name="settings_storage_help">Storage is managed automatically: old programmes are removed every day, logos are capped, and the database is compacted when needed.</string>
+
+    <!-- Support section at the foot of Settings and About. "MyPlexPlayer" is the app's name: don't translate it. -->
+    <string name="settings_support_title">Support MyPlexPlayer</string>
+    <string name="settings_support_help">It\'s free, with no ads and no tracking. If you find it useful, you can support its development.</string>
+
+    <!-- Open source licences page. "MyPlexPlayer" and "GPL 3.0" are names: don't translate them. -->
+    <string name="settings_licences_intro">MyPlexPlayer is free software under the GPL 3.0. It\'s built with this open-source software:</string>
+    <!-- %1$s: a licence's name, e.g. "Apache 2.0"; %2$s: its web address. -->
+    <string name="settings_licence_link">Licence: %1$s, %2$s</string>
+    <!-- What each open-source library is used for in the app (the library names aren't translated). -->
+    <string name="settings_lib_media3">Video playback (ExoPlayer, HLS, DASH, subtitles)</string>
+    <string name="settings_lib_ffmpeg">Audio formats the TV can\'t decode; includes FFmpeg (LGPL 2.1 or later)</string>
+    <string name="settings_lib_compose">The app\'s screens</string>
+    <string name="settings_lib_tv">TV buttons, cards and focus</string>
+    <string name="settings_lib_activity">Hosting the screens</string>
+    <string name="settings_lib_lifecycle">Screen state</string>
+    <string name="settings_lib_room">The channels, guide and progress database</string>
+    <string name="settings_lib_paging">Long channel lists</string>
+    <string name="settings_lib_work">Refreshing playlists and guides in the background</string>
+    <string name="settings_lib_datastore">Settings</string>
+    <string name="settings_lib_coil">Channel logos and posters</string>
+    <string name="settings_lib_okhttp">Downloads (with Okio)</string>
+    <string name="settings_lib_coroutines">Background work</string>
+    <string name="settings_lib_serialization">Reading provider data and backups</string>
+    <string name="settings_lib_zxing">QR codes</string>
+    <string name="settings_lib_kotlin">The language the app is written in</string>
+    <string name="settings_lib_guava">Used by Media3</string>
+    <string name="settings_lib_nunito">The app\'s font</string>
+
+    <!-- First launch. "Xtream Codes" and "M3U" are names: don't translate them. "Settings › Playlists" names the
+         settings pages common_settings and settings_playlists_title. -->
+    <string name="settings_welcome_title">Welcome to MyPlexPlayer</string>
+    <string name="settings_welcome_intro">Add the TV service you subscribe to (an Xtream Codes login or an M3U playlist address), or start with free TV: channels streamed free by their broadcasters, and public-domain films and series. You can add the other at any time in Settings › Playlists.</string>
+    <string name="settings_welcome_downloading">Downloading the channel list…</string>
+    <!-- Buttons. -->
+    <string name="settings_welcome_add_provider">Add my TV provider</string>
+    <string name="settings_welcome_setting_up">Setting up…</string>
+    <string name="settings_welcome_free_retry">Try the free channels again</string>
+    <string name="settings_welcome_free">Free TV, films and series</string>
+    <string name="settings_welcome_restore">Restore a backup</string>
+
+    <!-- Backup & restore page. "MyPlexPlayer" is the app's name; "Settings › Apps › MyPlexPlayer › Permissions" is the
+         path through the TV's own settings menus. -->
+    <string name="settings_backup_permission_denied">Without storage permission the backup can\'t be saved. Allow it in the TV\'s Settings › Apps › MyPlexPlayer › Permissions.</string>
+    <string name="settings_backup_saving">Saving…</string>
+    <!-- %1$s: where the file is, e.g. "Download/MyPlexPlayer/myplexplayer-backup.json". -->
+    <string name="settings_backup_saved_to">Saved to %1$s</string>
+    <!-- %1$s: the error's details (may be in English). -->
+    <string name="settings_backup_find_failed">Couldn\'t look for a backup: %1$s</string>
+    <!-- "Back up now" is the button settings_backup_now. -->
+    <string name="settings_backup_already_there">There\'s a backup here already. Restore it, or press Back up now again to replace it.</string>
+    <string name="settings_backup_restoring">Restoring…</string>
+    <!-- %1$s: the error's details (may be in English). -->
+    <string name="settings_backup_failed">Something went wrong: %1$s</string>
+    <!-- Title of the system's app chooser. -->
+    <string name="settings_backup_choose_file">Choose the backup file</string>
+    <!-- "X-plore" is an app's name; "Open with" and "Share" are Android's menu items. -->
+    <string name="settings_backup_no_picker">This TV has no way to choose a file. Open the backup with MyPlexPlayer from a file manager app such as X-plore (Open with, or Share), or install one and try again.</string>
+    <string name="settings_backup_intro">Saves your playlists (with their logins), channel and category choices, favourites, TV guide sources and settings to a file. Copy it with a file manager app to keep it somewhere else. The file isn\'t encrypted, so keep it private.</string>
+    <!-- %1$s: when and where, e.g. "Mon 12 Mar 18:30 · Download/MyPlexPlayer/myplexplayer-backup.json". -->
+    <string name="settings_backup_last">Last backup: %1$s</string>
+    <string name="settings_backup_none">No backup on this TV yet.</string>
+    <string name="settings_backup_confirm">This replaces your playlists and settings with the backup\'s. Restore?</string>
+    <!-- Buttons. -->
+    <string name="settings_backup_restore">Restore</string>
+    <string name="settings_backup_cancel">Cancel</string>
+    <string name="settings_backup_now">Back up now</string>
+    <string name="settings_backup_restore_file">Restore from a file…</string>
+    <string name="settings_backup_restore_other_file">Restore from another file…</string>
+    <!-- Errors reading or writing the backup file. -->
+    <string name="settings_backup_not_a_backup">This isn\'t a MyPlexPlayer backup file.</string>
+    <string name="settings_backup_newer">This backup is from a newer version of MyPlexPlayer. Update the app first.</string>
+    <string name="settings_backup_need_permission">MyPlexPlayer needs permission to save to the Download folder.</string>
+    <string name="settings_backup_no_storage">This TV\'s storage isn\'t available right now, so the backup can\'t be saved.</string>
+    <!-- "Download/MyPlexPlayer" is a folder's name: don't translate it. -->
+    <string name="settings_backup_no_folder">Couldn\'t create the folder Download/MyPlexPlayer for the backup.</string>
+    <string name="settings_backup_save_failed">Couldn\'t save the backup file</string>
+    <string name="settings_backup_create_failed">Couldn\'t create the backup file</string>
+    <string name="settings_backup_write_failed">Couldn\'t write the backup file</string>
+    <string name="settings_backup_open_failed">Couldn\'t open the file</string>
+
+    <!-- Languages & categories page. -->
+    <string name="settings_categories_intro">Only the categories you tick are downloaded, so lists load faster and use less storage.</string>
+    <!-- %1$d: categories ticked; %2$d: all categories (the count the plural follows). -->
+    <plurals name="settings_categories_loading">
+        <item quantity="one">Loading %1$d of %2$d category</item>
+        <item quantity="other">Loading %1$d of %2$d categories</item>
+    </plurals>
+    <!-- Buttons. -->
+    <string name="settings_categories_done">Done</string>
+    <!-- Hint in the search box. -->
+    <string name="settings_categories_filter">Filter countries and categories</string>
+    <!-- A heading, in capitals: the countries and languages are worked out from the categories' names. -->
+    <string name="settings_categories_detected">DETECTED FROM CATEGORY NAMES</string>
+    <!-- Buttons ticking every category, or every one the filter shows ("All matching"), or none. -->
+    <string name="settings_categories_all">All</string>
+    <string name="settings_categories_all_matching">All matching</string>
+    <string name="settings_categories_none">None</string>
+    <!-- Button ticking every category of one language or country. %1$s: its name, e.g. "English (UK)". -->
+    <string name="settings_categories_all_in">All in %1$s</string>
+    <!-- %1$s: what was typed in the filter box. -->
+    <string name="settings_categories_no_match">Nothing matches “%1$s”.</string>
+    <!-- Under a language or country. %1$d: categories ticked; %2$d: all of its categories (the count the plural
+         follows). -->
+    <plurals name="settings_categories_count">
+        <item quantity="one">%1$d of %2$d category</item>
+        <item quantity="other">%1$d of %2$d categories</item>
+    </plurals>
+    <!-- A heading, in capitals. -->
+    <string name="settings_categories_hidden">HIDDEN CHANNELS</string>
+    <!-- Next to a hidden channel's name: choosing it shows the channel again. Keep it short. -->
+    <string name="settings_categories_unhide">Unhide</string>
+
+    <!-- Playlists page. -->
+    <!-- Progress while a playlist downloads again. %1$s: the playlist's name. -->
+    <string name="settings_playlist_updating">Updating %1$s</string>
+    <!-- %1$s: the playlist's name. -->
+    <string name="settings_playlist_updated">%1$s updated</string>
+    <string name="settings_playlist_updated_detail">Its channels, TV guide, films and series are up to date.</string>
+    <!-- %1$s: the playlist's name. -->
+    <string name="settings_playlist_updated_guides_failed">%1$s updated, but some guides couldn\'t be loaded</string>
+    <!-- %1$s: the playlist's name. -->
+    <string name="settings_playlist_update_failed">Couldn\'t update %1$s</string>
+    <!-- A small label on the playlist being used, in capitals. Keep it short. -->
+    <string name="settings_playlist_in_use">IN USE</string>
+    <!-- Buttons. -->
+    <string name="settings_playlist_update_now">Update now</string>
+    <string name="settings_playlist_edit">Edit</string>
+    <string name="settings_playlist_add">+ Add playlist</string>
+    <string name="settings_playlist_downloading_free">Downloading free channels…</string>
+    <string name="settings_playlist_add_free">+ Add free TV, films and series</string>
+    <string name="settings_playlist_select_hint">Select a playlist to switch to it.</string>
+    <!-- Under a playlist: its type ("Xtream" or "M3U", not translated) and when it was last downloaded.
+         %1$s: the type; %2$s: a date and time. -->
+    <!-- When the TV provider's subscription ends. %1$s: a date, e.g. "12 Mar 2027". -->
+    <string name="settings_playlist_expired">Expired on %1$s</string>
+    <!-- %1$s: today's date, e.g. "12 Mar 2027". -->
+    <string name="settings_playlist_expires_today">Expires today (%1$s)</string>
+    <!-- %1$s: a date, e.g. "12 Mar 2027"; %2$d: the days left. -->
+    <plurals name="settings_playlist_expires_in">
+        <item quantity="one">Expires %1$s, in %2$d day</item>
+        <item quantity="other">Expires %1$s, in %2$d days</item>
+    </plurals>
+    <!-- %1$s: a date, e.g. "12 Mar 2027". -->
+    <string name="settings_playlist_expires">Expires %1$s</string>
+
+    <!-- Adding or editing a playlist. -->
+    <string name="settings_playlist_add_title">Add playlist</string>
+    <string name="settings_playlist_edit_title">Edit playlist</string>
+    <string name="settings_playlist_first_run_hint">Enter the details from your TV provider.</string>
+    <!-- Choice of account type. "Xtream Codes" and "M3U" are names: don't translate them. -->
+    <string name="settings_playlist_type_xtream">Xtream Codes</string>
+    <string name="settings_playlist_type_m3u">M3U playlist URL</string>
+    <!-- Labels above the boxes, and example text in them. -->
+    <string name="settings_playlist_name">Name</string>
+    <string name="settings_playlist_name_hint">e.g. Home TV</string>
+    <string name="settings_playlist_address">Playlist address</string>
+    <string name="settings_playlist_server">Server address</string>
+    <string name="settings_playlist_movies">Movies playlist (optional)</string>
+    <string name="settings_playlist_series">Series playlist (optional)</string>
+    <!-- "Show S01E02" is an example episode name (series, season and episode numbers): keep its form. -->
+    <string name="settings_playlist_m3u_vod_hint">One playlist with both is fine: episodes (\"Show S01E02\") go to Series, the rest to Movies.</string>
+    <string name="settings_playlist_username">Username</string>
+    <string name="settings_playlist_password">Password</string>
+    <!-- Shown after "Test connection" works. -->
+    <string name="settings_playlist_connected">Connected ✓</string>
+    <string name="settings_playlist_downloading">Downloading playlist…</string>
+    <string name="settings_playlist_checking">Checking login…</string>
+    <!-- Buttons. -->
+    <string name="settings_playlist_wait">Please wait…</string>
+    <string name="settings_playlist_save">Save</string>
+    <string name="settings_playlist_test">Test connection</string>
+    <string name="settings_playlist_delete">Delete playlist</string>
+</resources>

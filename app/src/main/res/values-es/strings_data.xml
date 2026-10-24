@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_refresh_failed">No se pudo actualizar</string>
+    <string name="data_vod_failed">No se pudieron cargar las películas y series</string>
+
+    <string name="data_matching">Asignando canales…</string>
+    <string name="data_matching_progress">Asignando canales… %1$s de %2$s</string>
+    <string name="data_downloading">Descargando %1$s…</string>
+    <string name="data_reading">Leyendo %1$s…</string>
+    <string name="data_loading_programmes">Cargando programas de %1$s…</string>
+    <string name="data_loading_programmes_guide">Cargando programas de la guía…</string>
+
+    <string name="data_server_error">El servidor devolvió el error %1$d</string>
+    <string name="data_guide_save_failed">No se pudo guardar el archivo de la guía</string>
+
+    <string name="data_xtream_login_failed">Error al iniciar sesión: revisa la dirección del servidor, el usuario y la contraseña</string>
+    <string name="data_xtream_no_movie_details">No hay detalles de esta película</string>
+    <string name="data_xtream_no_episodes">No se encontraron episodios de esta serie</string>
+    <string name="data_xtream_unreachable">No se pudo conectar con el servidor: %1$s</string>
+    <string name="data_xtream_empty">Respuesta vacía del servidor</string>
+    <string name="data_xtream_unexpected">Respuesta inesperada del servidor</string>
+    <string name="data_xtream_invalid_address">Dirección de servidor no válida</string>
+    <string name="data_account_inactive">Esta cuenta no está activa</string>
+
+    <string name="data_free_failed">No se pudieron configurar los canales gratuitos</string>
+    <string name="data_playlist_save_failed">No se pudo guardar la lista</string>
+    <string name="data_playlist_address_invalid">Dirección de lista no válida</string>
+    <string name="data_playlist_refused">El servidor rechazó la descarga de la lista (error %1$d)</string>
+    <string name="data_playlist_download_failed">No se pudo descargar la lista: %1$s</string>
+    <string name="data_not_m3u">Esa dirección no devuelve una lista M3U</string>
+
+    <string name="data_catchup_unplayable">No se puede reproducir el diferido de este canal</string>
+    <string name="data_episode_gone">Este episodio ya no está en la lista</string>
+
+    <string name="data_lang_uk">Inglés (Reino Unido)</string>
+    <string name="data_lang_us">Inglés (EE. UU.)</string>
+    <string name="data_lang_ca">Inglés (Canadá)</string>
+    <string name="data_lang_au">Inglés (Australia)</string>
+    <string name="data_lang_ie">Inglés (Irlanda)</string>
+    <string name="data_lang_fr">Francés</string>
+    <string name="data_lang_de">Alemán</string>
+    <string name="data_lang_es">Español</string>
+    <string name="data_lang_it">Italiano</string>
+    <string name="data_lang_pt">Portugués</string>
+    <string name="data_lang_br">Portugués (Brasil)</string>
+    <string name="data_lang_nl">Neerlandés</string>
+    <string name="data_lang_be">Belga</string>
+    <string name="data_lang_pl">Polaco</string>
+    <string name="data_lang_tr">Turco</string>
+    <string name="data_lang_ar">Árabe</string>
+    <string name="data_lang_in">Indio</string>
+    <string name="data_lang_pk">Pakistaní</string>
+    <string name="data_lang_gr">Griego</string>
+    <string name="data_lang_ro">Rumano</string>
+    <string name="data_lang_al">Albanés</string>
+    <string name="data_lang_exyu">Balcanes</string>
+    <string name="data_lang_se">Sueco</string>
+    <string name="data_lang_no">Noruego</string>
+    <string name="data_lang_dk">Danés</string>
+    <string name="data_lang_fi">Finlandés</string>
+    <string name="data_lang_ru">Ruso</string>
+    <string name="data_lang_lat">Latino</string>
+    <string name="data_lang_mx">Mexicano</string>
+    <string name="data_lang_af">Africano</string>
+    <string name="data_lang_cn">Chino</string>
+    <string name="data_lang_kr">Coreano</string>
+    <string name="data_lang_jp">Japonés</string>
+    <string name="data_lang_other">Otros</string>
+
+    <string name="data_accent_yellow">Amarillo</string>
+    <string name="data_accent_mint">Menta</string>
+    <string name="data_accent_violet">Violeta</string>
+    <string name="data_accent_sky">Cielo</string>
+    <string name="data_accent_coral">Coral</string>
+    <string name="data_accent_lime">Lima</string>
+    <string name="data_accent_pink">Rosa</string>
+    <string name="data_accent_silver">Plata</string>
+    <string name="data_playlist_default_name">Mi TV</string>
+    <string name="data_free_playlist_name">TV gratis</string>
+    <string name="data_provider_guide_name">Guía de %1$s</string>
+    <string name="data_ungrouped">Sin categoría</string>
+</resources>

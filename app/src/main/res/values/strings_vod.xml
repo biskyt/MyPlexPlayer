@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Movies and Series pages: the fixed entries at the top of the category list. -->
+    <string name="vod_recently_added">Recently added</string>
+    <string name="vod_recently_updated">Recently updated</string>
+    <string name="vod_all_movies">All movies</string>
+    <string name="vod_all_series">All series</string>
+    <!-- "Settings › Playlists" is where to go in the app: keep it as the Settings page is named. Up to 2 lines. -->
+    <string name="vod_live_only">This playlist only has live channels. To add movies and series, give its movie or series playlist address in Settings › Playlists.</string>
+    <!-- Placeholder of the filter box above the posters. -->
+    <string name="vod_filter_hint">Filter by title</string>
+    <!-- "Add to favourites" is the name of the button on a movie's or series' page: keep it the same as there. -->
+    <string name="vod_no_favourites">No favourites yet. Open a title and choose “Add to favourites”.</string>
+    <!-- When no movies or series have been loaded; the two buttons below it follow. Up to 2 lines. -->
+    <string name="vod_nothing_here">Nothing here yet. Load them now, or choose which categories to load.</string>
+    <string name="vod_load_now">Load now</string>
+    <string name="vod_choose_categories">Choose categories</string>
+
+    <!-- Movie page. %1$s: names of people. -->
+    <string name="vod_director">Director: %1$s</string>
+    <string name="vod_cast">Cast: %1$s</string>
+    <!-- Button. %1$s: how far into the movie, e.g. "1 h 5 min". -->
+    <string name="vod_resume_from">Resume from %1$s</string>
+
+    <!-- Series page. -->
+    <string name="vod_episodes_failed">Couldn\'t load the episodes</string>
+    <!-- Button. %1$s: the episode, written short, e.g. "S1 E2". -->
+    <string name="vod_continue_episode">Continue: %1$s</string>
+    <!-- Button. %1$s: the episode, written short, e.g. "S1 E2". -->
+    <string name="vod_play_episode">Play %1$s</string>
+    <string name="vod_loading_episodes">Loading episodes…</string>
+    <string name="vod_no_episodes">No episodes are available for this series.</string>
+    <!-- Next to an episode watched to the end. Short. -->
+    <string name="vod_watched">Watched</string>
+    <!-- A season's button, when the provider gives it no name. %1$d: the season's number. Short. -->
+    <string name="vod_season">Season %1$d</string>
+    <!-- An episode the provider gave no title. %1$d: its number. -->
+    <string name="vod_episode">Episode %1$d</string>
+</resources>

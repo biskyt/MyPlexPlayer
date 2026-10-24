@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- US English overrides: only strings whose wording differs from the UK source in values/. -->
+<resources>
+    <string name="common_favourites">Favorites</string>
+    <!-- Help under the Catch-up menu entry. %1$d is a number of days. English uses "days" for 1 too (unchanged so far) -->
+    <plurals name="common_catchup_days">
+        <item quantity="one">Programs from the last %1$d day</item>
+        <item quantity="other">Programs from the last %1$d days</item>
+    </plurals>
+    <string name="common_favourite_add">Add to favorites</string>
+    <string name="common_favourite_remove">Remove from favorites</string>
+    <string name="common_favourite_added">Added to favorites</string>
+    <string name="common_favourite_removed">Removed from favorites</string>
+    <string name="common_favourite_mark">Favorite</string>
+</resources>

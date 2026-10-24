@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Crash screen, shown on the next start after the app crashed. "MyPlexPlayer" is the app's name: don't translate. -->
+    <string name="app_crash_title">MyPlexPlayer closed unexpectedly last time</string>
+    <!-- Next to a QR code that opens a bug report page on GitHub (the report itself stays in English). Up to 3 lines. -->
+    <string name="app_crash_help">To help fix it, scan the code with your phone: it opens a GitHub issue with the details below, ready to send. Logins are left out, and nothing is sent unless you send it.</string>
+    <!-- Button: carry on into the app as usual (which updates the playlist). -->
+    <string name="app_crash_continue">Continue</string>
+    <!-- Button: carry on into the app without updating the playlist first, in case that is what crashed. -->
+    <string name="app_crash_continue_no_update">Continue without updating</string>
+</resources>

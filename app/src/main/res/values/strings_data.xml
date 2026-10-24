@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Background updates: shown in the status line when one fails, if the error itself says nothing. -->
+    <string name="data_refresh_failed">Couldn\'t refresh</string>
+    <string name="data_vod_failed">Couldn\'t load movies and series</string>
+
+    <!-- TV guide update progress, in the status line. Keep these short. -->
+    <string name="data_matching">Matching channels…</string>
+    <!-- %1$s: channels matched so far; %2$s: how many there are (both numbers, already formatted). -->
+    <string name="data_matching_progress">Matching channels… %1$s of %2$s</string>
+    <!-- %1$s: the guide's name, e.g. "Free TV guide". -->
+    <string name="data_downloading">Downloading %1$s…</string>
+    <!-- %1$s: the guide's name. -->
+    <string name="data_reading">Reading %1$s…</string>
+    <!-- %1$s: the guide's name. -->
+    <string name="data_loading_programmes">Loading programmes from %1$s…</string>
+    <!-- When the guide's name isn't known. -->
+    <string name="data_loading_programmes_guide">Loading programmes from the guide…</string>
+
+    <!-- Errors downloading a guide or talking to a provider's server. %1$d: the HTTP status code, e.g. 404. -->
+    <string name="data_server_error">Server returned error %1$d</string>
+    <string name="data_guide_save_failed">Couldn\'t save guide file</string>
+
+    <!-- Errors from a provider's (Xtream Codes) server. -->
+    <string name="data_xtream_login_failed">Login failed: check the server address, username and password</string>
+    <string name="data_xtream_no_movie_details">No details for this movie</string>
+    <string name="data_xtream_no_episodes">No episodes found for this series</string>
+    <!-- %1$s: the network error, as the system words it (often in English). -->
+    <string name="data_xtream_unreachable">Couldn\'t reach the server: %1$s</string>
+    <string name="data_xtream_empty">Empty response from server</string>
+    <string name="data_xtream_unexpected">Unexpected response from server</string>
+    <string name="data_xtream_invalid_address">Invalid server address</string>
+    <string name="data_account_inactive">This account is not active</string>
+
+    <!-- Errors adding or loading an M3U playlist ("M3U" is a file format: don't translate). -->
+    <string name="data_free_failed">Couldn\'t set up the free channels</string>
+    <string name="data_playlist_save_failed">Couldn\'t save the playlist</string>
+    <string name="data_playlist_address_invalid">Invalid playlist address</string>
+    <!-- %1$d: the HTTP status code, e.g. 403. -->
+    <string name="data_playlist_refused">The server refused the playlist download (error %1$d)</string>
+    <!-- %1$s: the network error, as the system words it (often in English). -->
+    <string name="data_playlist_download_failed">Couldn\'t download the playlist: %1$s</string>
+    <string name="data_not_m3u">That address doesn\'t return an M3U playlist</string>
+
+    <!-- Playback errors. -->
+    <string name="data_catchup_unplayable">This channel\'s catch-up can\'t be played</string>
+    <string name="data_episode_gone">This episode is no longer in the playlist</string>
+
+    <!--
+    Group headings on the Languages & categories screen (and next to category names that appear in several groups):
+    the language or country a provider's categories are for. Countries without one here are named by the system.
+    -->
+    <string name="data_lang_uk">English (UK)</string>
+    <string name="data_lang_us">English (US)</string>
+    <string name="data_lang_ca">English (Canada)</string>
+    <string name="data_lang_au">English (Australia)</string>
+    <string name="data_lang_ie">English (Ireland)</string>
+    <string name="data_lang_fr">French</string>
+    <string name="data_lang_de">German</string>
+    <string name="data_lang_es">Spanish</string>
+    <string name="data_lang_it">Italian</string>
+    <string name="data_lang_pt">Portuguese</string>
+    <string name="data_lang_br">Portuguese (Brazil)</string>
+    <string name="data_lang_nl">Dutch</string>
+    <string name="data_lang_be">Belgian</string>
+    <string name="data_lang_pl">Polish</string>
+    <string name="data_lang_tr">Turkish</string>
+    <string name="data_lang_ar">Arabic</string>
+    <string name="data_lang_in">Indian</string>
+    <string name="data_lang_pk">Pakistani</string>
+    <string name="data_lang_gr">Greek</string>
+    <string name="data_lang_ro">Romanian</string>
+    <string name="data_lang_al">Albanian</string>
+    <!-- Channels from the countries of former Yugoslavia. -->
+    <string name="data_lang_exyu">Balkan</string>
+    <string name="data_lang_se">Swedish</string>
+    <string name="data_lang_no">Norwegian</string>
+    <string name="data_lang_dk">Danish</string>
+    <string name="data_lang_fi">Finnish</string>
+    <string name="data_lang_ru">Russian</string>
+    <!-- Spanish-language channels from Latin America. -->
+    <string name="data_lang_lat">Latino</string>
+    <string name="data_lang_mx">Mexican</string>
+    <string name="data_lang_af">African</string>
+    <string name="data_lang_cn">Chinese</string>
+    <string name="data_lang_kr">Korean</string>
+    <string name="data_lang_jp">Japanese</string>
+    <!-- Categories with no language or country. -->
+    <string name="data_lang_other">Other</string>
+
+    <!-- Colour names, offered under "Accent colour" in Settings. Short (a small button). -->
+    <string name="data_accent_yellow">Yellow</string>
+    <string name="data_accent_mint">Mint</string>
+    <string name="data_accent_violet">Violet</string>
+    <string name="data_accent_sky">Sky</string>
+    <string name="data_accent_coral">Coral</string>
+    <string name="data_accent_lime">Lime</string>
+    <string name="data_accent_pink">Pink</string>
+    <string name="data_accent_silver">Silver</string>
+    <!-- Name given to a new playlist when none is typed. Stored with the playlist, which the user can rename. -->
+    <string name="data_playlist_default_name">My TV</string>
+    <!-- Name of the playlist of free channels the app offers to add. Stored with it; the user can rename it. -->
+    <string name="data_free_playlist_name">Free TV</string>
+    <!-- Name of the TV guide that comes with a playlist, saved when the playlist is added. %1$s: the playlist's name. -->
+    <string name="data_provider_guide_name">%1$s guide</string>
+    <!-- Category for a playlist's entries that name no category of their own; kept apart from a playlist's own
+         category called "Other" (and from data_lang_other, a language group). -->
+    <string name="data_ungrouped">No category</string>
+</resources>

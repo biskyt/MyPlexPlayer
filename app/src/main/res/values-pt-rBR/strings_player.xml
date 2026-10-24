@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="player_back">Voltar</string>
+    <string name="player_pause">Pausar</string>
+    <string name="player_stop">Parar</string>
+    <string name="player_audio">Áudio</string>
+    <string name="player_subtitles">Legendas</string>
+    <string name="player_more">Mais</string>
+    <string name="player_channel_guide">Guia do canal</string>
+    <string name="player_watch_live">Ao vivo</string>
+    <string name="player_next_episode">Próximo ep.</string>
+    <string name="player_up_next">A SEGUIR · %1$s</string>
+    <string name="player_catchup_behind_live">Reprise · %1$s atrás do ao vivo</string>
+
+    <string name="player_hint_skip">▲ e depois ◀ ▶ para pular (segure para percorrer) · Voltar oculta isto</string>
+    <string name="player_hint_zap_up_down">▲ ▼ mudam de canal · Voltar oculta isto</string>
+    <string name="player_hint_zap_channel_buttons">CH + − mudam de canal · ▲ e depois ◀ ▶ para pular · Voltar oculta isto</string>
+    <string name="player_guide_hint">◀ ▶ outros canais · OK para assistir</string>
+    <string name="player_guide_previous">Anterior</string>
+    <string name="player_guide_next">Próximo</string>
+
+    <string name="player_skipping_unavailable">Não é possível pular aqui</string>
+    <string name="player_sleep_timer_minutes">Timer de desligamento: %1$d min</string>
+    <string name="player_sleep_timer_off">Timer de desligamento: desativado</string>
+    <string name="player_audio_switched">Áudio: %1$s</string>
+    <string name="player_audio_switch_failed">Não foi possível mudar o áudio para %1$s</string>
+    <string name="player_subtitles_switched">Legendas: %1$s</string>
+    <string name="player_subtitles_switch_failed">Não foi possível mudar as legendas para %1$s</string>
+    <string name="player_subtitles_off">Legendas desativadas</string>
+    <string name="player_no_channel">Canal %1$d não encontrado</string>
+    <string name="player_resuming_from">Retomando de %1$s</string>
+
+    <string name="player_no_audio_tracks">Nenhuma faixa de áudio</string>
+    <string name="player_picture">Imagem: %1$s</string>
+    <string name="player_audio_output">Saída de áudio: %1$s</string>
+    <string name="player_video_unknown">Vídeo: desconhecido</string>
+    <string name="player_video_info">Vídeo: %1$d×%2$d · %3$s</string>
+    <string name="player_track_number">Faixa %1$d</string>
+    <string name="player_track_forced">forçada</string>
+    <string name="player_track_channels">%1$dch</string>
+
+    <string name="player_picture_fit">Ajustar</string>
+    <string name="player_picture_zoom">Zoom para preencher</string>
+    <string name="player_picture_stretch">Esticar</string>
+    <string name="player_picture_wide">16:9</string>
+    <string name="player_picture_standard">4:3</string>
+
+    <string name="player_audio_none">Sem áudio</string>
+    <string name="player_audio_passthrough">Passthrough · %1$s</string>
+    <string name="player_audio_decoded">%1$s decodificado · %2$s</string>
+    <string name="player_audio_layout">Áudio · %1$s</string>
+    <string name="player_audio_stereo">Estéreo</string>
+
+    <string name="player_episode_label">Temporada %1$d · Episódio %2$d</string>
+    <string name="player_episode_label_titled">Temporada %1$d · Episódio %2$d · %3$s</string>
+    <string name="player_short_episode_label">T%1$s E%2$s</string>
+
+    <string name="player_failure_live">Este canal não está sendo reproduzido agora. Tente de novo mais tarde ou escolha outro canal.</string>
+    <string name="player_failure_vod">Não é possível reproduzir isto agora. Tente de novo mais tarde.</string>
+    <string name="player_failure_catchup">Não é possível rever isto agora. Tente de novo mais tarde.</string>
+    <string name="player_catchup_nothing_to_start_over">Não há nada para começar de novo neste canal agora.</string>
+    <string name="player_unsupported_format">Isto usa um formato de stream que o MyPlexPlayer não consegue reproduzir.</string>
+
+    <string name="player_stream_source">Stream de %1$s.</string>
+    <string name="player_error_dns">O servidor do stream não foi encontrado: o endereço pode não existir mais.</string>
+    <string name="player_error_stalled">O servidor do stream enviou os dados devagar demais para começar. Ele pode estar sobrecarregado.</string>
+    <string name="player_error_timeout">O servidor do stream não respondeu. Ele pode estar fora do ar ou sobrecarregado.</string>
+    <string name="player_error_connection">Não foi possível conectar ao servidor do stream. Ele pode estar fora do ar ou inacessível pela sua rede.</string>
+    <string name="player_error_not_video">O endereço do stream enviou algo que não é vídeo (como uma página da web).</string>
+    <string name="player_error_drm">O stream é criptografado (DRM), e o MyPlexPlayer não consegue reproduzi-lo.</string>
+    <string name="player_error_audio_output">Não foi possível enviar o som para a TV ou o amplificador. Tente desativar o passthrough de áudio em Configurações › Reprodução.</string>
+    <string name="player_error_decode_video">Este TV box não consegue decodificar o vídeo do stream (%1$s).</string>
+    <string name="player_error_decode_audio">Este TV box não consegue decodificar o áudio do stream (%1$s).</string>
+    <string name="player_error_decode_media">Este TV box não consegue decodificar a mídia do stream (%1$s).</string>
+    <string name="player_error_decode">Este TV box não consegue decodificar o vídeo ou o áudio do stream.</string>
+    <string name="player_error_parsing">O stream enviou dados que o MyPlexPlayer não consegue ler (formato incompatível ou corrompido).</string>
+    <string name="player_error_behind_live">O stream ficou atrasado em relação à transmissão ao vivo várias vezes.</string>
+    <string name="player_error_io">O stream parou de chegar: a conexão com o servidor falhou.</string>
+    <string name="player_error_other">O player não conseguiu reproduzir isto (%1$s).</string>
+    <string name="player_error_http_refused">O servidor do stream se recusou a enviá-lo (erro %1$d). Ele pode funcionar só no país de origem ou só no site ou app próprio.</string>
+    <string name="player_error_http_gone">O stream não está mais nesse endereço (erro %1$d). A lista de canais pode estar desatualizada.</string>
+    <string name="player_error_http_server">O servidor do stream está com um problema (erro %1$d). Ele pode estar fora do ar no momento.</string>
+    <string name="player_error_http_other">O servidor do stream respondeu com o erro %1$d.</string>
+</resources>
