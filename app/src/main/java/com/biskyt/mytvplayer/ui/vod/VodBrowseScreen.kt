@@ -51,6 +51,7 @@ import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.categoryEntries
 import com.biskyt.mytvplayer.ui.common.collectIds
 import com.biskyt.mytvplayer.ui.common.restoreFocusIf
+import com.biskyt.mytvplayer.ui.common.vodDetails
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
@@ -109,7 +110,7 @@ class VodBrowseViewModel(private val c: AppContainer, val type: String, initialF
     fun open(card: VodCard, pid: Long): Screen {
         focusId = card.id
         restoreFocusPending = true
-        return if (isMovies) Screen.MovieDetails(pid, card.id) else Screen.SeriesDetails(pid, card.id)
+        return vodDetails(pid, type, card.id)
     }
 }
 

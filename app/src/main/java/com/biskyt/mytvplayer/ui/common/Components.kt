@@ -1,5 +1,6 @@
 package com.biskyt.mytvplayer.ui.common
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -14,6 +15,9 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -405,4 +409,21 @@ fun ValueChip(value: String) {
 fun CatchupMark(ch: ChannelEntity, modifier: Modifier = Modifier) {
     if (ch.archiveDays <= 0) return
     Icon(AppIcons.Catchup, stringResource(R.string.common_catchup), tint = Palette.textDim, modifier = modifier.size(16.dp))
+}
+
+/** A titled row of cards (sideways), as on Home and in search; left out when there are none. */
+fun <T> LazyListScope.titledRow(
+    @StringRes title: Int,
+    items: List<T>,
+    key: (T) -> Long,
+    topPadding: Dp = 0.dp,
+    card: @Composable (T) -> Unit
+) {
+    if (items.isEmpty()) return
+    item(key = title) {
+        Column(Modifier.padding(top = topPadding)) {
+            SectionTitle(stringResource(title))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) { items(items, key = key) { card(it) } }
+        }
+    }
 }
