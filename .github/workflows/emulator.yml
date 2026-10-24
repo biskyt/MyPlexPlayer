@@ -23,6 +23,7 @@ on:
       - ".github/scripts/robolectric-cache-key.sh"
       - ".github/scripts/start-plex.sh"
       - ".github/workflows/plex-spike.yml"
+      - ".github/workflows/spike-app.yml"
       - "spikes/**"
   workflow_dispatch:
 

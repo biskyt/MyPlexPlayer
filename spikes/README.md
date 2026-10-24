@@ -47,3 +47,14 @@ Everything is written to `spike-out/`:
 
 `spike-out/` is ignored by git, so nothing in it is committed by accident. Share the reports and the `sanitised/`
 folder (as a zip) in the conversation, or commit the sanitised files on a branch once you've checked them.
+
+## As a phone app
+`spikes/android` is the same spike as an Android app (it runs `plex_spike.py` through Chaquopy): it shows the
+plex.tv/link code, runs every step, and shares `spike-results.zip`. It's a build of its own, outside the app's:
+
+```sh
+./gradlew -p spikes/android assembleDebug   # spikes/android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+The **Spike app** workflow runs it on an emulator against a throwaway Plex Media Server (`SpikeOnDeviceTest`).
+
