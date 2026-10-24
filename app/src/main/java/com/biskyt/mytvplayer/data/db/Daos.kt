@@ -230,9 +230,6 @@ interface ChannelDao {
     @Query("SELECT * FROM channel WHERE playlistId = :pid AND streamId = :id")
     suspend fun get(pid: Long, id: Long): ChannelEntity?
 
-    @Query("SELECT * FROM channel WHERE playlistId = :pid AND streamId IN (:ids)")
-    suspend fun getMany(pid: Long, ids: List<Long>): List<ChannelEntity>
-
     @Query("SELECT * FROM channel WHERE playlistId = :pid AND number = :number AND hidden = 0 LIMIT 1")
     suspend fun byNumber(pid: Long, number: Int): ChannelEntity?
 
@@ -255,6 +252,7 @@ interface ChannelDao {
     @Query("UPDATE channel SET hidden = :hidden WHERE playlistId = :pid AND streamId = :id")
     suspend fun setHidden(pid: Long, id: Long, hidden: Boolean)
 
+    // The user's own order, as Move up and down (until 1.2.1) set it; kept, and restored from backups.
     @Query("UPDATE channel SET sortOrder = :order, position = COALESCE(:order, number) WHERE playlistId = :pid AND streamId = :id")
     suspend fun setSortOrder(pid: Long, id: Long, order: Int?)
 
