@@ -90,6 +90,9 @@ class VodRepository(private val db: AppDatabase, private val playlists: Playlist
 
     fun observeFavourite(playlistId: Long, type: String, id: Long): Flow<Boolean> = vod.observeFavourite(playlistId, type, id)
 
+    /** The favourite movies' or series' ids ([type] is CAT_MOVIE or CAT_SERIES). */
+    fun observeFavouriteIds(playlistId: Long, type: String): Flow<List<Long>> = vod.observeFavouriteIds(playlistId, type)
+
     suspend fun setFavourite(playlistId: Long, type: String, id: Long, favourite: Boolean) {
         if (favourite) {
             vod.addFavourite(VodFavouriteEntity(playlistId, type, id, System.currentTimeMillis()))

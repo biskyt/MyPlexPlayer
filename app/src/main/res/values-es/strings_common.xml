@@ -81,4 +81,5 @@
     <string name="common_sync_vod_loading">Cargando películas y series… %1$s</string>
     <string name="common_filter_categories">Filtrar categorías</string>
     <string name="common_no_title">Sin título</string>
+    <string name="common_favourite_mark">Favorito</string>
 </resources>

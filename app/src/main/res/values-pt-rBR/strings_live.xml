@@ -6,7 +6,6 @@
     <string name="live_view_list">Lista</string>
     <string name="live_view_guide">Guia de TV</string>
     <string name="live_no_channels">Nenhum canal aqui ainda.</string>
-    <string name="live_favourite_mark">Favorito</string>
     <string name="live_next">A seguir %1$s %2$s</string>
     <string name="live_until">Até %1$s</string>
 

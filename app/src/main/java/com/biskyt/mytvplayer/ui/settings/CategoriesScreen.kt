@@ -217,8 +217,8 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
             if (vm.hasVod) {
                 listOf(
                     CAT_LIVE to R.string.common_tab_live,
-                    CAT_MOVIE to R.string.common_tab_movies,
-                    CAT_SERIES to R.string.common_tab_series
+                    CAT_SERIES to R.string.common_tab_series,
+                    CAT_MOVIE to R.string.common_tab_movies
                 ).forEach { (t, label) ->
                     PillButton(stringResource(label), { vm.showType(t) }, selected = t == type)
                 }

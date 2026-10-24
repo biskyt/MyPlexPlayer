@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -17,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,6 +62,7 @@ import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.VodCard
 import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
+import kotlinx.coroutines.flow.StateFlow
 
 private val FocusRing = Border(BorderStroke(3.dp, Palette.text))
 
@@ -171,8 +174,33 @@ fun ProgressLine(fraction: Float, modifier: Modifier = Modifier, height: Dp = 5.
  * Images are decoded at the displayed size to keep memory low.
  */
 @Composable
-fun ChannelLogo(url: String?, name: String, width: Dp = 72.dp, height: Dp = 40.dp) =
+fun ChannelLogo(url: String?, name: String, width: Dp = 72.dp, height: Dp = 40.dp, favourite: Boolean = false) = FavouriteBadge(favourite) {
     ImageWithInitials(url, name, width, height, RoundedCornerShape(9.dp), ContentScale.Fit, 4.dp, MaterialTheme.typography.labelMedium)
+}
+
+/** A favourite's logo or poster: [content] with a heart on its top-right corner. */
+@Composable
+private fun FavouriteBadge(favourite: Boolean, content: @Composable () -> Unit) = Box {
+    // Always in the Box: the image stays put (and loaded) when a favourite is added or removed.
+    content()
+    if (favourite) {
+        Box(
+            Modifier.align(Alignment.TopEnd).offset(x = 5.dp, y = (-5).dp).size(20.dp).clip(CircleShape).background(Palette.background),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                AppIcons.Heart,
+                stringResource(R.string.common_favourite_mark),
+                tint = LocalAccent.current.color,
+                modifier = Modifier.size(13.dp)
+            )
+        }
+    }
+}
+
+/** A [com.biskyt.mytvplayer.data.Favourites] set while it's shown: empty until read. */
+@Composable
+fun StateFlow<Set<Long>?>.collectIds(): Set<Long> = collectAsState().value.orEmpty()
 
 /** A movie or series poster (2:3). Posters are opaque, so they're decoded at half the memory of logos. */
 @Composable
@@ -186,10 +214,16 @@ val POSTER_WIDTH = 124.dp
 
 /** A movie or series poster with its title and year, as in grids and search. */
 @Composable
-fun PosterCard(card: VodCard, modifier: Modifier = Modifier, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
+fun PosterCard(
+    card: VodCard,
+    modifier: Modifier = Modifier,
+    favourite: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
+    onClick: () -> Unit
+) {
     TvCard(onClick = onClick, onLongClick = onLongClick, color = Palette.background, modifier = modifier) {
         Column(Modifier.padding(6.dp).width(POSTER_WIDTH), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Poster(card.imageUrl, card.title, POSTER_WIDTH)
+            FavouriteBadge(favourite) { Poster(card.imageUrl, card.title, POSTER_WIDTH) }
             OneLine(card.title, MaterialTheme.typography.labelLarge)
             Muted(card.year?.toString() ?: " ")
         }

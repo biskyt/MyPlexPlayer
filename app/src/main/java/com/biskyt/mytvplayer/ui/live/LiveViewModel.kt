@@ -37,7 +37,6 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -108,8 +107,8 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
     val totalCount: StateFlow<Int> = activePlaylist.flatMapLatest { c.channels.observeCount(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
-    val favouriteIds: StateFlow<Set<Long>> = activePlaylist.flatMapLatest { c.channels.observeFavouriteIds(it) }.map { it.toSet() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+    /** Null until read. */
+    val favouriteIds: StateFlow<Set<Long>?> = c.favourites.channels
 
     val channels: Flow<PagingData<ChannelEntity>> =
         combine(activePlaylist, filter, query.debounce(250)) { pid, f, q -> Triple(pid, f, q) }
@@ -211,7 +210,7 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
     val numberEntry = NumberEntry(viewModelScope) { n -> c.channels.byNumber(playlistId.value, n)?.let { playNumber(it) } }
 
     fun toggleFavourite(ch: ChannelEntity) = viewModelScope.launch {
-        c.channels.setFavourite(ch.playlistId, ch.streamId, ch.streamId !in favouriteIds.value)
+        c.channels.setFavourite(ch.playlistId, ch.streamId, ch.streamId !in favouriteIds.value.orEmpty())
     }
 
     fun hide(ch: ChannelEntity) = viewModelScope.launch {

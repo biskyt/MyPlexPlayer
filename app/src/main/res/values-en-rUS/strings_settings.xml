@@ -2,7 +2,7 @@
 <!-- US English overrides: only strings whose wording differs from the UK source in values/. -->
 <resources>
     <string name="settings_appearance_help">Accent color and text size</string>
-    <string name="settings_about_help">Version, licenses, storage</string>
+    <string name="settings_about_help">Version %1$s, licenses, storage</string>
     <string name="settings_accent">Accent color</string>
     <string name="settings_large_text_help">Bigger text is easier to read from the couch</string>
     <string name="settings_licences_title">Open source licenses</string>
