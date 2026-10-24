@@ -39,14 +39,12 @@ data class Settings(
     val zapWithUpDown: Boolean = false,
     val lastChannelId: Long = 0,
     val accent: Int = AccentPalette.DEFAULT,
-    val largeText: Boolean = false,
-    /** The Live TV list shown last (see ChannelFilter.key), where Live TV opens next time. */
-    val lastLiveFilter: String = "all"
+    val largeText: Boolean = false
 ) {
     val effectiveSubtitleLanguage: String get() = subtitleLanguage.ifEmpty { Locale.getDefault().language }
 }
 
-private val Context.dataStore by preferencesDataStore("settings")
+internal val Context.dataStore by preferencesDataStore("settings")
 
 class SettingsRepository(private val context: Context) {
     private object K {
@@ -63,7 +61,6 @@ class SettingsRepository(private val context: Context) {
         val lastChannel = longPreferencesKey("last_channel")
         val accent = intPreferencesKey("accent")
         val largeText = booleanPreferencesKey("large_text")
-        val lastLiveFilter = stringPreferencesKey("last_live_filter")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings() }.distinctUntilChanged()
@@ -114,13 +111,14 @@ class SettingsRepository(private val context: Context) {
             lastChannelId = this[K.lastChannel] ?: d.lastChannelId,
             accent = this[K.accent] ?: d.accent,
             largeText = this[K.largeText] ?: d.largeText,
-            lastLiveFilter = this[K.lastLiveFilter] ?: d.lastLiveFilter
         )
     }
 
     suspend fun update(transform: (Settings) -> Settings) {
         context.dataStore.edit { prefs ->
             val s = transform(prefs.toSettings())
+            // Where Live TV opened, until 1.2.1 (it now opens on Favourites each time).
+            prefs.remove(stringPreferencesKey("last_live_filter"))
             prefs[K.activePlaylist] = s.activePlaylistId
             prefs[K.skipBack] = s.skipBackSec
             prefs[K.skipForward] = s.skipForwardSec
@@ -134,7 +132,6 @@ class SettingsRepository(private val context: Context) {
             prefs[K.lastChannel] = s.lastChannelId
             prefs[K.accent] = s.accent
             prefs[K.largeText] = s.largeText
-            prefs[K.lastLiveFilter] = s.lastLiveFilter
         }
     }
 

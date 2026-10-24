@@ -416,23 +416,8 @@ class AppUiTest {
     }
 
     @Test
-    fun `live TV opens on the category used last`() {
-        runBlocking {
-            app.container.settings.update { it.copy(lastLiveFilter = ChannelFilter.Category("2").key) }
-            app.container.settings.current()
-        }
-        show(Screen.Live())
-        waitFor("UK: ARENA SPRTS 1 FHD")
-        assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
-    }
-
-    @Test
     fun `the guide stays on the category it was opened from`() {
-        runBlocking {
-            app.container.settings.update { it.copy(lastLiveFilter = ChannelFilter.Category("2").key) }
-            app.container.settings.current()
-        }
-        show(Screen.Live())
+        show(Screen.Live(ChannelFilter.Category("2")))
         compose.waitAdvancingClock { compose.focusedText().contains("UK: ARENA SPRTS 1 FHD") }
         press(Key.Guide)
         compose.settle()
@@ -460,11 +445,7 @@ class AppUiTest {
 
     @Test
     fun `left into the categories works when the list shown isn't among them`() {
-        runBlocking {
-            app.container.settings.update { it.copy(lastLiveFilter = ChannelFilter.Category("2").key) }
-            app.container.settings.current()
-        }
-        show(Screen.Live())
+        show(Screen.Live(ChannelFilter.Category("2")))
         compose.waitAdvancingClock { compose.focusedText().contains("UK: ARENA SPRTS 1 FHD") }
         // The category shown goes from the column (e.g. unticked elsewhere) while its list is still up.
         runBlocking { app.container.db.categories().setIncluded(playlistId, com.biskyt.mytvplayer.data.db.CAT_LIVE, listOf("2"), false) }
@@ -479,11 +460,7 @@ class AppUiTest {
 
     @Test
     fun `left from the channel list goes to the selected category`() {
-        runBlocking {
-            app.container.settings.update { it.copy(lastLiveFilter = ChannelFilter.Category("2").key) }
-            app.container.settings.current()
-        }
-        show(Screen.Live())
+        show(Screen.Live(ChannelFilter.Category("2")))
         compose.waitAdvancingClock { compose.focusedText().contains("UK: ARENA SPRTS 1 FHD") }
         press(Key.DirectionLeft)
         // The column scrolls to the selected category first when it's out of view, so focus can take a moment.

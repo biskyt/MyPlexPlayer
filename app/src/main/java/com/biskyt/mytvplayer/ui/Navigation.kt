@@ -25,8 +25,8 @@ sealed interface Screen {
 
     /** [filter] null: the list shown last. */
     data class Live(val filter: ChannelFilter? = null, val guide: Boolean = false) : Screen
-    data class Movies(val filter: VodFilter = VodFilter.All) : Screen
-    data class Series(val filter: VodFilter = VodFilter.All) : Screen
+    data class Movies(val filter: VodFilter? = null) : Screen
+    data class Series(val filter: VodFilter? = null) : Screen
 
     /** [query]: already typed (e.g. a TV programme's title). */
     data class Search(val query: String = "") : Screen
@@ -79,8 +79,20 @@ class NavEntry(val screen: Screen, val id: Int) : ViewModelStoreOwner {
     override val viewModelStore = ViewModelStore()
 }
 
+/**
+ * The list last picked on Live TV ([live]) and on Movies and Series ([vod], by CAT_MOVIE or CAT_SERIES): each opens there
+ * again while the app is open, and on Favourites once it has been closed.
+ */
+class PickedLists {
+    var live: ChannelFilter? = null
+    val vod = HashMap<String, VodFilter>()
+}
+
 /** A tiny back stack: enough for a TV app and much lighter than a navigation library. */
 class Navigator(start: Screen) {
+    /** The lists picked on Live TV, Movies and Series while the app is open (as this navigator is). */
+    val picked = PickedLists()
+
     private var nextId = 0
     val stack = mutableStateListOf(NavEntry(start, nextId++))
 

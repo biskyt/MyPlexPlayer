@@ -54,9 +54,15 @@ import kotlinx.coroutines.launch
 
 /**
  * The selected entry of a [CategoryColumn]. Focusing an entry switches after a short pause, so moving through
- * categories stays smooth; selecting switches at once. [onChange] runs when the selection changes.
+ * categories stays smooth; selecting switches at once. [onChange] runs when the selection changes. Not [settled]
+ * (until [openOnShown] has run), the list to open on isn't known yet.
  */
-class CategoryFilter<F>(private val scope: CoroutineScope, initial: F, private val onChange: (F) -> Unit = {}) {
+class CategoryFilter<F>(
+    private val scope: CoroutineScope,
+    initial: F,
+    settled: Boolean = true,
+    private val onChange: (F) -> Unit = {}
+) {
     private val state = MutableStateFlow(initial)
     val value: StateFlow<F> = state
     private var job: Job? = null
@@ -75,14 +81,49 @@ class CategoryFilter<F>(private val scope: CoroutineScope, initial: F, private v
         set(f)
     }
 
+    /** Whether the list shown is the one to show: so a list about to give way isn't shown (or focused) meanwhile. */
+    var settled by mutableStateOf(settled)
+        private set
+
+    // Whether the user has picked a list yet (rather than the one the screen opened on).
+    private var userPicked = false
+
+    /**
+     * Shows [f] as the list the screen opens on, unless the user has picked one already (a category being focused
+     * still switches when its pause is over). Not a pick: no [onChange].
+     */
+    fun open(f: F) {
+        if (!userPicked) state.value = f
+        settled = true
+    }
+
     private fun set(f: F) {
+        settled = true
         if (f == state.value) return
+        userPicked = true
         state.value = f
         onChange(f)
     }
 
     private companion object {
         const val FOCUS_DELAY_MS = 300L
+    }
+}
+
+/**
+ * Where a screen of lists (Live TV, Movies, Series) opens, once it's known whether the list it starts on would show
+ * nothing: a category no longer shown ([gone]) gives way to [favourites], and [favourites] with none ([noFavourites])
+ * to [all].
+ */
+suspend fun <F> CategoryFilter<F>.openOnShown(favourites: F, all: F, gone: suspend (F) -> Boolean, noFavourites: suspend () -> Boolean) {
+    val start = value.value
+    var open = start
+    try {
+        val shown = if (gone(start)) favourites else start
+        open = if (shown == favourites && noFavourites()) all else shown
+    } finally {
+        // Whatever happens, a list is shown.
+        open(open)
     }
 }
 

@@ -19,11 +19,13 @@ import com.biskyt.mytvplayer.data.db.CategoryCount
 import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.ChannelProgramme
+import com.biskyt.mytvplayer.ui.PickedLists
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.common.CategoryFilter
 import com.biskyt.mytvplayer.ui.common.FavouriteMover
 import com.biskyt.mytvplayer.ui.common.NowNextLoader
 import com.biskyt.mytvplayer.ui.common.NumberEntry
+import com.biskyt.mytvplayer.ui.common.openOnShown
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -34,53 +36,41 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
-class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, initialGuide: Boolean) : ViewModel() {
+class LiveViewModel(
+    private val c: AppContainer,
+    initialFilter: ChannelFilter?,
+    initialGuide: Boolean,
+    private val picked: PickedLists
+) : ViewModel() {
     private val activePlaylist = c.settings.activePlaylistId
     val playlistId: StateFlow<Long> = activePlaylist.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
 
     /** Opened from the Catch-up tab: the categories are those with catch-up channels, and OK opens past programmes. */
     val catchupMode = initialFilter?.isCatchup == true
 
-    /** Whether the user has picked a list here yet (the remembered one mustn't replace their choice). */
-    private var picked = false
-
-    // A different list: the remembered channel may not be in it, so focus starts from the top.
-    val filters = CategoryFilter(viewModelScope, initialFilter ?: ChannelFilter.All) {
-        picked = true
-        focusStreamId = null
-    }
+    // Opens on the list asked for (e.g. Catch-up), else the one picked earlier while the app has been open, else
+    // Favourites. A different list: the remembered channel may not be in it, so focus starts from the top.
+    val filters =
+        CategoryFilter(viewModelScope, initialFilter ?: picked.live ?: ChannelFilter.Favourites, settled = initialFilter != null) { f ->
+            // Not Catch-up: the Live TV tab opens on live lists (Catch-up has its own tab).
+            if (!f.isCatchup) picked.live = f
+            focusStreamId = null
+        }
     val filter = filters.value
 
     init {
-        viewModelScope.launch {
-            // Opens on the list chosen last time, unless a particular one was asked for (e.g. Favourites).
-            var saved = c.settings.current().lastLiveFilter
-            val remembered = ChannelFilter.of(saved)
-            // A category since unticked (or from another playlist) would show an empty list.
-            val gone = (
-                remembered is ChannelFilter.Category &&
-                    c.db.categories().observeIncluded(activePlaylist.first(), CAT_LIVE).first().none { it.categoryId == remembered.id }
-                ) ||
-                remembered.isCatchup // opened from its own tab, not remembered
-            if (initialFilter == null && !gone && !picked) {
-                filters.select(remembered)
-                picked = false
-            }
-            // Remembered once the user settles on a list (not for every category passed on the way).
-            // Not Catch-up: the Live TV tab opens on live lists (Catch-up has its own tab).
-            filter.drop(1).debounce(SAVE_AFTER_MS).filter { !it.isCatchup }.collect { f ->
-                if (f.key != saved) {
-                    saved = f.key
-                    c.settings.update { it.copy(lastLiveFilter = f.key) }
-                }
+        if (initialFilter == null) {
+            viewModelScope.launch {
+                val pid = activePlaylist.first()
+                filters.openOnShown(ChannelFilter.Favourites, ChannelFilter.All, gone = { f ->
+                    f is ChannelFilter.Category && c.db.categories().observeIncluded(pid, CAT_LIVE).first().none { it.categoryId == f.id }
+                }) { c.favourites.order(pid, CAT_LIVE).isEmpty() }
             }
         }
     }
@@ -226,20 +216,7 @@ class LiveViewModel(private val c: AppContainer, initialFilter: ChannelFilter?, 
         restoreFocusPending = true
     }
 
-    /** Reordering only makes sense in lists sorted by position (not Recent, by time; Favourites have [mover]). */
-    val canMove: Boolean get() = filter.value == ChannelFilter.All || filter.value is ChannelFilter.Category
-
     /** Moving a favourite within Favourites (the list, not the guide). */
     val mover = FavouriteMover(viewModelScope, c.favourites) { playlistId.value }
     val canMoveFavourite: Boolean get() = filter.value == ChannelFilter.Favourites && !guideMode && query.value.isEmpty()
-
-    fun move(ch: ChannelEntity, delta: Int) = viewModelScope.launch {
-        c.channels.move(ch.playlistId, filter.value, ch.streamId, delta)
-        focusMoved(ch.streamId, ((focusIndex ?: 0) + delta).coerceAtLeast(0))
-        restoreFocusPending = true
-    }
-
-    private companion object {
-        const val SAVE_AFTER_MS = 1_500L
-    }
 }

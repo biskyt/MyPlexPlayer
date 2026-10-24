@@ -111,10 +111,6 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                     close()
                     nav.push(Screen.GuideMatching(ch.playlistId, ch.streamId))
                 }
-                if (vm.canMove) {
-                    MenuOption(stringResource(R.string.live_option_move_up)) { vm.move(ch, -1) }
-                    MenuOption(stringResource(R.string.live_option_move_down)) { vm.move(ch, 1) }
-                }
                 if (vm.canMoveFavourite) {
                     MenuOption(stringResource(R.string.common_move)) {
                         close()

@@ -19,8 +19,6 @@
     <string name="live_option_switch_to_list">Passer à la liste des chaînes</string>
     <string name="live_option_switch_to_grid">Passer à la grille du guide TV</string>
     <string name="live_option_switch_help">Ou appuyez sur le bouton Guide de la télécommande</string>
-    <string name="live_option_move_up">Monter</string>
-    <string name="live_option_move_down">Descendre</string>
     <string name="live_option_hide_channel">Masquer la chaîne</string>
     <string name="live_option_hide_channel_help">Réaffichez-la plus tard dans Paramètres › Langues et catégories</string>
 
