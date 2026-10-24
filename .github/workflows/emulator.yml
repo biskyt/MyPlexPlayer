@@ -21,6 +21,9 @@ on:
       - ".github/scripts/release-notes.sh"
       - ".github/scripts/play-notes.py"
       - ".github/scripts/robolectric-cache-key.sh"
+      - ".github/scripts/start-plex.sh"
+      - ".github/workflows/plex-spike.yml"
+      - "spikes/**"
   workflow_dispatch:
 
 concurrency:

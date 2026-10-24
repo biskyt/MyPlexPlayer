@@ -8,15 +8,15 @@ plugins {
 }
 
 android {
-    namespace = "com.biskyt.mytvplayer"
+    namespace = "com.biskyt.myplexplayer"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.biskyt.mytvplayer"
+        applicationId = "com.biskyt.myplexplayer"
         minSdk = 28
         targetSdk = 36
-        versionCode = 37
-        versionName = "1.2.1"
+        versionCode = 1
+        versionName = "0.1.0"
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -30,8 +30,8 @@ android {
 
     signingConfigs {
         // A shared, public debug key so builds from any machine (or CI) install over each other when sideloading.
-        // For distribution, set MYTV_KEYSTORE and MYTV_KEYSTORE_PASSWORD (MYTV_KEY_ALIAS defaults to "mytvplayer" and
-        // MYTV_KEY_PASSWORD to the keystore password, as keytool uses one password for both).
+        // For distribution, set MYPLEX_KEYSTORE and MYPLEX_KEYSTORE_PASSWORD (MYPLEX_KEY_ALIAS defaults to "myplexplayer" and
+        // MYPLEX_KEY_PASSWORD to the keystore password, as keytool uses one password for both).
         getByName("debug") {
             storeFile = file("debug.keystore")
             storePassword = "android"
@@ -39,12 +39,12 @@ android {
             keyPassword = "android"
         }
         create("release") {
-            val store = System.getenv("MYTV_KEYSTORE")
+            val store = System.getenv("MYPLEX_KEYSTORE")
             if (store != null) {
                 storeFile = file(store)
-                storePassword = System.getenv("MYTV_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("MYTV_KEY_ALIAS") ?: "mytvplayer"
-                keyPassword = System.getenv("MYTV_KEY_PASSWORD") ?: storePassword
+                storePassword = System.getenv("MYPLEX_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("MYPLEX_KEY_ALIAS") ?: "myplexplayer"
+                keyPassword = System.getenv("MYPLEX_KEY_PASSWORD") ?: storePassword
             } else {
                 initWith(getByName("debug"))
             }

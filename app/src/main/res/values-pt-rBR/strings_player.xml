@@ -59,7 +59,7 @@
     <string name="player_failure_vod">Não é possível reproduzir isto agora. Tente de novo mais tarde.</string>
     <string name="player_failure_catchup">Não é possível rever isto agora. Tente de novo mais tarde.</string>
     <string name="player_catchup_nothing_to_start_over">Não há nada para começar de novo neste canal agora.</string>
-    <string name="player_unsupported_format">Isto usa um formato de stream que o MyTVPlayer não consegue reproduzir.</string>
+    <string name="player_unsupported_format">Isto usa um formato de stream que o MyPlexPlayer não consegue reproduzir.</string>
 
     <string name="player_stream_source">Stream de %1$s.</string>
     <string name="player_error_dns">O servidor do stream não foi encontrado: o endereço pode não existir mais.</string>
@@ -67,13 +67,13 @@
     <string name="player_error_timeout">O servidor do stream não respondeu. Ele pode estar fora do ar ou sobrecarregado.</string>
     <string name="player_error_connection">Não foi possível conectar ao servidor do stream. Ele pode estar fora do ar ou inacessível pela sua rede.</string>
     <string name="player_error_not_video">O endereço do stream enviou algo que não é vídeo (como uma página da web).</string>
-    <string name="player_error_drm">O stream é criptografado (DRM), e o MyTVPlayer não consegue reproduzi-lo.</string>
+    <string name="player_error_drm">O stream é criptografado (DRM), e o MyPlexPlayer não consegue reproduzi-lo.</string>
     <string name="player_error_audio_output">Não foi possível enviar o som para a TV ou o amplificador. Tente desativar o passthrough de áudio em Configurações › Reprodução.</string>
     <string name="player_error_decode_video">Este TV box não consegue decodificar o vídeo do stream (%1$s).</string>
     <string name="player_error_decode_audio">Este TV box não consegue decodificar o áudio do stream (%1$s).</string>
     <string name="player_error_decode_media">Este TV box não consegue decodificar a mídia do stream (%1$s).</string>
     <string name="player_error_decode">Este TV box não consegue decodificar o vídeo ou o áudio do stream.</string>
-    <string name="player_error_parsing">O stream enviou dados que o MyTVPlayer não consegue ler (formato incompatível ou corrompido).</string>
+    <string name="player_error_parsing">O stream enviou dados que o MyPlexPlayer não consegue ler (formato incompatível ou corrompido).</string>
     <string name="player_error_behind_live">O stream ficou atrasado em relação à transmissão ao vivo várias vezes.</string>
     <string name="player_error_io">O stream parou de chegar: a conexão com o servidor falhou.</string>
     <string name="player_error_other">O player não conseguiu reproduzir isto (%1$s).</string>

@@ -89,8 +89,8 @@
     <string name="data_lang_other">Other</string>
 
     <!-- Colour names, offered under "Accent colour" in Settings. Short (a small button). -->
+    <string name="data_accent_yellow">Yellow</string>
     <string name="data_accent_mint">Mint</string>
-    <string name="data_accent_amber">Amber</string>
     <string name="data_accent_violet">Violet</string>
     <string name="data_accent_sky">Sky</string>
     <string name="data_accent_coral">Coral</string>

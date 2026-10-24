@@ -1,10 +1,10 @@
-# Releasing MyTVPlayer
+# Releasing MyPlexPlayer
 
 Releases are built and published by GitHub Actions (`.github/workflows/release.yml`). Each one is a GitHub Release with:
-- `MyTVPlayer-<version>.apk`: for sideloading onto a TV box.
+- `MyPlexPlayer-<version>.apk`: for sideloading onto a TV box.
 - `SHA256SUMS.txt`: the APK's checksum.
 
-The app bundle Google Play wants (`MyTVPlayer-<version>.aab`) isn't published with the release. It is uploaded to Google Play's closed testing track (see **Google Play** below) and kept on the workflow run's page under **Artifacts** for 90 days.
+The app bundle Google Play wants (`MyPlexPlayer-<version>.aab`) isn't published with the release. It is uploaded to Google Play's closed testing track (see **Google Play** below) and kept on the workflow run's page under **Artifacts** for 90 days.
 - Release notes taken from this version's section of `CHANGELOG.md`, plus those of any versions since the last release
   that weren't released on their own.
 
@@ -14,7 +14,7 @@ Android only installs an update if it is signed with the same key as the install
 
 1. **Create the key on your own computer.** You need Java's `keytool`, which comes with Android Studio or any JDK.
    ```sh
-   keytool -genkeypair -v -keystore mytvplayer-release.jks -alias mytvplayer \
+   keytool -genkeypair -v -keystore myplexplayer-release.jks -alias myplexplayer \
      -keyalg RSA -keysize 4096 -validity 10000
    ```
    It asks for a password and your name. **Back up the `.jks` file and the password somewhere safe.** Without them you can never update the app again.
@@ -22,10 +22,10 @@ Android only installs an update if it is signed with the same key as the install
 
    | Secret | Value |
    |---|---|
-   | `MYTV_KEYSTORE_BASE64` | the output of `base64 -w0 mytvplayer-release.jks` (macOS: `base64 -i mytvplayer-release.jks`) |
-   | `MYTV_KEYSTORE_PASSWORD` | the password you chose |
+   | `MYPLEX_KEYSTORE_BASE64` | the output of `base64 -w0 myplexplayer-release.jks` (macOS: `base64 -i myplexplayer-release.jks`) |
+   | `MYPLEX_KEYSTORE_PASSWORD` | the password you chose |
 
-   Two more are optional, only if yours differ from the defaults: `MYTV_KEY_ALIAS` (default `mytvplayer`) and `MYTV_KEY_PASSWORD` (default: the keystore password, which is what `keytool` uses).
+   Two more are optional, only if yours differ from the defaults: `MYPLEX_KEY_ALIAS` (default `myplexplayer`) and `MYPLEX_KEY_PASSWORD` (default: the keystore password, which is what `keytool` uses).
 
 Until these secrets exist, releases still build, but they are signed with the public development key and marked as test pre-releases.
 
@@ -48,7 +48,7 @@ Each release uploads its `.aab` to the closed testing track (**Closed testing - 
 
 ### One-time setup
 1. **Google Cloud** (free, no billing needed): at [console.cloud.google.com](https://console.cloud.google.com/), create a project, enable the **Google Play Android Developer API**, create a service account (no roles) and download a **JSON key** for it.
-2. **Play Console** › *Users and permissions* › *Invite new users*: the service account's email, with MyTVPlayer under *App permissions* and **Release apps to testing tracks**.
+2. **Play Console** › *Users and permissions* › *Invite new users*: the service account's email, with MyPlexPlayer under *App permissions* and **Release apps to testing tracks**.
 3. **GitHub** › *Settings* › *Secrets and variables* › *Actions*: a secret `PLAY_SERVICE_ACCOUNT_JSON` holding the whole JSON file.
 
 Without the secret (or for a build signed with the development key) the upload is skipped; upload the `.aab` from the run's Artifacts by hand instead.

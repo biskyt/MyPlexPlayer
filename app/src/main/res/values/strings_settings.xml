@@ -71,12 +71,12 @@
     <string name="settings_storage_logos">Channel logos: %1$s (limited to 30 MB)</string>
     <string name="settings_storage_help">Storage is managed automatically: old programmes are removed every day, logos are capped, and the database is compacted when needed.</string>
 
-    <!-- Support section at the foot of Settings and About. "MyTVPlayer" is the app's name: don't translate it. -->
-    <string name="settings_support_title">Support MyTVPlayer</string>
+    <!-- Support section at the foot of Settings and About. "MyPlexPlayer" is the app's name: don't translate it. -->
+    <string name="settings_support_title">Support MyPlexPlayer</string>
     <string name="settings_support_help">It\'s free, with no ads and no tracking. If you find it useful, you can support its development.</string>
 
-    <!-- Open source licences page. "MyTVPlayer" and "GPL 3.0" are names: don't translate them. -->
-    <string name="settings_licences_intro">MyTVPlayer is free software under the GPL 3.0. It\'s built with this open-source software:</string>
+    <!-- Open source licences page. "MyPlexPlayer" and "GPL 3.0" are names: don't translate them. -->
+    <string name="settings_licences_intro">MyPlexPlayer is free software under the GPL 3.0. It\'s built with this open-source software:</string>
     <!-- %1$s: a licence's name, e.g. "Apache 2.0"; %2$s: its web address. -->
     <string name="settings_licence_link">Licence: %1$s, %2$s</string>
     <!-- What each open-source library is used for in the app (the library names aren't translated). -->
@@ -101,7 +101,7 @@
 
     <!-- First launch. "Xtream Codes" and "M3U" are names: don't translate them. "Settings › Playlists" names the
          settings pages common_settings and settings_playlists_title. -->
-    <string name="settings_welcome_title">Welcome to MyTVPlayer</string>
+    <string name="settings_welcome_title">Welcome to MyPlexPlayer</string>
     <string name="settings_welcome_intro">Add the TV service you subscribe to (an Xtream Codes login or an M3U playlist address), or start with free TV: channels streamed free by their broadcasters, and public-domain films and series. You can add the other at any time in Settings › Playlists.</string>
     <string name="settings_welcome_downloading">Downloading the channel list…</string>
     <!-- Buttons. -->
@@ -111,11 +111,11 @@
     <string name="settings_welcome_free">Free TV, films and series</string>
     <string name="settings_welcome_restore">Restore a backup</string>
 
-    <!-- Backup & restore page. "MyTVPlayer" is the app's name; "Settings › Apps › MyTVPlayer › Permissions" is the
+    <!-- Backup & restore page. "MyPlexPlayer" is the app's name; "Settings › Apps › MyPlexPlayer › Permissions" is the
          path through the TV's own settings menus. -->
-    <string name="settings_backup_permission_denied">Without storage permission the backup can\'t be saved. Allow it in the TV\'s Settings › Apps › MyTVPlayer › Permissions.</string>
+    <string name="settings_backup_permission_denied">Without storage permission the backup can\'t be saved. Allow it in the TV\'s Settings › Apps › MyPlexPlayer › Permissions.</string>
     <string name="settings_backup_saving">Saving…</string>
-    <!-- %1$s: where the file is, e.g. "Download/MyTVPlayer/mytvplayer-backup.json". -->
+    <!-- %1$s: where the file is, e.g. "Download/MyPlexPlayer/myplexplayer-backup.json". -->
     <string name="settings_backup_saved_to">Saved to %1$s</string>
     <!-- %1$s: the error's details (may be in English). -->
     <string name="settings_backup_find_failed">Couldn\'t look for a backup: %1$s</string>
@@ -127,9 +127,9 @@
     <!-- Title of the system's app chooser. -->
     <string name="settings_backup_choose_file">Choose the backup file</string>
     <!-- "X-plore" is an app's name; "Open with" and "Share" are Android's menu items. -->
-    <string name="settings_backup_no_picker">This TV has no way to choose a file. Open the backup with MyTVPlayer from a file manager app such as X-plore (Open with, or Share), or install one and try again.</string>
+    <string name="settings_backup_no_picker">This TV has no way to choose a file. Open the backup with MyPlexPlayer from a file manager app such as X-plore (Open with, or Share), or install one and try again.</string>
     <string name="settings_backup_intro">Saves your playlists (with their logins), channel and category choices, favourites, TV guide sources and settings to a file. Copy it with a file manager app to keep it somewhere else. The file isn\'t encrypted, so keep it private.</string>
-    <!-- %1$s: when and where, e.g. "Mon 12 Mar 18:30 · Download/MyTVPlayer/mytvplayer-backup.json". -->
+    <!-- %1$s: when and where, e.g. "Mon 12 Mar 18:30 · Download/MyPlexPlayer/myplexplayer-backup.json". -->
     <string name="settings_backup_last">Last backup: %1$s</string>
     <string name="settings_backup_none">No backup on this TV yet.</string>
     <string name="settings_backup_confirm">This replaces your playlists and settings with the backup\'s. Restore?</string>
@@ -140,12 +140,12 @@
     <string name="settings_backup_restore_file">Restore from a file…</string>
     <string name="settings_backup_restore_other_file">Restore from another file…</string>
     <!-- Errors reading or writing the backup file. -->
-    <string name="settings_backup_not_a_backup">This isn\'t a MyTVPlayer backup file.</string>
-    <string name="settings_backup_newer">This backup is from a newer version of MyTVPlayer. Update the app first.</string>
-    <string name="settings_backup_need_permission">MyTVPlayer needs permission to save to the Download folder.</string>
+    <string name="settings_backup_not_a_backup">This isn\'t a MyPlexPlayer backup file.</string>
+    <string name="settings_backup_newer">This backup is from a newer version of MyPlexPlayer. Update the app first.</string>
+    <string name="settings_backup_need_permission">MyPlexPlayer needs permission to save to the Download folder.</string>
     <string name="settings_backup_no_storage">This TV\'s storage isn\'t available right now, so the backup can\'t be saved.</string>
-    <!-- "Download/MyTVPlayer" is a folder's name: don't translate it. -->
-    <string name="settings_backup_no_folder">Couldn\'t create the folder Download/MyTVPlayer for the backup.</string>
+    <!-- "Download/MyPlexPlayer" is a folder's name: don't translate it. -->
+    <string name="settings_backup_no_folder">Couldn\'t create the folder Download/MyPlexPlayer for the backup.</string>
     <string name="settings_backup_save_failed">Couldn\'t save the backup file</string>
     <string name="settings_backup_create_failed">Couldn\'t create the backup file</string>
     <string name="settings_backup_write_failed">Couldn\'t write the backup file</string>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_crash_title">O MyTVPlayer fechou inesperadamente da última vez</string>
+    <string name="app_crash_title">O MyPlexPlayer fechou inesperadamente da última vez</string>
     <string name="app_crash_help">Para ajudar a corrigir, leia o código com o celular: ele abre uma issue no GitHub com os detalhes abaixo, pronta para enviar. Os logins ficam de fora, e nada é enviado a menos que você envie.</string>
     <string name="app_crash_continue">Continuar</string>
     <string name="app_crash_continue_no_update">Continuar sem atualizar</string>

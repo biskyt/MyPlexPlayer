@@ -5,7 +5,7 @@ Used only by `StoreAssetsTest` (the Google Play and Amazon Appstore screenshots 
 ## Channel logos
 `one.png`, `news.png`, `sport1.png`, `sport2.png`, `kids.png`, `drama.png`, `docs.png`, `comedy.png`: original logos
 for the invented demo channels, drawn by `store/demo-logos.py` (with the app's Nunito font, SIL Open Font License).
-They are part of MyTVPlayer (GPL-3.0).
+They are part of MyPlexPlayer (GPL-3.0).
 
 ## Movie and series art
 Posters and stills of the Blender Foundation's open movies, from Wikimedia Commons, cropped and resized. Each is licensed under Creative

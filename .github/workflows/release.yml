@@ -77,22 +77,22 @@ jobs:
 
       # The upload key lives in repository secrets. Without them the build falls back to the public development key,
       # which is fine for testing but must not be used for a real release (anyone could sign an "update").
-      # Only MYTV_KEYSTORE_BASE64 and MYTV_KEYSTORE_PASSWORD are needed: the key password defaults to the keystore's
-      # (keytool uses one password for both) and the alias to "mytvplayer"; the other two secrets override them.
+      # Only MYPLEX_KEYSTORE_BASE64 and MYPLEX_KEYSTORE_PASSWORD are needed: the key password defaults to the keystore's
+      # (keytool uses one password for both) and the alias to "myplexplayer"; the other two secrets override them.
       - name: Set up the signing key
         env:
-          KEYSTORE_BASE64: ${{ secrets.MYTV_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.MYTV_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.MYTV_KEY_ALIAS || 'mytvplayer' }}
-          KEY_PASSWORD: ${{ secrets.MYTV_KEY_PASSWORD || secrets.MYTV_KEYSTORE_PASSWORD }}
+          KEYSTORE_BASE64: ${{ secrets.MYPLEX_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.MYPLEX_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.MYPLEX_KEY_ALIAS || 'myplexplayer' }}
+          KEY_PASSWORD: ${{ secrets.MYPLEX_KEY_PASSWORD || secrets.MYPLEX_KEYSTORE_PASSWORD }}
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
             {
-              echo "MYTV_KEYSTORE=$RUNNER_TEMP/release.keystore"
-              echo "MYTV_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
-              echo "MYTV_KEY_ALIAS=$KEY_ALIAS"
-              echo "MYTV_KEY_PASSWORD=$KEY_PASSWORD"
+              echo "MYPLEX_KEYSTORE=$RUNNER_TEMP/release.keystore"
+              echo "MYPLEX_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+              echo "MYPLEX_KEY_ALIAS=$KEY_ALIAS"
+              echo "MYPLEX_KEY_PASSWORD=$KEY_PASSWORD"
             } >> "$GITHUB_ENV"
             echo "SIGNED_WITH=release" >> "$GITHUB_ENV"
           else
@@ -117,10 +117,10 @@ jobs:
         run: |
           v=${{ steps.version.outputs.version }}
           mkdir -p dist
-          cp app/build/outputs/apk/release/app-release.apk "dist/MyTVPlayer-$v.apk"
-          (cd dist && sha256sum MyTVPlayer-*.apk > SHA256SUMS.txt)
+          cp app/build/outputs/apk/release/app-release.apk "dist/MyPlexPlayer-$v.apk"
+          (cd dist && sha256sum MyPlexPlayer-*.apk > SHA256SUMS.txt)
           mkdir -p play/whatsnew
-          cp app/build/outputs/bundle/release/app-release.aab "play/MyTVPlayer-$v.aab"
+          cp app/build/outputs/bundle/release/app-release.aab "play/MyPlexPlayer-$v.aab"
           # Release notes: this version's section of CHANGELOG.md, and any versions since the last release.
           .github/scripts/release-notes.sh "$v" > dist/notes.md
           python3 .github/scripts/play-notes.py dist/notes.md \
@@ -134,7 +134,7 @@ jobs:
       # For Google Play by hand, if the upload below is off or fails: on the run's page under Artifacts, kept 90 days.
       - uses: actions/upload-artifact@v6
         with:
-          name: MyTVPlayer-${{ steps.version.outputs.version }}-play-bundle
+          name: MyPlexPlayer-${{ steps.version.outputs.version }}-play-bundle
           path: play/*.aab
           retention-days: 90
 
@@ -142,11 +142,11 @@ jobs:
         with:
           tag_name: v${{ steps.version.outputs.version }}
           target_commitish: ${{ github.sha }}
-          name: MyTVPlayer ${{ steps.version.outputs.version }}
+          name: MyPlexPlayer ${{ steps.version.outputs.version }}
           body_path: dist/notes.md
           prerelease: ${{ env.SIGNED_WITH == 'development' || startsWith(steps.version.outputs.version, '0.') }}
           files: |
-            dist/MyTVPlayer-*.apk
+            dist/MyPlexPlayer-*.apk
             dist/SHA256SUMS.txt
 
       # Google Play: the bundle goes to closed testing ("Closed testing - Alpha" in Play Console, "alpha" here), after
@@ -159,8 +159,8 @@ jobs:
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: com.biskyt.mytvplayer
-          releaseFiles: play/MyTVPlayer-${{ steps.version.outputs.version }}.aab
+          packageName: com.biskyt.myplexplayer
+          releaseFiles: play/MyPlexPlayer-${{ steps.version.outputs.version }}.aab
           releaseName: ${{ steps.version.outputs.version }}
           track: alpha
           status: ${{ vars.PLAY_RELEASE_STATUS || 'completed' }}

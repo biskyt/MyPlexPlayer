@@ -53,10 +53,10 @@
     <string name="settings_storage_logos">Logos de canales: %1$s (límite de 30 MB)</string>
     <string name="settings_storage_help">El almacenamiento se gestiona automáticamente: los programas antiguos se borran cada día, los logos tienen un límite y la base de datos se compacta cuando hace falta.</string>
 
-    <string name="settings_support_title">Apoya a MyTVPlayer</string>
+    <string name="settings_support_title">Apoya a MyPlexPlayer</string>
     <string name="settings_support_help">Es gratis, sin anuncios ni rastreo. Si te resulta útil, puedes apoyar su desarrollo.</string>
 
-    <string name="settings_licences_intro">MyTVPlayer es software libre bajo la GPL 3.0. Está hecho con este software de código abierto:</string>
+    <string name="settings_licences_intro">MyPlexPlayer es software libre bajo la GPL 3.0. Está hecho con este software de código abierto:</string>
     <string name="settings_licence_link">Licencia: %1$s, %2$s</string>
     <string name="settings_lib_media3">Reproducción de video (ExoPlayer, HLS, DASH, subtítulos)</string>
     <string name="settings_lib_ffmpeg">Formatos de audio que la TV no puede decodificar; incluye FFmpeg (LGPL 2.1 o posterior)</string>
@@ -77,7 +77,7 @@
     <string name="settings_lib_guava">Usada por Media3</string>
     <string name="settings_lib_nunito">La fuente de la app</string>
 
-    <string name="settings_welcome_title">Te damos la bienvenida a MyTVPlayer</string>
+    <string name="settings_welcome_title">Te damos la bienvenida a MyPlexPlayer</string>
     <string name="settings_welcome_intro">Agrega el servicio de TV al que estás suscrito (un acceso Xtream Codes o la dirección de una lista M3U), o empieza con TV gratis: canales que sus propias cadenas transmiten gratis, y películas y series de dominio público. Puedes agregar lo otro cuando quieras en Configuración › Listas de reproducción.</string>
     <string name="settings_welcome_downloading">Descargando la lista de canales…</string>
     <string name="settings_welcome_add_provider">Agregar mi proveedor de TV</string>
@@ -86,7 +86,7 @@
     <string name="settings_welcome_free">TV, películas y series gratis</string>
     <string name="settings_welcome_restore">Restaurar una copia de seguridad</string>
 
-    <string name="settings_backup_permission_denied">Sin permiso de almacenamiento no se puede guardar la copia de seguridad. Permítelo en la configuración de la TV: Configuración › Apps › MyTVPlayer › Permisos.</string>
+    <string name="settings_backup_permission_denied">Sin permiso de almacenamiento no se puede guardar la copia de seguridad. Permítelo en la configuración de la TV: Configuración › Apps › MyPlexPlayer › Permisos.</string>
     <string name="settings_backup_saving">Guardando…</string>
     <string name="settings_backup_saved_to">Guardado en %1$s</string>
     <string name="settings_backup_find_failed">No se pudo buscar una copia de seguridad: %1$s</string>
@@ -94,7 +94,7 @@
     <string name="settings_backup_restoring">Restaurando…</string>
     <string name="settings_backup_failed">Algo salió mal: %1$s</string>
     <string name="settings_backup_choose_file">Elige el archivo de copia de seguridad</string>
-    <string name="settings_backup_no_picker">Esta TV no tiene forma de elegir un archivo. Abre la copia de seguridad con MyTVPlayer desde una app de administración de archivos como X-plore (Abrir con o Compartir), o instala una y vuelve a intentarlo.</string>
+    <string name="settings_backup_no_picker">Esta TV no tiene forma de elegir un archivo. Abre la copia de seguridad con MyPlexPlayer desde una app de administración de archivos como X-plore (Abrir con o Compartir), o instala una y vuelve a intentarlo.</string>
     <string name="settings_backup_intro">Guarda en un archivo tus listas (con sus datos de acceso), tus preferencias de canales y categorías, favoritos, fuentes de guía de TV y configuración. Cópialo con una app de administración de archivos para guardarlo en otro lugar. El archivo no está cifrado, así que mantenlo en privado.</string>
     <string name="settings_backup_last">Última copia: %1$s</string>
     <string name="settings_backup_none">Aún no hay copias de seguridad en esta TV.</string>
@@ -104,11 +104,11 @@
     <string name="settings_backup_now">Hacer copia ahora</string>
     <string name="settings_backup_restore_file">Restaurar desde un archivo…</string>
     <string name="settings_backup_restore_other_file">Restaurar desde otro archivo…</string>
-    <string name="settings_backup_not_a_backup">Este no es un archivo de copia de seguridad de MyTVPlayer.</string>
-    <string name="settings_backup_newer">Esta copia de seguridad es de una versión más reciente de MyTVPlayer. Actualiza la app primero.</string>
-    <string name="settings_backup_need_permission">MyTVPlayer necesita permiso para guardar en la carpeta Download.</string>
+    <string name="settings_backup_not_a_backup">Este no es un archivo de copia de seguridad de MyPlexPlayer.</string>
+    <string name="settings_backup_newer">Esta copia de seguridad es de una versión más reciente de MyPlexPlayer. Actualiza la app primero.</string>
+    <string name="settings_backup_need_permission">MyPlexPlayer necesita permiso para guardar en la carpeta Download.</string>
     <string name="settings_backup_no_storage">El almacenamiento de esta TV no está disponible ahora, así que no se puede guardar la copia de seguridad.</string>
-    <string name="settings_backup_no_folder">No se pudo crear la carpeta Download/MyTVPlayer para la copia de seguridad.</string>
+    <string name="settings_backup_no_folder">No se pudo crear la carpeta Download/MyPlexPlayer para la copia de seguridad.</string>
     <string name="settings_backup_save_failed">No se pudo guardar el archivo de copia de seguridad</string>
     <string name="settings_backup_create_failed">No se pudo crear el archivo de copia de seguridad</string>
     <string name="settings_backup_write_failed">No se pudo escribir el archivo de copia de seguridad</string>
