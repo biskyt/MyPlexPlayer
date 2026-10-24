@@ -37,6 +37,7 @@ import com.biskyt.mytvplayer.data.db.CategoryEntity
 import com.biskyt.mytvplayer.data.db.PlaylistEntity
 import com.biskyt.mytvplayer.data.db.VodCard
 import com.biskyt.mytvplayer.ui.LocalNavigator
+import com.biskyt.mytvplayer.ui.PickedLists
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.CategoryEntry
@@ -60,6 +61,7 @@ import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.categoryEntries
 import com.biskyt.mytvplayer.ui.common.collectIds
 import com.biskyt.mytvplayer.ui.common.moveAction
+import com.biskyt.mytvplayer.ui.common.openOnShown
 import com.biskyt.mytvplayer.ui.common.restoreFocusIf
 import com.biskyt.mytvplayer.ui.common.vodActions
 import com.biskyt.mytvplayer.ui.common.vodDetails
@@ -80,13 +82,35 @@ import kotlinx.coroutines.launch
 
 /** Movies or series ([type] is CAT_MOVIE or CAT_SERIES): categories on the left, a grid of posters on the right. */
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
-class VodBrowseViewModel(private val c: AppContainer, val type: String, initialFilter: VodFilter) : ViewModel() {
+class VodBrowseViewModel(
+    private val c: AppContainer,
+    val type: String,
+    initialFilter: VodFilter?,
+    private val picked: PickedLists
+) : ViewModel() {
     private val activePlaylist = c.settings.activePlaylistId
     val isMovies = type == CAT_MOVIE
 
     val playlist: StateFlow<PlaylistEntity?> = activePlaylist.map { c.playlists.get(it) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
-    val filters = CategoryFilter(viewModelScope, initialFilter)
+
+    // As Live TV: the list asked for, else the one picked earlier while the app has been open, else Favourites.
+    val filters =
+        CategoryFilter(viewModelScope, initialFilter ?: picked.vod[type] ?: VodFilter.Favourites, settled = initialFilter != null) {
+            picked.vod[type] = it
+        }
+
+    init {
+        if (initialFilter == null) {
+            viewModelScope.launch {
+                val pid = activePlaylist.first()
+                filters.openOnShown(VodFilter.Favourites, VodFilter.All, gone = { f ->
+                    f is VodFilter.Category && c.vod.observeCategories(pid, type).first().none { it.categoryId == f.id }
+                }) { c.favourites.order(pid, type).isEmpty() }
+            }
+        }
+    }
+
     val query = MutableStateFlow("")
 
     val categories: StateFlow<List<CategoryEntity>> = activePlaylist.flatMapLatest { c.vod.observeCategories(it, type) }
@@ -140,8 +164,9 @@ class VodBrowseViewModel(private val c: AppContainer, val type: String, initialF
 }
 
 @Composable
-fun VodBrowseScreen(type: String, initialFilter: VodFilter) {
-    val vm = appViewModel(key = "vod-$type") { VodBrowseViewModel(it, type, initialFilter) }
+fun VodBrowseScreen(type: String, initialFilter: VodFilter?) {
+    val nav = LocalNavigator.current
+    val vm = appViewModel(key = "vod-$type") { VodBrowseViewModel(it, type, initialFilter, nav.picked) }
     val filter by vm.filters.value.collectAsState()
     val categories by vm.categories.collectAsState()
     val playlist by vm.playlist.collectAsState()
@@ -168,7 +193,7 @@ fun VodBrowseScreen(type: String, initialFilter: VodFilter) {
                         Modifier.padding(top = 24.dp),
                         maxLines = 2
                     )
-                    else -> PosterGrid(vm, p?.id ?: 0)
+                    vm.filters.settled -> PosterGrid(vm, p?.id ?: 0)
                 }
             }
         }

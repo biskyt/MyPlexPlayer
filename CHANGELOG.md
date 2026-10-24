@@ -2,6 +2,12 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.2.1
+- **Live TV (and the TV guide), Movies and Series open on your favourites** each time the app starts (or on
+  everything, until you have some). The list you pick is kept while the app is open, and forgotten when it's closed.
+- Channels are put in order only in Favourites: Move up and Move down are gone from the other lists. An order set with
+  them before stays as it is.
+
 ## 1.2.0
 - **Put your favourites in the order you like:** hold OK on a favourite (on Home, in Live TV's Favourites, or in
   Movies' and Series' Favourites), choose Move, move it with the arrows and press OK. Back leaves the order as it was.

@@ -83,9 +83,9 @@ import com.biskyt.mytvplayer.ui.theme.Palette
 
 @Composable
 fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
-    val vm = appViewModel { LiveViewModel(it, initialFilter, initialGuide) }
-    vm.nowNext.PauseWhenHidden()
     val nav = LocalNavigator.current
+    val vm = appViewModel { LiveViewModel(it, initialFilter, initialGuide, nav.picked) }
+    vm.nowNext.PauseWhenHidden()
     val filter by vm.filter.collectAsState()
     val pid by vm.playlistId.collectAsState()
     val play: (ChannelEntity) -> Unit = { ch ->
@@ -137,7 +137,11 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
                 // One paged list for both views, so the one switched to has its rows (and somewhere for focus) at once.
                 val items = vm.channels.collectAsLazyPagingItems()
                 BackToFilter(filterBox, atTop = { vm.guideMode && vm.focusIndex == 0 }) {
-                    if (vm.guideMode) GuideGrid(vm, items, play, screenFocus) else ChannelList(vm, items, open)
+                    when {
+                        !vm.filters.settled -> Unit
+                        vm.guideMode -> GuideGrid(vm, items, play, screenFocus)
+                        else -> ChannelList(vm, items, open)
+                    }
                 }
             }
         }
