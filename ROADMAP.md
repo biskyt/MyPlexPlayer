@@ -11,6 +11,9 @@ Each step is its own pull request.
 1. **New app identity** (0.1.0): name, package, yellow accent, icon, docs and CI.
 2. **Plex client** in `core`: plex.tv sign-in (PIN at plex.tv/link), servers and connections, libraries, hubs,
    playback, progress, Live TV, guide and DVR. Tested against fixtures captured from real servers.
+   - Done: `PlexClient` for libraries, home rows, search, images, direct play, direct stream and progress, tested
+     against recorded responses and, in the Plex spike workflow, against a real server (`PlexServerTest`).
+   - Next, once the owner's spike results are in: sign-in and servers, Live TV, the guide and DVR.
 3. **Sign in to Plex and choose a server**, in place of Xtream, M3U, the free playlist and added guides. Several
    servers on one account, switched from the top bar. The website (`docs/index.html`, `docs/privacy.html`) and the
    store listing (`store/`) are rewritten for Plex in the same step: until then they still describe MyTVPlayer.

@@ -1,0 +1,122 @@
+{
+  "MediaContainer": {
+    "size": 1,
+    "allowSync": true,
+    "identifier": "com.plexapp.plugins.library",
+    "librarySectionID": 1,
+    "librarySectionTitle": "Movies",
+    "librarySectionUUID": "0bc37bbc-ccbb-45a6-98fd-67bbcf1dafcb",
+    "mediaTagPrefix": "/system/bundle/media/flags/",
+    "mediaTagVersion": 1791214582,
+    "Metadata": [
+      {
+        "ratingKey": "1",
+        "key": "/library/metadata/1",
+        "guid": "tv.plex.agents.none://1",
+        "type": "movie",
+        "title": "Test Movie (2020)",
+        "librarySectionTitle": "Movies",
+        "librarySectionID": 1,
+        "librarySectionKey": "/library/sections/1",
+        "subtype": "clip",
+        "summary": "",
+        "thumb": "/library/metadata/1/thumb/1792875006",
+        "art": "/library/metadata/1/art/1792875006",
+        "duration": 600000,
+        "addedAt": 1792875002,
+        "updatedAt": 1792875006,
+        "createdAtAccuracy": "epoch",
+        "createdAtTZOffset": "0",
+        "Media": [
+          {
+            "id": 1,
+            "duration": 600000,
+            "bitrate": 54,
+            "width": 320,
+            "height": 180,
+            "aspectRatio": 1.78,
+            "audioChannels": 1,
+            "audioCodec": "aac",
+            "videoCodec": "h264",
+            "videoResolution": "sd",
+            "container": "mp4",
+            "optimizedForStreaming": 1,
+            "has64bitOffsets": false,
+            "videoProfile": "constrained baseline",
+            "Part": [
+              {
+                "id": 1,
+                "key": "/library/parts/1/1792875002/file.mp4",
+                "duration": 600000,
+                "file": "/media/Test Movie (2020).mp4",
+                "size": 4085959,
+                "container": "mp4",
+                "has64bitOffsets": false,
+                "optimizedForStreaming": true,
+                "videoProfile": "constrained baseline",
+                "Stream": [
+                  {
+                    "id": 1,
+                    "streamType": 1,
+                    "default": true,
+                    "codec": "h264",
+                    "index": 0,
+                    "bitrate": 21,
+                    "bitDepth": 8,
+                    "chromaLocation": "left",
+                    "chromaSubsampling": "4:2:0",
+                    "codedHeight": 192,
+                    "codedWidth": 320,
+                    "frameRate": 5.0,
+                    "hasScalingMatrix": false,
+                    "height": 180,
+                    "level": 11,
+                    "profile": "constrained baseline",
+                    "refFrames": 1,
+                    "scanType": "progressive",
+                    "streamIdentifier": "1",
+                    "width": 320,
+                    "displayTitle": "SD",
+                    "extendedDisplayTitle": "SD (H.264 Constrained Baseline)"
+                  },
+                  {
+                    "id": 2,
+                    "streamType": 2,
+                    "selected": true,
+                    "default": true,
+                    "codec": "aac",
+                    "index": 1,
+                    "channels": 1,
+                    "bitrate": 32,
+                    "samplingRate": 22050,
+                    "streamIdentifier": "2",
+                    "displayTitle": "Unknown (AAC Mono)",
+                    "extendedDisplayTitle": "Unknown (AAC Mono)"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "Image": [
+          {
+            "alt": "Test Movie (2020)",
+            "type": "coverPoster",
+            "url": "/library/metadata/1/thumb/1792875006"
+          },
+          {
+            "alt": "Test Movie (2020)",
+            "type": "background",
+            "url": "/library/metadata/1/art/1792875006"
+          }
+        ],
+        "UltraBlurColors": {
+          "topLeft": "030192",
+          "topRight": "b00f12",
+          "bottomRight": "2834ef",
+          "bottomLeft": "10388b"
+        }
+      }
+    ]
+  }
+}
