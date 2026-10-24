@@ -1,0 +1,691 @@
+#!/usr/bin/env python3
+"""
+Plex API spikes for MyPlexPlayer: small, throwaway checks that prove each Plex call the app will rely on, before the
+app is built on it. Standard library only (Python 3.9+). Results go in docs/plex-api.md.
+
+Every response is saved under --out (default spike-out/): raw/ as received, and sanitised/ with tokens, machine ids,
+addresses, account names, emails and file paths replaced, for test fixtures. report-<step>.md lists what passed.
+
+    python3 spikes/plex_spike.py signin                  # S1: PIN sign-in at plex.tv/link (saves the token)
+    python3 spikes/plex_spike.py servers                 # S2: your servers and which connection answers first
+    python3 spikes/plex_spike.py library   [--server URL] # S3: libraries, hubs, search, progress round trip
+    python3 spikes/plex_spike.py playback  [--server URL] # S4: direct play and transcoder URLs
+    python3 spikes/plex_spike.py livetv    [--server URL] [--tune]    # S5: Live TV channels, guide grid, tuning
+    python3 spikes/plex_spike.py dvr       [--server URL] [--record]  # S6: recording options, schedule and cancel
+
+Without --server the first server from `servers` is used. --tune briefly uses a tuner; --record schedules a recording
+of a programme starting in over an hour and cancels it straight away. The progress round trip uses an episode nobody
+has started and leaves it that way. How Live TV is tuned and played follows Plezy (github.com/edde746/plezy).
+"""
+import argparse
+import json
+import os
+import re
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
+STATE = Path.home() / ".myplexplayer-spike.json"
+PRODUCT = "MyPlexPlayer spike"
+PLEX_TV = "https://plex.tv"
+HLS_TARGET = ("add-transcode-target(type=videoProfile&context=streaming&protocol=hls&container=mpegts"
+              "&videoCodec=h264&audioCodec=aac)")
+
+
+# ---------------------------------------------------------------- state, output and sanitising
+
+def load_state():
+    state = json.loads(STATE.read_text()) if STATE.exists() else {}
+    if "clientId" not in state:
+        state["clientId"] = str(uuid.uuid4())
+        save_state(state)
+    return state
+
+
+def save_state(state):
+    # Created readable by the owner only, before the tokens are written.
+    with os.fdopen(os.open(STATE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
+        f.write(json.dumps(state, indent=2))
+
+
+class Recorder:
+    """Saves responses (raw and sanitised) and the pass/fail of each check."""
+
+    def __init__(self, out: Path, step: str):
+        self.raw = out / "raw" / step
+        self.clean = out / "sanitised" / step
+        self.report = out / f"report-{step}.md"  # each run of a step replaces its report
+        self.step = step
+        self.secrets = {}  # exact value -> stand-in
+        self.results = []
+        self.raw.mkdir(parents=True, exist_ok=True)
+        self.clean.mkdir(parents=True, exist_ok=True)
+
+    def secret(self, value, stand_in):
+        if value and len(str(value)) >= 4:
+            self.secrets[str(value)] = stand_in
+
+    def sanitise(self, text: str) -> str:
+        for value, stand_in in sorted(self.secrets.items(), key=lambda kv: -len(kv[0])):
+            text = text.replace(value, stand_in)
+        text = re.sub(r'("(?:authToken|accessToken|authenticationToken|token|X-Plex-Token)"\s*:\s*)"[^"]*"',
+                      r'\1"TOKEN"', text)
+        text = re.sub(r"(X-Plex-Token=)[^&\"'\s]+", r"\1TOKEN", text)
+        text = re.sub(r'("(?:email|username|friendlyName|title)"\s*:\s*)"[^"]*@[^"]*"', r'\1"user@example.com"', text)
+        # Server-side file and folder paths: keep only the last part ("/media/Film (2020).mkv").
+        text = re.sub(r'("(?:file|path)"\s*:\s*)"[^"]*?([^"/\\]*)"', r'\1"/media/\2"', text)
+        text = re.sub(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", "192.0.2.1", text)  # IPv4 -> documentation range
+        text = re.sub(r"\b(?:\d{1,3}-){3}\d{1,3}\.[0-9a-f]{32}\.plex\.direct", "192-0-2-1.SERVERID.plex.direct", text)
+        text = re.sub(r"\b[0-9a-f]{40}\b", "MACHINEID", text)
+        text = re.sub(r"\b[0-9a-f]{32}\b", "SERVERID", text)
+        return text
+
+    def save(self, name, body):
+        text = body if isinstance(body, str) else json.dumps(body, indent=2)
+        ext = "json" if not isinstance(body, str) or text.lstrip().startswith(("{", "[")) else "txt"
+        (self.raw / f"{name}.{ext}").write_text(text)
+        (self.clean / f"{name}.{ext}").write_text(self.sanitise(text))
+
+    def check(self, name, ok, detail=""):
+        self.results.append((name, bool(ok), detail))
+        print(f"  [{'PASS' if ok else 'FAIL'}] {name}" + (f": {detail}" if detail else ""))
+        return ok
+
+    def finish(self):
+        lines = [f"## {self.step} ({time.strftime('%Y-%m-%d %H:%M')})\n"]
+        lines += [f"- {'PASS' if ok else '**FAIL**'} {name}" + (f": {detail}" if detail else "") for name, ok, detail in self.results]
+        self.report.write_text("\n".join(lines) + "\n")
+        print(f"\nSaved to {self.raw.parent.parent} (commit only sanitised/; check it first).")
+
+
+# ---------------------------------------------------------------- HTTP
+
+def headers(state, token=None):
+    h = {
+        "Accept": "application/json",
+        "X-Plex-Client-Identifier": state["clientId"],
+        "X-Plex-Product": PRODUCT,
+        "X-Plex-Version": "0.1",
+        "X-Plex-Platform": "Android",
+        "X-Plex-Device": "Spike",
+        "X-Plex-Device-Name": PRODUCT,
+    }
+    if token:
+        h["X-Plex-Token"] = token
+    return h
+
+
+class Http:
+    def __init__(self, state, base, token=None, timeout=20):
+        self.state, self.base, self.token, self.timeout = state, base.rstrip("/"), token, timeout
+
+    def url(self, endpoint, **params):
+        params = {k: v for k, v in params.items() if v is not None}
+        return self.base + endpoint + (("&" if "?" in endpoint else "?") + urllib.parse.urlencode(params) if params else "")
+
+    def request(self, method, endpoint, extra_headers=None, raw=False, **params):
+        req = urllib.request.Request(self.url(endpoint, **params), method=method,
+                                     headers={**headers(self.state, self.token), **(extra_headers or {})})
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as r:
+                body = r.read()
+                return r.status, dict(r.headers), body if raw else decode(body)
+        except urllib.error.HTTPError as e:
+            body = e.read()
+            return e.code, dict(e.headers), body if raw else decode(body)
+
+    def get(self, endpoint, **params):
+        return self.request("GET", endpoint, **params)
+
+
+def decode(body: bytes):
+    text = body.decode("utf-8", "replace")
+    try:
+        return json.loads(text) if text.strip() else {}
+    except ValueError:
+        return text
+
+
+def mc(body):
+    """The MediaContainer of a JSON response ({} if it isn't one)."""
+    return body.get("MediaContainer", {}) if isinstance(body, dict) else {}
+
+
+def first(d, key):
+    """The first element of the list d[key] ({} if there's none)."""
+    return (d.get(key) or [{}])[0]
+
+
+def items(body):
+    """A response's Metadata, whether directly in its MediaContainer or in each of its Hubs."""
+    m = mc(body)
+    return m.get("Metadata", []) + [x for h in m.get("Hub", []) for x in h.get("Metadata", [])]
+
+
+def part_of(item):
+    return first(first(item, "Media"), "Part")
+
+
+def grid_key(channel):
+    return channel.get("gridKey") or channel.get("key")
+
+
+# ---------------------------------------------------------------- S1, S2: plex.tv
+
+def signin(args, state):
+    rec = Recorder(args.out, "s1-signin")
+    tv = Http(state, PLEX_TV)
+    status, _, pin = tv.request("POST", "/api/v2/pins")  # no strong=true: the short code for plex.tv/link
+    rec.save("pins-create", pin)
+    if not rec.check("POST /api/v2/pins gives id and a short code", status == 201 and pin.get("code"), f"HTTP {status}"):
+        return rec.finish()
+    rec.secret(pin["code"], "ABCD")
+    print(f"\n  Go to https://plex.tv/link and enter: {pin['code']}\n  (waiting up to {pin.get('expiresIn', 900)} s)\n")
+    token, deadline = None, time.time() + pin.get("expiresIn", 900)
+    while time.time() < deadline and not token:
+        time.sleep(2)
+        status, _, polled = tv.get(f"/api/v2/pins/{pin['id']}")
+        token = polled.get("authToken") if isinstance(polled, dict) else None
+    rec.secret(token, "TOKEN")
+    rec.save("pins-claimed", polled)
+    if not rec.check("GET /api/v2/pins/{id} gives authToken once claimed", token):
+        return rec.finish()
+    state["token"] = token
+    save_state(state)
+    status, _, user = Http(state, PLEX_TV, token).get("/api/v2/user")
+    for key in ("uuid", "username", "email", "title", "friendlyName", "id"):
+        rec.secret(user.get(key) if isinstance(user, dict) else None, f"USER_{key.upper()}")
+    rec.save("user", user)
+    rec.check("GET /api/v2/user accepts the token", status == 200, f"HTTP {status}")
+    rec.check("token saved", True, str(STATE))
+    rec.finish()
+
+
+def servers(args, state):
+    rec = Recorder(args.out, "s2-servers")
+    token = need_token(state)
+    status, _, res = Http(state, PLEX_TV, token).get("/api/v2/resources", includeHttps=1, includeRelay=1, includeIPv6=1)
+    found = [r for r in (res if isinstance(res, list) else []) if "server" in r.get("provides", "")]
+    for i, r in enumerate(found):
+        rec.secret(r.get("clientIdentifier"), f"MACHINEID{i}")
+        rec.secret(r.get("accessToken"), "TOKEN")
+        rec.secret(r.get("name"), f"Server {i + 1}")
+        rec.secret(r.get("publicAddress"), "198.51.100.1")
+    rec.save("resources", res)
+    if not rec.check("GET /api/v2/resources lists servers", found, f"HTTP {status}, {len(found)} server(s)"):
+        return rec.finish()
+    rec.check("each server has its own accessToken", all(r.get("accessToken") for r in found))
+    chosen = []
+    for r in found:
+        conns = r.get("connections", [])
+        print(f"\n  {r.get('name')}: {len(conns)} connection(s), owned={r.get('owned')}")
+        timings = race(state, r["accessToken"], conns)
+        for c, ms, ok in timings:
+            print(f"    {'ok ' if ok else 'no '} {ms:6.0f} ms  local={c.get('local')} relay={c.get('relay')}  {c.get('uri')}")
+        rec.save(f"race-{r.get('clientIdentifier', 'x')[:8]}", [{"uri": c.get("uri"), "local": c.get("local"),
+                 "relay": c.get("relay"), "ms": round(ms), "ok": ok} for c, ms, ok in timings])
+        best = pick(timings)
+        rec.check(f"a connection answers /identity for {r.get('name')}", best, best and best.get("uri"))
+        if best:
+            chosen.append({"name": r.get("name"), "uri": best["uri"], "token": r["accessToken"],
+                           "machineId": r.get("clientIdentifier")})
+    state["servers"] = chosen
+    save_state(state)
+    rec.finish()
+
+
+def race(state, token, conns):
+    def probe(c):
+        start = time.time()
+        try:
+            status, _, body = Http(state, c["uri"], token, timeout=6).get("/identity")
+            ok = status == 200 and bool(mc(body).get("machineIdentifier"))
+        except Exception:  # noqa: BLE001 (a spike: any failure means "doesn't answer")
+            ok = False
+        return c, (time.time() - start) * 1000, ok
+    with ThreadPoolExecutor(max_workers=max(1, len(conns))) as pool:
+        return [f.result() for f in as_completed([pool.submit(probe, c) for c in conns])]
+
+
+def pick(timings):
+    """Prefer a local connection, then remote, then relay; the fastest of each kind."""
+    ok = [(c, ms) for c, ms, good in timings if good]
+    rank = lambda c: 0 if c.get("local") and not c.get("relay") else (2 if c.get("relay") else 1)  # noqa: E731
+    return min(ok, key=lambda cm: (rank(cm[0]), cm[1]))[0] if ok else None
+
+
+def need_token(state):
+    if not state.get("token"):
+        sys.exit("Sign in first: python3 spikes/plex_spike.py signin")
+    return state["token"]
+
+
+def server_http(args, state):
+    if args.server:
+        return Http(state, args.server, args.token or None)
+    if not state.get("servers"):
+        sys.exit("Give --server URL, or run `servers` first.")
+    s = state["servers"][0]
+    return Http(state, s["uri"], s["token"])
+
+
+def note_server(rec, http):
+    rec.secret(http.token, "TOKEN")
+    rec.secret(urllib.parse.urlparse(http.base).hostname, "pms.example")
+
+
+# ---------------------------------------------------------------- S3: library, hubs, search, progress
+
+def library(args, state):
+    rec = Recorder(args.out, "s3-library")
+    http = server_http(args, state)
+    note_server(rec, http)
+    status, _, ident = http.get("/identity")
+    rec.save("identity", ident)
+    rec.check("GET /identity", status == 200 and mc(ident).get("machineIdentifier"), f"version {mc(ident).get('version')}")
+
+    status, _, sections = http.get("/library/sections")
+    rec.save("sections", sections)
+    dirs = mc(sections).get("Directory", [])
+    rec.check("GET /library/sections lists libraries", status == 200 and dirs,
+              ", ".join(f"{d.get('key')}:{d.get('type')}" for d in dirs))
+    movie = next((d for d in dirs if d.get("type") == "movie"), None)
+    show = next((d for d in dirs if d.get("type") == "show"), None)
+
+    first_movie = first_show = None
+    for sec, kind, type_no in ((movie, "movie", 1), (show, "show", 2)):
+        if not sec:
+            rec.check(f"a {kind} library exists", False)
+            continue
+        path = f"/library/sections/{sec['key']}/all"
+        status, hdrs, page = http.request("GET", path, {"X-Plex-Container-Start": "0", "X-Plex-Container-Size": "1"},
+                                          type=type_no, sort="titleSort")
+        rec.save(f"{kind}-all-page1", page)
+        m = mc(page)
+        rec.check(f"{path}?type={type_no} pages with X-Plex-Container-Start/Size headers",
+                  status == 200 and m.get("size") == min(1, m.get("totalSize", 0)),
+                  f"size={m.get('size')} totalSize={m.get('totalSize')} offset={m.get('offset')}")
+        status, _, page_q = http.get(path, type=type_no, **{"X-Plex-Container-Start": 0, "X-Plex-Container-Size": 1})
+        rec.check(f"{path} also pages with the same as query parameters", mc(page_q).get("size") == m.get("size"),
+                  f"size={mc(page_q).get('size')}")
+        top = (m.get("Metadata") or [None])[0]
+        if kind == "movie":
+            first_movie = top
+        else:
+            first_show = top
+        status, _, sec_detail = http.get(f"/library/sections/{sec['key']}")
+        rec.save(f"{kind}-section", sec_detail)
+        rec.check(f"GET /library/sections/{{id}} ({kind})", status == 200)
+
+    leaves = []
+    if first_movie:
+        status, _, meta = http.get(f"/library/metadata/{first_movie['ratingKey']}")
+        rec.save("movie-metadata", meta)
+        md = first(mc(meta), "Metadata")
+        part = part_of(md)
+        rec.check("GET /library/metadata/{ratingKey} (movie) has Media[].Part[].key and duration",
+                  part.get("key") and md.get("duration"), part.get("key"))
+    if first_show:
+        key = first_show["ratingKey"]
+        status, _, seasons = http.get(f"/library/metadata/{key}/children")
+        rec.save("show-children", seasons)
+        season_list = mc(seasons).get("Metadata", [])
+        rec.check("GET /library/metadata/{show}/children lists seasons", status == 200 and season_list,
+                  f"{len(season_list)} season(s), types {sorted({s.get('type') for s in season_list})}")
+        if season_list:
+            status, _, eps = http.get(f"/library/metadata/{season_list[0]['ratingKey']}/children")
+            rec.save("season-children", eps)
+            ep_list = mc(eps).get("Metadata", [])
+            rec.check("GET /library/metadata/{season}/children lists episodes", ep_list,
+                      f"{len(ep_list)} episode(s), index={[e.get('index') for e in ep_list]}")
+        status, _, all_leaves = http.get(f"/library/metadata/{key}/allLeaves")
+        rec.save("show-allLeaves", all_leaves)
+        leaves = mc(all_leaves).get("Metadata", [])
+        rec.check("GET /library/metadata/{show}/allLeaves lists every episode", leaves, f"{len(leaves)} episode(s)")
+
+    hubs(http, rec)
+    status, _, all_sections = http.get("/library/sections/all")  # the spec's path for the library list
+    rec.check("GET /library/sections/all lists the same libraries", len(mc(all_sections).get("Directory", [])) == len(dirs),
+              f"HTTP {status}")
+    if show:
+        # Home's "Recently added series" as shows (the recentlyAdded hub gives seasons), newest episode first.
+        status, _, recent = http.request("GET", f"/library/sections/{show['key']}/all",
+                                         {"X-Plex-Container-Start": "0", "X-Plex-Container-Size": "20"},
+                                         type=2, sort="episode.addedAt:desc")
+        rec.save("shows-by-episode-addedAt", recent)
+        rec.check("shows sorted by episode.addedAt:desc (recently added series)", status == 200,
+                  f"{[m.get('title') for m in mc(recent).get('Metadata', [])][:5]}")
+        status, _, ra = http.get(f"/library/sections/{show['key']}/recentlyAdded")
+        rec.check("GET /library/sections/{id}/recentlyAdded (TV)", status == 200,
+                  f"types {sorted({m.get('type') for m in mc(ra).get('Metadata', [])})}")
+    # A transient token needs an account: an unclaimed test server answers 400.
+    for method, params in (("POST", {"type": "delegation", "scope": "all"}), ("GET", {})) if http.token else ():
+        status, _, tok = http.request(method, "/security/token", **params)
+        rec.secret(mc(tok).get("token"), "TRANSIENT_TOKEN")
+        rec.check(f"{method} /security/token gives a transient token", status == 200 and mc(tok).get("token"),
+                  f"HTTP {status}")
+    for q in (first_movie, first_show):
+        if q:
+            word = q["title"].split()[0]
+            status, _, res = http.get("/hubs/search", query=word, limit=10)
+            rec.save(f"hubs-search-{q['type']}", res)
+            found = items(res)
+            rec.check(f"GET /hubs/search?query={word} finds the {q['type']}",
+                      any(m.get("ratingKey") == q["ratingKey"] for m in found),
+                      f"hub types {[h.get('type') for h in mc(res).get('Hub', []) if h.get('size')]}")
+    if first_movie and first_movie.get("thumb"):
+        status, hdrs, img = http.request("GET", "/photo/:/transcode", raw=True, url=first_movie["thumb"],
+                                         width=240, height=360, minSize=1, upscale=1)
+        rec.check("GET /photo/:/transcode returns an image", status == 200 and hdrs.get("Content-Type", "").startswith("image/"),
+                  f"HTTP {status} {hdrs.get('Content-Type')} {len(img)} bytes")
+    if leaves:
+        progress_round_trip(http, rec, leaves)
+    rec.finish()
+
+
+def hubs(http, rec):
+    for path, params in (("/hubs/continueWatching", {}), ("/hubs/home/continueWatching", {}),
+                         ("/hubs/home/onDeck", {}), ("/library/onDeck", {}),
+                         ("/hubs/home/recentlyAdded", {"type": 1}), ("/hubs/home/recentlyAdded", {"type": 2}),
+                         ("/library/recentlyAdded", {}), ("/hubs", {})):
+        status, _, body = http.get(path, **params)
+        name = path.strip("/").replace("/", "-") + "".join(f"-type{v}" for v in params.values())
+        rec.save(name, body)
+        m = mc(body)
+        hub_list = m.get("Hub", [])
+        found = items(body)
+        rec.check(f"GET {path}{'?type=' + str(params['type']) if params else ''}", status == 200,
+                  f"HTTP {status}, {len(found)} item(s), types {sorted({i.get('type') for i in found})}"
+                  + (f", hubs {[h.get('hubIdentifier') for h in hub_list][:8]}" if hub_list else ""))
+
+
+def progress_round_trip(http, rec, leaves):
+    """On an episode nobody has started: timeline and /:/progress save a resume point (Continue watching shows it);
+    a session played past 90% is marked watched by the server itself; unscrobble and scrobble set it by hand. It is
+    left as it was found: unwatched, with no resume point."""
+    fresh = [e for e in leaves if not e.get("viewCount") and not e.get("viewOffset") and (e.get("duration") or 0) > 120000]
+    if not fresh:
+        rec.check("progress round trip skipped: no unwatched, unstarted episode over 2 minutes", True)
+        return
+    episode = fresh[0]
+    key, duration = episode["ratingKey"], episode["duration"]
+    library_item = {"identifier": "com.plexapp.plugins.library", "key": key}
+
+    def state():
+        _, _, meta = http.get(f"/library/metadata/{key}")
+        return first(mc(meta), "Metadata")
+
+    def report(session, state_name, ms):
+        return http.request("POST", "/:/timeline", {"X-Plex-Session-Identifier": session}, ratingKey=key,
+                            key=f"/library/metadata/{key}", state=state_name, time=ms, duration=duration)
+
+    # PMS ignores progress in a title's first minute ("Ignoring premature play progress" in its log).
+    position = max(90000, int(duration * 0.3))
+    session = str(uuid.uuid4())
+    for state_name in ("playing", "paused", "stopped"):
+        status, _, body = report(session, state_name, position)
+        rec.save(f"timeline-{state_name}", body)
+        rec.check(f"POST /:/timeline state={state_name}", status == 200, f"HTTP {status}")
+    offset = state().get("viewOffset")
+    rec.check("viewOffset saved by the timeline", offset and abs(offset - position) < 5000, f"viewOffset={offset}")
+    _, _, cw = http.get("/hubs/continueWatching")
+    rec.save("continueWatching-after-timeline", cw)
+    rec.check("the episode shows in /hubs/continueWatching", any(m.get("ratingKey") == key for m in items(cw)))
+
+    status, _, _ = http.request("PUT", "/:/progress", time=position + 30000, state="stopped", **library_item)
+    offset = state().get("viewOffset")
+    rec.check("PUT /:/progress (Plexopedia's call) saves viewOffset too", status == 200 and offset == position + 30000,
+              f"HTTP {status}, viewOffset={offset}")
+
+    # Playing on past the server's watched threshold (90% by default) marks it watched, with no scrobble.
+    session = str(uuid.uuid4())
+    for fraction in (0.5, 0.7, 0.93):
+        report(session, "playing", int(duration * fraction))
+    report(session, "stopped", int(duration * 0.93))
+    now = state()
+    rec.check("a session played past 90% is marked watched by the server", now.get("viewCount") and not now.get("viewOffset"),
+              f"viewCount={now.get('viewCount')} viewOffset={now.get('viewOffset')}")
+
+    status, _, _ = http.request("PUT", "/:/unscrobble", **library_item)
+    now = state()
+    rec.check("PUT /:/unscrobble clears watched and the resume point", status == 200 and not now.get("viewCount")
+              and not now.get("viewOffset"), f"HTTP {status}")
+    status, _, _ = http.request("PUT", "/:/scrobble", **library_item)
+    rec.check("PUT /:/scrobble marks it watched", status == 200 and state().get("viewCount"), f"HTTP {status}")
+    http.request("PUT", "/:/unscrobble", **library_item)
+    now = state()
+    rec.check("the episode is left as it was (unwatched, not started)", not now.get("viewCount") and not now.get("viewOffset"))
+
+
+# ---------------------------------------------------------------- S4: playback
+
+def playback(args, state):
+    rec = Recorder(args.out, "s4-playback")
+    http = server_http(args, state)
+    note_server(rec, http)
+    _, _, sections = http.get("/library/sections")
+    movie = next((d for d in mc(sections).get("Directory", []) if d.get("type") == "movie"), None)
+    _, _, page = http.get(f"/library/sections/{movie['key']}/all", type=1,
+                          **{"X-Plex-Container-Start": 0, "X-Plex-Container-Size": 1}) if movie else (0, {}, {})
+    item = first(mc(page), "Metadata")
+    if not rec.check("a movie library with a movie in it", item.get("ratingKey")):
+        return rec.finish()
+    _, _, meta = http.get(f"/library/metadata/{item['ratingKey']}")
+    part = part_of(first(mc(meta), "Metadata"))
+    # As the player will fetch it: the token in the URL, no X-Plex headers.
+    direct = http.url(part["key"], **({"X-Plex-Token": http.token} if http.token else {}))
+    try:
+        with urllib.request.urlopen(urllib.request.Request(direct, headers={"Range": "bytes=0-1023"}), timeout=20) as r:
+            status, hdrs = r.status, dict(r.headers)
+    except urllib.error.HTTPError as e:
+        status, hdrs = e.code, dict(e.headers)
+    rec.check("direct play: the Part key with ?X-Plex-Token serves byte ranges", status == 206,
+              f"HTTP {status}, {hdrs.get('Content-Type')}, Accept-Ranges={hdrs.get('Accept-Ranges')}")
+    rec.save("direct-play-url", direct)
+
+    session = str(uuid.uuid4())
+    common = dict(path=f"/library/metadata/{item['ratingKey']}", mediaIndex=0, partIndex=0, protocol="hls",
+                  directPlay=0, directStream=1, directStreamAudio=1, videoResolution="1920x1080",
+                  maxVideoBitrate=8000, subtitles="auto", session=session)
+    sid = {"X-Plex-Session-Identifier": session, "X-Plex-Client-Profile-Extra": HLS_TARGET}
+    status, _, decision = http.request("GET", "/video/:/transcode/universal/decision", sid, **common)
+    rec.save("transcode-decision", decision)
+    m = mc(decision)
+    rec.check("GET /video/:/transcode/universal/decision", status == 200,
+              f"general={m.get('generalDecisionCode')} {m.get('generalDecisionText')}; "
+              f"transcode={m.get('transcodeDecisionCode')} {m.get('transcodeDecisionText')}")
+    hls_ok = check_hls(http, rec, "transcode", "/video/:/transcode/universal/start.m3u8", sid, common)
+    status, _, _ = http.request("GET", "/video/:/transcode/universal/stop", sid, session=session)
+    rec.check("GET /video/:/transcode/universal/stop?session= ends it", hls_ok and status == 200, f"HTTP {status}")
+    rec.finish()
+
+
+def check_hls(http, rec, name, endpoint, extra_headers, params):
+    """Fetches an HLS master playlist and its first variant; True if both look right."""
+    status, hdrs, playlist = http.request("GET", endpoint, extra_headers, raw=True, **params)
+    text = playlist.decode("utf-8", "replace")
+    rec.save(f"{name}-start-m3u8", text)
+    if not rec.check(f"GET {endpoint} gives an HLS playlist", status == 200 and "#EXTM3U" in text,
+                     f"HTTP {status}, {hdrs.get('Content-Type')}"):
+        return False
+    child = next((ln for ln in text.splitlines() if ln and not ln.startswith("#")), None)
+    if not child:
+        return rec.check("the playlist names a variant", False)
+    child_path = child if child.startswith("/") else endpoint.rsplit("/", 1)[0] + "/" + child
+    status, _, sub = http.request("GET", child_path, extra_headers, raw=True)
+    sub_text = sub.decode("utf-8", "replace")
+    rec.save(f"{name}-media-m3u8", sub_text)
+    return rec.check("the variant playlist lists segments", status == 200 and "#EXTINF" in sub_text, f"HTTP {status}")
+
+
+# ---------------------------------------------------------------- S5, S6: Live TV, guide, DVR
+
+def epg_provider(http, rec):
+    """The guide's provider and its grid address, from /media/providers (as Plezy finds them)."""
+    status, _, providers = http.get("/media/providers")
+    rec.save("media-providers", providers)
+    found = [p for p in mc(providers).get("MediaProvider", []) if "livetv" in str(p.get("protocols", ""))
+             or str(p.get("identifier", "")).startswith("tv.plex.providers.epg")]
+    rec.check("GET /media/providers lists a Live TV guide provider", found,
+              ", ".join(f"{p.get('identifier')} ({p.get('title')})" for p in found))
+    if not found:
+        return None, None
+    grid = next((f.get("key") for f in found[0].get("Feature", []) if f.get("type") == "grid"), None)
+    rec.check("the provider has a grid feature (the guide's address)", grid, grid)
+    return found[0], grid
+
+
+def channel_key(ch):
+    """As Plezy: the key the DVR's ChannelMapping and the tune call use."""
+    return ch.get("key") or ch.get("ratingKey") or ch.get("identifier") or ch.get("id")
+
+
+def guide_window(http, grid, start, end):
+    """Every channel's programmes overlapping [start, end] (epoch seconds), in one call."""
+    return http.get(grid, **{"endsAt>": int(start), "beginsAt<": int(end)})
+
+
+def livetv(args, state):
+    rec = Recorder(args.out, "s5-livetv")
+    http = server_http(args, state)
+    note_server(rec, http)
+    status, _, dvrs = http.get("/livetv/dvrs")
+    rec.save("livetv-dvrs", dvrs)
+    dvr_list = mc(dvrs).get("Dvr", []) or mc(dvrs).get("DVR", [])
+    rec.check("GET /livetv/dvrs lists a DVR (as Dvr or DVR)", dvr_list,
+              f"keys {[d.get('key') for d in dvr_list]}, container keys {sorted(mc(dvrs))[:8]}")
+    provider, grid = epg_provider(http, rec)
+    if not provider:
+        return rec.finish()
+    prefix = "/" + provider["identifier"]
+    rec.save("provider-features", provider.get("Feature", []))
+    channels = []
+    for path in ("/lineups/plex/channels", f"{prefix}/lineups/dvr/channels"):
+        status, _, lineup = http.get(path)
+        rec.save(path.strip("/").replace("/", "-").replace(":", "_"), lineup)
+        found = mc(lineup).get("Channel", [])
+        rec.check(f"GET {path}", status == 200, f"HTTP {status}, {len(found)} channel(s); "
+                  f"fields {sorted(found[0])[:14] if found else []}")
+        channels = channels or found
+    if dvr_list:
+        enabled = {m.get("channelKey") for m in dvr_list[0].get("ChannelMapping", []) if m.get("enabled") in (True, 1, "1")}
+        rec.check("channel keys match the DVR's enabled ChannelMapping", not enabled or any(channel_key(c) in enabled for c in channels),
+                  f"{len(enabled)} enabled mapping(s)")
+    if not (channels and grid):
+        return rec.finish()
+    now = time.time()
+    status, _, window = guide_window(http, grid, now - 3600, now + 5 * 3600)
+    rec.save("grid-window-all-channels", window)
+    progs = mc(window).get("Metadata", [])
+    rec.check("GET {grid}?endsAt>=&beginsAt<= gives every channel's next hours in one call (guide straight from PMS)",
+              status == 200 and progs, f"HTTP {status}, {len(progs)} programme(s)")
+    if progs:
+        media = first(progs[0], "Media")
+        rec.check("programmes carry start/end times and a channel", media.get("beginsAt") and media.get("endsAt"),
+                  f"Media keys {sorted(media)[:14]}; Channel {first(progs[0], 'Channel').get('id')}")
+    ch = channels[0]
+    status, _, grid_day = http.get(grid, channelGridKey=ch.get("gridKey") or channel_key(ch), date=time.strftime("%Y-%m-%d"))
+    rec.save("grid-one-channel-today", grid_day)
+    rec.check("GET {grid}?channelGridKey=&date= (one channel, one day; the spec's form)", status == 200,
+              f"HTTP {status}, {len(mc(grid_day).get('Metadata', []))} programme(s)")
+    if args.tune and dvr_list:
+        tune(http, rec, dvr_list[0], ch)
+    rec.finish()
+
+
+def tune(http, rec, dvr, ch):
+    """As Plezy: tune, then play the session's path through the universal transcoder; a stopped timeline frees
+    the tuner."""
+    session = str(uuid.uuid4())
+    status, _, tuned = http.request("POST", f"/livetv/dvrs/{dvr['key']}/channels/{channel_key(ch)}/tune",
+                                    **{"X-Plex-Session-Identifier": session})
+    rec.save("tune", tuned)
+    m = mc(tuned)
+    grab = first(first(first(m, "MediaSubscription"), "MediaGrabOperation"), "Metadata") if m.get("MediaSubscription") else {}
+    meta = grab or first(m, "Metadata")
+    rec.check(f"POST /livetv/dvrs/{{dvr}}/channels/{channel_key(ch)}/tune", status == 200 and meta.get("key"),
+              f"HTTP {status}, session path {meta.get('key')}, programme {meta.get('ratingKey')}")
+    if not meta.get("key"):
+        return
+    play = str(uuid.uuid4())
+    params = dict(path=meta["key"], protocol="hls", directPlay=0, directStream=1, directStreamAudio=1, session=play,
+                  subtitles="none", location="lan", fastSeek=1, hasMDE=1)
+    sid = {"X-Plex-Session-Identifier": session, "X-Plex-Client-Profile-Extra": HLS_TARGET}
+    status, _, decision = http.request("GET", "/video/:/transcode/universal/decision", sid, **params)
+    rec.save("live-decision", decision)
+    rec.check("live: transcoder decision for the session path", status == 200,
+              f"{mc(decision).get('generalDecisionText')}")
+    check_hls(http, rec, "live", "/video/:/transcode/universal/start.m3u8", sid, params)
+    status, _, sessions = http.get("/livetv/sessions")
+    rec.save("livetv-sessions", sessions)
+    status, _, _ = http.request("POST", "/:/timeline", {"X-Plex-Session-Identifier": session}, ratingKey=meta.get("ratingKey"),
+                                key=meta["key"], state="stopped", time=10000, duration=10000)
+    rec.check("a stopped timeline for the session path (frees the tuner)", status == 200, f"HTTP {status}")
+
+
+def dvr(args, state):
+    rec = Recorder(args.out, "s6-dvr")
+    http = server_http(args, state)
+    note_server(rec, http)
+    for path in ("/media/subscriptions", "/media/subscriptions/scheduled"):
+        status, _, body = http.get(path, includeGrabs=1, includeStorage=1)
+        rec.save(path.strip("/").replace("/", "-"), body)
+        rec.check(f"GET {path}", status == 200, f"HTTP {status}, {mc(body).get('size')} item(s)")
+    _, grid = epg_provider(http, rec)
+    if not grid:
+        return rec.finish()
+    now = time.time()
+    _, _, window = guide_window(http, grid, now + 3600, now + 12 * 3600)  # any time of day, over midnight too
+    later = next((p for p in mc(window).get("Metadata", []) if first(p, "Media").get("beginsAt", 0) > now + 3600), None)
+    if not rec.check("a programme starting in over an hour", later, later and later.get("title")):
+        return rec.finish()
+    status, _, template = http.get("/media/subscriptions/template", guid=later.get("guid"))
+    rec.save("subscription-template", template)
+    tmpl = first(mc(template), "SubscriptionTemplate").get("MediaSubscription", [])
+    rec.check("GET /media/subscriptions/template?guid=", status == 200 and tmpl,
+              f"{len(tmpl)} option(s): {[t.get('title') for t in tmpl]}")
+    if not (args.record and tmpl):
+        return rec.finish()
+    one_off = next((t for t in tmpl if t.get("type") in (4, 1)), tmpl[-1])  # an episode or movie: this airing only
+    # The template's parameters go as they are (repeated hints/params keys included); add what it leaves out.
+    query = one_off.get("parameters", "")
+    for name in ("targetLibrarySectionID", "type"):
+        if f"{name}=" not in query and one_off.get(name) is not None:
+            query += f"&{name}={one_off[name]}"
+    status, _, created = http.request("POST", f"/media/subscriptions?{query.lstrip('&')}")
+    rec.save("subscription-created", created)
+    sub = first(mc(created), "MediaSubscription")
+    rec.check("POST /media/subscriptions schedules it", status in (200, 201) and sub.get("key"), f"HTTP {status}")
+    status, _, scheduled = http.get("/media/subscriptions/scheduled")
+    rec.save("scheduled-after-create", scheduled)
+    grabs = [g for g in mc(scheduled).get("MediaGrabOperation", []) if str(g.get("mediaSubscriptionID")) == str(sub.get("key"))]
+    rec.check("it shows in /media/subscriptions/scheduled", grabs,
+              f"{len(grabs)} grab(s), ids {[g.get('id') for g in grabs]}, keys {[g.get('key') for g in grabs]}")
+    if sub.get("key"):
+        status, _, _ = http.request("DELETE", f"/media/subscriptions/{sub['key']}")
+        rec.check("DELETE /media/subscriptions/{id} cancels it", status == 200, f"HTTP {status}")
+    rec.finish()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("step", choices=["signin", "servers", "library", "playback", "livetv", "dvr"])
+    parser.add_argument("--server", help="server URL, e.g. http://192.168.1.20:32400 (default: from `servers`)")
+    parser.add_argument("--token", help="token for --server (not needed for a local unclaimed test server)")
+    parser.add_argument("--out", type=Path, default=Path("spike-out"))
+    parser.add_argument("--tune", action="store_true", help="livetv: also tune a channel (uses a tuner briefly)")
+    parser.add_argument("--record", action="store_true", help="dvr: schedule a recording, then cancel it")
+    args = parser.parse_args()
+    state = load_state()
+    if args.server and not args.token and state.get("servers"):
+        args.token = next((s["token"] for s in state["servers"] if s["uri"] == args.server), None)
+    globals()[args.step](args, state)
+
+
+if __name__ == "__main__":
+    main()
