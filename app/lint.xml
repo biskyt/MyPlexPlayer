@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!-- values-en-rUS and values-en-rGB hold only the strings whose UK and US English differ; the rest come from
+         values/, which is English. Missing translations in any other language still fail the build. -->
+    <issue id="MissingTranslation">
+        <ignore regexp="is not translated in &quot;en&quot; \(English\)$" />
+    </issue>
+</lint>

@@ -1,0 +1,41 @@
+config:
+  validation: true
+
+naming:
+  FunctionNaming:
+    # Composable functions are PascalCase.
+    ignoreAnnotated: ['Composable']
+  MatchingDeclarationName:
+    # Screen files hold a screen plus its ViewModel.
+    active: false
+
+complexity:
+  LongParameterList:
+    ignoreAnnotated: ['Composable']
+    constructorThreshold: 10
+  LongMethod:
+    ignoreAnnotated: ['Composable']
+  TooManyFunctions:
+    active: false
+  CyclomaticComplexMethod:
+    threshold: 20
+    ignoreSimpleWhenEntries: true
+  NestedBlockDepth:
+    threshold: 6
+  ComplexCondition:
+    threshold: 6
+
+style:
+  # Line length is enforced by ktlint (140).
+  MaxLineLength:
+    active: false
+  MagicNumber:
+    active: false
+  WildcardImport:
+    active: false
+  ReturnCount:
+    max: 4
+  ThrowsCount:
+    max: 4
+  UnusedPrivateMember:
+    ignoreAnnotated: ['Preview']

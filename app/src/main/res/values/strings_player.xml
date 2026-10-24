@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Player controls (buttons under the video; keep them short) -->
+    <string name="player_back">Back</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_stop">Stop</string>
+    <string name="player_audio">Audio</string>
+    <string name="player_subtitles">Subtitles</string>
+    <string name="player_more">More</string>
+    <string name="player_channel_guide">Channel guide</string>
+    <string name="player_watch_live">Watch live</string>
+    <string name="player_next_episode">Next episode</string>
+    <!-- Above the next programme's title, in capitals as a small heading. %1$s: its start time, e.g. 21:00 -->
+    <string name="player_up_next">UP NEXT · %1$s</string>
+    <!-- Catch-up controls. %1$s: how far behind, e.g. "1h 5m" -->
+    <string name="player_catchup_behind_live">Catch-up · %1$s behind live</string>
+
+    <!-- Remote control hints under the controls (TV only). ▲ ▼ ◀ ▶ are the remote's arrow buttons, CH + − its channel buttons, Back its Back button. -->
+    <string name="player_hint_skip">▲ then ◀ ▶ to skip (hold to scrub) · Back hides this</string>
+    <string name="player_hint_zap_up_down">▲ ▼ change channel · Back hides this</string>
+    <string name="player_hint_zap_channel_buttons">CH + − change channel · ▲ then ◀ ▶ to skip · Back hides this</string>
+    <!-- Channel guide panel beside the video. ◀ ▶ and OK are remote buttons. -->
+    <string name="player_guide_hint">◀ ▶ other channels · OK to watch</string>
+    <string name="player_guide_previous">Previous</string>
+    <string name="player_guide_next">Next</string>
+
+    <!-- Short messages shown over the video for a moment -->
+    <string name="player_skipping_unavailable">Skipping isn\'t available here</string>
+    <!-- %1$d: minutes -->
+    <string name="player_sleep_timer_minutes">Sleep timer: %1$d min</string>
+    <string name="player_sleep_timer_off">Sleep timer: Off</string>
+    <!-- %1$s: the audio track's name (language, label) -->
+    <string name="player_audio_switched">Audio: %1$s</string>
+    <string name="player_audio_switch_failed">Couldn\'t switch the audio to %1$s</string>
+    <!-- %1$s: the subtitle track's name (language, label) -->
+    <string name="player_subtitles_switched">Subtitles: %1$s</string>
+    <string name="player_subtitles_switch_failed">Couldn\'t switch the subtitles to %1$s</string>
+    <string name="player_subtitles_off">Subtitles off</string>
+    <!-- %1$d: the channel number typed on the remote -->
+    <string name="player_no_channel">No channel %1$d</string>
+    <!-- %1$s: a position in the video, e.g. 1:02:30 -->
+    <string name="player_resuming_from">Resuming from %1$s</string>
+
+    <!-- Audio, subtitles and More panels -->
+    <string name="player_no_audio_tracks">No audio tracks</string>
+    <!-- %1$s: the picture mode, e.g. "Zoom to fill" -->
+    <string name="player_picture">Picture: %1$s</string>
+    <!-- %1$s: how the sound is played, e.g. "Passthrough · Dolby Atmos" -->
+    <string name="player_audio_output">Audio output: %1$s</string>
+    <string name="player_video_unknown">Video: unknown</string>
+    <!-- %1$d × %2$d: the picture's width and height in pixels; %3$s: its format, e.g. "avc" (not translated) -->
+    <string name="player_video_info">Video: %1$d×%2$d · %3$s</string>
+    <!-- A track with no name or language. %1$d: its number -->
+    <string name="player_track_number">Track %1$d</string>
+    <!-- Marks a subtitle track that is forced (shown only for foreign-language parts) -->
+    <string name="player_track_forced">forced</string>
+    <!-- Number of sound channels, e.g. "6ch" (also used in player_audio_decoded / player_audio_layout) -->
+    <string name="player_track_channels">%1$dch</string>
+
+    <!-- Picture modes (how the picture fills the screen) -->
+    <string name="player_picture_fit">Fit</string>
+    <string name="player_picture_zoom">Zoom to fill</string>
+    <string name="player_picture_stretch">Stretch</string>
+    <!-- Aspect ratio: normally kept as is -->
+    <string name="player_picture_wide">16:9</string>
+    <!-- Aspect ratio: normally kept as is -->
+    <string name="player_picture_standard">4:3</string>
+
+    <!-- How the sound is played, in the More panel. Dolby / DTS format names (%1$s) are not translated. -->
+    <string name="player_audio_none">No audio</string>
+    <!-- %1$s: the format sent unchanged to the TV or amplifier, e.g. "Dolby Atmos" -->
+    <string name="player_audio_passthrough">Passthrough · %1$s</string>
+    <!-- %1$s: the format decoded by the TV box, e.g. "Dolby Digital"; %2$s: the sound channels, "Stereo" or e.g. "6ch" -->
+    <string name="player_audio_decoded">%1$s decoded · %2$s</string>
+    <!-- Any other sound. %1$s: the sound channels, "Stereo" or e.g. "6ch" -->
+    <string name="player_audio_layout">Audio · %1$s</string>
+    <!-- Two sound channels, in the two strings above -->
+    <string name="player_audio_stereo">Stereo</string>
+
+    <!-- Above the episode's title while it plays. %1$d: series (season) number, %2$d: episode number -->
+    <string name="player_episode_label">Series %1$d · Episode %2$d</string>
+    <!-- As player_episode_label, with %3$s: the episode's title -->
+    <string name="player_episode_label_titled">Series %1$d · Episode %2$d · %3$s</string>
+    <!-- Short series and episode, e.g. "S1 E2". %1$s: series number, %2$s: episode number -->
+    <string name="player_short_episode_label">S%1$s E%2$s</string>
+
+    <!-- Playback errors: what happened and what to do -->
+    <string name="player_failure_live">This channel isn\'t playing right now. Try again later or pick another channel.</string>
+    <string name="player_failure_vod">This can\'t be played right now. Try again later.</string>
+    <string name="player_failure_catchup">This can\'t be replayed right now. Try again later.</string>
+    <string name="player_catchup_nothing_to_start_over">There\'s nothing to start over on this channel right now.</string>
+    <string name="player_unsupported_format">This uses a stream format MyPlexPlayer can\'t play.</string>
+
+    <!-- Playback errors: why (shown under the message above). %1$s: the server's host name, e.g. lb.example.net -->
+    <string name="player_stream_source">Stream from %1$s.</string>
+    <string name="player_error_dns">The stream\'s server can\'t be found: its address may no longer exist.</string>
+    <string name="player_error_stalled">The stream\'s server sent it too slowly to start. It may be busy.</string>
+    <string name="player_error_timeout">The stream\'s server didn\'t answer. It may be down or busy.</string>
+    <string name="player_error_connection">Couldn\'t connect to the stream\'s server. It may be down, or not reachable from your network.</string>
+    <string name="player_error_not_video">The stream\'s address sent something that isn\'t video (such as a web page).</string>
+    <string name="player_error_drm">The stream is encrypted (DRM), which MyPlexPlayer can\'t play.</string>
+    <!-- Settings › Playback is the place in the app's settings: keep it matching the settings screen -->
+    <string name="player_error_audio_output">The sound couldn\'t be sent to your TV or amplifier. Try turning audio passthrough off in Settings › Playback.</string>
+    <!-- %1$s: the format's technical name, e.g. video/hevc (not translated) -->
+    <string name="player_error_decode_video">This TV box can\'t decode the stream\'s video (%1$s).</string>
+    <!-- %1$s: the format's technical name, e.g. audio/ac3 (not translated) -->
+    <string name="player_error_decode_audio">This TV box can\'t decode the stream\'s audio (%1$s).</string>
+    <!-- %1$s: the format's technical name, e.g. application/x-subrip (not translated) -->
+    <string name="player_error_decode_media">This TV box can\'t decode the stream\'s media (%1$s).</string>
+    <string name="player_error_decode">This TV box can\'t decode the stream\'s video or audio.</string>
+    <string name="player_error_parsing">The stream sent data MyPlexPlayer can\'t read (an unsupported or damaged format).</string>
+    <string name="player_error_behind_live">The stream kept falling behind its live point.</string>
+    <string name="player_error_io">The stream stopped arriving: the connection to its server failed.</string>
+    <!-- %1$s: the player's technical error name, e.g. "io bad http status" (not translated) -->
+    <string name="player_error_other">The player couldn\'t play it (%1$s).</string>
+    <!-- %1$d: the HTTP error code, e.g. 403 -->
+    <string name="player_error_http_refused">The stream\'s server refused to send it (error %1$d). It may only play in its own country, or only on its own website or app.</string>
+    <!-- %1$d: the HTTP error code, e.g. 404 -->
+    <string name="player_error_http_gone">The stream isn\'t at its address any more (error %1$d). The channel list may be out of date.</string>
+    <!-- %1$d: the HTTP error code, e.g. 503 -->
+    <string name="player_error_http_server">The stream\'s server has a problem (error %1$d). It may be down for now.</string>
+    <!-- %1$d: the HTTP error code -->
+    <string name="player_error_http_other">The stream\'s server answered with error %1$d.</string>
+</resources>
