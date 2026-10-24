@@ -12,11 +12,20 @@ steps. It runs on pull requests that change the spike or that set-up, or by hand
 Sign-in, choosing a server, Live TV and DVR need a real Plex account and tuner, so run these on a computer on your
 home network, from the repository's folder:
 
+The quickest way is one command: it signs in, runs every step below (tuning and recording included), and puts the
+shareable results in `spike-results.zip`:
+
+```sh
+python3 spikes/plex_spike.py all
+```
+
+Or step by step:
+
 ```sh
 python3 spikes/plex_spike.py signin          # shows a code: enter it at https://plex.tv/link
 python3 spikes/plex_spike.py servers         # lists your servers and which connection answers first
 python3 spikes/plex_spike.py library         # libraries, home rows, search, and a progress round trip
-python3 spikes/plex_spike.py playback        # direct play and the transcoder
+python3 spikes/plex_spike.py playback        # direct play, and direct stream (copied, never re-encoded)
 python3 spikes/plex_spike.py livetv --tune   # channels, the guide from Plex, and tuning one channel briefly
 python3 spikes/plex_spike.py dvr --record    # recording options; schedules one recording and cancels it at once
 ```
@@ -38,3 +47,14 @@ Everything is written to `spike-out/`:
 
 `spike-out/` is ignored by git, so nothing in it is committed by accident. Share the reports and the `sanitised/`
 folder (as a zip) in the conversation, or commit the sanitised files on a branch once you've checked them.
+
+## As a phone app
+`spikes/android` is the same spike as an Android app (it runs `plex_spike.py` through Chaquopy): it shows the
+plex.tv/link code, runs every step, and shares `spike-results.zip`. It's a build of its own, outside the app's:
+
+```sh
+./gradlew -p spikes/android assembleDebug   # spikes/android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+The **Spike app** workflow runs it on an emulator against a throwaway Plex Media Server (`SpikeOnDeviceTest`).
+

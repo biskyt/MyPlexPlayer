@@ -1,0 +1,119 @@
+{
+  "MediaContainer": {
+    "size": 1,
+    "allowSync": "1",
+    "directPlayDecisionCode": 3000,
+    "directPlayDecisionText": "App cannot direct play this item. Direct play is disabled.",
+    "generalDecisionCode": 1001,
+    "generalDecisionText": "Direct play not available; Conversion OK.",
+    "identifier": "com.plexapp.plugins.library",
+    "librarySectionID": "1",
+    "librarySectionTitle": "Movies",
+    "librarySectionUUID": "00000000-0000-0000-0000-000000000000",
+    "mediaTagPrefix": "/system/bundle/media/flags/",
+    "mediaTagVersion": "1791214582",
+    "resourceSession": "s26845",
+    "transcodeDecisionCode": 1001,
+    "transcodeDecisionText": "Direct play not available; Conversion OK.",
+    "Metadata": [
+      {
+        "addedAt": 1792881117,
+        "art": "/library/metadata/1/art/1792881122",
+        "createdAtAccuracy": "epoch",
+        "createdAtTZOffset": "0",
+        "duration": 600000,
+        "guid": "tv.plex.agents.none://1",
+        "key": "/library/metadata/1",
+        "librarySectionID": "1",
+        "librarySectionKey": "/library/sections/1",
+        "librarySectionTitle": "Movies",
+        "ratingKey": "1",
+        "subtype": "clip",
+        "thumb": "/library/metadata/1/thumb/1792881122",
+        "title": "Test Movie (2020)",
+        "type": "movie",
+        "updatedAt": 1792881122,
+        "Media": [
+          {
+            "id": "1",
+            "videoProfile": "constrained baseline",
+            "audioChannels": 1,
+            "audioCodec": "aac",
+            "bitrate": 53,
+            "container": "mpegts",
+            "duration": 600000,
+            "height": 180,
+            "protocol": "hls",
+            "videoCodec": "h264",
+            "videoResolution": "SD",
+            "width": 320,
+            "selected": true,
+            "Part": [
+              {
+                "id": "1",
+                "videoProfile": "constrained baseline",
+                "bitrate": 53,
+                "container": "mpegts",
+                "duration": 600000,
+                "height": 180,
+                "protocol": "hls",
+                "width": 320,
+                "decision": "transcode",
+                "selected": true,
+                "Stream": [
+                  {
+                    "bitDepth": 8,
+                    "bitrate": 21,
+                    "chromaLocation": "left",
+                    "chromaSubsampling": "4:2:0",
+                    "codec": "h264",
+                    "codedHeight": 192,
+                    "codedWidth": 320,
+                    "default": true,
+                    "displayTitle": "SD",
+                    "extendedDisplayTitle": "SD (H.264 Constrained Baseline)",
+                    "frameRate": 5.0,
+                    "hasScalingMatrix": false,
+                    "height": 180,
+                    "id": "1",
+                    "level": 11,
+                    "profile": "constrained baseline",
+                    "refFrames": 1,
+                    "scanType": "progressive",
+                    "streamType": 1,
+                    "width": 320,
+                    "decision": "copy",
+                    "location": "segments-av"
+                  },
+                  {
+                    "bitrate": 32,
+                    "bitrateMode": "cbr",
+                    "channels": 1,
+                    "codec": "aac",
+                    "default": true,
+                    "displayTitle": "Unknown (AAC Mono)",
+                    "extendedDisplayTitle": "Unknown (AAC Mono)",
+                    "id": "2",
+                    "samplingRate": 22050,
+                    "selected": true,
+                    "streamType": 2,
+                    "decision": "copy",
+                    "location": "segments-av"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "UltraBlurColors": [
+          {
+            "bottomLeft": "10388b",
+            "bottomRight": "2834ef",
+            "topLeft": "030192",
+            "topRight": "b00f12"
+          }
+        ]
+      }
+    ]
+  }
+}

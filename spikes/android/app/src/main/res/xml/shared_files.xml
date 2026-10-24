@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the folder the results zip is copied to: never the sign-in file beside it. -->
+<paths>
+    <files-path name="results" path="share/" />
+</paths>
