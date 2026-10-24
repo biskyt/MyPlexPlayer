@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Short words shared across screens -->
+    <!-- Button: tries a failed load again. Keep short (button) -->
+    <string name="common_retry">Try again</string>
+    <!-- Button: removes an item from a list. Keep short (button) -->
+    <string name="common_remove">Remove</string>
+    <!-- Shown while something loads -->
+    <string name="common_loading">Loading…</string>
+    <!-- Top bar button (spoken by screen readers) -->
+    <string name="common_search">Search</string>
+    <!-- Top bar button (spoken by screen readers) -->
+    <string name="common_settings">Settings</string>
+
+    <!-- Top bar tabs, also the headings of search results and the Languages & categories page's tabs. Keep short:
+         in the top bar they share one row with the logo, clock and buttons -->
+    <string name="common_tab_home">Home</string>
+    <string name="common_tab_live">Live TV</string>
+    <string name="common_tab_movies">Movies</string>
+    <string name="common_tab_series">Series</string>
+    <!-- Watching programmes that were already broadcast (a top bar tab, menu entry and channel mark). Keep short -->
+    <string name="common_catchup">Catch-up</string>
+
+    <!-- Buttons and menu entries used on several screens. Keep short -->
+    <string name="common_continue">Continue</string>
+    <string name="common_watch">Watch</string>
+    <string name="common_play">Play</string>
+    <!-- Play a film, episode or programme from its beginning -->
+    <string name="common_from_start">From the start</string>
+    <!-- Play the programme on now from its beginning -->
+    <string name="common_start_over">Start over</string>
+    <!-- Player buttons, and the Playback settings that set how far they skip -->
+    <string name="common_skip_back">Skip back</string>
+    <string name="common_skip_forward">Skip forward</string>
+    <!-- Subtitles switched off: a choice in the player's Subtitles panel and a value of the Default subtitles setting -->
+    <string name="common_subtitles_off">Off</string>
+    <string name="common_about_movie">About this movie</string>
+    <string name="common_all_episodes">All episodes</string>
+
+    <!-- Lists of channels, films and series: a Home row, entries of the category columns, headings -->
+    <string name="common_favourites">Favourites</string>
+    <string name="common_recent">Recently watched</string>
+    <string name="common_channels">Channels</string>
+    <!-- Next to a progress bar. %1$s: time left to watch, e.g. "1 h 5 min" -->
+    <string name="common_time_left">%1$s left</string>
+    <!-- In a channel row, a channel card or a TV guide cell when there's no programme data. Keep short: guide cells can be narrow -->
+    <string name="common_no_guide">No guide information</string>
+
+    <!-- Settings pages, named in the Settings menu and as the pages' titles -->
+    <string name="common_guide_sources">TV guide sources</string>
+    <string name="common_guide_matching">TV guide matching</string>
+    <!-- Outcomes of TV guide updates -->
+    <string name="common_guide_update_failed">Couldn\'t update the TV guide</string>
+    <string name="common_match_failed">Couldn\'t match channels</string>
+    <!-- Details of a playlist or a TV guide: when it was last loaded. %1$s is a date and time -->
+    <string name="common_updated_at">updated %1$s</string>
+
+    <!-- Day names in lists of days. Keep short: shown in a narrow column -->
+    <string name="common_today">Today</string>
+    <string name="common_yesterday">Yesterday</string>
+    <!-- When something starts. %1$s is a time such as 20:00 -->
+    <string name="common_today_at">Today %1$s</string>
+    <!-- When something starts. %1$s is a time such as 06:30 -->
+    <string name="common_tomorrow_at">Tomorrow %1$s</string>
+
+    <!-- A running time under an hour. %1$d is minutes. "min" is short for minutes -->
+    <string name="common_runtime_min">%1$d min</string>
+    <!-- A running time of whole hours. %1$d is hours. "h" is short for hours -->
+    <string name="common_runtime_h">%1$d h</string>
+    <!-- A running time. %1$d is hours, %2$d minutes ("1 h 52 min") -->
+    <string name="common_runtime_h_min">%1$d h %2$d min</string>
+
+    <!-- Channel menus -->
+    <string name="common_favourite_add">Add to favourites</string>
+    <string name="common_favourite_remove">Remove from favourites</string>
+    <!-- Brief notice after adding a channel or film to favourites -->
+    <string name="common_favourite_added">Added to favourites</string>
+    <!-- Brief notice after removing a channel or film from favourites -->
+    <string name="common_favourite_removed">Removed from favourites</string>
+    <!-- Help under the Catch-up menu entry. %1$d is a number of days. -->
+    <plurals name="common_catchup_days">
+        <item quantity="one">Programmes from the last %1$d day</item>
+        <item quantity="other">Programmes from the last %1$d days</item>
+    </plurals>
+    <!-- Menu entry: opens the screen that picks a channel's TV guide data -->
+    <string name="common_change_guide_source">Change guide source…</string>
+    <string name="common_change_guide_source_help">Pick which guide data this channel uses</string>
+
+    <!-- Category column -->
+    <string name="common_hide_category">Hide category</string>
+    <!-- "Settings › Languages & categories" names a settings page: keep it the same as that page's title -->
+    <string name="common_hide_category_help">Show it again in Settings › Languages &amp; categories</string>
+
+    <!-- Stand-in for a channel logo when the channel's name gives no letters to show. Two or three letters -->
+    <string name="common_logo_fallback">TV</string>
+    <!-- Screen reader description of a QR code. %1$s is the web address it holds -->
+    <string name="common_qr_description">QR code for %1$s</string>
+
+    <!-- Web page panel (QR code) -->
+    <string name="common_link_scan_hint">Scan with your phone\'s camera to open the page there.</string>
+    <!-- Button. Keep short -->
+    <string name="common_link_open_here">Open on this TV</string>
+    <string name="common_link_no_browser">This TV has no web browser. Scan the code with your phone instead.</string>
+    <!-- %1$s is a technical error name (e.g. SecurityException); leave it untranslated -->
+    <string name="common_link_open_failed">The page couldn\'t be opened on this TV (%1$s). Scan the code with your phone instead.</string>
+
+    <!-- Schedule list -->
+    <string name="common_no_guide_for_channel">No guide information for this channel.</string>
+    <!-- Small capitalised label marking the programme on now. Keep very short -->
+    <string name="common_on_now">ON NOW</string>
+
+    <!-- Status box on settings pages -->
+    <string name="common_something_went_wrong">Something went wrong</string>
+    <string name="common_please_wait">Please wait</string>
+    <string name="common_last_update_failed">The last update failed</string>
+
+    <!-- Background update progress, the first line of a small box in the corner of the screen. Keep short -->
+    <string name="common_sync_channels_start">Updating channels…</string>
+    <string name="common_sync_vod_start">Updating movies and series…</string>
+    <string name="common_sync_guide">Updating the guide…</string>
+    <!-- Its second line: %1$s is the playlist's name; %2$s how many channels (or movies and series) have loaded so far -->
+    <string name="common_sync_channels_loaded">%1$s: %2$s loaded</string>
+    <string name="common_sync_vod_loaded">%1$s: %2$s loaded</string>
+    <!-- Box above the list of categories (Live TV, Movies, Series) that filters it by name. -->
+    <string name="common_filter_categories">Filter categories</string>
+    <!-- A TV programme its guide gave no title. -->
+    <string name="common_no_title">No title</string>
+    <!-- Screen reader description of the heart on a favourite's logo or poster -->
+    <string name="common_favourite_mark">Favourite</string>
+    <!-- Options of a favourite: move it within its list (Home, Favourites) -->
+    <string name="common_move">Move</string>
+    <!-- While a favourite is moved. %1$s is the arrows that move it, e.g. "◀ ▶" -->
+    <string name="common_move_hint">%1$s to move it, OK to save, Back to cancel</string>
+    <string name="common_move_hint_touch">Tap the arrows to move it, tap it to keep it there, Back to cancel</string>
+</resources>

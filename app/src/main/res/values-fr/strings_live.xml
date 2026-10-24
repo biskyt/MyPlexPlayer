@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="live_all_channels">Toutes les chaînes</string>
+    <string name="live_all_catchup">Tout le replay</string>
+    <string name="live_filter_hint">Filtrer par nom ou numéro</string>
+    <string name="live_view_list">Liste</string>
+    <string name="live_view_guide">Guide TV</string>
+    <string name="live_no_channels">Aucune chaîne ici pour l\'instant.</string>
+    <string name="live_next">Ensuite %1$s %2$s</string>
+    <string name="live_until">Jusqu\'à %1$s</string>
+
+    <string name="live_option_find_series">Trouver la série</string>
+    <string name="live_option_find_movie">Chercher dans Films</string>
+    <string name="live_option_search_for">Rechercher « %1$s »</string>
+    <string name="live_option_find_help">Regarder à la demande</string>
+    <string name="live_option_start_over_help">Regarder le programme en cours depuis le début</string>
+    <string name="live_option_channel_guide">Afficher le guide TV de cette chaîne</string>
+    <string name="live_option_channel_guide_help">Programmes à venir</string>
+    <string name="live_option_switch_to_list">Passer à la liste des chaînes</string>
+    <string name="live_option_switch_to_grid">Passer à la grille du guide TV</string>
+    <string name="live_option_switch_help">Ou appuyez sur le bouton Guide de la télécommande</string>
+    <string name="live_option_hide_channel">Masquer la chaîne</string>
+    <string name="live_option_hide_channel_help">Réaffichez-la plus tard dans Paramètres › Langues et catégories</string>
+
+    <string name="live_catchup_title">Replay · %1$s</string>
+    <string name="live_catchup_load_failed">Impossible de charger le replay</string>
+    <string name="live_catchup_empty_day">Rien à revoir pour ce jour.</string>
+
+    <string name="live_guide_earlier">Avant</string>
+    <string name="live_guide_later">Après</string>
+
+    <string name="live_guide_sources_intro">Les guides sont mis à jour chaque jour. Les programmes ne sont enregistrés que pour les chaînes qui les utilisent, pour les 3 prochains jours.</string>
+    <string name="live_guide_add">Ajouter un guide</string>
+    <string name="live_guide_update_now">Mettre à jour le guide</string>
+    <string name="live_guide_match_missing">Associer les chaînes sans guide</string>
+    <string name="live_guide_yours">Vos guides</string>
+    <string name="live_guide_none_yet">Aucun guide pour l\'instant. Ajoutez un guide gratuit pour votre pays, ou votre propre adresse XMLTV.</string>
+    <string name="live_guide_last_failed">Échec de la dernière mise à jour : %1$s</string>
+    <string name="live_guide_wait">Attendez d\'abord la fin de cette tâche : %1$s</string>
+    <string name="live_guide_own_address">Votre propre adresse XMLTV</string>
+    <string name="live_guide_name_hint">Nom (facultatif)</string>
+    <string name="live_guide_add_this">Ajouter ce guide</string>
+    <string name="live_guide_free_title">Guides gratuits par pays</string>
+    <string name="live_guide_free_note">Fournis par iptv-epg.org. Pour les grands pays, le chargement peut prendre quelques minutes sur un boîtier TV.</string>
+    <string name="live_guide_from_provider">De votre fournisseur</string>
+    <plurals name="live_guide_source_channels">
+        <item quantity="one">%1$s chaîne</item>
+        <item quantity="many">%1$s chaînes</item>
+        <item quantity="other">%1$s chaînes</item>
+    </plurals>
+    <string name="live_guide_source_off">désactivé</string>
+
+    <string name="live_guide_adding">Ajout de %1$s</string>
+    <string name="live_guide_added">%1$s ajouté</string>
+    <string name="live_guide_load_failed">Impossible de charger %1$s</string>
+    <string name="live_guide_updating">Mise à jour du guide TV</string>
+    <string name="live_guide_updated">Guide TV mis à jour</string>
+    <string name="live_guide_some_failed">Certains guides n\'ont pas pu être chargés</string>
+    <string name="live_guide_matching">Association des chaînes sans guide</string>
+    <plurals name="live_guide_match_found">
+        <item quantity="one">Guide trouvé pour %1$s chaîne de plus</item>
+        <item quantity="many">Guide trouvé pour %1$s chaînes de plus</item>
+        <item quantity="other">Guide trouvé pour %1$s chaînes de plus</item>
+    </plurals>
+    <string name="live_guide_match_all">Toutes les chaînes ont un guide</string>
+    <string name="live_guide_match_none_left">Plus aucune chaîne à associer</string>
+    <string name="live_guide_match_none_new">Aucune nouvelle correspondance trouvée</string>
+    <plurals name="live_guide_coverage">
+        <item quantity="one">%1$s chaîne a un guide.</item>
+        <item quantity="many">%1$s chaînes ont un guide.</item>
+        <item quantity="other">%1$s chaînes ont un guide.</item>
+    </plurals>
+    <plurals name="live_guide_coverage_more">
+        <item quantity="one">%1$s chaîne a un guide (%2$s de plus qu\'avant).</item>
+        <item quantity="many">%1$s chaînes ont un guide (%2$s de plus qu\'avant).</item>
+        <item quantity="other">%1$s chaînes ont un guide (%2$s de plus qu\'avant).</item>
+    </plurals>
+    <plurals name="live_guide_coverage_none">
+        <item quantity="one">%1$s n\'en a toujours pas : vous pouvez choisir son guide manuellement dans Association du guide TV.</item>
+        <item quantity="many">%1$s n\'en ont toujours pas : vous pouvez choisir leur guide manuellement dans Association du guide TV.</item>
+        <item quantity="other">%1$s n\'en ont toujours pas : vous pouvez choisir leur guide manuellement dans Association du guide TV.</item>
+    </plurals>
+
+    <string name="live_guide_matching_intro">Choisissez les données de guide utilisées par chaque chaîne. Vos choix sont conservés lors des mises à jour de la playlist.</string>
+    <string name="live_guide_tab_all">Toutes</string>
+    <string name="live_guide_tab_auto">Auto</string>
+    <string name="live_guide_tab_manual">Manuelles</string>
+    <string name="live_guide_no_guide">Aucun guide</string>
+    <string name="live_guide_filter_hint">Filtrer vos chaînes par nom</string>
+    <string name="live_guide_no_data">Aucune donnée de guide</string>
+    <string name="live_guide_chip_none">SANS GUIDE</string>
+    <string name="live_guide_chip_set">MANUEL</string>
+    <string name="live_guide_chip_auto">AUTO %1$d %%</string>
+    <string name="live_guide_select_channel">Sélectionnez une chaîne à gauche pour choisir son guide.</string>
+    <string name="live_guide_choose_for">Choisir un guide pour</string>
+    <string name="live_guide_current_none">Actuellement : aucun guide</string>
+    <string name="live_guide_current">Actuellement : %1$s (%2$s)</string>
+    <string name="live_guide_current_shifted">Actuellement : %1$s (%2$s) · décalé de %3$d h</string>
+    <string name="live_guide_search_hint">Rechercher dans toutes les chaînes des guides</string>
+    <string name="live_guide_match_score">Similaire à %1$d %%</string>
+    <string name="live_guide_no_results">Aucune chaîne de guide trouvée. Essayez une recherche plus courte, ou ajoutez une autre source de guide.</string>
+    <string name="live_guide_time_shift">Décalage : %1$d h</string>
+    <string name="live_guide_reset">Revenir en auto</string>
+</resources>

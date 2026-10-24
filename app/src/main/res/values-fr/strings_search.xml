@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_placeholder">Rechercher des chaînes, programmes TV, films et séries</string>
+    <string name="search_failed">La recherche ne fonctionne pas pour le moment. Réessayez dans un instant.</string>
+    <string name="search_keep_typing">Continuez à taper : au moins 2 lettres, ou un numéro de chaîne.</string>
+    <string name="search_nothing_found">Aucun résultat pour « %1$s ».</string>
+
+    <string name="search_on_tv">À la TV</string>
+
+    <string name="search_open_movie">Ouvrir le film</string>
+    <string name="search_open_series">Ouvrir la série</string>
+</resources>

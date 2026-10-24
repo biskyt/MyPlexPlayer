@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_carry_on">Continuar assistindo</string>
+    <string name="home_on_now">Seus canais, agora</string>
+
+    <string name="home_remove_recent">Remover de Assistidos recentemente</string>
+
+    <string name="home_play_next_episode">Assistir ao próximo episódio</string>
+    <string name="home_resume">Retomar</string>
+    <string name="home_remove_carry_on">Remover de Continuar assistindo</string>
+    <string name="home_forget_movie">Esquece onde você parou</string>
+    <string name="home_forget_series">Esquece quais episódios você já assistiu</string>
+
+    <string name="home_no_favourites">Nenhum favorito ainda. Em TV ao vivo, segure OK em um canal e escolha “Adicionar aos favoritos”.</string>
+    <string name="home_browse_channels">Ver canais</string>
+
+    <string name="home_until">até %1$s</string>
+    <string name="home_until_then">até %1$s · depois %2$s</string>
+
+    <string name="home_up_next_after">A seguir, depois de %1$s</string>
+    <string name="home_favourite_series">Séries favoritas</string>
+    <string name="home_favourite_movies">Filmes favoritos</string>
+</resources>

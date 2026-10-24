@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Placeholder in the search box. -->
+    <string name="search_placeholder">Search channels, TV programmes, movies and series</string>
+    <string name="search_failed">Search isn\'t working right now. Try again in a moment.</string>
+    <!-- Shown while the search text is too short to search. -->
+    <string name="search_keep_typing">Keep typing: at least 2 letters, or a channel number.</string>
+    <!-- %1$s: what the user searched for. -->
+    <string name="search_nothing_found">Nothing found for “%1$s”.</string>
+
+    <!-- Headings of the result rows. -->
+    <string name="search_on_tv">On TV</string>
+
+    <!-- Options for a result (hold OK on it). -->
+    <string name="search_open_movie">Open movie</string>
+    <string name="search_open_series">Open series</string>
+</resources>
