@@ -41,7 +41,6 @@ import androidx.compose.ui.unit.dp
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
-import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.R
@@ -52,7 +51,6 @@ import com.biskyt.mytvplayer.data.programmeTitle
 import com.biskyt.mytvplayer.ui.LocalNavigator
 import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
-import com.biskyt.mytvplayer.ui.common.AppIcons
 import com.biskyt.mytvplayer.ui.common.CatchupMark
 import com.biskyt.mytvplayer.ui.common.CategoryEntry
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
@@ -67,6 +65,7 @@ import com.biskyt.mytvplayer.ui.common.Tab
 import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.categoryEntries
+import com.biskyt.mytvplayer.ui.common.collectIds
 import com.biskyt.mytvplayer.ui.common.digit
 import com.biskyt.mytvplayer.ui.common.distinctLabels
 import com.biskyt.mytvplayer.ui.common.formatTime
@@ -74,7 +73,6 @@ import com.biskyt.mytvplayer.ui.common.isGuide
 import com.biskyt.mytvplayer.ui.common.numberLabel
 import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
 import com.biskyt.mytvplayer.ui.common.restoreFocusIf
-import com.biskyt.mytvplayer.ui.theme.LocalAccent
 import com.biskyt.mytvplayer.ui.theme.Palette
 
 @Composable
@@ -200,7 +198,7 @@ private fun ListHeader(vm: LiveViewModel, filter: ChannelFilter, filterModifier:
     } else {
         val categories by vm.categories.collectAsState()
         val total by vm.totalCount.collectAsState()
-        val favs by vm.favouriteIds.collectAsState()
+        val favs = vm.favouriteIds.collectIds()
         when (filter) {
             ChannelFilter.All -> stringResource(R.string.live_all_channels) to total
             ChannelFilter.Favourites -> stringResource(R.string.common_favourites) to favs.size
@@ -221,7 +219,7 @@ private fun ListHeader(vm: LiveViewModel, filter: ChannelFilter, filterModifier:
 
 @Composable
 private fun ChannelList(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (ChannelEntity) -> Unit) {
-    val favs by vm.favouriteIds.collectAsState()
+    val favs = vm.favouriteIds.collectIds()
     val listState = vm.listState
     LaunchedEffect(Unit) { if (vm.restoreFocusPending) vm.revealFocused() }
     val now by rememberMinuteClock()
@@ -276,7 +274,7 @@ fun ChannelRow(
                 textAlign = TextAlign.End,
                 modifier = Modifier.width(48.dp)
             )
-            ChannelLogo(ch.logoUrl, ch.name)
+            ChannelLogo(ch.logoUrl, ch.name, favourite = favourite)
             // Provider names are long ("US: NBC 4 (WDIV) DETROIT HD"), so the name gets the larger share of the row.
             Row(Modifier.weight(1.2f), verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -286,14 +284,6 @@ fun ChannelRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
                 )
-                if (favourite) {
-                    Icon(
-                        AppIcons.Heart,
-                        stringResource(R.string.live_favourite_mark),
-                        tint = LocalAccent.current.color,
-                        modifier = Modifier.padding(start = 6.dp).size(16.dp)
-                    )
-                }
                 CatchupMark(ch, Modifier.padding(start = 6.dp))
             }
             Column(Modifier.weight(1f)) {

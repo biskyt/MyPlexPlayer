@@ -3,7 +3,7 @@
      device (a same-language match beats the unqualified values). Same text as values/. -->
 <resources>
     <string name="settings_appearance_help">Accent colour and text size</string>
-    <string name="settings_about_help">Version, licences, storage</string>
+    <string name="settings_about_help">Version %1$s, licences, storage</string>
     <string name="settings_accent">Accent colour</string>
     <string name="settings_large_text_help">Bigger text is easier to read from the sofa</string>
     <string name="settings_licences_title">Open source licences</string>

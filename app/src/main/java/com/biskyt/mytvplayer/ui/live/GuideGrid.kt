@@ -61,6 +61,7 @@ import com.biskyt.mytvplayer.ui.common.LocalTouch
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.TouchStepButtons
 import com.biskyt.mytvplayer.ui.common.TvCard
+import com.biskyt.mytvplayer.ui.common.collectIds
 import com.biskyt.mytvplayer.ui.common.formatRange
 import com.biskyt.mytvplayer.ui.common.formatTime
 import com.biskyt.mytvplayer.ui.common.isLive
@@ -145,6 +146,7 @@ fun GuideGrid(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (C
     val now by rememberMinuteClock()
     // Catch-up (see GuideCatchup): only once the user scrolls back before now.
     val playlistId by vm.playlistId.collectAsState()
+    val favourites = vm.favouriteIds.collectIds()
     val catchup = remember(playlistId) { GuideCatchup(container, scope, playlistId) }
     val window = remember(catchup) { GuideWindow(scope, catchup) }
     val windowStart = window.start
@@ -212,6 +214,7 @@ fun GuideGrid(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (C
                     val (programmes, loaded) = rowProgrammes(rowLoader.entries[ch.streamId])
                     GuideRow(
                         ch = ch,
+                        favourite = ch.streamId in favourites,
                         programmes = programmes,
                         loaded = loaded,
                         windowStart = windowStart,
@@ -298,6 +301,7 @@ private fun TimeHeader(windowStart: Long, onMove: (dir: Int) -> Unit) {
 @Composable
 private fun GuideRow(
     ch: ChannelEntity,
+    favourite: Boolean,
     programmes: List<ChannelProgramme>?,
     loaded: Boolean,
     windowStart: Long,
@@ -314,7 +318,7 @@ private fun GuideRow(
     Row(Modifier.fillMaxWidth().height(60.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.width(ChannelColumn).padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(ch.numberLabel, style = MaterialTheme.typography.bodyMedium, color = Palette.textDim, modifier = Modifier.width(44.dp))
-            ChannelLogo(ch.logoUrl, ch.name, 56.dp, 34.dp)
+            ChannelLogo(ch.logoUrl, ch.name, 56.dp, 34.dp, favourite)
             Text(
                 ch.name,
                 style = MaterialTheme.typography.titleSmall,

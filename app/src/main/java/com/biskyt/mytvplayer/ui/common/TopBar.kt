@@ -54,8 +54,8 @@ import kotlinx.coroutines.flow.flowOf
 enum class Tab(@StringRes val label: Int) {
     HOME(R.string.common_tab_home),
     LIVE(R.string.common_tab_live),
-    MOVIES(R.string.common_tab_movies),
     SERIES(R.string.common_tab_series),
+    MOVIES(R.string.common_tab_movies),
     CATCHUP(R.string.common_catchup)
 }
 

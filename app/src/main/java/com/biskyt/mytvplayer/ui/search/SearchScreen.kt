@@ -56,6 +56,7 @@ import com.biskyt.mytvplayer.ui.common.TabScaffold
 import com.biskyt.mytvplayer.ui.common.TvCard
 import com.biskyt.mytvplayer.ui.common.TvTextField
 import com.biskyt.mytvplayer.ui.common.channelActions
+import com.biskyt.mytvplayer.ui.common.collectIds
 import com.biskyt.mytvplayer.ui.common.favouriteLabel
 import com.biskyt.mytvplayer.ui.common.formatDayTime
 import com.biskyt.mytvplayer.ui.common.isLive
@@ -71,7 +72,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -100,10 +100,8 @@ class SearchViewModel(private val c: AppContainer, initialQuery: String = "") : 
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Found())
 
-    /** The active playlist's favourite channels, for the options panel (null until read). */
-    val favouriteChannels: StateFlow<Set<Long>?> = c.settings.activePlaylistId
-        .flatMapLatest { c.channels.observeFavouriteIds(it) }.map { it.toSet() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    /** The active playlist's favourites: marked on the results, and for the options panel (null until read). */
+    val favourites = c.favourites
 
     fun setChannelFavourite(pid: Long, streamId: Long, favourite: Boolean) =
         viewModelScope.launch { c.channels.setFavourite(pid, streamId, favourite) }
@@ -123,7 +121,7 @@ private sealed interface Picked {
     data class Vod(val type: String, val card: VodCard) : Picked
 }
 
-/** One search box for channels, movies, series and TV programmes (shown in that order). */
+/** One search box for channels, series, movies and TV programmes (shown in that order). */
 @Composable
 fun SearchScreen(initialQuery: String = "") {
     val vm = appViewModel { SearchViewModel(it, initialQuery) }
@@ -134,6 +132,9 @@ fun SearchScreen(initialQuery: String = "") {
     val searched = found.query
     val results = found.results
     val now by rememberMinuteClock()
+    val favouriteChannels = vm.favourites.channels.collectIds()
+    val favouriteSeries = vm.favourites.series.collectIds()
+    val favouriteMovies = vm.favourites.movies.collectIds()
     // The keyboard is up on arrival, ready to type.
     val editing = rememberSaveable { mutableStateOf(true) }
     var picked by remember { mutableStateOf<Picked?>(null) }
@@ -158,18 +159,22 @@ fun SearchScreen(initialQuery: String = "") {
                 results == null -> item { Muted(stringResource(R.string.search_keep_typing)) }
                 results.isEmpty -> item { Muted(stringResource(R.string.search_nothing_found, searched)) }
                 else -> {
-                    // Channels, films, series, then TV programmes. Holding OK (or the remote's Menu button) on a result
+                    // Channels, series, films, then TV programmes. Holding OK (or the remote's Menu button) on a result
                     // opens its options.
                     section(R.string.common_channels, results.channels, { it.streamId }) {
-                        ChannelCard(it, { picked = Picked.Channel(it.streamId, it.name) }) {
+                        ChannelCard(it, it.streamId in favouriteChannels, { picked = Picked.Channel(it.streamId, it.name) }) {
                             nav.push(Screen.Player(pid, it.streamId, ChannelFilter.All))
                         }
                     }
-                    section(R.string.common_tab_movies, results.movies, { it.id }) {
-                        PosterCard(it, onLongClick = { picked = Picked.Vod(CAT_MOVIE, it) }) { nav.push(Screen.MovieDetails(pid, it.id)) }
-                    }
                     section(R.string.common_tab_series, results.series, { it.id }) {
-                        PosterCard(it, onLongClick = { picked = Picked.Vod(CAT_SERIES, it) }) { nav.push(Screen.SeriesDetails(pid, it.id)) }
+                        PosterCard(it, favourite = it.id in favouriteSeries, onLongClick = { picked = Picked.Vod(CAT_SERIES, it) }) {
+                            nav.push(Screen.SeriesDetails(pid, it.id))
+                        }
+                    }
+                    section(R.string.common_tab_movies, results.movies, { it.id }) {
+                        PosterCard(it, favourite = it.id in favouriteMovies, onLongClick = { picked = Picked.Vod(CAT_MOVIE, it) }) {
+                            nav.push(Screen.MovieDetails(pid, it.id))
+                        }
                     }
                     // TV programmes last: often a long list, it would push films and series out of sight.
                     if (results.programmes.isNotEmpty()) {
@@ -192,7 +197,7 @@ fun SearchScreen(initialQuery: String = "") {
 private fun ResultOptions(item: Picked, pid: Long, vm: SearchViewModel, onDismiss: () -> Unit) {
     val (title, main, actions) = when (item) {
         is Picked.Channel -> {
-            val favourites by vm.favouriteChannels.collectAsState()
+            val favourites by vm.favourites.channels.collectAsState()
             val channel by produceState<ChannelEntity?>(null, item) { value = vm.channel(pid, item.streamId) }
             Triple(
                 item.name,
@@ -234,10 +239,10 @@ private fun <T> LazyListScope.section(@StringRes title: Int, items: List<T>, key
 
 /** Long channel names are common ("UK: CHANNEL ONE HD FHD (backup)"): they scroll while the card is focused. */
 @Composable
-private fun ChannelCard(ch: ChannelEntity, onLongClick: () -> Unit, onClick: () -> Unit) {
+private fun ChannelCard(ch: ChannelEntity, favourite: Boolean, onLongClick: () -> Unit, onClick: () -> Unit) {
     TvCard(onClick = onClick, onLongClick = onLongClick, modifier = Modifier.width(340.dp)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ChannelLogo(ch.logoUrl, ch.name, 48.dp, 30.dp)
+            ChannelLogo(ch.logoUrl, ch.name, 48.dp, 30.dp, favourite)
             Column {
                 Muted(ch.numberLabel)
                 OneLine(ch.name, MaterialTheme.typography.labelLarge)

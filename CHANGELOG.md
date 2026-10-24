@@ -2,6 +2,12 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.2.0
+- **Favourites are marked with a heart** on their logo or poster wherever they're listed: the TV guide, the channel
+  list, Movies, Series and Search.
+- Series now come before movies: in the menu bar, in Search and in Settings › Languages & categories.
+- Settings shows the app's version on the About row.
+
 ## 1.1.1
 - **OK pauses and brings up the controls** while watching (OK on Play carries on); up, down or Info bring them up
   without pausing. With "Change channel with up and down" on (Settings › Playback), OK only brings them up, as

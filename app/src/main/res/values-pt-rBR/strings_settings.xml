@@ -13,7 +13,7 @@
     <string name="settings_backup_title">Backup e restauração</string>
     <string name="settings_backup_help">Salve suas playlists e escolhas em um arquivo ou restaure-as</string>
     <string name="settings_about_title">Sobre</string>
-    <string name="settings_about_help">Versão, licenças, armazenamento</string>
+    <string name="settings_about_help">Versão %1$s, licenças, armazenamento</string>
 
     <string name="settings_skip_back_help">Esquerda no controle remoto durante a reprodução</string>
     <string name="settings_skip_forward_help">Direita no controle remoto durante a reprodução</string>

@@ -126,4 +126,6 @@
     <string name="common_filter_categories">Filter categories</string>
     <!-- A TV programme its guide gave no title. -->
     <string name="common_no_title">No title</string>
+    <!-- Screen reader description of the heart on a favourite's logo or poster -->
+    <string name="common_favourite_mark">Favourite</string>
 </resources>
