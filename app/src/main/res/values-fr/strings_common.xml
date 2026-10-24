@@ -72,13 +72,13 @@
 
     <string name="common_something_went_wrong">Un problème est survenu</string>
     <string name="common_please_wait">Veuillez patienter</string>
-    <string name="common_updating">Mise à jour</string>
     <string name="common_last_update_failed">La dernière mise à jour a échoué</string>
 
     <string name="common_sync_channels_start">Mise à jour des chaînes…</string>
-    <string name="common_sync_channels_loading">Chargement des chaînes… %1$s</string>
     <string name="common_sync_vod_start">Mise à jour des films et séries…</string>
-    <string name="common_sync_vod_loading">Chargement des films et séries… %1$s</string>
+    <string name="common_sync_guide">Mise à jour du guide…</string>
+    <string name="common_sync_channels_loaded">%1$s : %2$s chargées</string>
+    <string name="common_sync_vod_loaded">%1$s : %2$s chargés</string>
     <string name="common_filter_categories">Filtrer les catégories</string>
     <string name="common_no_title">Sans titre</string>
     <string name="common_favourite_mark">Favori</string>

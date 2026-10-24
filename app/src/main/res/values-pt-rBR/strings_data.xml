@@ -6,10 +6,8 @@
     <string name="data_matching">Associando canais…</string>
     <string name="data_matching_progress">Associando canais… %1$s de %2$s</string>
     <string name="data_downloading">Baixando %1$s…</string>
-    <string name="data_downloading_percent">Baixando %1$s… %2$d%%</string>
     <string name="data_reading">Lendo %1$s…</string>
     <string name="data_loading_programmes">Carregando programas de %1$s…</string>
-    <string name="data_loading_programmes_percent">Carregando programas de %1$s… %2$d%%</string>
     <string name="data_loading_programmes_guide">Carregando programas do guia…</string>
 
     <string name="data_server_error">O servidor retornou o erro %1$d</string>

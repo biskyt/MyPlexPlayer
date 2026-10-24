@@ -16,14 +16,37 @@ import kotlinx.coroutines.sync.withLock
 /** What a background refresh is doing, for the small status line in the UI. */
 sealed interface SyncState {
     data object Idle : SyncState
-    data class Channels(val loaded: Int) : SyncState
-    data class Vod(val loaded: Int) : SyncState
-    data class Guide(val message: String) : SyncState
+
+    /** [playlist]'s channels, [loaded] so far. */
+    data class Channels(val playlist: String, val loaded: Int) : SyncState
+
+    /** [playlist]'s movies and series, [loaded] so far. */
+    data class Vod(val playlist: String, val loaded: Int) : SyncState
+    data class Guide(val step: GuideStep) : SyncState
 
     /** [message] is worked out when shown, so it's in the language shown then. */
     data class Failed(val error: Throwable, @StringRes val fallback: Int) : SyncState {
         val message: String get() = userMessage(error) ?: appString(fallback)
     }
+}
+
+/** A step of a guide update, put in words when shown (so in the language shown then); [fraction]: how far along, if known. */
+sealed interface GuideStep {
+    val fraction: Float?
+
+    data class Downloading(val guide: String, override val fraction: Float? = null) : GuideStep
+
+    data class Reading(val guide: String) : GuideStep {
+        override val fraction: Float? get() = null
+    }
+
+    /** Matching channels to the guide: [done] of [total] (0 when not counted yet). */
+    data class Matching(val done: Int = 0, val total: Int = 0) : GuideStep {
+        override val fraction get() = if (total > 0) done.toFloat() / total else null
+    }
+
+    /** Loading programmes from [guide] (null: from the guide, unnamed). */
+    data class Loading(val guide: String?, override val fraction: Float? = null) : GuideStep
 }
 
 /**
@@ -65,9 +88,11 @@ class SyncManager(
      */
     suspend fun refreshNow(playlistId: Long, includeGuide: Boolean = true): Result<Map<Long, String>> =
         attempt(R.string.data_refresh_failed) {
-            _state.value = SyncState.Channels(0)
-            playlists.syncChannels(playlistId) { _state.value = SyncState.Channels(it) }
+            val name = playlists.get(playlistId)?.name.orEmpty()
+            _state.value = SyncState.Channels(name, 0)
+            playlists.syncChannels(playlistId) { _state.value = SyncState.Channels(name, it) }
             val guideErrors = if (includeGuide) importGuide() else emptyMap()
+            // Read again (by syncVod): updating the channels stores to the playlist (its account, M3U state).
             syncVod(playlistId)
             guideErrors
         }
@@ -86,8 +111,8 @@ class SyncManager(
     private suspend fun syncVod(playlistId: Long) {
         val p = playlists.get(playlistId) ?: return
         // An M3U playlist without movie or series playlists still syncs: to clear any it had before.
-        if (p.hasVod) _state.value = SyncState.Vod(0)
-        vod.sync(p) { _state.value = SyncState.Vod(it) }
+        if (p.hasVod) _state.value = SyncState.Vod(p.name, 0)
+        vod.sync(p) { _state.value = SyncState.Vod(p.name, it) }
     }
 
     private suspend fun importGuide(only: Long? = null) = epg.importAll(playlists.allIds(), only) { _state.value = SyncState.Guide(it) }

@@ -6,10 +6,8 @@
     <string name="data_matching">Association des chaînes…</string>
     <string name="data_matching_progress">Association des chaînes… %1$s sur %2$s</string>
     <string name="data_downloading">Téléchargement de %1$s…</string>
-    <string name="data_downloading_percent">Téléchargement de %1$s… %2$d %%</string>
     <string name="data_reading">Lecture de %1$s…</string>
     <string name="data_loading_programmes">Chargement des programmes de %1$s…</string>
-    <string name="data_loading_programmes_percent">Chargement des programmes de %1$s… %2$d %%</string>
     <string name="data_loading_programmes_guide">Chargement des programmes du guide…</string>
 
     <string name="data_server_error">Le serveur a renvoyé l\'erreur %1$d</string>
