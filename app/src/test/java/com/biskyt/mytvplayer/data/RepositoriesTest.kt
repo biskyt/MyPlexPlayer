@@ -1,6 +1,7 @@
 package com.biskyt.mytvplayer.data
 
 import android.content.Context
+import androidx.datastore.preferences.core.edit
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.mytvplayer.core.epg.ProgrammeKind
@@ -154,7 +155,7 @@ class RepositoriesTest {
 
         channels.setHidden(id, 103, true)
         channels.setFavourite(id, 101, true)
-        channels.move(id, ChannelFilter.All, 102, -1)
+        db.channels().setSortOrder(id, 102, 0) // an order set with Move up, before 1.2.1
         assertEquals(listOf(102L, 101L), channels.ids(id, ChannelFilter.All))
 
         // Provider renames a channel and drops another; user choices survive.
@@ -416,7 +417,7 @@ class RepositoriesTest {
         val source = db.epg().enabledSources().first().id
         channels.setHidden(id, 103, true)
         channels.setFavourite(id, 101, true)
-        channels.move(id, ChannelFilter.All, 102, -1)
+        db.channels().setSortOrder(id, 102, 0) // an order set with Move up, before 1.2.1
         epg.setManual(id, 101, source, "one.uk", offsetMinutes = 60)
         db.categories().setIncluded(id, CAT_MOVIE, listOf("11"), true)
         vod.setFavourite(id, CAT_MOVIE, 501, true)
@@ -536,10 +537,11 @@ class RepositoriesTest {
     }
 
     @Test
-    fun `live TV lists are remembered by key`() {
-        for (f in listOf(ChannelFilter.All, ChannelFilter.Favourites, ChannelFilter.Recent, ChannelFilter.Category("12:a"))) {
-            assertEquals(f, ChannelFilter.of(f.key))
-        }
+    fun `where Live TV opened last (until 1_2_1) is forgotten`() = runBlocking {
+        val old = androidx.datastore.preferences.core.stringPreferencesKey("last_live_filter")
+        context.dataStore.edit { it[old] = "category:2" }
+        settings.update { it }
+        assertNull(context.dataStore.data.first()[old])
     }
 
     @Test

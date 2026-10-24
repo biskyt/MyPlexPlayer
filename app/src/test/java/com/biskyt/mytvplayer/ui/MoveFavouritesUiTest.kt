@@ -27,6 +27,7 @@ import com.biskyt.mytvplayer.testutil.waitForText
 import com.biskyt.mytvplayer.ui.theme.MyTvTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -140,6 +141,16 @@ class MoveFavouritesUiTest {
         waitForOrder(CAT_LIVE, listOf(102L, 101L, 103L))
         press(Key.DirectionCenter)
         waitForOrder(CAT_LIVE, listOf(102L, 101L, 103L))
+    }
+
+    @Test
+    fun `outside Favourites, channels can't be moved`() {
+        show(Screen.Live(ChannelFilter.All))
+        waitFor("UK: KITE KIDZ")
+        compose.onAllNodes(hasText("UK: KITE KIDZ", substring = true) and hasClickAction())[0]
+            .performSemanticsAction(SemanticsActions.OnLongClick)
+        waitFor("Hide channel")
+        assertTrue(compose.onAllNodes(hasText("Move", substring = true)).fetchSemanticsNodes().isEmpty())
     }
 
     @Test

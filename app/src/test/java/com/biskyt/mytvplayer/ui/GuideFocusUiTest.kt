@@ -51,18 +51,18 @@ class GuideFocusUiTest {
     fun setUp() = runBlocking {
         val c = app.container
         c.addHomeTv(provider)
-        // Live TV opens on UK | SPORT, with one channel (no guide for it).
-        c.settings.update { it.copy(lastLiveFilter = ChannelFilter.Category("2").key) }
-        c.settings.current()
         Unit
     }
 
     @After
     fun tearDown() = provider.close()
 
+    // Live TV on UK | SPORT, with one channel (no guide for it).
     @Test
     fun `a guide row's programmes arriving late don't take focus back from where the user moved`() {
-        compose.setContent { MyTvTheme { NavHost(remember { navigators.new(Screen.Live()) }) { ScreenContent(it) } } }
+        compose.setContent {
+            MyTvTheme { NavHost(remember { navigators.new(Screen.Live(ChannelFilter.Category("2"))) }) { ScreenContent(it) } }
+        }
         compose.waitAdvancingClock { compose.focusedText().contains("UK: ARENA SPRTS 1 FHD") }
         // Database answers wait until let through, so the guide row's programmes are still on their way…
         val held = LinkedBlockingQueue<Runnable>()

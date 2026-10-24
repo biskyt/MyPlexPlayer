@@ -28,8 +28,6 @@
     <string name="live_option_switch_to_grid">Switch to TV guide grid</string>
     <!-- "Guide" is a button on the TV remote -->
     <string name="live_option_switch_help">Or press the Guide button on the remote</string>
-    <string name="live_option_move_up">Move up</string>
-    <string name="live_option_move_down">Move down</string>
     <string name="live_option_hide_channel">Hide channel</string>
     <!-- "Settings › Languages & categories" names a settings page: keep it the same as that page's title -->
     <string name="live_option_hide_channel_help">Unhide later in Settings › Languages &amp; categories</string>

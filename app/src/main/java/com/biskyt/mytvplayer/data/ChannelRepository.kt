@@ -27,27 +27,6 @@ sealed interface ChannelFilter {
     /** A catch-up list (shown on the Catch-up tab, and never remembered for Live TV). */
     val isCatchup: Boolean get() = this == Catchup || this is CatchupCategory
     data class Category(val id: String) : ChannelFilter
-
-    /** For remembering a list in settings: "all", "favourites", "recent" or "category:<id>" (catch-up lists aren't remembered). */
-    val key: String
-        get() = when (this) {
-            All -> "all"
-            Favourites -> "favourites"
-            Recent -> "recent"
-            Catchup -> "catchup"
-            is CatchupCategory -> "catchup:$id"
-            is Category -> "category:$id"
-        }
-
-    companion object {
-        fun of(key: String): ChannelFilter = when {
-            key == "favourites" -> Favourites
-            key == "recent" -> Recent
-            key == "catchup" -> Catchup
-            key.startsWith("category:") -> Category(key.removePrefix("category:"))
-            else -> All
-        }
-    }
 }
 
 class ChannelRepository(private val db: AppDatabase) {
@@ -128,30 +107,6 @@ class ChannelRepository(private val db: AppDatabase) {
     suspend fun setHidden(playlistId: Long, streamId: Long, hidden: Boolean) {
         channels.setHidden(playlistId, streamId, hidden)
         db.categories().refreshCounts(playlistId, CAT_LIVE)
-    }
-
-    /** Moves a channel one place up/down within [filter] by giving it a sort position between its neighbours. */
-    suspend fun move(playlistId: Long, filter: ChannelFilter, streamId: Long, delta: Int) {
-        val ids = ids(playlistId, filter)
-        val index = ids.indexOf(streamId)
-        val target = index + delta
-        if (index < 0 || target !in ids.indices) return
-        // Only the two rows being swapped are read (SQLite limits how many ids an IN clause can take).
-        val rows = channels.getMany(playlistId, listOf(streamId, ids[target])).associateBy { it.streamId }
-        fun position(id: Long) = rows[id]?.let { it.sortOrder ?: it.number } ?: 0
-        val mine = position(streamId)
-        val theirs = position(ids[target])
-        db.withTransaction {
-            if (mine == theirs) {
-                // Ties (e.g. a provider that numbers everything 0): give this list distinct positions first.
-                ids.forEachIndexed { i, id -> channels.setSortOrder(playlistId, id, (i + 1) * 10) }
-                channels.setSortOrder(playlistId, streamId, (target + 1) * 10)
-                channels.setSortOrder(playlistId, ids[target], (index + 1) * 10)
-            } else {
-                channels.setSortOrder(playlistId, streamId, theirs)
-                channels.setSortOrder(playlistId, ids[target], mine)
-            }
-        }
     }
 
     private companion object {
