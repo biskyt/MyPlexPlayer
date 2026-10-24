@@ -113,4 +113,22 @@ class XmltvParserTest {
         assertNull(XmltvParser.parseTime("20261318180000"))
         assertNull(XmltvParser.parseTime(null))
     }
+
+    @Test
+    fun `reads offsets written with a colon and times without seconds`() {
+        val sixPmUk = 1_792_342_800_000L
+        assertEquals(sixPmUk, XmltvParser.parseTime("20261018180000 +01:00"))
+        assertEquals(sixPmUk, XmltvParser.parseTime("202610181800 +0100"))
+        assertEquals(sixPmUk + 3_600_000, XmltvParser.parseTime("202610181800"))
+        assertEquals(sixPmUk, XmltvParser.parseTime("20261018180000+0100"))
+        assertNull(XmltvParser.parseTime("2026101818"))
+    }
+
+    @Test
+    fun `a programme ending before it starts gets the usual length`() {
+        val guide = """<tv><programme start="20261018180000 +0000" stop="20261018170000 +0000" channel="a">
+            <title>Backwards</title></programme></tv>"""
+        val p = parse(guide.toByteArray()).second.single()
+        assertEquals(30 * 60_000L, p.stopMs - p.startMs)
+    }
 }
