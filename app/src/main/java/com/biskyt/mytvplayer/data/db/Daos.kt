@@ -112,6 +112,11 @@ interface CategoryDao {
     suspend fun delete(pid: Long, type: String, ids: List<String>)
 }
 
+// The favourite channels of :pid (c the channel, f the favourite), and their order: the user's, else channel numbers.
+private const val CHANNEL_FAVOURITES =
+    "FROM channel c JOIN favourite f ON f.playlistId = c.playlistId AND f.streamId = c.streamId WHERE c.playlistId = :pid"
+private const val CHANNEL_FAVOURITE_ORDER = "ORDER BY f.position, c.position, c.name"
+
 /** A channel number starting with the typed digits (channels without a number are stored as 0 and never match). */
 private const val NUMBER_MATCH = "(number > 0 AND CAST(number AS TEXT) LIKE :q || '%')"
 
@@ -143,11 +148,7 @@ interface ChannelDao {
     )
     fun pageCategory(pid: Long, cat: String, q: String): PagingSource<Int, ChannelEntity>
 
-    @Query(
-        """SELECT c.* FROM channel c JOIN favourite f ON f.playlistId = c.playlistId AND f.streamId = c.streamId
-           WHERE c.playlistId = :pid AND (:q = '' OR $CHANNEL_MATCH)
-           ORDER BY c.position, c.name"""
-    )
+    @Query("SELECT c.* $CHANNEL_FAVOURITES AND (:q = '' OR $CHANNEL_MATCH) $CHANNEL_FAVOURITE_ORDER")
     fun pageFavourites(pid: Long, q: String): PagingSource<Int, ChannelEntity>
 
     @Query(
@@ -210,10 +211,7 @@ interface ChannelDao {
     @Query("DELETE FROM channel WHERE playlistId = :pid AND categoryId = :cat")
     suspend fun deleteCategory(pid: Long, cat: String)
 
-    @Query(
-        """SELECT c.streamId FROM channel c JOIN favourite f ON f.playlistId = c.playlistId AND f.streamId = c.streamId
-           WHERE c.playlistId = :pid ORDER BY c.position, c.name"""
-    )
+    @Query("SELECT c.streamId $CHANNEL_FAVOURITES $CHANNEL_FAVOURITE_ORDER")
     suspend fun idsFavourites(pid: Long): List<Long>
 
     @Query(
@@ -221,10 +219,7 @@ interface ChannelDao {
     )
     suspend fun idsRecent(pid: Long): List<Long>
 
-    @Query(
-        """SELECT c.* FROM channel c JOIN favourite f ON f.playlistId = c.playlistId AND f.streamId = c.streamId
-           WHERE c.playlistId = :pid ORDER BY c.position, c.name LIMIT :limit"""
-    )
+    @Query("SELECT c.* $CHANNEL_FAVOURITES $CHANNEL_FAVOURITE_ORDER LIMIT :limit")
     fun observeFavourites(pid: Long, limit: Int): Flow<List<ChannelEntity>>
 
     @Query(
@@ -285,6 +280,12 @@ interface FavouriteDao {
 
     @Query("DELETE FROM favourite WHERE playlistId = :pid AND streamId = :id")
     suspend fun remove(pid: Long, id: Long)
+
+    @Query("SELECT COALESCE(MAX(position), 0) FROM favourite WHERE playlistId = :pid")
+    suspend fun lastPosition(pid: Long): Long
+
+    @Query("UPDATE favourite SET position = :position WHERE playlistId = :pid AND streamId = :id")
+    suspend fun setPosition(pid: Long, id: Long, position: Long)
 
     @Upsert
     suspend fun touchRecent(r: RecentEntity)
@@ -554,12 +555,12 @@ data class VodCard(val id: Long, val title: String, val year: Int?, val imageUrl
 private const val MOVIE_CARD = "SELECT streamId AS id, title, year, posterUrl AS imageUrl"
 private const val SERIES_CARD = "SELECT seriesId AS id, title, year, coverUrl AS imageUrl"
 
-// Favourite movies and series of :pid, as cards (f is the favourite), and the order they're listed in.
-private const val MOVIE_FAVOURITES = """$MOVIE_CARD FROM movie m
-    JOIN vod_favourite f ON f.playlistId = m.playlistId AND f.kind = 'movie' AND f.itemId = m.streamId WHERE m.playlistId = :pid"""
-private const val SERIES_FAVOURITES = """$SERIES_CARD FROM series s
-    JOIN vod_favourite f ON f.playlistId = s.playlistId AND f.kind = 'series' AND f.itemId = s.seriesId WHERE s.playlistId = :pid"""
-private const val FAVOURITE_ORDER = "ORDER BY f.addedAt DESC"
+// Favourite movies and series of :pid (f is the favourite), and their order: the user's, else newest first.
+private const val MOVIE_FAVOURITES =
+    "FROM movie m JOIN vod_favourite f ON f.playlistId = m.playlistId AND f.kind = 'movie' AND f.itemId = m.streamId WHERE m.playlistId = :pid"
+private const val SERIES_FAVOURITES =
+    "FROM series s JOIN vod_favourite f ON f.playlistId = s.playlistId AND f.kind = 'series' AND f.itemId = s.seriesId WHERE s.playlistId = :pid"
+private const val FAVOURITE_ORDER = "ORDER BY f.position, f.addedAt DESC"
 
 /** Movies, series, favourites among them, and how far the user has watched. */
 @Dao
@@ -577,10 +578,10 @@ interface VodDao {
     @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid AND (:q = '' OR title $LIKE_Q) ORDER BY added DESC")
     fun pageMoviesByAdded(pid: Long, q: String): PagingSource<Int, VodCard>
 
-    @Query("$MOVIE_FAVOURITES AND (:q = '' OR m.title $LIKE_Q) $FAVOURITE_ORDER")
+    @Query("$MOVIE_CARD $MOVIE_FAVOURITES AND (:q = '' OR m.title $LIKE_Q) $FAVOURITE_ORDER")
     fun pageMovieFavourites(pid: Long, q: String): PagingSource<Int, VodCard>
 
-    @Query("$MOVIE_FAVOURITES $FAVOURITE_ORDER LIMIT :limit")
+    @Query("$MOVIE_CARD $MOVIE_FAVOURITES $FAVOURITE_ORDER LIMIT :limit")
     fun observeMovieFavourites(pid: Long, limit: Int): Flow<List<VodCard>>
 
     @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND (:q = '' OR title $LIKE_Q) ORDER BY position, title")
@@ -594,11 +595,25 @@ interface VodDao {
     @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND (:q = '' OR title $LIKE_Q) ORDER BY lastModified DESC")
     fun pageSeriesByUpdated(pid: Long, q: String): PagingSource<Int, VodCard>
 
-    @Query("$SERIES_FAVOURITES AND (:q = '' OR s.title $LIKE_Q) $FAVOURITE_ORDER")
+    @Query("$SERIES_CARD $SERIES_FAVOURITES AND (:q = '' OR s.title $LIKE_Q) $FAVOURITE_ORDER")
     fun pageSeriesFavourites(pid: Long, q: String): PagingSource<Int, VodCard>
 
-    @Query("$SERIES_FAVOURITES $FAVOURITE_ORDER LIMIT :limit")
+    @Query("$SERIES_CARD $SERIES_FAVOURITES $FAVOURITE_ORDER LIMIT :limit")
     fun observeSeriesFavourites(pid: Long, limit: Int): Flow<List<VodCard>>
+
+    /** The favourite movies' ids, in order. */
+    @Query("SELECT m.streamId $MOVIE_FAVOURITES $FAVOURITE_ORDER")
+    suspend fun idsMovieFavourites(pid: Long): List<Long>
+
+    /** The favourite series' ids, in order. */
+    @Query("SELECT s.seriesId $SERIES_FAVOURITES $FAVOURITE_ORDER")
+    suspend fun idsSeriesFavourites(pid: Long): List<Long>
+
+    @Query("SELECT COALESCE(MAX(position), 0) FROM vod_favourite WHERE playlistId = :pid AND kind = :kind")
+    suspend fun lastFavouritePosition(pid: Long, kind: String): Long
+
+    @Query("UPDATE vod_favourite SET position = :position WHERE playlistId = :pid AND kind = :kind AND itemId = :id")
+    suspend fun setFavouritePosition(pid: Long, kind: String, id: Long, position: Long)
 
     @Query("SELECT COUNT(*) FROM movie WHERE playlistId = :pid")
     fun observeMovieCount(pid: Long): Flow<Int>

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -32,6 +33,7 @@ import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.AppContainer
 import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.data.ChannelFilter
+import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.CAT_MOVIE
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.db.VOD_TYPES
@@ -43,8 +45,15 @@ import com.biskyt.mytvplayer.ui.Screen
 import com.biskyt.mytvplayer.ui.appViewModel
 import com.biskyt.mytvplayer.ui.common.CatchupMark
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
+import com.biskyt.mytvplayer.ui.common.FavouriteMover
 import com.biskyt.mytvplayer.ui.common.ItemAction
 import com.biskyt.mytvplayer.ui.common.ItemActionsPanel
+import com.biskyt.mytvplayer.ui.common.KeepInView
+import com.biskyt.mytvplayer.ui.common.MovableRow
+import com.biskyt.mytvplayer.ui.common.MovableTile
+import com.biskyt.mytvplayer.ui.common.MoveBackHandler
+import com.biskyt.mytvplayer.ui.common.MoveHint
+import com.biskyt.mytvplayer.ui.common.MoveLayout
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.NowNextLoader
 import com.biskyt.mytvplayer.ui.common.PillButton
@@ -59,6 +68,7 @@ import com.biskyt.mytvplayer.ui.common.channelActions
 import com.biskyt.mytvplayer.ui.common.collectIds
 import com.biskyt.mytvplayer.ui.common.formatDuration
 import com.biskyt.mytvplayer.ui.common.formatTime
+import com.biskyt.mytvplayer.ui.common.moveAction
 import com.biskyt.mytvplayer.ui.common.rememberFirstFocus
 import com.biskyt.mytvplayer.ui.common.rememberMinuteClock
 import com.biskyt.mytvplayer.ui.common.titledRow
@@ -76,18 +86,21 @@ import kotlinx.coroutines.launch
 /** How many favourite movies, and series, Home shows. */
 private const val VOD_ROW_LIMIT = 20
 
+/** How many favourite channels, and recently watched ones, Home shows. */
+private const val CHANNEL_ROW_LIMIT = 12
+
 class HomeViewModel(private val c: AppContainer) : ViewModel() {
     private val activePlaylist = c.settings.activePlaylistId
     val playlistId = activePlaylist.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val favourites = activePlaylist.flatMapLatest {
-        c.channels.observeFavourites(it, 12)
+        c.channels.observeFavourites(it, CHANNEL_ROW_LIMIT)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val recent = activePlaylist.flatMapLatest {
-        c.channels.observeRecent(it, 12)
+        c.channels.observeRecent(it, CHANNEL_ROW_LIMIT)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** The first favourite series and movies, by type ([VOD_TYPES]). */
@@ -96,6 +109,9 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
         activePlaylist.flatMapLatest { c.vod.observeFavouriteCards(it, type, VOD_ROW_LIMIT) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     }
+
+    /** Moving a favourite within its row. */
+    val mover = FavouriteMover(viewModelScope, c.favourites) { playlistId.value }
 
     fun setVodFavourite(type: String, id: Long, favourite: Boolean) = viewModelScope.launch {
         c.vod.setFavourite(playlistId.value, type, id, favourite)
@@ -150,6 +166,7 @@ fun HomeScreen() {
         is HomeTile.Vod -> favouriteVod.getValue(tile.type).value.any { it.id == tile.card.id }
     }
 
+    MoveBackHandler(vm.mover)
     TabScaffold(Tab.HOME) {
         LazyColumn(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 56.dp, vertical = 8.dp),
@@ -168,11 +185,14 @@ fun HomeScreen() {
             item {
                 Column {
                     SectionTitle(stringResource(R.string.home_on_now))
+                    MoveHint(vm.mover, CAT_LIVE, MoveLayout.ROW)
                     val favs = favourites
                     when {
                         favs == null -> Unit
                         favs.isEmpty() -> EmptyFavourites(first) { nav.reset(Screen.Live()) }
-                        else -> ChannelCardRow(favs, vm.nowNext, { options = HomeTile.Channel(it, ChannelFilter.Favourites) }, first) {
+                        else -> ChannelCardRow(favs, vm.nowNext, {
+                            options = HomeTile.Channel(it, ChannelFilter.Favourites)
+                        }, first, vm.mover) {
                             nav.push(Screen.Player(pid, it.streamId, ChannelFilter.Favourites))
                         }
                     }
@@ -190,8 +210,12 @@ fun HomeScreen() {
             }
             // Favourite series, then movies.
             favouriteVod.forEach { (type, cards) ->
-                titledRow(favouriteRowTitle(type), cards.value, { it.id }) { card ->
-                    PosterCard(card, onLongClick = { options = HomeTile.Vod(type, card) }) { nav.push(vodDetails(pid, type, card.id)) }
+                titledRow(favouriteRowTitle(type), cards.value, {
+                    it.id
+                }, move = MovableRow(vm.mover, type)) { card ->
+                    MovableTile(vm.mover, type, card.id, MoveLayout.ROW) {
+                        PosterCard(card, onLongClick = { options = HomeTile.Vod(type, card) }) { nav.push(vodDetails(pid, type, card.id)) }
+                    }
                 }
             }
         }
@@ -234,6 +258,7 @@ private fun TileOptions(tile: HomeTile, vm: HomeViewModel, pid: Long, onDismiss:
                         if (!favourite && tile.list == ChannelFilter.Favourites) onDismiss(true)
                     }
                 )
+                if (tile.list == ChannelFilter.Favourites) add(moveAction(vm.mover, CAT_LIVE, ch.streamId, close, CHANNEL_ROW_LIMIT))
                 if (tile.list == ChannelFilter.Recent) {
                     add(
                         ItemAction.Run(removeRecent) {
@@ -276,7 +301,7 @@ private fun TileOptions(tile: HomeTile, vm: HomeViewModel, pid: Long, onDismiss:
             val actions = vodActions(pid, tile.type, tile.card.id, favourite = true) { favourite ->
                 vm.setVodFavourite(tile.type, tile.card.id, favourite)
                 if (!favourite) onDismiss(true)
-            }
+            } + moveAction(vm.mover, tile.type, tile.card.id, close, VOD_ROW_LIMIT)
             ItemActionsPanel(tile.card.title, actions, close)
         }
     }
@@ -296,38 +321,43 @@ private fun ChannelCardRow(
     loader: NowNextLoader,
     onOptions: (ChannelEntity) -> Unit,
     modifier: Modifier = Modifier,
+    mover: FavouriteMover? = null,
     onPlay: (ChannelEntity) -> Unit
 ) {
     val now by rememberMinuteClock()
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+    val state = rememberLazyListState()
+    KeepInView(state) { mover?.movingId(CAT_LIVE)?.let { p -> channels.indexOfFirst { it.streamId == p } } }
+    LazyRow(state = state, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         items(channels, key = { it.streamId }) { c ->
             LaunchedEffect(c.streamId) { loader.request(c.streamId) }
             val nn = loader.entries[c.streamId]
-            TvCard(
-                onClick = { onPlay(c) },
-                onLongClick = { onOptions(c) },
-                modifier = (if (c == channels.first()) modifier else Modifier).width(272.dp)
-            ) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        ChannelLogo(c.logoUrl, c.name, 64.dp, 38.dp)
-                        Muted(c.name, Modifier.padding(start = 10.dp).weight(1f, fill = false))
-                        CatchupMark(c, Modifier.padding(start = 6.dp))
+            MovableTile(mover, CAT_LIVE, c.streamId, MoveLayout.ROW) {
+                TvCard(
+                    onClick = { onPlay(c) },
+                    onLongClick = { onOptions(c) },
+                    modifier = (if (c == channels.first()) modifier else Modifier).width(272.dp)
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ChannelLogo(c.logoUrl, c.name, 64.dp, 38.dp)
+                            Muted(c.name, Modifier.padding(start = 10.dp).weight(1f, fill = false))
+                            CatchupMark(c, Modifier.padding(start = 6.dp))
+                        }
+                        Text(
+                            nn?.now?.let { programmeTitle(it.title) } ?: " ",
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Muted(
+                            nn?.now?.let { on ->
+                                val until = formatTime(on.stopMs)
+                                nn.next?.let { stringResource(R.string.home_until_then, until, programmeTitle(it.title)) }
+                                    ?: stringResource(R.string.home_until, until)
+                            } ?: stringResource(R.string.common_no_guide)
+                        )
+                        ProgressLine(nn?.progress(now) ?: 0f, Modifier.fillMaxWidth())
                     }
-                    Text(
-                        nn?.now?.let { programmeTitle(it.title) } ?: " ",
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Muted(
-                        nn?.now?.let { on ->
-                            val until = formatTime(on.stopMs)
-                            nn.next?.let { stringResource(R.string.home_until_then, until, programmeTitle(it.title)) }
-                                ?: stringResource(R.string.home_until, until)
-                        } ?: stringResource(R.string.common_no_guide)
-                    )
-                    ProgressLine(nn?.progress(now) ?: 0f, Modifier.fillMaxWidth())
                 }
             }
         }

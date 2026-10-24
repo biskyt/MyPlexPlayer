@@ -45,6 +45,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.mytvplayer.R
 import com.biskyt.mytvplayer.data.ChannelFilter
+import com.biskyt.mytvplayer.data.db.CAT_LIVE
 import com.biskyt.mytvplayer.data.db.ChannelEntity
 import com.biskyt.mytvplayer.data.label
 import com.biskyt.mytvplayer.data.programmeTitle
@@ -56,7 +57,12 @@ import com.biskyt.mytvplayer.ui.common.CategoryEntry
 import com.biskyt.mytvplayer.ui.common.ChannelLogo
 import com.biskyt.mytvplayer.ui.common.FilteredCategoryColumn
 import com.biskyt.mytvplayer.ui.common.FlashLabel
+import com.biskyt.mytvplayer.ui.common.KeepInView
 import com.biskyt.mytvplayer.ui.common.ListHeader
+import com.biskyt.mytvplayer.ui.common.MovableTile
+import com.biskyt.mytvplayer.ui.common.MoveBackHandler
+import com.biskyt.mytvplayer.ui.common.MoveHint
+import com.biskyt.mytvplayer.ui.common.MoveLayout
 import com.biskyt.mytvplayer.ui.common.Muted
 import com.biskyt.mytvplayer.ui.common.NowNext
 import com.biskyt.mytvplayer.ui.common.PillButton
@@ -127,6 +133,7 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
             Column(Modifier.weight(1f)) {
                 val filterBox = remember { FocusRequester() }
                 ListHeader(vm, filter, Modifier.focusRequester(filterBox))
+                MoveHint(vm.mover, CAT_LIVE, MoveLayout.COLUMN, Modifier.padding(bottom = 8.dp))
                 // One paged list for both views, so the one switched to has its rows (and somewhere for focus) at once.
                 val items = vm.channels.collectAsLazyPagingItems()
                 BackToFilter(filterBox, atTop = { vm.guideMode && vm.focusIndex == 0 }) {
@@ -221,6 +228,10 @@ private fun ListHeader(vm: LiveViewModel, filter: ChannelFilter, filterModifier:
 private fun ChannelList(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (ChannelEntity) -> Unit) {
     val favs = vm.favouriteIds.collectIds()
     val listState = vm.listState
+    val filter by vm.filter.collectAsState()
+    val query by vm.query.collectAsState()
+    MoveBackHandler(vm.mover, filter, query)
+    KeepInView(listState) { vm.mover.movingId(CAT_LIVE)?.let { p -> items.itemSnapshotList.indexOfFirst { it?.streamId == p } } }
     LaunchedEffect(Unit) { if (vm.restoreFocusPending) vm.revealFocused() }
     val now by rememberMinuteClock()
 
@@ -233,16 +244,18 @@ private fun ChannelList(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>
                 // Once per visit, focus goes back to the channel last played (or the first row the first time).
                 val wantsFocus = vm.restoreFocusPending && (vm.focusStreamId?.let { it == ch.streamId } ?: (index == 0))
                 LaunchedEffect(ch.streamId) { vm.nowNext.request(ch.streamId) }
-                ChannelRow(
-                    ch = ch,
-                    nn = vm.nowNext.entries[ch.streamId],
-                    favourite = ch.streamId in favs,
-                    nowMs = now,
-                    onClick = { play(ch) },
-                    onLongClick = { vm.openOptions(ch) },
-                    modifier = Modifier.restoreFocusIf(wantsFocus) { vm.restoreFocusPending = false }
-                        .onFocusChanged { if (it.isFocused) vm.focusMoved(ch.streamId, index) }
-                )
+                MovableTile(vm.mover, CAT_LIVE, ch.streamId, MoveLayout.COLUMN) {
+                    ChannelRow(
+                        ch = ch,
+                        nn = vm.nowNext.entries[ch.streamId],
+                        favourite = ch.streamId in favs,
+                        nowMs = now,
+                        onClick = { play(ch) },
+                        onLongClick = { vm.openOptions(ch) },
+                        modifier = Modifier.restoreFocusIf(wantsFocus) { vm.restoreFocusPending = false }
+                            .onFocusChanged { if (it.isFocused) vm.focusMoved(ch.streamId, index) }
+                    )
+                }
             }
         }
     }

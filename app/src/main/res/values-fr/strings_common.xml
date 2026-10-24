@@ -82,4 +82,7 @@
     <string name="common_filter_categories">Filtrer les catégories</string>
     <string name="common_no_title">Sans titre</string>
     <string name="common_favourite_mark">Favori</string>
+    <string name="common_move">Déplacer</string>
+    <string name="common_move_hint">%1$s pour le déplacer, OK pour enregistrer, Retour pour annuler</string>
+    <string name="common_move_hint_touch">Touchez les flèches pour le déplacer, touchez-le pour le laisser là, Retour pour annuler</string>
 </resources>

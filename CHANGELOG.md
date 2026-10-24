@@ -3,6 +3,9 @@
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
 ## 1.2.0
+- **Put your favourites in the order you like:** hold OK on a favourite (on Home, in Live TV's Favourites, or in
+  Movies' and Series' Favourites), choose Move, move it with the arrows and press OK. Back leaves the order as it was.
+  New favourites go at the end.
 - **Home has rows for your favourite series and movies,** below Recently watched. Hold OK on one to open it or
   take it off your favourites.
 - **Favourites are marked with a heart** on their logo or poster wherever they're listed: the TV guide, the channel
