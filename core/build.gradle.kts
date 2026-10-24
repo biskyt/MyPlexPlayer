@@ -32,6 +32,8 @@ dependencies {
 // ./gradlew :core:plexServerTest [-PplexServer=http://127.0.0.1:32400]. The Plex spike workflow runs it.
 val plexServerTest = "**/PlexServerTest*"
 tasks.test { exclude(plexServerTest) }
+// Nor in coverage: the report would otherwise run it, and CI's build has no Plex server.
+kover { currentProject { instrumentation { disabledForTestTasks.add("plexServerTest") } } }
 tasks.register<Test>("plexServerTest") {
     description = "Runs PlexServerTest against a real Plex Media Server."
     group = "verification"
