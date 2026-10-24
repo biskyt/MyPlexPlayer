@@ -81,7 +81,8 @@ class XmltvParser(
         val id = p.getAttributeValue(null, "channel")
         val start = if (id != null && wantProgrammes(id)) parseTime(p.getAttributeValue(null, "start")) else null
         if (id == null || start == null) return p.skipElement()
-        val end = parseTime(p.getAttributeValue(null, "stop")) ?: (start + DEFAULT_LENGTH_MS)
+        // A stop at or before the start is a mistake in the guide: taken as no stop.
+        val end = parseTime(p.getAttributeValue(null, "stop"))?.takeIf { it > start } ?: (start + DEFAULT_LENGTH_MS)
         if (end <= windowStartMs || start >= windowEndMs) p.skipElement() else onProgramme(readProgramme(p, id, start, end))
     }
 
@@ -154,7 +155,8 @@ class XmltvParser(
         private const val DEFAULT_LENGTH_MS = 30 * 60_000L
 
         /**
-         * Parses XMLTV times such as `20261018180000 +0100`; a missing offset means UTC. Hand-rolled digit parsing:
+         * Parses XMLTV times such as `20261018180000 +0100`, also without seconds or with the offset written `+01:00`;
+         * a missing offset means UTC. Hand-rolled digit parsing:
          * this runs for every programme kept from guides with hundreds of thousands of entries.
          */
         @Suppress("CyclomaticComplexMethod", "ComplexCondition") // flat, allocation-free on purpose
@@ -162,7 +164,7 @@ class XmltvParser(
             val v = value ?: return null
             var i = 0
             while (i < v.length && v[i] == ' ') i++
-            if (v.length - i < 14) return null
+            if (v.length - i < 12) return null
             fun num(from: Int, len: Int): Int {
                 var n = 0
                 for (k in from until from + len) {
@@ -177,14 +179,16 @@ class XmltvParser(
             val day = num(i + 6, 2)
             val hour = num(i + 8, 2)
             val minute = num(i + 10, 2)
-            val second = num(i + 12, 2)
+            // Seconds can be left out.
+            val hasSeconds = v.length - i >= 14 && v[i + 12] in '0'..'9'
+            val second = if (hasSeconds) num(i + 12, 2) else 0
             if (year < 0 || month !in 1..12 || day !in 1..31 || hour !in 0..23 || minute !in 0..59 || second !in 0..60) return null
             var offsetSec = 0
-            var j = i + 14
+            var j = i + if (hasSeconds) 14 else 12
             while (j < v.length && v[j] == ' ') j++
             if (v.length - j >= 5 && (v[j] == '+' || v[j] == '-')) {
                 val hh = num(j + 1, 2)
-                val mm = num(j + 3, 2)
+                val mm = if (v[j + 3] == ':' && v.length - j >= 6) num(j + 4, 2) else num(j + 3, 2)
                 if (hh >= 0 && mm >= 0) offsetSec = (hh * 3600 + mm * 60) * if (v[j] == '-') -1 else 1
             }
             return (daysFromCivil(year, month, day) * 86_400L + hour * 3600 + minute * 60 + second - offsetSec) * 1000
