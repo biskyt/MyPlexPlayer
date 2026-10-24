@@ -124,4 +124,22 @@ class MigrationTest {
             }
         }
     }
+
+    @Test
+    fun `version 6 to 7 keeps favourites, in their old order until moved`() {
+        helper.createDatabase("migration-test-7", 6).use { db ->
+            db.execSQL("INSERT INTO favourite (playlistId, streamId, addedAt) VALUES (1, 101, 5)")
+            db.execSQL("INSERT INTO vod_favourite (playlistId, kind, itemId, addedAt) VALUES (1, 'movie', 501, 6)")
+        }
+        helper.runMigrationsAndValidate("migration-test-7", 7, true).use { db ->
+            db.query("SELECT streamId, addedAt, position FROM favourite").use {
+                it.moveToFirst()
+                assertEquals(listOf(101L, 5L, 0L), listOf(it.getLong(0), it.getLong(1), it.getLong(2)))
+            }
+            db.query("SELECT itemId, position FROM vod_favourite").use {
+                it.moveToFirst()
+                assertEquals(listOf(501L, 0L), listOf(it.getLong(0), it.getLong(1)))
+            }
+        }
+    }
 }

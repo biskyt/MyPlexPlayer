@@ -177,10 +177,19 @@ data class WatchProgressEntity(
     }
 }
 
-/** A favourite movie or series. [kind] is [CAT_MOVIE] or [CAT_SERIES]. */
+/**
+ * A favourite movie or series. [kind] is [CAT_MOVIE] or [CAT_SERIES]. [position]: where the user put it (0, as for
+ * favourites from before 1.2.0, keeps the original order: newest first).
+ */
 @Entity(tableName = "vod_favourite", primaryKeys = ["playlistId", "kind", "itemId"])
 @Serializable
-data class VodFavouriteEntity(val playlistId: Long, val kind: String, val itemId: Long, val addedAt: Long)
+data class VodFavouriteEntity(
+    val playlistId: Long,
+    val kind: String,
+    val itemId: Long,
+    val addedAt: Long,
+    @ColumnInfo(defaultValue = "0") val position: Long = 0
+)
 
 /**
  * Provider fields are refreshed on every sync; [hidden] and [sortOrder] are the user's and survive syncs.
@@ -222,9 +231,15 @@ data class ChannelEntity(
     val catchupSource: String? = null
 )
 
+/** [position]: where the user put it (0, as for favourites from before 1.2.0, keeps channel-number order). */
 @Entity(tableName = "favourite", primaryKeys = ["playlistId", "streamId"])
 @Serializable
-data class FavouriteEntity(val playlistId: Long, val streamId: Long, val addedAt: Long)
+data class FavouriteEntity(
+    val playlistId: Long,
+    val streamId: Long,
+    val addedAt: Long,
+    @ColumnInfo(defaultValue = "0") val position: Long = 0
+)
 
 @Entity(tableName = "recent", primaryKeys = ["playlistId", "streamId"], indices = [Index("playlistId", "watchedAt")])
 data class RecentEntity(val playlistId: Long, val streamId: Long, val watchedAt: Long)

@@ -97,12 +97,32 @@ class VodRepository(private val db: AppDatabase, private val playlists: Playlist
     fun observeFavouriteCards(playlistId: Long, type: String, limit: Int): Flow<List<VodCard>> =
         if (type == CAT_MOVIE) vod.observeMovieFavourites(playlistId, limit) else vod.observeSeriesFavourites(playlistId, limit)
 
+    /** A new favourite goes at the end of the user's order. */
     suspend fun setFavourite(playlistId: Long, type: String, id: Long, favourite: Boolean) {
         if (favourite) {
-            vod.addFavourite(VodFavouriteEntity(playlistId, type, id, System.currentTimeMillis()))
+            db.withTransaction {
+                vod.addFavourite(
+                    VodFavouriteEntity(
+                        playlistId,
+                        type,
+                        id,
+                        System.currentTimeMillis(),
+                        vod.lastFavouritePosition(playlistId, type) + 1
+                    )
+                )
+            }
         } else {
             vod.removeFavourite(playlistId, type, id)
         }
+    }
+
+    /** The favourite movies' or series' ([type]) ids, in their order. */
+    suspend fun favouriteOrder(playlistId: Long, type: String): List<Long> =
+        if (type == CAT_MOVIE) vod.idsMovieFavourites(playlistId) else vod.idsSeriesFavourites(playlistId)
+
+    /** Stores favourite movies' or series' ([type]) places in the order ([positions]: id to place). */
+    suspend fun setFavouritePositions(playlistId: Long, type: String, positions: Map<Long, Long>) = db.withTransaction {
+        positions.forEach { (id, position) -> vod.setFavouritePosition(playlistId, type, id, position) }
     }
 
     suspend fun progress(playlistId: Long, kind: String, id: Long) = vod.progress(playlistId, kind, id)

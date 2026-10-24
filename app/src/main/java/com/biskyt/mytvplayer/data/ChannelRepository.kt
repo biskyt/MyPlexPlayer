@@ -98,14 +98,23 @@ class ChannelRepository(private val db: AppDatabase) {
 
     fun observeHidden(playlistId: Long) = channels.observeHidden(playlistId)
 
+    /** A new favourite goes at the end of the user's order. */
     suspend fun setFavourite(playlistId: Long, streamId: Long, favourite: Boolean) {
         if (favourite) {
-            favourites.add(
-                FavouriteEntity(playlistId, streamId, System.currentTimeMillis())
-            )
+            db.withTransaction {
+                favourites.add(FavouriteEntity(playlistId, streamId, System.currentTimeMillis(), favourites.lastPosition(playlistId) + 1))
+            }
         } else {
             favourites.remove(playlistId, streamId)
         }
+    }
+
+    /** The favourite channels' ids, in their order. */
+    suspend fun favouriteOrder(playlistId: Long): List<Long> = channels.idsFavourites(playlistId)
+
+    /** Stores favourite channels' places in the order ([positions]: stream id to place). */
+    suspend fun setFavouritePositions(playlistId: Long, positions: Map<Long, Long>) = db.withTransaction {
+        positions.forEach { (id, position) -> favourites.setPosition(playlistId, id, position) }
     }
 
     suspend fun markWatched(playlistId: Long, streamId: Long) {
