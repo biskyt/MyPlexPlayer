@@ -35,18 +35,17 @@ for c in "${clips[@]}"; do wait "$c"; done # not plain `wait`: that would wait f
 
 # As start-emulator.sh does: one deadline, and the server's log if it stops or isn't ready in time.
 deadline=$((SECONDS + 300))
+# On failure, which wait it was and the server's own log (pms.log only has what it prints to the console).
+failed() {
+  echo "$1 (waiting for: $2)" >&2
+  tail -n 50 "$work/pms.log" >&2
+  tail -n 80 "$work/data/Plex Media Server/Logs/Plex Media Server.log" >&2 || true
+  exit 1
+}
 waitFor() {
   until "$@"; do
-    if ! kill -0 "$pms" 2> /dev/null; then
-      echo "Plex Media Server stopped." >&2
-      tail -n 50 "$work/pms.log" >&2
-      exit 1
-    fi
-    if ((SECONDS > deadline)); then
-      echo "Plex Media Server wasn't ready within 5 minutes." >&2
-      tail -n 50 "$work/pms.log" >&2
-      exit 1
-    fi
+    kill -0 "$pms" 2> /dev/null || failed "Plex Media Server stopped." "$1"
+    ((SECONDS <= deadline)) || failed "Plex Media Server wasn't ready within 5 minutes." "$1"
     sleep 1
   done
 }
