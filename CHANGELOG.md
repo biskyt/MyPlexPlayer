@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.3.2
+- **Dolby Vision files that also carry HDR10+ now play in Dolby Vision** on TVs that showed them as HDR10 (such as
+  some Philips TVs). On a screen without Dolby Vision, they still play in HDR10+.
+
 ## 0.3.1
 - Hiding a category from the column now always leaves the remote on the category shown next.
 
