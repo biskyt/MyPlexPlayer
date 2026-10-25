@@ -211,7 +211,7 @@ data class VodFavouriteEntity(
         Index("playlistId", "hidden", "position", "name"),
         Index("playlistId", "categoryId", "hidden", "position", "name"),
         Index("playlistId", "number"),
-        // The Catch-up list, and whether a playlist has one (asked on every screen).
+        // Unused since Catch-up went (kept to leave the schema as it is); see AppDatabase.
         Index("playlistId", "hidden", "archiveDays")
     ]
 )
@@ -224,7 +224,7 @@ data class ChannelEntity(
     val categoryId: String,
     val logoUrl: String?,
     val providerEpgId: String?,
-    /** Catch-up days offered by the provider (0: no catch-up). */
+    /** Catch-up days the provider offered (0: none). Unused since Catch-up went; see AppDatabase. */
     val archiveDays: Int,
     val hidden: Boolean = false,
     val sortOrder: Int? = null,

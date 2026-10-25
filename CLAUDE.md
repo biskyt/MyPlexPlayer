@@ -14,8 +14,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   menus, the guide's screens) is made in MyTVPlayer first, then cherry-picked here, so the shared code stays the same
   and ports apply cleanly. Plex-only work (sign-in, servers, play state, Live TV, DVR) is made here only.
 - **The move to Plex is under way:** the plan, step by step, is in `ROADMAP.md`. Until those steps land, much of the
-  code (Xtream, XMLTV guides, catch-up) is MyTVPlayer's and is due to be replaced. M3U and the free playlist went
-  in 0.2.2.
+  code (Xtream, XMLTV guides) is MyTVPlayer's and is due to be replaced. M3U and the free playlist went
+  in 0.2.2; Catch-up has gone too (DVR replaces it).
 
 See also:
 - `RELEASING.md`: signing and how releases work.
@@ -124,7 +124,7 @@ See also:
 - **Robolectric UI tests:**
   - **Compose rules:** use `createUiComposeRule()` / `createUiComposeRule<Activity>()` from `testutil/ComposeRules.kt`, not `createComposeRule()`.
     - The plain rule runs effects on an unconfined dispatcher. Room flows collected with `collectAsState` then resume on Room's `arch_disk_io` threads and race the main thread's recomposition, so updates get lost now and then.
-    - That was the cause of the long-running Catch-up tab / category flakes. The real app is unaffected.
+    - That was the cause of long-running flakes (a tab or category not showing). The real app is unaffected.
   - Clear each test's `Navigator` (its ViewModelStores) at teardown with the `Navigators` rule
     (`@get:Rule(order = Navigators.ORDER)`, in testutil/Navigators.kt): otherwise ViewModels and ExoPlayers from earlier
     tests keep running into later ones.
@@ -135,8 +135,6 @@ See also:
     1.10.2; an IdlingResource isn't consulted by performScrollToNode, which then loops until out of memory). A
     coroutines upgrade that renames it fails every UI test at once.
   - **Waits:** go through `waitAdvancingClock(stepMs)` in `testutil/UiWait.kt`, because the main looper is paused. Use step 0 to run due work, and a step greater than 0 when delayed work (debounces, timeouts) must happen.
-  - **Catch-up from FakeProvider is timed from now** and filed by local day: a test that checks the days uses the
-    `LocalMidday` rule, or it fails between midnight and 2am.
   - **Settings start from defaults:** the settings DataStore is process-wide, so `TestApp` and `PlainApp` reset it when
     each test ends. A test sets only what differs from the defaults (in its `setUp`).
   - **A panel is its own window:** `SidePanel` dialogs are separate windows. Send keys to the right root (`onAllNodes(isRoot())`).

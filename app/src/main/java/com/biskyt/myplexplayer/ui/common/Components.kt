@@ -68,7 +68,6 @@ import coil3.request.ImageRequest
 import coil3.request.allowRgb565
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
-import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.data.db.VodCard
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
 import com.biskyt.myplexplayer.ui.theme.Palette
@@ -431,13 +430,6 @@ fun ValueChip(value: String) {
         style = MaterialTheme.typography.labelLarge,
         modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Palette.surfaceHigh).padding(horizontal = 12.dp, vertical = 6.dp)
     )
-}
-
-/** Marks a channel with catch-up (nothing for others): small and dim, there when looked for without crowding. */
-@Composable
-fun CatchupMark(ch: ChannelEntity, modifier: Modifier = Modifier) {
-    if (ch.archiveDays <= 0) return
-    Icon(AppIcons.Catchup, stringResource(R.string.common_catchup), tint = Palette.textDim, modifier = modifier.size(16.dp))
 }
 
 /**

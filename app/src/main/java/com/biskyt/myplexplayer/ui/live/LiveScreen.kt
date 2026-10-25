@@ -52,7 +52,6 @@ import com.biskyt.myplexplayer.data.programmeTitle
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
-import com.biskyt.myplexplayer.ui.common.CatchupMark
 import com.biskyt.myplexplayer.ui.common.CategoryEntry
 import com.biskyt.myplexplayer.ui.common.ChannelLogo
 import com.biskyt.myplexplayer.ui.common.FilteredCategoryColumn
@@ -73,7 +72,6 @@ import com.biskyt.myplexplayer.ui.common.TvCard
 import com.biskyt.myplexplayer.ui.common.categoryEntries
 import com.biskyt.myplexplayer.ui.common.collectIds
 import com.biskyt.myplexplayer.ui.common.digit
-import com.biskyt.myplexplayer.ui.common.distinctLabels
 import com.biskyt.myplexplayer.ui.common.formatTime
 import com.biskyt.myplexplayer.ui.common.isGuide
 import com.biskyt.myplexplayer.ui.common.numberLabel
@@ -92,22 +90,13 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
         vm.focusStreamId = ch.streamId
         nav.push(Screen.Player(pid, ch.streamId, filter))
     }
-    // In the Catch-up lists, OK opens the channel's past programmes (Watch, in its options, plays it live).
-    val open: (ChannelEntity) -> Unit = { ch ->
-        if (vm.catchupMode) {
-            vm.focusStreamId = ch.streamId
-            nav.push(Screen.Catchup(ch.playlistId, ch.streamId))
-        } else {
-            play(ch)
-        }
-    }
 
     LaunchedEffect(Unit) { vm.restoreFocusPending = true }
     // So a late focus target in the guide knows when the user has moved on (see GuideGrid).
     val screenFocus = remember { ScreenFocus() }
 
     TabScaffold(
-        if (vm.catchupMode) Tab.CATCHUP else Tab.LIVE,
+        Tab.LIVE,
         // Anywhere on the screen, the tabs included (else the TV would take the Guide button for its own guide): 0–9
         // on the remote jumps straight to that channel number; the Guide button switches list/guide.
         Modifier.onFocusChanged { screenFocus.hasFocus = it.hasFocus }.onPreviewKeyEvent { e ->
@@ -140,7 +129,7 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
                     when {
                         !vm.filters.settled -> Unit
                         vm.guideMode -> GuideGrid(vm, items, play, screenFocus)
-                        else -> ChannelList(vm, items, open)
+                        else -> ChannelList(vm, items, play)
                     }
                 }
             }
@@ -169,7 +158,6 @@ private fun BackToFilter(filterBox: FocusRequester, atTop: () -> Boolean, conten
 
 @Composable
 private fun LiveCategories(vm: LiveViewModel, selected: ChannelFilter) {
-    if (vm.catchupMode) return CatchupCategories(vm, selected)
     val categories by vm.categories.collectAsState()
     val favourites = stringResource(R.string.common_favourites)
     val recent = stringResource(R.string.common_recent)
@@ -184,41 +172,19 @@ private fun LiveCategories(vm: LiveViewModel, selected: ChannelFilter) {
     FilteredCategoryColumn(entries, fixed = 3, selected, vm.filters::focus, vm.filters::select, vm::hideCategory)
 }
 
-/** The Catch-up tab's column: all catch-up channels, then each category that has some. */
-@Composable
-private fun CatchupCategories(vm: LiveViewModel, selected: ChannelFilter) {
-    val categories by vm.catchupCategories.collectAsState()
-    val all = stringResource(R.string.live_all_catchup)
-    val entries = remember(categories, all) {
-        listOf<CategoryEntry<ChannelFilter>>(CategoryEntry(ChannelFilter.Catchup, all, categories.sumOf { it.count })) +
-            distinctLabels(categories, { it.label }, { it.lang }) { c, label ->
-                CategoryEntry<ChannelFilter>(ChannelFilter.CatchupCategory(c.categoryId), label, c.count)
-            }
-    }
-    FilteredCategoryColumn(entries, fixed = 1, selected, vm.filters::focus, vm.filters::select)
-}
-
 @Composable
 private fun ListHeader(vm: LiveViewModel, filter: ChannelFilter, filterModifier: Modifier) {
     val query by vm.query.collectAsState()
-    // Each tab reads only its own category list.
-    val (title, count) = if (vm.catchupMode) {
-        val categories by vm.catchupCategories.collectAsState()
-        val shown = (filter as? ChannelFilter.CatchupCategory)?.let { f -> categories.firstOrNull { it.categoryId == f.id } }
-        (shown?.label ?: stringResource(R.string.common_catchup)) to (shown?.count ?: categories.sumOf { it.count })
-    } else {
-        val categories by vm.categories.collectAsState()
-        val total by vm.totalCount.collectAsState()
-        val favs = vm.favouriteIds.collectIds()
-        when (filter) {
-            ChannelFilter.All -> stringResource(R.string.live_all_channels) to total
-            ChannelFilter.Favourites -> stringResource(R.string.common_favourites) to favs.size
-            is ChannelFilter.Category -> categories.firstOrNull { it.categoryId == filter.id }.let {
-                (it?.label ?: stringResource(R.string.common_channels)) to
-                    it?.channelCount
-            }
-            else -> stringResource(R.string.common_recent) to null
+    val categories by vm.categories.collectAsState()
+    val total by vm.totalCount.collectAsState()
+    val favs = vm.favouriteIds.collectIds()
+    val (title, count) = when (filter) {
+        ChannelFilter.All -> stringResource(R.string.live_all_channels) to total
+        ChannelFilter.Favourites -> stringResource(R.string.common_favourites) to favs.size
+        is ChannelFilter.Category -> categories.firstOrNull { it.categoryId == filter.id }.let {
+            (it?.label ?: stringResource(R.string.common_channels)) to it?.channelCount
         }
+        ChannelFilter.Recent -> stringResource(R.string.common_recent) to null
     }
     ListHeader(title, count, query, { vm.query.value = it }, stringResource(R.string.live_filter_hint), filterModifier) {
         Row(Modifier.clip(RoundedCornerShape(12.dp)).background(Palette.surface).padding(4.dp)) {
@@ -293,16 +259,13 @@ fun ChannelRow(
             )
             ChannelLogo(ch.logoUrl, ch.name, favourite = favourite)
             // Provider names are long ("US: NBC 4 (WDIV) DETROIT HD"), so the name gets the larger share of the row.
-            Row(Modifier.weight(1.2f), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    ch.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-                CatchupMark(ch, Modifier.padding(start = 6.dp))
-            }
+            Text(
+                ch.name,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1.2f)
+            )
             Column(Modifier.weight(1f)) {
                 when {
                     nn == null -> SkeletonLines()

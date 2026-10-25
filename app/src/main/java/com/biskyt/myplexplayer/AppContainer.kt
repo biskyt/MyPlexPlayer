@@ -22,7 +22,6 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
 import com.biskyt.myplexplayer.data.BackupFile
 import com.biskyt.myplexplayer.data.BackupRepository
-import com.biskyt.myplexplayer.data.CatchupRepository
 import com.biskyt.myplexplayer.data.CategoryStore
 import com.biskyt.myplexplayer.data.ChannelRepository
 import com.biskyt.myplexplayer.data.CrashLog
@@ -71,7 +70,6 @@ class AppContainer(context: Context) {
     val vod = VodRepository(db, playlists, categoryStore, plex)
     val favourites = Favourites(appScope, settings, channels, vod)
     val search = SearchRepository(db)
-    val catchup = CatchupRepository(playlists)
     val sync = SyncManager(appScope, playlists, vod, epg)
     val backup = BackupRepository(db, settings, epg, sync)
     val backupFile = BackupFile(context)

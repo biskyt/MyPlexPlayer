@@ -42,19 +42,16 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.container
-import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
 import com.biskyt.myplexplayer.ui.theme.Palette
-import kotlinx.coroutines.flow.flowOf
 
 enum class Tab(@StringRes val label: Int) {
     HOME(R.string.common_tab_home),
     LIVE(R.string.common_tab_live),
     SERIES(R.string.common_tab_series),
-    MOVIES(R.string.common_tab_movies),
-    CATCHUP(R.string.common_catchup)
+    MOVIES(R.string.common_tab_movies)
 }
 
 /** Top bar from the agreed design: logo, tabs, clock, search, settings and the playlist switcher. */
@@ -68,9 +65,6 @@ fun TopBar(selected: Tab?) {
     val playlists by remember { container.playlists.observePlaylists() }.collectAsState(initial = emptyList())
     val active = playlists.firstOrNull { it.id == settings?.activePlaylistId } ?: playlists.firstOrNull()
 
-    // Catch-up only for playlists that have some.
-    val hasCatchup by remember(active?.id) { active?.let { container.channels.observeHasCatchup(it.id) } ?: flowOf(false) }
-        .collectAsState(initial = false)
     Row(
         Modifier.padding(start = 56.dp, end = 56.dp, top = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -81,7 +75,7 @@ fun TopBar(selected: Tab?) {
             Text("Plex", style = MaterialTheme.typography.titleLarge, color = accent.color)
             Text("Player", style = MaterialTheme.typography.titleLarge)
         }
-        Tab.entries.filter { it != Tab.CATCHUP || hasCatchup }.forEach { tab ->
+        Tab.entries.forEach { tab ->
             PillButton(
                 text = stringResource(tab.label),
                 selected = tab == selected,
@@ -92,7 +86,6 @@ fun TopBar(selected: Tab?) {
                             Tab.LIVE -> Screen.Live()
                             Tab.MOVIES -> Screen.Movies()
                             Tab.SERIES -> Screen.Series()
-                            Tab.CATCHUP -> Screen.Live(ChannelFilter.Catchup)
                         }
                     )
                 }

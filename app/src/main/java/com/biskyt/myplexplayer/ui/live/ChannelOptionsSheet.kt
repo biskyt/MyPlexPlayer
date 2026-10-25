@@ -11,7 +11,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
@@ -83,20 +82,6 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                         // Only if the user is still here when the lookup finishes.
                         val from = nav.current
                         vm.find(ch, programme, kind) { if (nav.current === from) nav.push(it) }
-                    }
-                }
-                // Catch-up channels (known from the channel itself: nothing is asked of the provider to show these).
-                if (ch.archiveDays > 0) {
-                    MenuOption(
-                        stringResource(R.string.common_catchup),
-                        pluralStringResource(R.plurals.common_catchup_days, ch.archiveDays, ch.archiveDays)
-                    ) {
-                        close()
-                        nav.push(Screen.Catchup(ch.playlistId, ch.streamId))
-                    }
-                    MenuOption(stringResource(R.string.common_start_over), stringResource(R.string.live_option_start_over_help)) {
-                        close()
-                        nav.push(Screen.CatchupPlayer(ch.playlistId, ch.streamId, filter = vm.filter.value))
                     }
                 }
                 MenuOption(favouriteLabel(ch.streamId in favs)) { vm.toggleFavourite(ch) }

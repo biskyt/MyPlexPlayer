@@ -41,7 +41,6 @@ fun ChannelCard(
                 ChannelLogo(c.logoUrl, c.name, 64.dp, 38.dp, favourite)
                 // Two lines fit beside the logo, so cards keep one height whatever their names.
                 Muted(c.name, Modifier.padding(start = 10.dp).weight(1f, fill = false), maxLines = 2)
-                CatchupMark(c, Modifier.padding(start = 6.dp))
             }
             Text(
                 nn?.now?.let { programmeTitle(it.title) } ?: " ",

@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.4.2
+- **Catch-up is gone**, from the menu, the TV guide, channel options and the player: it came from IPTV providers,
+  and the DVR (recording from the Plex guide) is planned in its place. The TV guide now starts from what's on now.
+
 ## 0.4.1
 - **Mark an episode watched or unwatched** from its series' page: hold OK on it in the episode list. It changes on
   your Plex server too.

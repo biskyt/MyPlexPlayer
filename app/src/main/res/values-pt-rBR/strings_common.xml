@@ -10,13 +10,11 @@
     <string name="common_tab_live">TV ao vivo</string>
     <string name="common_tab_movies">Filmes</string>
     <string name="common_tab_series">Séries</string>
-    <string name="common_catchup">Reprises</string>
 
     <string name="common_continue">Continuar</string>
     <string name="common_watch">Assistir</string>
     <string name="common_play">Reproduzir</string>
     <string name="common_from_start">Do início</string>
-    <string name="common_start_over">Começar de novo</string>
     <string name="common_skip_back">Voltar</string>
     <string name="common_skip_forward">Avançar</string>
     <string name="common_subtitles_off">Desativadas</string>
@@ -35,8 +33,6 @@
     <string name="common_match_failed">Não foi possível associar os canais</string>
     <string name="common_updated_at">atualizado em %1$s</string>
 
-    <string name="common_today">Hoje</string>
-    <string name="common_yesterday">Ontem</string>
     <string name="common_today_at">Hoje %1$s</string>
     <string name="common_tomorrow_at">Amanhã %1$s</string>
 
@@ -51,11 +47,6 @@
     <!-- Options of a film, series or episode from Plex: changes whether it's watched, on the server too -->
     <string name="common_mark_watched">Marcar como assistido</string>
     <string name="common_mark_unwatched">Marcar como não assistido</string>
-    <plurals name="common_catchup_days">
-        <item quantity="one">Programas do último %1$d dia</item>
-        <item quantity="many">Programas dos últimos %1$d dias</item>
-        <item quantity="other">Programas dos últimos %1$d dias</item>
-    </plurals>
     <string name="common_change_guide_source">Mudar fonte do guia…</string>
     <string name="common_change_guide_source_help">Escolha quais dados de guia este canal usa</string>
 
