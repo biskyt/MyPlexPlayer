@@ -14,8 +14,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.decodeFromStream
+import kotlinx.serialization.json.jsonArray
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.Headers
@@ -54,7 +60,33 @@ class PlexException(
     }
 }
 
-internal val plexJson = Json { ignoreUnknownKeys = true }
+internal val plexJson = Json {
+    ignoreUnknownKeys = true
+    // A null where a value has a default (a programme without a title) takes the default, rather than failing.
+    coerceInputValues = true
+}
+
+/**
+ * A list without the items that can't be read (a programme with a field of another type, say), rather than failing
+ * the whole reply: one odd programme mustn't cost the whole guide.
+ */
+internal class SkippingList<T>(private val item: KSerializer<T>) : KSerializer<List<T>> {
+    private val list = ListSerializer(item)
+    override val descriptor = list.descriptor
+
+    override fun deserialize(decoder: Decoder): List<T> {
+        val json = decoder as JsonDecoder
+        return json.decodeJsonElement().jsonArray.mapNotNull {
+            try {
+                json.json.decodeFromJsonElement(item, it)
+            } catch (ignored: IllegalArgumentException) { // SerializationException included
+                null
+            }
+        }
+    }
+
+    override fun serialize(encoder: Encoder, value: List<T>) = list.serialize(encoder, value)
+}
 
 /** Who is asking, the [token] and (during playback) the [session], as Plex's X-Plex-* headers; blank ones left out. */
 internal fun plexHeaders(device: PlexDevice, token: String?, session: String? = null): Map<String, String> = listOfNotNull(

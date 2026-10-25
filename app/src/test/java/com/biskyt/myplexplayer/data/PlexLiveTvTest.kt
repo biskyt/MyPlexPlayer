@@ -16,6 +16,7 @@ import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -112,5 +113,26 @@ class PlexLiveTvTest {
         sync.refreshNow(source.id).getOrThrow()
 
         assertEquals(emptyList<Long>(), ChannelRepository(db).ids(source.id, ChannelFilter.All))
+    }
+
+    @Test
+    fun `a guide that fails keeps the last one, and says why with the guides`() = runBlocking {
+        sync.refreshNow(source.id).getOrThrow()
+        val guide = db.epg().providerSource(source.id)!!
+        assertNull(guide.lastError)
+        assertEquals(2, guide.channelCount)
+        val now = System.currentTimeMillis()
+        val before = epg.programmes(source.id, channels().map { it.streamId }, now, now + 3_600_000)
+
+        fake.guideFails = true
+        sync.refreshNow(source.id).getOrThrow() // the channels still came
+
+        assertEquals(before, epg.programmes(source.id, channels().map { it.streamId }, now, now + 3_600_000))
+        // As the code, not words: shown in the language of the moment.
+        assertEquals(GuideError.saved(GuideError.server(500)), db.epg().providerSource(source.id)!!.lastError)
+
+        fake.guideFails = false
+        sync.refreshNow(source.id).getOrThrow()
+        assertNull(db.epg().providerSource(source.id)!!.lastError)
     }
 }

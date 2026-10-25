@@ -55,7 +55,7 @@ data class PlexProgramme(
     val index: Int? = null,
     val parentIndex: Int? = null,
     val duration: Long? = null,
-    @SerialName("Media") val airings: List<PlexAiring> = emptyList(),
+    @SerialName("Media") @Serializable(with = SkippingList::class) val airings: List<PlexAiring> = emptyList(),
     @SerialName("Channel") val channels: List<PlexChannelRef> = emptyList(),
 ) {
     /** The channel an airing is on: its own, else the programme's. */
@@ -99,7 +99,8 @@ internal class PlexLiveContainer(
     @SerialName("Dvr") val dvrs: List<PlexDvr> = emptyList(),
     @SerialName("DVR") val dvrsAsSpecified: List<PlexDvr> = emptyList(),
     @SerialName("MediaProvider") val providers: List<PlexProvider> = emptyList(),
+    // Not skipped: a channel left out would be removed (and its favourite with it). A guide entry left out isn't.
     @SerialName("Channel") val channels: List<PlexChannel> = emptyList(),
-    @SerialName("Metadata") val programmes: List<PlexProgramme> = emptyList(),
+    @SerialName("Metadata") @Serializable(with = SkippingList::class) val programmes: List<PlexProgramme> = emptyList(),
     @SerialName("MediaSubscription") val subscriptions: List<PlexSubscription> = emptyList(),
 )

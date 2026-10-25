@@ -77,6 +77,9 @@ class FakePlex : AutoCloseable {
     /** Live TV refused (403), as a friend's server does to a user it's shared with. */
     @Volatile var liveTvRefused = false
 
+    /** The guide failing (500), its channels still answering. */
+    @Volatile var guideFails = false
+
     /** Tuning answers 500 ("Tuning failed"). */
     @Volatile var tuneFails = false
 
@@ -181,6 +184,7 @@ class FakePlex : AutoCloseable {
             }
         }
         path == "/$EPG/lineups/dvr/channels" -> container { put("Channel", JsonArray(CHANNELS)) }
+        path == "/$EPG/grid" && guideFails -> MockResponse().setResponseCode(500)
         path == "/$EPG/grid" -> container { put("Metadata", JsonArray(guide(request))) }
         path.startsWith("/livetv/dvrs/$DVR/channels/") && path.endsWith("/tune") -> tune(path.split('/')[5])
         path == "/:/timeline" && request.requestUrl!!.queryParameter("key").orEmpty().startsWith("/livetv/sessions/") -> {
