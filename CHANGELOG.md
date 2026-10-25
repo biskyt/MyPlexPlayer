@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.3.4
+- **Files in a format the player can't open now play:** the Plex server repackages them as they are, with the
+  picture and sound untouched, never converted. A file the server could only play by converting it says so instead.
+- Your Plex server's access key is no longer part of the address of what you're playing.
+
 ## 0.3.3
 - **Clearer text:** secondary text across the app (descriptions and channel names while watching, times in the TV
   guide, what's on next, counts and hints) is much brighter. While watching, the shading behind the controls is

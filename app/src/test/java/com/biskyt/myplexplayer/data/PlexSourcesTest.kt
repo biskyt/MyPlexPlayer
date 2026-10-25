@@ -190,9 +190,11 @@ class PlexSourcesTest {
         assertEquals(listOf("Pilot" to 1, "Second" to 2), show.episodes.map { it.title to it.number })
 
         val movie = db.vod().movie(source.id, 11)!!
-        val url = vod.movieStream(source, movie).url.toHttpUrl()
+        val stream = vod.movieStream(source, movie)
+        val url = stream.url.toHttpUrl()
         assertEquals("the file as it is", "/library/parts/111/1/file.mp4", url.encodedPath)
-        assertEquals(FakePlex.SERVER_TOKEN, url.queryParameter("X-Plex-Token"))
+        assertEquals("the token goes in a header", FakePlex.SERVER_TOKEN, stream.plex!!.stream.headers["X-Plex-Token"])
+        assertEquals("not in the address", null, url.queryParameter("X-Plex-Token"))
         assertEquals("/library/parts/2102/1/file.mkv", vod.episodeStream(source, 212, "mkv").url.toHttpUrl().encodedPath)
     }
 }

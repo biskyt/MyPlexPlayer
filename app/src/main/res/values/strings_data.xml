@@ -33,6 +33,8 @@
     <string name="data_plex_signed_out">Plex didn\'t accept the sign-in: sign in to Plex again</string>
     <string name="data_plex_unreachable">Couldn\'t reach the Plex server</string>
     <string name="data_plex_unexpected">Unexpected response from Plex</string>
+    <string name="data_plex_needs_converting">This file plays only if the server converts it, which MyPlexPlayer never asks for.</string>
+    <string name="data_plex_cannot_stream">The server can\'t stream this file.</string>
     <string name="data_account_inactive">This account is not active</string>
 
 
