@@ -13,7 +13,9 @@ Each step is its own pull request.
    playback, progress, Live TV, guide and DVR. Tested against fixtures captured from real servers.
    - Done: `PlexClient` for libraries, home rows, search, images, direct play, direct stream and progress, tested
      against recorded responses and, in the Plex spike workflow, against a real server (`PlexServerTest`).
-   - Next, once the owner's spike results are in: sign-in and servers, Live TV, the guide and DVR.
+   - Done: `PlexAccount` for sign-in (the code entered at plex.tv/link) and the account's servers, each at its
+     best address (home network first, Plex's relay last), tested against plex.tv's replies on the owner's account.
+   - Next: Live TV, the guide and DVR, as the steps below need them.
 3. **Sign in to Plex and choose a server**, in place of Xtream, M3U, the free playlist and added guides. Several
    servers on one account, switched from the top bar. The website (`docs/index.html`, `docs/privacy.html`) and the
    store listing (`store/`) are rewritten for Plex in the same step: until then they still describe MyTVPlayer.

@@ -1,48 +1,8 @@
 package com.biskyt.myplexplayer.core.plex
 
 import com.biskyt.myplexplayer.core.plex.PlexException.Reason
-import java.io.ByteArrayInputStream
-import java.io.IOException
-import java.io.InputStream
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.decodeFromStream
-import okhttp3.Headers
 import okhttp3.HttpUrl
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-
-/**
- * A failure talking to a Plex server. [message] is in English, for logs; [reason] (with [code]) lets the app tell
- * the user in their language.
- */
-class PlexException(
-    message: String,
-    cause: Throwable? = null,
-    val reason: Reason = Reason.OTHER,
-    /** The server's HTTP status, for [Reason.SERVER_ERROR]. */
-    val code: Int = 0,
-) : IOException(message, cause) {
-    enum class Reason {
-        /** The token was refused (401): sign in again. */
-        UNAUTHORIZED,
-        UNREACHABLE,
-        SERVER_ERROR,
-        UNEXPECTED_RESPONSE,
-        INVALID_ADDRESS,
-
-        /** The file can't be played without the server re-encoding it, which the app never asks for. */
-        NEEDS_TRANSCODE,
-
-        /** The server can't stream this file at all (missing, or no free streams): [message] has its reason. */
-        CANNOT_STREAM,
-        OTHER,
-    }
-}
 
 /**
  * What the player opens: [url], with [headers] sent on every request it makes, the HLS playlists and segments
@@ -64,8 +24,7 @@ data class PlexStream(val url: String, val headers: Map<String, String>) {
  */
 class PlexClient(private val http: OkHttpClient, private val server: PlexServer, private val device: PlexDevice) {
 
-    private val base: HttpUrl = server.baseUrl.trim().trimEnd('/').toHttpUrlOrNull()
-        ?: throw PlexException("Invalid server address: ${server.baseUrl}", reason = Reason.INVALID_ADDRESS)
+    private val base: HttpUrl = plexBase(server.baseUrl)
 
     /** The server's machine identifier, which stays the same across addresses. */
     suspend fun identity(): String = container(url("identity")).machineIdentifier
@@ -224,76 +183,23 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
         server.token?.let { addQueryParameter("X-Plex-Token", it) }
     }.toString()
 
-    private fun url(path: String, query: HttpUrl.Builder.() -> Unit = {}): HttpUrl =
-        base.newBuilder().addPathSegments(path).apply(query).build()
+    private fun url(path: String, query: HttpUrl.Builder.() -> Unit = {}): HttpUrl = base.at(path, query)
 
     /** Who is asking, the token and (during playback) the session, as Plex's X-Plex-* headers. */
-    private fun headers(session: String?): Map<String, String> = listOfNotNull(
-        "X-Plex-Client-Identifier" to device.clientId,
-        "X-Plex-Product" to device.product,
-        "X-Plex-Version" to device.version,
-        "X-Plex-Platform" to device.platform,
-        "X-Plex-Platform-Version" to device.platformVersion,
-        "X-Plex-Device" to device.device,
-        "X-Plex-Device-Name" to device.deviceName,
-        server.token?.let { "X-Plex-Token" to it },
-        session?.let { "X-Plex-Session-Identifier" to it },
-    ).filter { it.second.isNotEmpty() }.toMap()
+    private fun headers(session: String?): Map<String, String> = plexHeaders(device, server.token, session)
 
-    private fun request(method: String, url: HttpUrl, headers: Map<String, String>): Request = Request.Builder().url(url)
-        .method(method, if (method == "GET") null else ByteArray(0).toRequestBody())
-        .headers(
-            Headers.Builder().add("Accept", "application/json").apply {
-                // A device's own name ("Télé du salon") isn't ASCII, which OkHttp otherwise refuses.
-                headers.forEach { (name, value) -> addUnsafeNonAscii(name, value) }
-            }.build()
-        )
-        .build()
+    private suspend fun container(url: HttpUrl, headers: Map<String, String> = headers(null)): PlexContainer =
+        http.fetch<PlexResponse>("GET", url, headers).container
 
-    private suspend fun container(url: HttpUrl, headers: Map<String, String> = headers(null)): PlexContainer = withContext(Dispatchers.IO) {
-        execute(request("GET", url, headers)) { json.decodeFromStream<PlexResponse>(it).container }
-    }
+    private suspend fun send(method: String, url: HttpUrl, session: String? = null) =
+        http.execute(plexRequest(method, url, headers(session))) {}
 
-    private suspend fun send(method: String, url: HttpUrl, session: String? = null) {
-        withContext(Dispatchers.IO) { execute(request(method, url, headers(session))) {} }
-    }
-
-    /** Runs [request] and reads its body as a stream (library pages can be large); maps every failure. */
-    @Suppress("ThrowsCount") // each failure gets its own reason
-    private inline fun <T> execute(request: Request, read: (InputStream) -> T): T {
-        val response = try {
-            http.newCall(request).execute()
-        } catch (e: IOException) {
-            throw PlexException("Couldn't reach the server: ${e.message}", e, Reason.UNREACHABLE)
-        }
-        return response.use {
-            when {
-                it.code == HTTP_UNAUTHORIZED -> throw PlexException(
-                    "The server refused the token",
-                    reason = Reason.UNAUTHORIZED,
-                    code = it.code
-                )
-                !it.isSuccessful -> throw PlexException("Server returned error ${it.code}", reason = Reason.SERVER_ERROR, code = it.code)
-                else -> try {
-                    read(it.body?.byteStream() ?: ByteArrayInputStream(ByteArray(0)))
-                } catch (e: IllegalArgumentException) { // SerializationException included
-                    throw PlexException("Unexpected response from server", e, Reason.UNEXPECTED_RESPONSE)
-                } catch (e: IOException) { // the body is read as it arrives: the connection can drop mid-way
-                    throw PlexException("Couldn't reach the server: ${e.message}", e, Reason.UNREACHABLE)
-                }
-            }
-        }
-    }
-
-    @OptIn(ExperimentalSerializationApi::class)
     private companion object {
-        const val HTTP_UNAUTHORIZED = 401
         const val CANNOT_STREAM = 2000
         val REENCODES = setOf("transcode", "burn")
         const val VIDEO = 1
         const val AUDIO = 2
         val SEARCHED = setOf("movie", "show", "episode")
-        val json = Json { ignoreUnknownKeys = true }
     }
 }
 
