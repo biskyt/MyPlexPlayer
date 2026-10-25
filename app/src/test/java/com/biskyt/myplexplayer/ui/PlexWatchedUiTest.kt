@@ -5,6 +5,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
+import com.biskyt.myplexplayer.data.db.VOD_EPISODE
 import com.biskyt.myplexplayer.data.db.VOD_MOVIE
 import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
@@ -45,16 +46,16 @@ class PlexWatchedUiTest {
     @After
     fun tearDown() = plex.close()
 
-    /** Holds OK on the film's poster and picks [action] from its options. */
-    private fun choose(action: String) {
-        compose.waitForText("Big Buck Bunny", stepMs = 50)
-        compose.onAllNodes(hasText("Big Buck Bunny") and hasClickAction())[0].performSemanticsAction(SemanticsActions.OnLongClick)
+    /** Holds OK on [title] (a poster, or an episode) and picks [action] from its options. */
+    private fun choose(action: String, title: String = "Big Buck Bunny") {
+        compose.waitForText(title, stepMs = 50)
+        compose.onAllNodes(hasText(title) and hasClickAction())[0].performSemanticsAction(SemanticsActions.OnLongClick)
         compose.waitForText(action, stepMs = 50)
         compose.onNode(hasText(action) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
     }
 
-    private fun finished() = runBlocking {
-        app.container.db.vod().progressOf(source, VOD_MOVIE, listOf(11L)).singleOrNull()?.finished == true
+    private fun finished(kind: String = VOD_MOVIE, id: Long = 11) = runBlocking {
+        app.container.db.vod().progressOf(source, kind, listOf(id)).singleOrNull()?.finished == true
     }
 
     @Test
@@ -66,5 +67,15 @@ class PlexWatchedUiTest {
         compose.waitAdvancingClock(stepMs = 50) { "11" in plex.watched && finished() }
         choose("Mark as unwatched")
         compose.waitAdvancingClock(stepMs = 50) { "11" !in plex.watched && !finished() }
+    }
+
+    @Test
+    fun `an episode is marked watched, then unwatched, from its series' page`() {
+        val navigator = navigators.new(Screen.SeriesDetails(source, 21))
+        compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
+        choose("Mark as watched", title = "Pilot")
+        compose.waitAdvancingClock(stepMs = 50) { "211" in plex.watched && finished(VOD_EPISODE, 211) }
+        choose("Mark as unwatched", title = "Pilot")
+        compose.waitAdvancingClock(stepMs = 50) { "211" !in plex.watched && !finished(VOD_EPISODE, 211) }
     }
 }

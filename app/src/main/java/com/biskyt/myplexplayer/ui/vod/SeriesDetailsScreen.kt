@@ -38,12 +38,14 @@ import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
+import com.biskyt.myplexplayer.ui.common.ItemActionsPanel
 import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.ProgressLine
 import com.biskyt.myplexplayer.ui.common.TvCard
 import com.biskyt.myplexplayer.ui.common.favouriteLabel
 import com.biskyt.myplexplayer.ui.common.formatRuntime
+import com.biskyt.myplexplayer.ui.common.markWatched
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.restoreFocusIf
 import com.biskyt.myplexplayer.ui.common.shortEpisodeLabel
@@ -71,6 +73,13 @@ class SeriesDetailsViewModel(
     /** The season asked for or picked (until then, the one with the episode to carry on with). */
     var season by mutableStateOf(season)
 
+    /** An episode whose options are open (holding OK on it). */
+    var optionsFor by mutableStateOf<EpisodeInfo?>(null)
+
+    /** Whether its episodes can be marked watched: on a Plex server. */
+    var canMark by mutableStateOf(false)
+        private set
+
     /** An episode to focus when the page opens (from the TV guide), until it has had focus. */
     var focusEpisodePending = true
 
@@ -87,6 +96,7 @@ class SeriesDetailsViewModel(
         error = null
         series = c.vod.series(playlistId, seriesId)
         val p = c.playlists.get(playlistId) ?: return@launch
+        canMark = p.isPlex
         try {
             val d = c.vod.seriesDetails(p, seriesId)
             details = d
@@ -94,6 +104,9 @@ class SeriesDetailsViewModel(
             error = e.message ?: appString(R.string.vod_episodes_failed)
         }
     }
+
+    /** Marks [e] watched or unwatched on the server, and its row follows (out of reach, nothing changes). */
+    fun setWatched(e: EpisodeInfo, watched: Boolean) = viewModelScope.launch { c.vod.setWatched(playlistId, e.id, seriesId, watched) }
 
     fun toggleFavourite() = viewModelScope.launch { c.vod.setFavourite(playlistId, CAT_SERIES, seriesId, !favourite.value) }
 }
@@ -135,7 +148,8 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
                         shortEpisodeLabel(next.season, next.number)
                     ),
                     { play(next) },
-                    if (target == null || !vm.focusEpisodePending) rememberFirstFocus(next.id) else Modifier,
+                    // Once, when the episodes come: not again when marking one changes which is next.
+                    if (target == null || !vm.focusEpisodePending) rememberFirstFocus() else Modifier,
                     primary = true
                 )
             }
@@ -183,14 +197,28 @@ private fun Episodes(
     LazyColumn(state = list, verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
         items(shown, key = { it.id }) { e ->
             val focus = Modifier.restoreFocusIf(vm.focusEpisodePending && e == target) { vm.focusEpisodePending = false }
-            EpisodeRow(e, progress[e.id], focus) { play(e) }
+            EpisodeRow(e, progress[e.id], focus, onLongClick = { vm.optionsFor = e }.takeIf { vm.canMark }) { play(e) }
         }
+    }
+    vm.optionsFor?.let { e ->
+        val close = { vm.optionsFor = null }
+        val action = markWatched(progress[e.id]?.finished == true) {
+            close()
+            vm.setWatched(e, it)
+        }
+        ItemActionsPanel(episodeName(e), listOf(action), close)
     }
 }
 
 @Composable
-private fun EpisodeRow(e: EpisodeInfo, progress: WatchProgressEntity?, modifier: Modifier, onClick: () -> Unit) {
-    TvCard(onClick = onClick, color = Palette.surfaceLow, modifier = modifier.fillMaxWidth()) {
+private fun EpisodeRow(
+    e: EpisodeInfo,
+    progress: WatchProgressEntity?,
+    modifier: Modifier,
+    onLongClick: (() -> Unit)?,
+    onClick: () -> Unit
+) {
+    TvCard(onClick = onClick, onLongClick = onLongClick, color = Palette.surfaceLow, modifier = modifier.fillMaxWidth()) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("${e.number}", style = MaterialTheme.typography.titleSmall, color = Palette.textDim, modifier = Modifier.width(36.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
