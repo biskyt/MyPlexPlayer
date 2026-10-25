@@ -5,6 +5,8 @@ Each version's section becomes its GitHub release notes, so it is written for th
 ## 0.4.5
 - **The TV guide from your Plex server now shows**, on the Live TV channels and in the TV guide: the app couldn't
   read the programmes as the server sends them, so every channel said there was no information.
+- If a guide arrives that the app can't read at all, Settings › TV guides says so, rather than every channel quietly
+  showing no information.
 
 ## 0.4.4
 - While watching live TV with the channel guide open, the remote's Menu button now opens the menu in the guide's

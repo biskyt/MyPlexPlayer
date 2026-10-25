@@ -108,7 +108,8 @@ fun categoryLabel(name: String): String = name.ifEmpty { appString(R.string.data
 val CategoryEntity.label: String get() = categoryLabel(name)
 
 /**
- * A guide failing, in the app's own words: the server refusing it ([status]), or the download not being saved (null).
+ * A guide failing, in the app's own words: the server refusing it ([status]), the download not being saved (null), or
+ * a guide that couldn't be read at all ([UNREADABLE]).
  * Kept as a guide's lastError, it's saved as what failed rather than how it's put ([saved]), so it reads in the language
  * of the moment when shown again ([text]). Other errors (a server's, a library's) are kept as they come.
  */
@@ -121,14 +122,22 @@ class GuideError private constructor(private val status: Int?) : IOException(wor
 
         fun notSaved() = GuideError(null)
 
+        /** A guide sent but not understood: none of it could be read. */
+        fun unreadable() = GuideError(UNREADABLE)
+
+        private const val UNREADABLE = -1
+
         /** What to keep as a guide's lastError for [e]. */
         fun saved(e: Throwable): String = if (e is GuideError) TAG + e.status?.toString().orEmpty() else describe(e)
 
         /** A kept lastError, as words: the app's in its language, anything else as it was. */
         fun text(saved: String): String = if (saved.startsWith(TAG)) words(saved.removePrefix(TAG).toIntOrNull()) else saved
 
-        private fun words(status: Int?) =
-            status?.let { appString(R.string.data_server_error, it) } ?: appString(R.string.data_guide_save_failed)
+        private fun words(status: Int?) = when (status) {
+            null -> appString(R.string.data_guide_save_failed)
+            UNREADABLE -> appString(R.string.data_guide_unreadable)
+            else -> appString(R.string.data_server_error, status)
+        }
     }
 }
 

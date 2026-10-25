@@ -276,12 +276,24 @@ class PlexSources(
         return PlexLineup(live, client.channels(live))
     }
 
-    /** Every channel's programmes from [fromMs] to [toMs], asked for [GUIDE_CHUNK_MS] at a time (a Pi builds each answer). */
+    /**
+     * Every channel's programmes from [fromMs] to [toMs], asked for [GUIDE_CHUNK_MS] at a time (a Pi builds each
+     * answer). A part that can't be read is left out; only when none of it can be is the guide not understood.
+     */
     suspend fun guide(p: PlaylistEntity, live: PlexLiveTv, fromMs: Long, toMs: Long): List<PlexProgramme> {
         val client = client(p)
-        return (fromMs until toMs step GUIDE_CHUNK_MS).flatMap { start ->
-            client.guide(live, start / 1000, minOf(start + GUIDE_CHUNK_MS, toMs) / 1000)
+        var unreadable: PlexException? = null
+        val programmes = (fromMs until toMs step GUIDE_CHUNK_MS).flatMap { start ->
+            try {
+                client.guide(live, start / 1000, minOf(start + GUIDE_CHUNK_MS, toMs) / 1000)
+            } catch (e: PlexException) {
+                if (e.reason != PlexException.Reason.UNEXPECTED_RESPONSE) throw e
+                unreadable = e
+                emptyList()
+            }
         }
+        unreadable?.takeIf { programmes.isEmpty() }?.let { throw it }
+        return programmes
     }
 
     /** A Live TV channel ([channelKey], its key on the server) to tune and play: see [PlexLive]. */

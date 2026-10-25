@@ -80,6 +80,9 @@ class FakePlex : AutoCloseable {
     /** The guide failing (500), its channels still answering. */
     @Volatile var guideFails = false
 
+    /** The guide sent in a shape the app can't read (each showing's times as words). */
+    @Volatile var guideUnreadable = false
+
     /** Tuning answers 500 ("Tuning failed"). */
     @Volatile var tuneFails = false
 
@@ -185,6 +188,17 @@ class FakePlex : AutoCloseable {
         }
         path == "/$EPG/lineups/dvr/channels" -> container { put("Channel", JsonArray(CHANNELS)) }
         path == "/$EPG/grid" && guideFails -> MockResponse().setResponseCode(500)
+        path == "/$EPG/grid" && guideUnreadable -> container {
+            put("size", 1)
+            putJsonArray("Metadata") {
+                add(
+                    obj {
+                        put("title", "Odd")
+                        putJsonArray("Media") { add(obj { put("beginsAt", "soon") }) }
+                    }
+                )
+            }
+        }
         path == "/$EPG/grid" -> container { put("Metadata", JsonArray(guide(request))) }
         path.startsWith("/livetv/dvrs/$DVR/channels/") && path.endsWith("/tune") -> tune(path.split('/')[5])
         path == "/:/timeline" && request.requestUrl!!.queryParameter("key").orEmpty().startsWith("/livetv/sessions/") -> {

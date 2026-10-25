@@ -12,6 +12,7 @@
 
     <string name="data_server_error">El servidor devolvió el error %1$d</string>
     <string name="data_guide_save_failed">No se pudo guardar el archivo de la guía</string>
+    <string name="data_guide_unreadable">No se pudo leer la guía</string>
 
     <string name="data_xtream_login_failed">Error al iniciar sesión: revisa la dirección del servidor, el usuario y la contraseña</string>
     <string name="data_xtream_no_movie_details">No hay detalles de esta película</string>
