@@ -187,6 +187,17 @@ class PlayerKeysUiTest {
     }
 
     @Test
+    fun `menu with the channel guide open opens the more menu in its place`() {
+        show(Screen.Player(playlistId, 101, ChannelFilter.All))
+        waitFor("Channel guide")
+        press(Key.Guide)
+        waitForFocus("Now on one.uk")
+        press(Key.Menu)
+        waitFor("Sleep timer")
+        waitGone("Now on one.uk")
+    }
+
+    @Test
     fun `the guide button works on the live screen with focus on the tabs`() {
         show(Screen.Live())
         waitForFocus("CHANNEL ONE")
