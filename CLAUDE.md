@@ -10,7 +10,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   rename); never merge MyTVPlayer's `main` wholesale. Ported so far: everything up to MyTVPlayer 1.2.3 (`884939f`)
   and its Play upload workflow (`dc5d194`), in MyPlexPlayer 0.2.1.
 - **The move to Plex is under way:** the plan, step by step, is in `ROADMAP.md`. Until those steps land, much of the
-  code (Xtream, M3U, XMLTV guides, catch-up, the free playlist) is MyTVPlayer's and is due to be replaced.
+  code (Xtream, XMLTV guides, catch-up) is MyTVPlayer's and is due to be replaced. M3U and the free playlist went
+  in 0.2.2.
 
 See also:
 - `RELEASING.md`: signing and how releases work.
@@ -140,18 +141,13 @@ See also:
   `:core:cleanTest :app:cleanTestDebugUnitTest`, and run core and app tests together, as release does.
   - App tests run in a JVM per two cores (`maxParallelForks` in `app/build.gradle.kts`), so which classes ran before
     a test in its JVM can differ from run to run. Process-wide state (settings, `AndroidUiDispatcher.Main`) is per JVM.
-- **M3U category ids** carry history from before 1.1.0 (see `M3uCategories`).
-  - If you change how M3U titles are filed or given ids, map the new ids to the old ones (as `M3uCategories.oldId` /
-    `inherited` do), so hidden categories, favourites and progress are kept.
-  - Also bump `M3uVod.FILING`, so each playlist's films and series reload once.
 - **Touch:** tv-material `Surface` only answers D-pad OK. Taps are wired through `LocalTouch` and `Modifier.onTap` / `onPlainTap` / `onAnyTouch` in `ui/common/Touch.kt`.
 - **Never run `pkill -f <pattern>`** where the pattern also appears in your own command line, because it kills your own shell. Kill background loops by PID.
 - **Network from the sandbox and from GitHub runners:** archive.org isn't reachable from either, so the app can't be tested against it from here. Wikimedia is reachable.
 - **Android TV stand-in pickers:** some TVs (e.g. the owner's, on Android TV 10) ship stand-in "pickers" that only say "no application can handle this request".
   - The backup screen opens a picker directly only if it's Android's own (`…documentsui`). Otherwise it offers the installed file managers.
   - MyPlexPlayer also accepts backup files via Open with / Share (JSON).
-- **User-Agent:** every stream and download sends `MyPlexPlayer/<version> (+https://github.com/biskyt/MyPlexPlayer)`. Wikimedia requires an identifying UA. A per-entry `http-user-agent` in an M3U overrides it for live channels.
-  - Films and episodes from M3U feeds don't store a per-entry UA yet. That was offered and isn't done.
+- **User-Agent:** every stream and download sends `MyPlexPlayer/<version> (+https://github.com/biskyt/MyPlexPlayer)`.
 
 ## The owner's setup
 - **Owner's devices:** they test on a TV running Android TV 10 and an Android phone. The phone needs the touch UI.

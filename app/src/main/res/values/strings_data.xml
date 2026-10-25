@@ -35,19 +35,7 @@
     <string name="data_plex_unexpected">Unexpected response from Plex</string>
     <string name="data_account_inactive">This account is not active</string>
 
-    <!-- Errors adding or loading an M3U playlist ("M3U" is a file format: don't translate). -->
-    <string name="data_free_failed">Couldn\'t set up the free channels</string>
-    <string name="data_playlist_save_failed">Couldn\'t save the playlist</string>
-    <string name="data_playlist_address_invalid">Invalid playlist address</string>
-    <!-- %1$d: the HTTP status code, e.g. 403. -->
-    <string name="data_playlist_refused">The server refused the playlist download (error %1$d)</string>
-    <!-- %1$s: the network error, as the system words it (often in English). -->
-    <string name="data_playlist_download_failed">Couldn\'t download the playlist: %1$s</string>
-    <string name="data_not_m3u">That address doesn\'t return an M3U playlist</string>
 
-    <!-- Playback errors. -->
-    <string name="data_catchup_unplayable">This channel\'s catch-up can\'t be played</string>
-    <string name="data_episode_gone">This episode is no longer in the playlist</string>
 
     <!--
     Group headings on the Languages & categories screen (and next to category names that appear in several groups):
@@ -102,8 +90,6 @@
     <string name="data_accent_silver">Silver</string>
     <!-- Name given to a new playlist when none is typed. Stored with the playlist, which the user can rename. -->
     <string name="data_playlist_default_name">My TV</string>
-    <!-- Name of the playlist of free channels the app offers to add. Stored with it; the user can rename it. -->
-    <string name="data_free_playlist_name">Free TV</string>
     <!-- Name of the TV guide that comes with a playlist, saved when the playlist is added. %1$s: the playlist's name. -->
     <string name="data_provider_guide_name">%1$s guide</string>
     <!-- Category for a playlist's entries that name no category of their own; kept apart from a playlist's own

@@ -142,4 +142,34 @@ class MigrationTest {
             }
         }
     }
+
+    @Test
+    fun `version 8 to 9 removes M3U playlists with all they had, and keeps the rest`() {
+        helper.createDatabase("migration-test-9", 8).use { db ->
+            listOf(1 to "xtream", 2 to "m3u", 3 to "plex").forEach { (id, kind) ->
+                db.execSQL(
+                    "INSERT INTO playlist (id, name, kind, server, username, password, lastSyncAt) VALUES ($id, 'P$id', '$kind', 'x', '', '', 0)"
+                )
+                db.execSQL(
+                    "INSERT INTO channel (playlistId, streamId, number, name, categoryId, archiveDays, hidden, position, syncStamp) " +
+                        "VALUES ($id, 101, 1, 'One', '1', 0, 0, 1, 0)"
+                )
+                db.execSQL("INSERT INTO favourite (playlistId, streamId, addedAt, position) VALUES ($id, 101, 0, 0)")
+                db.execSQL(
+                    "INSERT INTO epg_source (id, name, url, enabled, playlistId, lastImportAt, channelCount) VALUES ($id, 'G', 'u$id', 1, $id, 0, 0)"
+                )
+                db.execSQL(
+                    "INSERT INTO programme (sourceId, xmlId, startMs, stopMs, title, stamp, kind) VALUES ($id, 'one', 0, 1, 'News', 0, 0)"
+                )
+            }
+        }
+        helper.runMigrationsAndValidate("migration-test-9", 9, true).use { db ->
+            fun ids(sql: String) = db.query(sql).use { c -> generateSequence { if (c.moveToNext()) c.getLong(0) else null }.toList() }
+            assertEquals(listOf(1L, 3L), ids("SELECT id FROM playlist ORDER BY id"))
+            assertEquals(listOf(1L, 3L), ids("SELECT playlistId FROM channel ORDER BY playlistId"))
+            assertEquals(listOf(1L, 3L), ids("SELECT playlistId FROM favourite ORDER BY playlistId"))
+            assertEquals(listOf(1L, 3L), ids("SELECT id FROM epg_source ORDER BY id"))
+            assertEquals(listOf(1L, 3L), ids("SELECT sourceId FROM programme ORDER BY sourceId"))
+        }
+    }
 }

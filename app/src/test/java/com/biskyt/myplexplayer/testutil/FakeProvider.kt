@@ -43,18 +43,11 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
     /** Images served at /art/<name> (logos and posters for the store screenshots), by name. */
     var images: (String) -> ByteArray? = { null }
 
-    /** M3U movie and series playlists, served at /vod.m3u and /series.m3u. */
-    var vodM3u = ""
-    var seriesM3u = ""
-
     /** Live streams that connect but then send next to nothing (a few bytes a second), never enough to play. */
     var streamsTrickle = false
 
     /** The guide (xmltv.php) fails with a server error. */
     var guideFails = false
-
-    /** A panel that serves M3U playlists but refuses Xtream logins. */
-    var loginsRefused = false
 
     /** The address of an image served at /art/<name>. */
     fun art(name: String) = "${url}art/$name"
@@ -125,28 +118,10 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
 
     val requests: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList()
 
-    /** An iptv-org style playlist, grouped by country. */
-    var m3u = """
-        #EXTM3U
-        #EXTINF:-1 tvg-id="ChannelOne.uk@SD" tvg-logo="http://logo/one.png" group-title="United Kingdom",Channel One
-        http://stream.example/one.m3u8
-        #EXTINF:-1 tvg-id="KiteKids.uk@HD" group-title="United Kingdom" http-user-agent="Agent/2",Kite Kids (720p)
-        http://stream.example/kite.m3u8
-        #EXTINF:-1 tvg-id="CinePlus.fr@SD" group-title="France",Ciné+
-        http://stream.example/cine.m3u8
-        #EXTINF:-1 group-title="International",World News
-        http://stream.example/world.m3u8
-    """.trimIndent()
-
     override fun dispatch(request: RecordedRequest): MockResponse {
         val url = request.requestUrl!!
         requests += url.encodedPath + "?" + (url.queryParameter("action") ?: "")
         val early = when {
-            url.encodedPath == "/free.m3u" -> MockResponse().setBody(m3u)
-            url.encodedPath == "/not-a-playlist" -> MockResponse().setBody("<html>hello</html>")
-            url.encodedPath == "/vod.m3u" -> MockResponse().setBody(vodM3u)
-            url.encodedPath == "/series.m3u" -> MockResponse().setBody(seriesM3u)
-            loginsRefused && url.encodedPath.endsWith("player_api.php") -> MockResponse().setResponseCode(403)
             url.encodedPath.startsWith("/art/") ->
                 images(url.encodedPath.removePrefix("/art/"))?.let { MockResponse().setBody(Buffer().write(it)) }
                     ?: MockResponse().setResponseCode(404)
@@ -170,7 +145,6 @@ class FakeProvider(private val now: Long = System.currentTimeMillis()) : Dispatc
                     MockResponse().setHeader("ETag", tag).setBody(Buffer().write(gzip(guide)))
                 }
             }
-            url.encodedPath.endsWith("get.php") -> MockResponse().setBody(m3u)
             url.queryParameter("action") == null -> MockResponse().setBody(
                 """{"user_info":{"auth":1,"status":"Active","exp_date":"1900000000","max_connections":"1"}}""",
             )

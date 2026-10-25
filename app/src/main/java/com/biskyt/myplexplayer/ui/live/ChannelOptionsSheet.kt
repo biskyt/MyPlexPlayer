@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,7 +45,7 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
     var showGuide by remember { mutableStateOf(false) }
     val close = vm::closeOptions
     val programme = vm.optionsProgramme
-    val findKind by produceState<Int?>(null, ch, programme) { if (programme != null) value = vm.findKind(ch, programme) }
+    val findKind = programme?.let(vm::findKind)
     SidePanel(onDismiss = { if (showGuide) showGuide = false else close() }) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {

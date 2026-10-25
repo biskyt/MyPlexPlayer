@@ -80,9 +80,6 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
         .map { it.orEmpty() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    /** Movies and series exist for Xtream accounts only. */
-    var hasVod by mutableStateOf(false)
-        private set
     val hidden = c.channels.observeHidden(playlistId).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     var selectedGroup by mutableStateOf<String?>(UNSET)
 
@@ -95,13 +92,6 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
         selectedGroup = UNSET // the first group shown
     }
     private val changed = HashSet<String>()
-
-    init {
-        viewModelScope.launch {
-            val p = c.playlists.get(playlistId) ?: return@launch
-            hasVod = p.hasVod
-        }
-    }
 
     fun showType(t: String) {
         if (t == type.value) return
@@ -216,10 +206,8 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (vm.hasVod) {
-                (listOf(CAT_LIVE) + VOD_TYPES).forEach { t ->
-                    PillButton(stringResource(typeLabel(t)), { vm.showType(t) }, selected = t == type)
-                }
+            (listOf(CAT_LIVE) + VOD_TYPES).forEach { t ->
+                PillButton(stringResource(typeLabel(t)), { vm.showType(t) }, selected = t == type)
             }
         }
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {

@@ -39,7 +39,6 @@ class SavedTextTest {
         OkHttpClient(),
         SettingsRepository(context),
         epg,
-        context.cacheDir.resolve("test-playlists"),
         CategoryStore(db) { Locale.UK }
     )
 
