@@ -2,6 +2,7 @@ package com.biskyt.myplexplayer.testutil
 
 import com.biskyt.myplexplayer.AppContainer
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonArrayBuilder
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
@@ -48,6 +49,16 @@ class FakePlex : AutoCloseable {
 
     /** Continue Watching, newest first. */
     @Volatile var continueWatching: List<String> = emptyList()
+
+    /** Whether the films' files are in a container no player reads (so they're streamed by the server instead). */
+    @Volatile var unreadableFiles = false
+
+    /** Whether the server would stream a file with its picture and sound as they are (false: only by converting). */
+    @Volatile var copies = true
+
+    /** The sessions a direct stream was started for (its playlist asked for), and those stopped. */
+    val streamed: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+    val stopped: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
 
     /** The progress reports (timeline) received: ratingKey, state, time and session. */
     val reports: MutableList<List<String?>> = java.util.Collections.synchronizedList(mutableListOf())
@@ -99,8 +110,43 @@ class FakePlex : AutoCloseable {
                 MockResponse()
             }
             path == "/photo/:/transcode" -> MockResponse().setBody("")
+            path.startsWith("/library/parts/") && unreadableFiles -> MockResponse().setBody("not a container anyone reads")
+            path == "/video/:/transcode/universal/decision" -> decision()
+            // Reached only with the server's token (above), in a header now rather than the address.
+            path == "/video/:/transcode/universal/start.m3u8" -> {
+                streamed += request.requestUrl!!.queryParameter("session").orEmpty()
+                MockResponse().setResponseCode(404)
+            }
+            path == "/video/:/transcode/universal/stop" -> {
+                stopped += request.requestUrl!!.queryParameter("session").orEmpty()
+                MockResponse()
+            }
             else -> MockResponse().setResponseCode(404)
         }
+    }
+
+    /** The server's decision on a direct stream: picture and sound copied, or (not [copies]) the picture converted. */
+    private fun decision() = container {
+        putJsonArray("Metadata") {
+            add(
+                obj {
+                    put("ratingKey", "11")
+                    put(
+                        "Media",
+                        media(111, "mp4") {
+                            add(obj { stream(1, "h264", if (copies) "copy" else "transcode") })
+                            add(obj { stream(2, "aac", "copy") })
+                        }
+                    )
+                }
+            )
+        }
+    }
+
+    private fun JsonObjectBuilder.stream(type: Int, codec: String, decision: String) {
+        put("streamType", type)
+        put("codec", codec)
+        put("decision", decision)
     }
 
     private fun byKey(key: String) = (MOVIES + SHOWS + EPISODES).firstOrNull { it.string("ratingKey") == key }
@@ -214,7 +260,8 @@ class FakePlex : AutoCloseable {
 
         private fun JsonObject.string(key: String) = (this[key] as? JsonPrimitive)?.content
 
-        private fun media(id: Int, container: String) = buildJsonArray {
+        /** A file's Media, its one Part with [streams] when given (as in the server's decisions). */
+        private fun media(id: Int, container: String, streams: (JsonArrayBuilder.() -> Unit)? = null) = buildJsonArray {
             add(
                 obj {
                     put("container", container)
@@ -224,6 +271,7 @@ class FakePlex : AutoCloseable {
                                 put("id", id)
                                 put("key", "/library/parts/$id/1/file.$container")
                                 put("container", container)
+                                streams?.let { putJsonArray("Stream", it) }
                             }
                         )
                     }

@@ -1,10 +1,14 @@
 package com.biskyt.myplexplayer.player
 
 import android.content.Context
+import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.Settings
 import com.biskyt.myplexplayer.testutil.PlainApp
 import com.biskyt.myplexplayer.ui.player.RetryBudget
+import java.util.concurrent.TimeUnit
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,6 +16,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -44,6 +49,20 @@ class PlaybackEngineTest {
     }
 
     @Test
+    fun `headers given with a stream go with its requests, not in its address`() {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setResponseCode(404))
+            engine.play(server.url("/file.mkv").toString(), hls = false, headers = mapOf("X-Plex-Token" to "secret"))
+            val request = (1..WAIT_STEPS).firstNotNullOf {
+                shadowOf(Looper.getMainLooper()).idle()
+                server.takeRequest(WAIT_STEP_MS, TimeUnit.MILLISECONDS)
+            }
+            assertEquals("secret", request.getHeader("X-Plex-Token"))
+            assertEquals("/file.mkv", request.path)
+        }
+    }
+
+    @Test
     fun `a failing stream gets a few retries in a row, then fresh ones once it has played`() {
         val budget = RetryBudget(3)
         repeat(3) { assertTrue(budget.take()) }
@@ -66,5 +85,10 @@ class PlaybackEngineTest {
         // Nothing has played, so the player itself has no audio format yet: this used to say "No audio".
         assertEquals("Audio · Stereo", engine.audioOutputLabel(androidx.media3.common.Tracks(listOf(group))))
         assertEquals("No audio", engine.audioOutputLabel(androidx.media3.common.Tracks.EMPTY))
+    }
+
+    private companion object {
+        const val WAIT_STEPS = 100
+        const val WAIT_STEP_MS = 50L
     }
 }

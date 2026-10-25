@@ -27,8 +27,9 @@ fun PlexException.userMessage(): String = when (reason) {
     PlexException.Reason.UNREACHABLE -> appString(R.string.data_plex_unreachable)
     PlexException.Reason.SERVER_ERROR -> appString(R.string.data_server_error, code)
     PlexException.Reason.UNEXPECTED_RESPONSE, PlexException.Reason.INVALID_ADDRESS -> appString(R.string.data_plex_unexpected)
-    // Playing from Plex (direct stream) comes in roadmap step 5, with these words.
-    PlexException.Reason.NEEDS_TRANSCODE, PlexException.Reason.CANNOT_STREAM, PlexException.Reason.OTHER -> message.orEmpty()
+    PlexException.Reason.NEEDS_TRANSCODE -> appString(R.string.data_plex_needs_converting)
+    PlexException.Reason.CANNOT_STREAM -> appString(R.string.data_plex_cannot_stream)
+    PlexException.Reason.OTHER -> message.orEmpty()
 }
 
 /** Runs [block] (a call to a Plex server or plex.tv), so that a failure's message is in the app's language. */
