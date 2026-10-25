@@ -8,12 +8,9 @@
     <string name="player_subtitles">Subtitles</string>
     <string name="player_more">More</string>
     <string name="player_channel_guide">Channel guide</string>
-    <string name="player_watch_live">Watch live</string>
     <string name="player_next_episode">Next episode</string>
     <!-- Above the next programme's title, in capitals as a small heading. %1$s: its start time, e.g. 21:00 -->
     <string name="player_up_next">UP NEXT · %1$s</string>
-    <!-- Catch-up controls. %1$s: how far behind, e.g. "1h 5m" -->
-    <string name="player_catchup_behind_live">Catch-up · %1$s behind live</string>
 
     <!-- Remote control hints under the controls (TV only). ▲ ▼ ◀ ▶ are the remote's arrow buttons, CH + − its channel buttons, Back its Back button. -->
     <string name="player_hint_skip">▲ then ◀ ▶ to skip (hold to scrub) · Back hides this</string>
@@ -93,8 +90,6 @@
     <!-- Playback errors: what happened and what to do -->
     <string name="player_failure_live">This channel isn\'t playing right now. Try again later or pick another channel.</string>
     <string name="player_failure_vod">This can\'t be played right now. Try again later.</string>
-    <string name="player_failure_catchup">This can\'t be replayed right now. Try again later.</string>
-    <string name="player_catchup_nothing_to_start_over">There\'s nothing to start over on this channel right now.</string>
     <string name="player_unsupported_format">This uses a stream format MyPlexPlayer can\'t play.</string>
 
     <!-- Playback errors: why (shown under the message above). %1$s: the server's host name, e.g. lb.example.net -->

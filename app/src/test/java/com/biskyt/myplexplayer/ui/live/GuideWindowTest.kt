@@ -1,54 +1,56 @@
 package com.biskyt.myplexplayer.ui.live
 
-import androidx.test.core.app.ApplicationProvider
-import com.biskyt.myplexplayer.testutil.FakeProvider
-import com.biskyt.myplexplayer.testutil.TestApp
-import com.biskyt.myplexplayer.testutil.addHomeTv
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
-import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
-/** The guide asks the provider for past programmes only once the user moves it back, never because time passed. */
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], application = TestApp::class)
+/** The guide runs from the half hour it's in to three days ahead. */
 class GuideWindowTest {
-    private val provider = FakeProvider()
-    private val app = ApplicationProvider.getApplicationContext<TestApp>()
-
-    @After
-    fun tearDown() = provider.close()
+    private val halfHour = 30 * 60_000L
+    private val hour = 2 * halfHour
 
     @Test
-    fun `time passing doesn't put the guide in the past, moving it back does`() = runBlocking {
-        val playlistId = app.container.addHomeTv(provider)
-        var clock = System.currentTimeMillis()
-        val scope = CoroutineScope(Dispatchers.Unconfined)
-        val catchup = GuideCatchup(app.container, scope, playlistId)
-        val window = GuideWindow(scope, catchup) { clock }
-        assertFalse(window.inPast)
-        // Left open past the next half hour.
-        clock += 31 * 60_000L
-        assertFalse(window.inPast)
-        catchup.lookUpDays() // as the first press back does
+    fun `the guide doesn't go back before now`() {
+        val clock = System.currentTimeMillis()
+        val window = GuideWindow { clock }
+        val opened = window.start
+        assertEquals(clock / halfHour * halfHour, opened)
+        assertFalse(window.move(-1, null))
+        assertEquals(opened, window.start)
+        assertTrue(window.move(1, null))
+        assertEquals(opened + hour, window.start)
         assertTrue(window.move(-1, null))
-        assertTrue(window.inPast)
+        assertEquals(opened, window.start)
+        assertFalse(window.move(-1, null))
     }
 
     @Test
-    fun `moving on through hours that have passed since it opened counts as the past`() = runBlocking {
-        val playlistId = app.container.addHomeTv(provider)
+    fun `moving on after it was left open goes no earlier than now`() {
         var clock = System.currentTimeMillis()
-        val scope = CoroutineScope(Dispatchers.Unconfined)
-        val window = GuideWindow(scope, GuideCatchup(app.container, scope, playlistId)) { clock }
-        clock += 3 * 3_600_000L // left open for three hours
-        assertTrue(window.move(1, null)) // an hour on from where it opened: still two hours ago
-        assertTrue(window.inPast)
+        val window = GuideWindow { clock }
+        clock += 3 * hour // left open for three hours
+        assertTrue(window.move(1, null)) // an hour on from where it opened would be two hours ago
+        assertEquals(clock / halfHour * halfHour, window.start)
+    }
+
+    @Test
+    fun `going back after it was left open doesn't move it later`() {
+        var clock = System.currentTimeMillis()
+        val window = GuideWindow { clock }
+        val opened = window.start
+        clock += 3 * hour
+        assertFalse(window.move(-1, null))
+        assertEquals(opened, window.start)
+    }
+
+    @Test
+    fun `the guide goes three days ahead`() {
+        val clock = System.currentTimeMillis()
+        val window = GuideWindow { clock }
+        var moves = 0
+        while (window.move(1, null)) moves++
+        assertEquals(clock / halfHour * halfHour + 3 * 24 * hour, window.start)
+        assertEquals(3 * 24, moves)
     }
 }

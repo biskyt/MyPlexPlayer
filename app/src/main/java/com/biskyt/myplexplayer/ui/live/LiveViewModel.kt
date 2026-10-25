@@ -15,7 +15,6 @@ import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.db.CAT_LIVE
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
-import com.biskyt.myplexplayer.data.db.CategoryCount
 import com.biskyt.myplexplayer.data.db.CategoryEntity
 import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.data.db.ChannelProgramme
@@ -51,15 +50,11 @@ class LiveViewModel(
     private val activePlaylist = c.settings.activePlaylistId
     val playlistId: StateFlow<Long> = activePlaylist.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
 
-    /** Opened from the Catch-up tab: the categories are those with catch-up channels, and OK opens past programmes. */
-    val catchupMode = initialFilter?.isCatchup == true
-
-    // Opens on the list asked for (e.g. Catch-up), else the one picked earlier while the app has been open, else
+    // Opens on the list asked for, else the one picked earlier while the app has been open, else
     // Favourites. A different list: the remembered channel may not be in it, so focus starts from the top.
     val filters =
         CategoryFilter(viewModelScope, initialFilter ?: picked.live ?: ChannelFilter.Favourites, settled = initialFilter != null) { f ->
-            // Not Catch-up: the Live TV tab opens on live lists (Catch-up has its own tab).
-            if (!f.isCatchup) picked.live = f
+            picked.live = f
             focusStreamId = null
         }
     val filter = filters.value
@@ -83,10 +78,6 @@ class LiveViewModel(
     val listState = LazyListState()
 
     val categories: StateFlow<List<CategoryEntity>> = activePlaylist.flatMapLatest { c.db.categories().observeIncluded(it, CAT_LIVE) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    /** The categories with catch-up channels (the Catch-up tab's column). */
-    val catchupCategories: StateFlow<List<CategoryCount>> = activePlaylist.flatMapLatest { c.channels.observeCatchupCategories(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Hides a category (from its options in the column, which shows the one beside it); if still shown, All channels. */

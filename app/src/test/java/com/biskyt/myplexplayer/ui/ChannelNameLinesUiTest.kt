@@ -100,7 +100,9 @@ class ChannelNameLinesUiTest {
     }
 
     private companion object {
-        // Longer than two lines anywhere (whatever the test's fonts measure), so all three show two lines of it.
-        const val LONG = "US: Northbridge News 4 (WNBN) Detroit HD East Coast Feed with Local Weather and Traffic (backup stream)"
+        // Longer than two lines anywhere, the channel list's wide column too (whatever the test's fonts measure), so every
+        // place shows two lines of it.
+        const val LONG = "US: Northbridge News 4 (WNBN) Detroit HD East Coast Feed with Local Weather and Traffic" +
+            ", Sport and Late Films (backup stream)"
     }
 }

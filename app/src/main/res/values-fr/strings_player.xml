@@ -7,10 +7,8 @@
     <string name="player_subtitles">Sous-titres</string>
     <string name="player_more">Plus</string>
     <string name="player_channel_guide">Guide chaîne</string>
-    <string name="player_watch_live">Voir le direct</string>
     <string name="player_next_episode">Épisode suivant</string>
     <string name="player_up_next">À SUIVRE · %1$s</string>
-    <string name="player_catchup_behind_live">Replay · %1$s de retard sur le direct</string>
 
     <string name="player_hint_skip">▲ puis ◀ ▶ pour avancer ou reculer (maintenir pour défiler) · Retour pour masquer</string>
     <string name="player_hint_zap_up_down">▲ ▼ changer de chaîne · Retour pour masquer</string>
@@ -63,8 +61,6 @@
 
     <string name="player_failure_live">Cette chaîne ne diffuse pas pour le moment. Réessayez plus tard ou choisissez une autre chaîne.</string>
     <string name="player_failure_vod">Impossible de lire ce contenu pour le moment. Réessayez plus tard.</string>
-    <string name="player_failure_catchup">Impossible de revoir ce programme pour le moment. Réessayez plus tard.</string>
-    <string name="player_catchup_nothing_to_start_over">Rien à revoir depuis le début sur cette chaîne pour le moment.</string>
     <string name="player_unsupported_format">Ce flux utilise un format que MyPlexPlayer ne peut pas lire.</string>
 
     <string name="player_stream_source">Flux provenant de %1$s.</string>

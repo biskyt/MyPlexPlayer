@@ -484,30 +484,4 @@ class RepositoriesTest {
         settings.update { it }
         assertNull(context.dataStore.data.first()[old])
     }
-
-    @Test
-    fun `catch-up lists what can be replayed, from the provider only when asked, and briefly cached`() = runBlocking {
-        val id = addPlaylist()
-        playlists.syncChannels(id)
-        val one = channels.get(id, 101)!!
-        assertEquals(3, one.archiveDays) // known from the channel list itself
-        assertEquals(0, channels.get(id, 102)!!.archiveDays)
-        assertTrue(provider.requests.none { it.endsWith("get_simple_data_table") })
-
-        val catchup = CatchupRepository(playlists)
-        val p = playlists.get(id)!!
-        val listing = catchup.listing(p, one)
-        // Started, kept by the provider, and within the channel's 3 days.
-        assertEquals(listOf("Yesterday Show", "Earlier Today", "On Now"), catchup.playable(listing, one).map { it.title })
-        assertEquals("On Now", catchup.onNow(listing)?.title)
-        assertEquals("About Earlier Today", listing.programmes.first { it.title == "Earlier Today" }.description)
-
-        catchup.listing(p, one)
-        assertEquals(1, provider.requests.count { it.endsWith("get_simple_data_table") })
-
-        // The address runs from the chosen moment to now.
-        val start = listing.programmes.first { it.title == "Earlier Today" }.startMs
-        val url = catchup.url(p, one, listing, start)
-        assertTrue(url, url.contains("/timeshift/me/secret/121/") && url.endsWith("/101.ts"))
-    }
 }

@@ -9,7 +9,6 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
-import com.biskyt.myplexplayer.appPlural
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.ChannelEntity
@@ -53,13 +52,9 @@ fun favouriteLabel(favourite: Boolean) = appString(if (favourite) R.string.commo
 
 fun favouriteFlash(added: Boolean) = appString(if (added) R.string.common_favourite_added else R.string.common_favourite_removed)
 
-/** What every channel menu offers (search, the player): favourites, catch-up where the provider has it, its guide. */
+/** What every channel menu offers (search, the player): favourites and its guide. */
 fun channelActions(ch: ChannelEntity, favourite: Boolean, setFavourite: (Boolean) -> Unit): List<ItemAction> = buildList {
     add(ItemAction.Run(favouriteLabel(favourite)) { setFavourite(!favourite) })
-    if (ch.archiveDays > 0) {
-        val help = appPlural(R.plurals.common_catchup_days, ch.archiveDays, ch.archiveDays)
-        add(ItemAction.Open(appString(R.string.common_catchup), Screen.Catchup(ch.playlistId, ch.streamId), help))
-    }
     add(
         ItemAction.Open(
             appString(R.string.common_change_guide_source),

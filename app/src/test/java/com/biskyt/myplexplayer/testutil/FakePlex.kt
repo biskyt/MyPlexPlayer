@@ -68,6 +68,9 @@ class FakePlex : AutoCloseable {
     /** Whether it has Live TV (a DVR and its guide), with [CHANNELS]. */
     @Volatile var liveTv = true
 
+    /** How long a title's details take to come (a slow server). */
+    @Volatile var metadataDelayMs = 0L
+
     /** Live TV failing for now (500), as a server still starting up might. */
     @Volatile var liveTvFails = false
 
@@ -120,6 +123,7 @@ class FakePlex : AutoCloseable {
             // One item, or several ("11,12"): those it has.
             path.startsWith("/library/metadata/") -> path.substringAfterLast('/').split(',').mapNotNull(::byKey)
                 .takeIf { it.isNotEmpty() }?.let { items -> container { put("Metadata", JsonArray(items.map(::withState))) } }
+                ?.setBodyDelay(metadataDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
                 ?: MockResponse().setResponseCode(404)
             path == "/hubs/continueWatching" -> {
                 val items = continueWatching.map { withState(byKey(it)!!) }

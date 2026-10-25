@@ -33,9 +33,7 @@ import com.biskyt.myplexplayer.ui.common.onGuideKey
 import com.biskyt.myplexplayer.ui.guide.GuideMatchingScreen
 import com.biskyt.myplexplayer.ui.guide.GuideSourcesScreen
 import com.biskyt.myplexplayer.ui.home.HomeScreen
-import com.biskyt.myplexplayer.ui.live.CatchupScreen
 import com.biskyt.myplexplayer.ui.live.LiveScreen
-import com.biskyt.myplexplayer.ui.player.CatchupPlayerScreen
 import com.biskyt.myplexplayer.ui.player.PlayerScreen
 import com.biskyt.myplexplayer.ui.player.VodPlayerScreen
 import com.biskyt.myplexplayer.ui.search.SearchScreen
@@ -167,8 +165,6 @@ internal fun ScreenContent(screen: Screen) {
         is Screen.VodPlayer -> VodPlayerScreen(screen)
         is Screen.Search -> SearchScreen(screen.query)
         is Screen.Player -> PlayerScreen(screen)
-        is Screen.Catchup -> CatchupScreen(screen)
-        is Screen.CatchupPlayer -> CatchupPlayerScreen(screen)
         Screen.Settings -> SettingsScreen()
         Screen.Playlists -> PlaylistsScreen()
         is Screen.PlaylistEdit -> PlaylistEditScreen(screen.playlistId, screen.firstRun)

@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="live_all_channels">Todos os canais</string>
-    <string name="live_all_catchup">Todas as reprises</string>
     <string name="live_filter_hint">Filtrar por nome ou número</string>
     <string name="live_view_list">Lista</string>
     <string name="live_view_guide">Guia de TV</string>
@@ -13,7 +12,6 @@
     <string name="live_option_find_movie">Encontrar em Filmes</string>
     <string name="live_option_search_for">Pesquisar “%1$s”</string>
     <string name="live_option_find_help">Assista sob demanda</string>
-    <string name="live_option_start_over_help">Assista ao que está passando desde o início</string>
     <string name="live_option_channel_guide">Mostrar guia de TV deste canal</string>
     <string name="live_option_channel_guide_help">Próximos programas</string>
     <string name="live_option_switch_to_list">Mudar para a lista de canais</string>
@@ -21,10 +19,6 @@
     <string name="live_option_switch_help">Ou aperte o botão Guide do controle remoto</string>
     <string name="live_option_hide_channel">Ocultar canal</string>
     <string name="live_option_hide_channel_help">Mostre de novo depois em Configurações › Idiomas e categorias</string>
-
-    <string name="live_catchup_title">Reprises · %1$s</string>
-    <string name="live_catchup_load_failed">Não foi possível carregar as reprises</string>
-    <string name="live_catchup_empty_day">Nenhuma reprise disponível neste dia.</string>
 
     <string name="live_guide_earlier">Antes</string>
     <string name="live_guide_later">Depois</string>
