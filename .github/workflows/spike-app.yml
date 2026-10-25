@@ -7,6 +7,7 @@ on:
   pull_request:
     paths:
       - "spikes/**"
+      - "!spikes/dv-diagnostics/**" # its own workflow: dv-diagnostics.yml
       - ".github/scripts/start-plex.sh"
       - ".github/scripts/start-emulator.sh"
       - ".github/workflows/spike-app.yml"
