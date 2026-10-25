@@ -1,8 +1,6 @@
 package com.biskyt.myplexplayer.core
 
-import java.util.Locale
-
-/** Language names and codes as streams and playlists write them, to ISO 639-1 codes. */
+/** Language tags as streams write them, to ISO 639-1 codes. */
 object Languages {
     /** ISO 639-2 codes streams tag tracks with, both forms ("fre" and "fra"). */
     private val iso3to2 = mapOf(
@@ -17,16 +15,4 @@ object Languages {
         val p = tag.lowercase().substringBefore('-').substringBefore('_')
         return iso3to2[p] ?: p
     }
-
-    // Every language Java knows, by its English name, its own code and its 3-letter code.
-    private val codes: Map<String, String> by lazy {
-        Locale.getISOLanguages().flatMap { code ->
-            val l = Locale(code)
-            val iso3 = runCatching { l.isO3Language }.getOrNull()
-            listOfNotNull(code to code, l.getDisplayLanguage(Locale.ENGLISH).lowercase() to code, iso3?.let { it to code })
-        }.toMap() + iso3to2
-    }
-
-    /** The two-letter code for a language named in English ("Swedish") or by an ISO 639 code ("sv", "swe", "ger"). */
-    fun code(language: String): String? = language.trim().lowercase().let { codes[it] }
 }

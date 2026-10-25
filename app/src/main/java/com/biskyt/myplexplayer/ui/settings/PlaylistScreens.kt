@@ -95,24 +95,6 @@ class PlaylistsViewModel(private val c: AppContainer) : ViewModel() {
             { WorkRunner.failed(appString(R.string.settings_playlist_update_failed, p.name), it) }
         )
     }
-
-    /** Adding the free channels, films and series: true while downloading; [freeError] if it failed. */
-    var addingFree by mutableStateOf(false)
-        private set
-    var freeError by mutableStateOf<String?>(null)
-        private set
-
-    /** Sets up the free channels, films and series (as on first launch), then [then] gets the new playlist's id. */
-    fun addFree(then: (Long) -> Unit) {
-        if (addingFree) return
-        addingFree = true
-        freeError = null
-        viewModelScope.launch {
-            val added = c.playlists.addFree()
-            addingFree = false
-            added.onSuccess(then).onFailure { freeError = it.message }
-        }
-    }
 }
 
 @Composable
@@ -178,19 +160,8 @@ fun PlaylistsScreen() {
                     primary = playlists.isEmpty()
                 )
                 PillButton(stringResource(R.string.settings_playlist_add), { nav.push(Screen.PlaylistEdit(null)) })
-                // The free channels can be typed in as an M3U address too, but that's a long one to enter with a remote.
-                if (playlists.none { it.isFree }) {
-                    PillButton(
-                        stringResource(
-                            if (vm.addingFree) R.string.settings_playlist_downloading_free else R.string.settings_playlist_add_free
-                        ),
-                        // First-run style: Continue downloads the channels and goes to Home.
-                        { vm.addFree { id -> nav.push(Screen.Categories(id, firstRun = true)) } }
-                    )
-                }
             }
         }
-        vm.freeError?.let { item { Text(it, style = MaterialTheme.typography.bodyLarge, color = Palette.warning) } }
         item { Muted(stringResource(R.string.settings_playlist_select_hint)) }
     }
 }
@@ -205,7 +176,7 @@ internal data class Expiry(val kind: ExpiryKind, val atMs: Long, val days: Int) 
 }
 
 /**
- * The provider's expiry date (seconds), and how near it is. Null when there's none: free playlists, and providers
+ * The provider's expiry date (seconds), and how near it is. Null when there's none: Plex servers, and providers
  * that don't say.
  */
 internal fun expiry(expiresAtSec: Long?, now: Long = System.currentTimeMillis(), zone: ZoneId = ZoneId.systemDefault()): Expiry? {
@@ -238,13 +209,7 @@ private fun expiryText(e: Expiry): String {
 }
 
 private fun playlistDetails(p: PlaylistEntity): String {
-    val parts = mutableListOf(
-        when {
-            p.isPlex -> "Plex"
-            p.isM3u -> "M3U"
-            else -> "Xtream"
-        }
-    )
+    val parts = mutableListOf(if (p.isPlex) "Plex" else "Xtream")
     if (p.lastSyncAt > 0) parts += appString(R.string.common_updated_at, formatDateTime(p.lastSyncAt))
     return parts.joinToString(" · ")
 }
@@ -253,15 +218,11 @@ private fun playlistDetails(p: PlaylistEntity): String {
 data class FormMessage(val text: String, val ok: Boolean = false)
 
 class PlaylistEditViewModel(private val c: AppContainer, private val id: Long?) : ViewModel() {
-    var m3u by mutableStateOf(false)
     var name by mutableStateOf("")
     var server by mutableStateOf("")
     var username by mutableStateOf("")
     var password by mutableStateOf("")
 
-    /** M3U: optional movie and series playlist addresses. */
-    var moviesUrl by mutableStateOf("")
-    var seriesUrl by mutableStateOf("")
     var busy by mutableStateOf(false)
         private set
     var message by mutableStateOf<FormMessage?>(null)
@@ -273,13 +234,10 @@ class PlaylistEditViewModel(private val c: AppContainer, private val id: Long?) 
             viewModelScope.launch {
                 c.playlists.get(id)?.let {
                     original = it
-                    m3u = it.isM3u
                     name = it.name
                     server = it.server
                     username = it.username
                     password = it.password
-                    moviesUrl = it.moviesUrl.orEmpty()
-                    seriesUrl = it.seriesUrl.orEmpty()
                 }
             }
         }
@@ -301,7 +259,7 @@ class PlaylistEditViewModel(private val c: AppContainer, private val id: Long?) 
     }
 
     fun test() = run {
-        c.playlists.testConnection(m3u, server, username, password)
+        c.playlists.testLogin(server, username, password)
         message = FormMessage(appString(R.string.settings_playlist_connected), ok = true)
     }
 
@@ -309,17 +267,8 @@ class PlaylistEditViewModel(private val c: AppContainer, private val id: Long?) 
     fun save(onSaved: (Long) -> Unit) = run {
         val old = original
         if (old == null) {
-            message = FormMessage(appString(if (m3u) R.string.settings_playlist_downloading else R.string.settings_playlist_checking))
-            val newId = if (m3u) {
-                c.playlists.addM3u(
-                    name,
-                    server,
-                    moviesUrl,
-                    seriesUrl
-                )
-            } else {
-                c.playlists.add(name, server, username, password)
-            }
+            message = FormMessage(appString(R.string.settings_playlist_checking))
+            val newId = c.playlists.add(name, server, username, password)
             message = null
             onSaved(newId)
         } else {
@@ -331,15 +280,11 @@ class PlaylistEditViewModel(private val c: AppContainer, private val id: Long?) 
                 },
                 server = server.trim(),
                 username = username.trim(),
-                password = password,
-                moviesUrl = moviesUrl.trim().ifEmpty { null }.takeIf { old.isM3u },
-                seriesUrl = seriesUrl.trim().ifEmpty { null }.takeIf { old.isM3u }
+                password = password
             )
             c.playlists.update(updated)
             if (updated.server != old.server || updated.username != old.username || updated.password != old.password) {
                 c.sync.refresh(old.id)
-            } else if (updated.moviesUrl != old.moviesUrl || updated.seriesUrl != old.seriesUrl) {
-                c.sync.refreshVod(old.id)
             }
             onSaved(old.id)
         }
@@ -371,19 +316,11 @@ fun PlaylistEditScreen(id: Long?, firstRun: Boolean) {
             style = MaterialTheme.typography.headlineLarge
         )
         if (firstRun) Muted(stringResource(R.string.settings_playlist_first_run_hint))
-        if (id == null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PillButton(stringResource(R.string.settings_playlist_type_xtream), { vm.m3u = false }, primary = !vm.m3u)
-                PillButton(stringResource(R.string.settings_playlist_type_m3u), { vm.m3u = true }, primary = vm.m3u)
-            }
-        }
         // The keyboard's Next key moves straight on to the next box, ready for typing.
         val nameEdit = rememberSaveable { mutableStateOf(false) }
         val serverEdit = rememberSaveable { mutableStateOf(false) }
         val userEdit = rememberSaveable { mutableStateOf(false) }
         val passwordEdit = rememberSaveable { mutableStateOf(false) }
-        val moviesEdit = rememberSaveable { mutableStateOf(false) }
-        val seriesEdit = rememberSaveable { mutableStateOf(false) }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Field(stringResource(R.string.settings_playlist_name), Modifier.weight(1f)) {
                 TvTextField(
@@ -395,70 +332,39 @@ fun PlaylistEditScreen(id: Long?, firstRun: Boolean) {
                     onNext = { serverEdit.value = true }
                 )
             }
-            Field(
-                stringResource(if (vm.m3u) R.string.settings_playlist_address else R.string.settings_playlist_server),
-                Modifier.weight(1f)
-            ) {
+            Field(stringResource(R.string.settings_playlist_server), Modifier.weight(1f)) {
                 TvTextField(
                     vm.server,
                     { vm.server = it },
-                    if (vm.m3u) "https://example.com/playlist.m3u" else "http://example.com:8080",
+                    "http://example.com:8080",
                     Modifier.fillMaxWidth(),
                     keyboardType = KeyboardType.Uri,
                     editing = serverEdit,
-                    onNext = { (if (vm.m3u) moviesEdit else userEdit).value = true }
+                    onNext = { userEdit.value = true }
                 )
             }
         }
-        if (vm.m3u) {
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Field(stringResource(R.string.settings_playlist_movies), Modifier.weight(1f)) {
-                    TvTextField(
-                        vm.moviesUrl,
-                        { vm.moviesUrl = it },
-                        "https://example.com/movies.m3u",
-                        Modifier.fillMaxWidth(),
-                        keyboardType = KeyboardType.Uri,
-                        editing = moviesEdit,
-                        onNext = { seriesEdit.value = true }
-                    )
-                }
-                Field(stringResource(R.string.settings_playlist_series), Modifier.weight(1f)) {
-                    TvTextField(
-                        vm.seriesUrl,
-                        { vm.seriesUrl = it },
-                        "https://example.com/series.m3u",
-                        Modifier.fillMaxWidth(),
-                        keyboardType = KeyboardType.Uri,
-                        editing = seriesEdit
-                    )
-                }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Field(stringResource(R.string.settings_playlist_username), Modifier.weight(1f)) {
+                TvTextField(
+                    vm.username,
+                    { vm.username = it },
+                    stringResource(R.string.settings_playlist_username),
+                    Modifier.fillMaxWidth(),
+                    autoCorrect = false,
+                    editing = userEdit,
+                    onNext = { passwordEdit.value = true }
+                )
             }
-            Muted(stringResource(R.string.settings_playlist_m3u_vod_hint), maxLines = 2)
-        }
-        if (!vm.m3u) {
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Field(stringResource(R.string.settings_playlist_username), Modifier.weight(1f)) {
-                    TvTextField(
-                        vm.username,
-                        { vm.username = it },
-                        stringResource(R.string.settings_playlist_username),
-                        Modifier.fillMaxWidth(),
-                        autoCorrect = false,
-                        editing = userEdit,
-                        onNext = { passwordEdit.value = true }
-                    )
-                }
-                Field(stringResource(R.string.settings_playlist_password), Modifier.weight(1f)) {
-                    TvTextField(
-                        vm.password,
-                        { vm.password = it },
-                        stringResource(R.string.settings_playlist_password),
-                        Modifier.fillMaxWidth(),
-                        autoCorrect = false,
-                        editing = passwordEdit
-                    )
-                }
+            Field(stringResource(R.string.settings_playlist_password), Modifier.weight(1f)) {
+                TvTextField(
+                    vm.password,
+                    { vm.password = it },
+                    stringResource(R.string.settings_playlist_password),
+                    Modifier.fillMaxWidth(),
+                    autoCorrect = false,
+                    editing = passwordEdit
+                )
             }
         }
         vm.message?.let {

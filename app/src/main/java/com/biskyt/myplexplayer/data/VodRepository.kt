@@ -36,10 +36,9 @@ sealed interface VodFilter {
 }
 
 /**
- * Movies and series, from an Xtream account or an M3U playlist's movie and series playlists. The light lists are
- * stored for fast paging and filtering. Xtream details and episodes are fetched when a title is opened and kept
- * briefly in memory; M3U episodes are stored with their series, and M3U titles have no further details. [type]
- * arguments are CAT_MOVIE or CAT_SERIES, which double as the favourite kinds.
+ * Movies and series, from a Plex server or an Xtream account. The light lists are stored for fast paging and
+ * filtering; details and episodes are fetched when a title is opened and kept briefly in memory. [type] arguments are
+ * CAT_MOVIE or CAT_SERIES, which double as the favourite kinds.
  */
 class VodRepository(
     private val db: AppDatabase,
@@ -49,7 +48,6 @@ class VodRepository(
 ) {
     private val vod = db.vod()
     private val categories = db.categories()
-    private val m3u = M3uVod(db, playlists, categoryStore)
 
     // maxSize drops pages scrolled far away, so browsing tens of thousands of titles doesn't keep them all.
     private val paging = PagingConfig(pageSize = 48, prefetchDistance = 24, initialLoadSize = 72, enablePlaceholders = true, maxSize = 300)
@@ -161,39 +159,29 @@ class VodRepository(
     private val movieDetails = LruCache<String, VodDetails>(DETAILS_CACHE)
     private val seriesDetails = LruCache<String, SeriesDetails>(DETAILS_CACHE)
 
-    suspend fun movieDetails(p: PlaylistEntity, streamId: Long): VodDetails = if (p.isM3u) {
-        M3uVod.NO_DETAILS
-    } else {
-        movieDetails.getOrPut("${p.id}:$streamId") {
-            if (p.isPlex) {
-                withUserPlexErrors { plex.movieDetails(p, streamId) }
-            } else {
-                withUserXtreamErrors { playlists.client(p).movieDetails(streamId) }
-            }
+    suspend fun movieDetails(p: PlaylistEntity, streamId: Long): VodDetails = movieDetails.getOrPut("${p.id}:$streamId") {
+        if (p.isPlex) {
+            withUserPlexErrors { plex.movieDetails(p, streamId) }
+        } else {
+            withUserXtreamErrors { playlists.client(p).movieDetails(streamId) }
         }
     }
 
-    suspend fun seriesDetails(p: PlaylistEntity, seriesId: Long): SeriesDetails = if (p.isM3u) {
-        m3u.seriesDetails(p.id, seriesId)
-    } else {
-        seriesDetails.getOrPut("${p.id}:$seriesId") {
-            if (p.isPlex) {
-                withUserPlexErrors { plex.seriesDetails(p, seriesId) }
-            } else {
-                withUserXtreamErrors { playlists.client(p).seriesDetails(seriesId) }
-            }
+    suspend fun seriesDetails(p: PlaylistEntity, seriesId: Long): SeriesDetails = seriesDetails.getOrPut("${p.id}:$seriesId") {
+        if (p.isPlex) {
+            withUserPlexErrors { plex.seriesDetails(p, seriesId) }
+        } else {
+            withUserXtreamErrors { playlists.client(p).seriesDetails(seriesId) }
         }
     }
 
     suspend fun movieUrl(p: PlaylistEntity, m: MovieEntity): String = if (p.isPlex) {
         withUserPlexErrors { plex.playUrl(p, m.streamId) }
     } else {
-        m.streamUrl ?: playlists.client(p).movieUrl(m.streamId, m.extension)
+        playlists.client(p).movieUrl(m.streamId, m.extension)
     }
 
-    suspend fun episodeUrl(p: PlaylistEntity, episodeId: Long, extension: String): String = if (p.isM3u) {
-        m3u.episodeUrl(p.id, episodeId)
-    } else if (p.isPlex) {
+    suspend fun episodeUrl(p: PlaylistEntity, episodeId: Long, extension: String): String = if (p.isPlex) {
         withUserPlexErrors { plex.playUrl(p, episodeId) }
     } else {
         playlists.client(p).episodeUrl(episodeId, extension)
@@ -203,10 +191,9 @@ class VodRepository(
 
     /**
      * Downloads the movie and series lists, only for included categories (by default those of the TV's
-     * language/country, like live TV): from the Xtream account, or an M3U playlist's movie and series playlists.
+     * language/country, like live TV; every library of a Plex server).
      */
     suspend fun sync(p: PlaylistEntity, onProgress: (Int) -> Unit = {}) {
-        if (p.isM3u) return m3u.sync(p, onProgress)
         if (p.isPlex) return syncPlex(p, onProgress)
         val client = playlists.client(p)
         var failure: java.io.IOException? = null

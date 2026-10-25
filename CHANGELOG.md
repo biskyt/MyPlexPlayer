@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.2.2
+- M3U playlists and the free channels, films and series are no longer offered: MyPlexPlayer is for your Plex servers.
+  One added in an earlier version is removed when the app updates, with its favourites and progress.
+- The sign-in code on the Plex sign-in screen is shown in the accent colour: it was black on the dark background.
+
 ## 0.2.1
 - While watching TV, the controls show the programme's episode and the start of its description, and "About this
   programme" shows all of it. The TV guide shows more of the description too.
