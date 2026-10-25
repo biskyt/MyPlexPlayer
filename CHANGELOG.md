@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.4.1
+- **Mark an episode watched or unwatched** from its series' page: hold OK on it in the episode list. It changes on
+  your Plex server too.
+
 ## 0.4.0
 - **Live TV from your Plex server:** its tuner's channels are in Live TV, with what's on now and next and the TV
   guide from Plex. Choosing a channel tunes it (it says "Tuning…" until the picture starts), and the tuner is let go
