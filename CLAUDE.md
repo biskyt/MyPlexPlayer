@@ -9,7 +9,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   both is ported by hand (`git cherry-pick` from a fetch of MyTVPlayer usually applies, since it follows the package
   rename); never merge MyTVPlayer's `main` wholesale. Ported so far: everything up to MyTVPlayer 1.2.4 (`a54a2ad`, in 0.3.0; 1.2.3 `884939f` in 0.2.1),
   its Play upload workflow (`dc5d194`, in 0.2.1), its clearer secondary text (MyTVPlayer 1.2.6, `900d6ae`, in 0.3.3),
-  the dimmed paused screen (1.2.7, `29c9c71`, in 0.3.7) and its fixes (1.2.8, `40609e4`, in 0.4.0).
+  the dimmed paused screen (1.2.7, `29c9c71`, in 0.3.7) and its fixes (1.2.8, `40609e4`, in 0.4.0), the episode
+  list's marks (1.3.0, `b4c1bc3`, in 0.4.3) and one list of the keys panels pass on (1.3.1, `c4074e5`, in 0.4.4).
 - **Where a change is made first** (the owner, 2026-10-25): a feature or fix both apps need (the player, remote keys,
   menus, the guide's screens) is made in MyTVPlayer first, then cherry-picked here, so the shared code stays the same
   and ports apply cleanly. Plex-only work (sign-in, servers, play state, Live TV, DVR) is made here only.

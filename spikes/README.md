@@ -28,13 +28,16 @@ python3 spikes/plex_spike.py library         # libraries, home rows, search, and
 python3 spikes/plex_spike.py playback        # direct play, and direct stream (copied, never re-encoded)
 python3 spikes/plex_spike.py livetv --tune   # channels, the guide from Plex, and tuning one channel briefly
 python3 spikes/plex_spike.py dvr --record    # recording options; schedules one recording and cancels it at once
+python3 spikes/plex_spike.py favourites --write-back  # favourite channels: read, saved back unchanged, read again (not in `all`)
 ```
 
 - `library` uses one episode you haven't started (unwatched, no resume point): it sets a resume point, plays it
   past 90% as far as the server can tell, marks it watched and unwatched, and leaves it unwatched and not started,
   as it found it. With no such episode it skips that part.
 - `--tune` uses a tuner for a few seconds; `--record` schedules a recording of a programme starting over an hour from
-  now and cancels it straight away. Leave either flag off to only read.
+  now and cancels it straight away; `--write-back` saves your favourite channels back exactly as they were read,
+  only after a clean and complete read and with a dated backup first (`spike-out/favourites-backup-*.json`; put one
+  back with `favourites --restore <file>`). Leave any of them off to only read.
 - Your sign-in token is saved in `~/.myplexplayer-spike.json` (only you can read it). Delete that file when done, and
   remove "MyPlexPlayer spike" from plex.tv › Settings › Authorized Devices.
 
