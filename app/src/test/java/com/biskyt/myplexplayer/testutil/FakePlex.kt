@@ -77,6 +77,9 @@ class FakePlex : AutoCloseable {
     /** Live TV refused (403), as a friend's server does to a user it's shared with. */
     @Volatile var liveTvRefused = false
 
+    /** The shows by newest episode (Home's recently added series) failing (500), the library still listing. */
+    @Volatile var newestFails = false
+
     /** The guide failing (500), its channels still answering. */
     @Volatile var guideFails = false
 
@@ -102,6 +105,14 @@ class FakePlex : AutoCloseable {
 
     override fun close() = server.shutdown()
 
+    /** The TV library's shows (by newest episode, failing when [newestFails]). */
+    private fun shows(request: RecordedRequest): MockResponse =
+        if (newestFails && request.requestUrl!!.queryParameter("sort") == "episode.addedAt:desc") {
+            MockResponse().setResponseCode(500)
+        } else {
+            page(request, SHOWS.filter { viewedSince(request, it) }.map(::withState))
+        }
+
     private fun answer(request: RecordedRequest): MockResponse {
         val path = request.requestUrl!!.encodedPath
         liveTvAnswer(path, request)?.let { return it }
@@ -124,7 +135,7 @@ class FakePlex : AutoCloseable {
                 }
             }
             path == "/library/sections/1/all" -> page(request, MOVIES.filter { viewedSince(request, it) }.map(::withState))
-            path == "/library/sections/2/all" -> page(request, SHOWS.filter { viewedSince(request, it) }.map(::withState))
+            path == "/library/sections/2/all" -> shows(request)
             path == "/library/metadata/21/allLeaves" -> container { put("Metadata", JsonArray(EPISODES.map(::withState))) }
             // One item, or several ("11,12"): those it has.
             path.startsWith("/library/metadata/") -> path.substringAfterLast('/').split(',').mapNotNull(::byKey)

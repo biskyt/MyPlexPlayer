@@ -18,6 +18,8 @@
     <string name="home_until_then">jusqu\'à %1$s · puis %2$s</string>
 
     <string name="home_up_next_after">À suivre après %1$s</string>
+    <string name="home_recently_added_series">Séries ajoutées récemment</string>
+    <string name="home_recently_added_movies">Films ajoutés récemment</string>
     <string name="home_favourite_series">Séries favorites</string>
     <string name="home_favourite_movies">Films favoris</string>
 </resources>

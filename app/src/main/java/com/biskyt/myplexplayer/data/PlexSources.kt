@@ -170,12 +170,24 @@ class PlexSources(
         )
     }
 
-    /** A series from [titles], at [position] in the list; null for one without a usable id. */
-    fun series(client: PlexClient, playlistId: Long, title: Pair<String, PlexItem>, position: Int, stamp: Long): SeriesEntity? {
+    /**
+     * A series from [titles], at [position] in the list, with its place on Home's recently added row ([newest], by
+     * series id); null for one without a usable id.
+     */
+    @Suppress("LongParameterList") // a row's every field
+    fun series(
+        client: PlexClient,
+        playlistId: Long,
+        title: Pair<String, PlexItem>,
+        position: Int,
+        stamp: Long,
+        newest: Map<Long, Int> = emptyMap(),
+    ): SeriesEntity? {
         val (library, s) = title
+        val id = s.ratingKey.toLongOrNull() ?: return null
         return SeriesEntity(
             playlistId = playlistId,
-            seriesId = s.ratingKey.toLongOrNull() ?: return null,
+            seriesId = id,
             title = s.title,
             year = s.year,
             categoryId = library,
@@ -185,6 +197,7 @@ class PlexSources(
             position = position,
             syncStamp = stamp,
             unwatched = unwatched(s),
+            newest = newest[id],
         )
     }
 

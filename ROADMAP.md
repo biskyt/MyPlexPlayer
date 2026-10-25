@@ -26,6 +26,8 @@ Each step is its own pull request.
    - Next: added guides and matching, then Xtream; then the website and store listing.
 4. **Home, menu and search:** Continue watching, recently added series and movies, favourite series and movies, then
    favourite Live TV channels. Live TV goes last in the menu, on Home and in search results. Empty rows are hidden.
+   - Done (0.5.0): Home's rows in that order (recently added series by their newest episode, the server's
+     `episode.addedAt` order per TV library), and Live TV last in the menu and search.
 5. **Playback from Plex:** direct play, with the server repackaging a file the player can't open (direct stream,
    never converting); resume points and watched state kept in Plex.
    - Done (0.3.0): play state from and to the server (resume points, watched, Continue Watching as "Carry on
