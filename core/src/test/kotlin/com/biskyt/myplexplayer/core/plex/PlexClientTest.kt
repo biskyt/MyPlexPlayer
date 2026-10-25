@@ -35,6 +35,11 @@ class PlexClientTest {
         "hubs/continueWatching" to "continueWatching",
         "hubs/search" to "hubs-search-show",
         "video/:/transcode/universal/decision" to "direct-stream-decision",
+        "livetv/dvrs" to "livetv-dvrs",
+        "media/providers" to "media-providers",
+        "tv.plex.providers.epg.cloud:4/lineups/dvr/channels" to "lineup-channels",
+        "tv.plex.providers.epg.cloud:4/grid" to "grid",
+        "livetv/dvrs/7/channels/5fc705db-ch1/tune" to "tune",
     ).mapValues { (_, name) -> MockResponse().setBody(javaClass.getResource("/plex/$name.json")!!.readText()) }
         .toMutableMap()
     private var otherwise = MockResponse()
@@ -61,6 +66,53 @@ class PlexClientTest {
         assertEquals("MyPlexPlayer", request.getHeader("X-Plex-Product"))
         assertEquals("Test TV", request.getHeader("X-Plex-Device-Name"))
         assertNull("blank values aren't sent", request.getHeader("X-Plex-Device"))
+    }
+
+    @Test
+    fun `live tv, its channels and guide, and tuning a channel to stream it as it is`() = runTest {
+        val live = client.liveTv()!!
+        assertEquals(PlexLiveTv("7", "tv.plex.providers.epg.cloud:4/lineups/dvr/channels", "tv.plex.providers.epg.cloud:4/grid"), live)
+        server.takeRequest()
+        server.takeRequest()
+
+        val channels = client.channels(live)
+        assertEquals(listOf("5fc705db-ch1", "5fc705db-ch2"), channels.map { it.tuneKey })
+        assertEquals(listOf("1", "101"), channels.map { it.number }) // a string, or a number
+        assertEquals(listOf("BBC One", "ITV"), channels.map { it.name }) // no title: its call sign
+        server.takeRequest()
+
+        val guide = client.guide(live, fromS = 1_792_950_000, toS = 1_792_970_000)
+        val url = server.takeRequest().requestUrl!!
+        assertEquals("1792950000", url.queryParameter("endsAt>"))
+        assertEquals("1792970000", url.queryParameter("beginsAt<"))
+        val pilot = guide.first()
+        assertEquals(listOf("5fc705db-ch1", "5fc705db-ch2"), pilot.airings.map { pilot.channel(it) }) // each showing its own
+        val film = guide.last()
+        assertEquals("5fc705db-ch2", film.channel(film.airings.single())) // else the programme's channel
+
+        val tuned = client.tune(live, channels.first().tuneKey!!, "session-1")
+        val tune = server.takeRequest()
+        assertEquals("POST", tune.method)
+        assertEquals("session-1", tune.requestUrl!!.queryParameter("X-Plex-Session-Identifier"))
+        assertEquals("/livetv/sessions/0f3c-uuid", tuned.key)
+
+        val stream = client.liveStream(tuned.key, "session-1")
+        val decision = server.takeRequest().requestUrl!!
+        assertEquals("/livetv/sessions/0f3c-uuid", decision.queryParameter("path"))
+        assertNull("nothing to start into", decision.queryParameter("offset"))
+        assertTrue(stream.url.contains("start.m3u8"))
+
+        client.liveTimeline(tuned, PlexPlayState.STOPPED, 5_000, "session-1")
+        val stopped = server.takeRequest().requestUrl!!
+        assertEquals("/livetv/sessions/0f3c-uuid", stopped.queryParameter("key"))
+        assertEquals("stopped", stopped.queryParameter("state"))
+        assertEquals("3600000", stopped.queryParameter("duration"))
+    }
+
+    @Test
+    fun `a server without live tv says so`() = runTest {
+        responses["livetv/dvrs"] = MockResponse().setBody("""{"MediaContainer":{"size":0}}""")
+        assertNull(client.liveTv())
     }
 
     @Test

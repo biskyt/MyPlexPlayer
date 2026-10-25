@@ -65,6 +65,22 @@ class FakePlex : AutoCloseable {
 
     val url: String get() = server.url("/").toString().trimEnd('/')
 
+    /** Whether it has Live TV (a DVR and its guide), with [CHANNELS]. */
+    @Volatile var liveTv = true
+
+    /** Live TV failing for now (500), as a server still starting up might. */
+    @Volatile var liveTvFails = false
+
+    /** Live TV refused (403), as a friend's server does to a user it's shared with. */
+    @Volatile var liveTvRefused = false
+
+    /** Tuning answers 500 ("Tuning failed"). */
+    @Volatile var tuneFails = false
+
+    /** The channels tuned (asked for, failed or not), in order, and the live sessions stopped (their paths): each tune takes a tuner till then. */
+    val tuned: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+    val liveStopped: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+
     /** How many requests it has had. */
     val requestCount: Int get() = server.requestCount
 
@@ -79,6 +95,7 @@ class FakePlex : AutoCloseable {
 
     private fun answer(request: RecordedRequest): MockResponse {
         val path = request.requestUrl!!.encodedPath
+        liveTvAnswer(path, request)?.let { return it }
         val token = request.getHeader("X-Plex-Token") ?: request.requestUrl!!.queryParameter("X-Plex-Token")
         return when {
             path == "/api/v2/pins" && request.method == "POST" -> json(pin(), code = 201)
@@ -118,6 +135,10 @@ class FakePlex : AutoCloseable {
             path.startsWith("/library/parts/") && unreadableFiles -> MockResponse().setBody("not a container anyone reads")
             path == "/video/:/transcode/universal/decision" -> decision()
             // Reached only with the server's token (above), in a header now rather than the address.
+            // A live session's stream: a tuner still locking, it doesn't answer yet.
+            path == "/video/:/transcode/universal/start.m3u8" &&
+                request.requestUrl!!.queryParameter("path").orEmpty().startsWith("/livetv/sessions/") ->
+                MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.NO_RESPONSE)
             path == "/video/:/transcode/universal/start.m3u8" -> {
                 streamed += request.requestUrl!!.queryParameter("session").orEmpty()
                 MockResponse().setResponseCode(404)
@@ -127,6 +148,102 @@ class FakePlex : AutoCloseable {
                 MockResponse()
             }
             else -> MockResponse().setResponseCode(404)
+        }
+    }
+
+    /** Live TV: the DVR, its guide's channels and grid, tuning, and live sessions' reports; null for anything else. */
+    private fun liveTvAnswer(path: String, request: RecordedRequest): MockResponse? = when {
+        path == "/livetv/dvrs" && liveTvRefused -> MockResponse().setResponseCode(403)
+        path == "/livetv/dvrs" && liveTvFails -> MockResponse().setResponseCode(500)
+        path == "/livetv/dvrs" -> container { if (liveTv) putJsonArray("Dvr") { add(obj { put("key", DVR) }) } }
+        path == "/media/providers" -> container {
+            putJsonArray("MediaProvider") {
+                if (liveTv) {
+                    add(
+                        obj {
+                            put("identifier", EPG)
+                            put("protocols", "livetv")
+                            putJsonArray("Feature") {
+                                add(
+                                    obj {
+                                        put("type", "grid")
+                                        put("key", "/$EPG/grid")
+                                    }
+                                )
+                            }
+                        }
+                    )
+                }
+            }
+        }
+        path == "/$EPG/lineups/dvr/channels" -> container { put("Channel", JsonArray(CHANNELS)) }
+        path == "/$EPG/grid" -> container { put("Metadata", JsonArray(guide(request))) }
+        path.startsWith("/livetv/dvrs/$DVR/channels/") && path.endsWith("/tune") -> tune(path.split('/')[5])
+        path == "/:/timeline" && request.requestUrl!!.queryParameter("key").orEmpty().startsWith("/livetv/sessions/") -> {
+            val url = request.requestUrl!!
+            if (url.queryParameter("state") == "stopped") liveStopped += url.queryParameter("key")!!
+            MockResponse()
+        }
+        else -> null
+    }
+
+    /** A tune: what's on, with its live session's path (in a grab, as the owner's server answers). */
+    private fun tune(channel: String): MockResponse {
+        tuned += channel
+        if (tuneFails) return MockResponse().setResponseCode(500)
+        return container {
+            putJsonArray("MediaSubscription") {
+                add(
+                    obj {
+                        putJsonArray("MediaGrabOperation") {
+                            add(
+                                obj {
+                                    put("status", "inprogress")
+                                    putJsonObject("Metadata") {
+                                        put("ratingKey", "plex://episode/$channel")
+                                        put("key", "/livetv/sessions/${tuned.size}-$channel")
+                                        put("duration", 3_600_000)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    /** When the guide's first programmes began: fixed, as a server's guide is, whenever it's asked for. */
+    private val guideStart = System.currentTimeMillis() / 1000 - 1800
+
+    /**
+     * Each channel's programme on when this began (half an hour in) and the one after, those on in the window asked
+     * for (`endsAt>=` to `beginsAt<=`, in seconds), as the server answers.
+     */
+    private fun guide(request: RecordedRequest): List<JsonObject> {
+        val url = request.requestUrl!!
+        val from = url.queryParameter("endsAt>")?.toLong() ?: 0
+        val to = url.queryParameter("beginsAt<")?.toLong() ?: Long.MAX_VALUE
+        val hour = guideStart
+        return CHANNELS.mapIndexed { i, ch -> ch.string("id")!! to i }.flatMap { (id, i) ->
+            listOf(0, 1).filter { n -> hour + (n + 1) * 3600 >= from && hour + n * 3600 <= to }.map { n ->
+                obj {
+                    put("ratingKey", "plex://programme/$id-$n")
+                    put("type", if (n == 0) "episode" else "movie")
+                    put("title", if (n == 0) "Episode $i" else "Film $i")
+                    if (n == 0) put("grandparentTitle", "Show $i")
+                    put("summary", "About it.")
+                    putJsonArray("Media") {
+                        add(
+                            obj {
+                                put("beginsAt", hour + n * 3600)
+                                put("endsAt", hour + (n + 1) * 3600)
+                                put("channelIdentifier", id)
+                            }
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -289,6 +406,17 @@ class FakePlex : AutoCloseable {
         const val ACCOUNT_TOKEN = "account-token"
         const val SERVER_TOKEN = "server-token"
         const val MACHINE_ID = "home-plex"
+        private const val DVR = "7"
+        private const val EPG = "tv.plex.providers.epg.cloud:4"
+
+        /** The tuner's channels, by their key on the server. */
+        val CHANNELS = listOf("One" to "1", "Two" to "2").map { (name, number) ->
+            obj {
+                put("id", "ch-$number")
+                put("vcn", number)
+                put("title", name)
+            }
+        }
 
         private fun obj(body: JsonObjectBuilder.() -> Unit) = buildJsonObject(body)
 

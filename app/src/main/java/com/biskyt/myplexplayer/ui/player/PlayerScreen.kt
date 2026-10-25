@@ -183,13 +183,7 @@ internal fun PlayerFrame(
             // zoomed picture doesn't push them off it.
             Subtitles(engine.player, Modifier.picture(vm.picture, presentation.videoSizeDp, onScreen = true))
         }
-        if (vm.buffering && vm.error == null) {
-            Text(
-                stringResource(R.string.common_loading),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.align(Alignment.Center)
-            )
-        }
+        LoadingLabel(vm, Modifier.align(Alignment.Center))
         vm.error?.let { ErrorBox(it, vm) }
         if (vm.overlay == OverlayState.CONTROLS) {
             controls(buttons, root)
@@ -212,6 +206,18 @@ internal fun PlayerFrame(
     FocusFollowsOverlay(vm, root)
 }
 
+/** "Loading…" while the stream fills, or "Tuning…" while a channel is tuned (until its picture starts). */
+@Composable
+private fun LoadingLabel(vm: PlaybackViewModel, modifier: Modifier) {
+    if ((vm.buffering || vm.tuning) && vm.error == null) {
+        Text(
+            stringResource(if (vm.tuning) R.string.player_tuning else R.string.common_loading),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = modifier
+        )
+    }
+}
+
 /** How dark the paused screen goes when it dims. */
 private const val DIM_ALPHA = 0.85f
 
@@ -226,9 +232,10 @@ private val volumeKeys = setOf(Key.VolumeUp, Key.VolumeDown, Key.VolumeMute)
 private fun Modifier.wakeKeys(vm: PlaybackViewModel): Modifier {
     val swallowing = remember { arrayOfNulls<Key>(1) }
     return onPreviewKeyEvent { e ->
+        // A fresh press is a press of its own, even if the last swallowed one's release went to another window.
+        if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) swallowing[0] = null
         when {
-            // Its release, or held (a fresh press, its release lost to another window, is a press of its own).
-            e.key == swallowing[0] && (e.type == KeyEventType.KeyUp || e.nativeKeyEvent.repeatCount > 0) -> {
+            e.key == swallowing[0] -> { // its release, or held
                 if (e.type == KeyEventType.KeyUp) swallowing[0] = null
                 true
             }

@@ -46,10 +46,15 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     var error by mutableStateOf<PlaybackError?>(null)
         private set
 
+    /** A channel being tuned (a Plex tuner is slow to lock): "Tuning…" shows until the picture starts. */
+    var tuning by mutableStateOf(false)
+        protected set
+
     /** Stops on an error: [message] says what happened and what to do, [reason] why (when known). */
     /** Shows the error [message] ([failureMessage] when there's none to tell), and why: [reason]. */
     protected fun fail(message: String? = null, reason: String? = null) {
         error = PlaybackError(message ?: appString(failureMessage), reason)
+        tuning = false
         wake() // an error isn't left under the dimming
     }
     var message by mutableStateOf<String?>(null)
@@ -132,6 +137,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             val now = System.currentTimeMillis()
             if (playing) {
                 hasPlayed = true
+                tuning = false
                 playingSince = now
             } else if (playingSince > 0) {
                 playedMs += now - playingSince
@@ -150,8 +156,9 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             buffering = state == Player.STATE_BUFFERING
             if (state == Player.STATE_READY) error = null
             if (state == Player.STATE_ENDED) onEnded()
-            // Paused again after a retry or a stop: the dimming counts from now.
-            if (!dimmed) stayLit()
+            // Paused again after a retry or a stop (which ended the countdown): the dimming counts from now. A
+            // countdown already running carries on, so a stream that keeps changing state still dims.
+            if (!dimmed && dimJob?.isActive != true) stayLit()
         }
 
         override fun onTracksChanged(t: Tracks) {

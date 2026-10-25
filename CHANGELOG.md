@@ -2,6 +2,13 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.4.0
+- **Live TV from your Plex server:** its tuner's channels are in Live TV, with what's on now and next and the TV
+  guide from Plex. Choosing a channel tunes it (it says "Tuning…" until the picture starts), and the tuner is let go
+  when you change channel or stop watching. Channels can be favourites, as before.
+- The dimmed paused screen: a stream that keeps dropping and coming back while paused still dims, and a button never
+  needs pressing twice.
+
 ## 0.3.8
 - **Back in the app, what you watched elsewhere shows here:** coming back from another app (the Plex app, say), or
   opening the app again, brings in how far you got and what you finished meanwhile, and Carry on watching, in moments
