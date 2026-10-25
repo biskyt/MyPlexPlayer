@@ -46,6 +46,36 @@ DIRECT_STREAM = {"X-Plex-Client-Profile-Name": "Generic", "X-Plex-Client-Profile
 
 # ---------------------------------------------------------------- state, output and sanitising
 
+# What every sanitised copy hides (tokens, account names, server names and ids), whichever step found it: one map,
+# kept in the state file so later runs and steps hide the same values with the same stand-ins.
+KNOWN_SECRETS = {}
+
+
+# Long values (tokens, uuids, machine ids) are replaced wherever they appear; shorter ones (an account id, a server
+# name) only where they are the whole value, so "1234" isn't cut out of a timestamp nor "Home" out of a film's title.
+ANYWHERE = 16
+
+
+def remember(value, stand_in, table=None):
+    """Hides [value] as [stand_in] (in every step's copies unless another [table] is given)."""
+    if value and len(str(value)) >= 4:  # shorter would match by chance
+        (KNOWN_SECRETS if table is None else table)[str(value)] = stand_in
+
+
+def replace_secret(text, value, stand_in):
+    if len(value) >= ANYWHERE:
+        return text.replace(value, stand_in)
+    v = re.escape(value)
+    text = text.replace(f'"{value}"', f'"{stand_in}"')  # a whole JSON string
+    return re.sub(rf"(?<=:\s){v}(?=[,\s}}\]])", f'"{stand_in}"', text) if value.isdigit() else text  # a JSON number
+
+
+def keep_secrets(state):
+    """Saves what's hidden so far with the sign-in, for later steps and runs."""
+    state["hidden"] = dict(KNOWN_SECRETS)
+    save_state(state)
+
+
 def load_state():
     state = json.loads(STATE.read_text()) if STATE.exists() else {}
     if "clientId" not in state:
@@ -68,18 +98,18 @@ class Recorder:
         self.clean = out / "sanitised" / step
         self.report = out / f"report-{step}.md"  # each run of a step replaces its report
         self.step = step
-        self.secrets = {}  # exact value -> stand-in
         self.results = []
+        self.local = {}  # values only this step hides (a one-time sign-in code)
         self.raw.mkdir(parents=True, exist_ok=True)
         self.clean.mkdir(parents=True, exist_ok=True)
 
-    def secret(self, value, stand_in):
-        if value and len(str(value)) >= 4:
-            self.secrets[str(value)] = stand_in
+    def secret(self, value, stand_in, keep=True):
+        """Hides [value] as [stand_in] in this step's copies and, if [keep], in every later step's and run's."""
+        remember(value, stand_in, KNOWN_SECRETS if keep else self.local)
 
     def sanitise(self, text: str) -> str:
-        for value, stand_in in sorted(self.secrets.items(), key=lambda kv: -len(kv[0])):
-            text = text.replace(value, stand_in)
+        for value, stand_in in sorted({**KNOWN_SECRETS, **self.local}.items(), key=lambda kv: -len(kv[0])):
+            text = replace_secret(text, value, stand_in)
         text = re.sub(r'("(?:authToken|accessToken|authenticationToken|token|X-Plex-Token)"\s*:\s*)"[^"]*"',
                       r'\1"TOKEN"', text)
         text = re.sub(r"(X-Plex-Token=)[^&\"'\s]+", r"\1TOKEN", text)
@@ -112,7 +142,8 @@ class Recorder:
         lines = [f"## {self.step} ({time.strftime('%Y-%m-%d %H:%M')})\n"]
         lines += [f"- {'PASS' if ok else '**FAIL**'} {name}" + (f": {detail}" if detail else "")
                   for name, ok, detail in self.results]
-        self.report.write_text("\n".join(lines) + "\n")
+        # Reports are shared too; they never name a server or the account (see servers), only long ids could appear.
+        self.report.write_text(self.sanitise("\n".join(lines) + "\n"))  # shared too: no addresses or names
         print(f"\nSaved to {self.raw.parent.parent} (commit only sanitised/; check it first).")
 
 
@@ -179,8 +210,9 @@ def mc(body):
 
 
 def first(d, key):
-    """The first element of the list d[key] ({} if there's none)."""
-    return (d.get(key) or [{}])[0]
+    """The first element of the list d[key] ({} if there's none); a lone object, as some replies send, as it is."""
+    value = d.get(key)
+    return value if isinstance(value, dict) else (value or [{}])[0]
 
 
 def items(body):
@@ -206,7 +238,7 @@ def signin(args, state):
     rec.save("pins-create", pin)
     if not rec.check("POST /api/v2/pins gives id and a short code", status == 201 and pin.get("code"), f"HTTP {status}"):
         return rec.finish()
-    rec.secret(pin["code"], "ABCD")
+    rec.secret(pin["code"], "ABCD", keep=False)
     print(f"\n  Go to https://plex.tv/link and enter: {pin['code']}\n  (waiting up to {pin.get('expiresIn', 900)} s)\n",
           flush=True)
     token, deadline = None, time.time() + pin.get("expiresIn", 900)
@@ -220,18 +252,44 @@ def signin(args, state):
         return rec.finish()
     state["token"] = token
     save_state(state)
-    status, _, user = Http(state, PLEX_TV, token).get("/api/v2/user")
-    for key in ("uuid", "username", "email", "title", "friendlyName", "id"):
-        rec.secret(user.get(key) if isinstance(user, dict) else None, f"USER_{key.upper()}")
+    status, user = hide_account(state)
+    keep_secrets(state)
     rec.save("user", user)
     rec.check("GET /api/v2/user accepts the token", status == 200, f"HTTP {status}")
     rec.check("token saved", True, str(STATE))
     rec.finish()
 
 
+def hide_account(state):
+    """The account's names and ids, hidden in every sanitised copy; returns the /api/v2/user reply."""
+    status, _, user = Http(state, PLEX_TV, state["token"]).get("/api/v2/user")
+    for key in ("uuid", "username", "email", "title", "friendlyName", "id"):
+        remember(user.get(key) if isinstance(user, dict) else None, f"USER_{key.upper()}")
+    return status, user
+
+
+def hide_known(state):
+    """For a sign-in saved before what's hidden was kept with it (the owner's first run): hides the account and the
+    saved servers' names before any step saves a copy."""
+    if not state.get("token") or "hidden" in state:
+        return
+    remember(state["token"], "TOKEN")
+    try:
+        hide_account(state)
+    except OSError:
+        pass  # offline: the servers step tries again
+    for i, s in enumerate(state.get("servers", [])):
+        remember(s.get("name"), f"Server {i + 1}")
+        remember(s.get("machineId"), f"MACHINEID{i}")
+        remember(s.get("token"), "TOKEN")
+    keep_secrets(state)
+
+
 def servers(args, state):
     rec = Recorder(args.out, "s2-servers")
     token = need_token(state)
+    if not any(v.startswith("USER_") for v in KNOWN_SECRETS.values()):
+        hide_account(state)  # not hidden yet (offline when this run started)
     status, _, res = Http(state, PLEX_TV, token).get("/api/v2/resources", includeHttps=1, includeRelay=1, includeIPv6=1)
     found = [r for r in (res if isinstance(res, list) else []) if "server" in r.get("provides", "")]
     for i, r in enumerate(found):
@@ -244,21 +302,22 @@ def servers(args, state):
         return rec.finish()
     rec.check("each server has its own accessToken", all(r.get("accessToken") for r in found))
     chosen = []
-    for r in found:
+    for i, r in enumerate(found):
+        label = f"Server {i + 1}"  # never the server's own name: it would be in the shared report
         conns = r.get("connections", [])
         print(f"\n  {r.get('name')}: {len(conns)} connection(s), owned={r.get('owned')}")
         timings = race(state, r["accessToken"], conns)
         for c, ms, ok in timings:
             print(f"    {'ok ' if ok else 'no '} {ms:6.0f} ms  local={c.get('local')} relay={c.get('relay')}  {c.get('uri')}")
-        rec.save(f"race-{r.get('clientIdentifier', 'x')[:8]}", [{"uri": c.get("uri"), "local": c.get("local"),
+        rec.save(f"race-server{i + 1}", [{"uri": c.get("uri"), "local": c.get("local"),
                  "relay": c.get("relay"), "ms": round(ms), "ok": ok} for c, ms, ok in timings])
         best = pick(timings)
-        rec.check(f"a connection answers /identity for {r.get('name')}", best, best and best.get("uri"))
+        rec.check(f"a connection answers /identity for {label} (owned: {r.get('owned')})", best, best and best.get("uri"))
         if best:
             chosen.append({"name": r.get("name"), "uri": best["uri"], "token": r["accessToken"],
                            "machineId": r.get("clientIdentifier")})
     state["servers"] = chosen
-    save_state(state)
+    keep_secrets(state)
     rec.finish()
 
 
@@ -637,8 +696,8 @@ def tune(http, rec, dvr, ch):
                                     **{"X-Plex-Session-Identifier": session})
     rec.save("tune", tuned)
     m = mc(tuned)
-    grab = first(first(first(m, "MediaSubscription"), "MediaGrabOperation"), "Metadata") if m.get("MediaSubscription") else {}
-    meta = grab or first(m, "Metadata")
+    # The tuned programme: in the grab, where Metadata is a single object (as on the owner's server), else Metadata[0].
+    meta = first(first(first(m, "MediaSubscription"), "MediaGrabOperation"), "Metadata") or first(m, "Metadata")
     rec.check(f"POST /livetv/dvrs/{{dvr}}/channels/{channel_key(ch)}/tune", status == 200 and meta.get("key"),
               f"HTTP {status}, session path {meta.get('key')}, programme {meta.get('ratingKey')}")
     if not meta.get("key"):
@@ -658,6 +717,14 @@ def tune(http, rec, dvr, ch):
     status, _, _ = http.request("POST", "/:/timeline", {"X-Plex-Session-Identifier": session}, ratingKey=meta.get("ratingKey"),
                                 key=meta["key"], state="stopped", time=10000, duration=10000)
     rec.check("a stopped timeline for the session path (frees the tuner)", status == 200, f"HTTP {status}")
+
+
+def pref_value(setting):
+    """A template setting as Plex sends it: its value, else its default; true/false in lower case."""
+    value = setting.get("value")
+    if value in (None, ""):
+        value = setting.get("default", "")
+    return str(value).lower() if isinstance(value, bool) else value
 
 
 def dvr(args, state):
@@ -686,9 +753,15 @@ def dvr(args, state):
     one_off = next((t for t in tmpl if t.get("type") in (4, 1)), tmpl[-1])  # an episode or movie: this airing only
     # The template's parameters go as they are (repeated hints/params keys included); add what it leaves out.
     query = one_off.get("parameters", "")
-    for name in ("targetLibrarySectionID", "type"):
+    for name in ("targetLibrarySectionID", "targetSectionLocationID", "type"):
         if f"{name}=" not in query and one_off.get(name) is not None:
             query += f"&{name}={one_off[name]}"
+    # Every setting the template offers, as prefs[id]=value (its value, else its default): as Plezy sends them.
+    prefs = {st["id"]: pref_value(st) for st in one_off.get("Setting", []) if st.get("id")}
+    if prefs:
+        query += "&" + urllib.parse.urlencode({f"prefs[{k}]": v for k, v in prefs.items()})
+    rec.check("the recording's settings, sent as prefs[...]", True,
+              ", ".join(f"{k}={v}" for k, v in prefs.items()) or "none offered")
     status, _, created = http.request("POST", f"/media/subscriptions?{query.lstrip('&')}")
     rec.save("subscription-created", created)
     sub = first(mc(created), "MediaSubscription")
@@ -737,6 +810,8 @@ def main():
     parser.add_argument("--record", action="store_true", help="dvr: schedule a recording, then cancel it")
     args = parser.parse_args()
     state = load_state()
+    KNOWN_SECRETS.update(state.get("hidden", {}))
+    hide_known(state)
     if args.server and not args.token and state.get("servers"):
         args.token = next((s["token"] for s in state["servers"] if s["uri"] == args.server), None)
     (run_all if args.step == "all" else globals()[args.step])(args, state)
