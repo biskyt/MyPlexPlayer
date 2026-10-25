@@ -46,7 +46,7 @@ Elephants Dream, Sintel, Tears of Steel, Cosmos Laundromat, Charge, Caminandes),
 
 **Short description** (80 max):
 
-> Live TV, TV guide, catch-up, movies and series from your own IPTV provider.
+> Live TV, TV guide, movies and series from your own IPTV provider.
 
 **Full description** (4000 max):
 
@@ -58,7 +58,6 @@ Elephants Dream, Sintel, Tears of Steel, Cosmos Laundromat, Charge, Caminandes),
 >
 > • Live TV with categories, favourites and recently watched channels
 > • A full TV guide, with guides from your provider or any XMLTV address, matched to your channels automatically
-> • Catch-up and start-over on channels where your provider offers them
 > • Movies and series, with continue watching and next episode
 > • Search across channels, programmes, movies and series
 > • Made for the remote: number keys, channel up/down, the Guide button

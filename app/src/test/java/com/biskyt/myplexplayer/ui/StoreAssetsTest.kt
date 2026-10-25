@@ -99,13 +99,13 @@ class StoreAssetsTest {
     private val provider = FakeProvider().apply {
         categories = listOf("1" to "News", "2" to "Sport", "3" to "Kids", "4" to "Entertainment", "5" to "Documentaries")
         streams = listOf(
-            FakeProvider.Stream(101, 1, "Riverside One HD", "4", "one", archiveDays = 7),
-            FakeProvider.Stream(102, 2, "Northbridge News", "1", "news", archiveDays = 3),
-            FakeProvider.Stream(103, 3, "Harbour Sport 1", "2", "sport1", archiveDays = 3),
+            FakeProvider.Stream(101, 1, "Riverside One HD", "4", "one"),
+            FakeProvider.Stream(102, 2, "Northbridge News", "1", "news"),
+            FakeProvider.Stream(103, 3, "Harbour Sport 1", "2", "sport1"),
             FakeProvider.Stream(104, 4, "Harbour Sport 2", "2", "sport2"),
-            FakeProvider.Stream(105, 5, "Little Sky Kids", "3", "kids", archiveDays = 2),
-            FakeProvider.Stream(106, 6, "Lantern Drama", "4", "drama", archiveDays = 7),
-            FakeProvider.Stream(107, 7, "Atlas Documentary", "5", "docs", archiveDays = 7),
+            FakeProvider.Stream(105, 5, "Little Sky Kids", "3", "kids"),
+            FakeProvider.Stream(106, 6, "Lantern Drama", "4", "drama"),
+            FakeProvider.Stream(107, 7, "Atlas Documentary", "5", "docs"),
             FakeProvider.Stream(108, 8, "Meadow Comedy", "4", "comedy"),
         ).map { it.copy(logo = art("${it.epgId}.png")) }
         guideChannels = listOf(
@@ -262,9 +262,6 @@ class StoreAssetsTest {
 
     @Test fun tvGuide() = screenshot("3-tv-guide", Screen.Live(ChannelFilter.All, guide = true), "World Tonight")
 
-    // Its last row, so the list has all its channels.
-    @Test fun catchup() = screenshot("4-catch-up", Screen.Live(ChannelFilter.Catchup), "Wild Rivers")
-
     @Test fun movies() {
         loadMoviesAndSeries()
         screenshot("5-movies", Screen.Movies(), "Elephants Dream")
@@ -370,7 +367,7 @@ class StoreAssetsTest {
             Box(Modifier.size(130.dp).clip(RoundedCornerShape(28.dp))) { Icon() }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Wordmark(34)
-                Text("Live TV, TV guide and catch-up", color = Palette.text, fontSize = 15.sp, softWrap = false)
+                Text("Live TV and TV guide", color = Palette.text, fontSize = 15.sp, softWrap = false)
                 Text("Movies and series from your provider", color = Palette.textMuted, fontSize = 15.sp, softWrap = false)
             }
         }

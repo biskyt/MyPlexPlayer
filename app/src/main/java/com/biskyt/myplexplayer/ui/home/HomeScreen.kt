@@ -242,7 +242,7 @@ private sealed interface HomeTile {
     data class Vod(val type: String, val card: VodCard) : HomeTile
 }
 
-/** Holding OK on a Home card: watch it, and favourites, catch-up and the guide source, or take it off its row. */
+/** Holding OK on a Home card: watch it, and favourites and the guide source, or take it off its row. */
 @Composable
 private fun TileOptions(tile: HomeTile, vm: HomeViewModel, pid: Long, onDismiss: (removed: Boolean) -> Unit) {
     val close = { onDismiss(false) }

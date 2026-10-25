@@ -7,10 +7,8 @@
     <string name="player_subtitles">Subtítulos</string>
     <string name="player_more">Más</string>
     <string name="player_channel_guide">Guía del canal</string>
-    <string name="player_watch_live">Ver en vivo</string>
     <string name="player_next_episode">Siguiente episodio</string>
     <string name="player_up_next">A CONTINUACIÓN · %1$s</string>
-    <string name="player_catchup_behind_live">Diferido · %1$s de retraso</string>
 
     <string name="player_hint_skip">▲ y luego ◀ ▶ para saltar (mantén para avanzar) · Atrás oculta esto</string>
     <string name="player_hint_zap_up_down">▲ ▼ cambian de canal · Atrás oculta esto</string>
@@ -63,8 +61,6 @@
 
     <string name="player_failure_live">Este canal no se está reproduciendo en este momento. Vuelve a intentarlo más tarde o elige otro canal.</string>
     <string name="player_failure_vod">No se puede reproducir en este momento. Vuelve a intentarlo más tarde.</string>
-    <string name="player_failure_catchup">No se puede volver a reproducir en este momento. Vuelve a intentarlo más tarde.</string>
-    <string name="player_catchup_nothing_to_start_over">En este momento no hay nada que ver desde el inicio en este canal.</string>
     <string name="player_unsupported_format">Usa un formato de transmisión que MyPlexPlayer no puede reproducir.</string>
 
     <string name="player_stream_source">Transmisión desde %1$s.</string>

@@ -23,6 +23,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     // 10: play state from Plex (series.unwatched, watch_progress.carryOnAt and pending).
     // Unused since M3U went (0.2.2), to drop with Xtream: playlist.moviesUrl/seriesUrl/vodFeedHash, movie.streamUrl,
     // the episode table, channel.streamUrl/userAgent/referrer/catchupType/catchupSource.
+    // Unused since Catch-up went (DVR replaces it), also to drop with Xtream: channel.archiveDays and its index.
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),

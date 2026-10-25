@@ -113,17 +113,6 @@ object AppIcons {
         verticalLineTo(5.5f)
     }
 
-    /** A clock with a backwards arrow: past programmes can be watched again. */
-    val Catchup = icon("catchup", false) {
-        moveTo(5f, 12f)
-        arcTo(7f, 7f, 0f, true, true, 12f, 19f)
-        moveTo(2.6f, 9.8f)
-        lineTo(5f, 12.2f)
-        lineTo(7.4f, 9.8f)
-        moveTo(12f, 8.5f)
-        lineTo(12f, 12f)
-        lineTo(14.5f, 13.5f)
-    }
     val Guide =
         icon("guide", false) {
             moveTo(4f, 6f)

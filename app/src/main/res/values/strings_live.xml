@@ -2,8 +2,6 @@
 <resources>
     <!-- Live TV: category column. Keep short: the column is narrow -->
     <string name="live_all_channels">All channels</string>
-    <!-- First entry of the Catch-up tab's column: every channel with catch-up -->
-    <string name="live_all_catchup">All catch-up</string>
     <!-- Placeholder in the filter box above the channel list -->
     <string name="live_filter_hint">Filter by name or number</string>
     <!-- Buttons switching between the channel list and the TV guide grid. Keep short (small buttons) -->
@@ -21,7 +19,6 @@
     <!-- %1$s is a programme title; keep the quotation marks of your language around it -->
     <string name="live_option_search_for">Search for “%1$s”</string>
     <string name="live_option_find_help">Watch it on demand</string>
-    <string name="live_option_start_over_help">Watch what\'s on from the beginning</string>
     <string name="live_option_channel_guide">Show TV guide for this channel</string>
     <string name="live_option_channel_guide_help">Upcoming programmes</string>
     <string name="live_option_switch_to_list">Switch to channel list</string>
@@ -31,12 +28,6 @@
     <string name="live_option_hide_channel">Hide channel</string>
     <!-- "Settings › Languages & categories" names a settings page: keep it the same as that page's title -->
     <string name="live_option_hide_channel_help">Unhide later in Settings › Languages &amp; categories</string>
-
-    <!-- Catch-up screen -->
-    <!-- Title. %1$s is a channel name -->
-    <string name="live_catchup_title">Catch-up · %1$s</string>
-    <string name="live_catchup_load_failed">Couldn\'t load catch-up</string>
-    <string name="live_catchup_empty_day">Nothing to catch up on for this day.</string>
 
     <!-- TV guide grid -->
     <!-- Touch buttons moving the guide's time window back or forward. Very short: they sit above the narrow channel column -->
