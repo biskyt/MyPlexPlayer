@@ -19,7 +19,7 @@ import com.biskyt.myplexplayer.data.VodFilter
 
 /** Every screen in the app. Tab roots are [Home], [Live], [Movies], [Series]. */
 sealed interface Screen {
-    /** First launch, or after the last playlist is deleted: add a provider, the free channels, or restore a backup. */
+    /** First launch, or after the last playlist is deleted: sign in to Plex, add a provider, or restore a backup. */
     data object Welcome : Screen
     data object Home : Screen
 

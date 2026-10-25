@@ -63,9 +63,6 @@ interface PlaylistDao {
     @Query("DELETE FROM episode WHERE playlistId = :pid")
     suspend fun deleteEpisodes(pid: Long)
 
-    @Query("UPDATE playlist SET vodFeedHash = :hash WHERE id = :id")
-    suspend fun setVodFeedHash(id: Long, hash: Long?)
-
     @Query("DELETE FROM watch_progress WHERE playlistId = :pid")
     suspend fun deleteProgress(pid: Long)
 
@@ -652,7 +649,7 @@ interface VodDao {
     @Query("DELETE FROM movie WHERE playlistId = :pid AND categoryId = :cat")
     suspend fun deleteMovieCategory(pid: Long, cat: String)
 
-    /** A category's series, and their episodes (M3U). */
+    /** A category's series, and their episodes (an unused table since 0.2.2). */
     @Transaction
     suspend fun deleteSeriesCategory(pid: Long, cat: String) {
         deleteEpisodesInCategory(pid, cat)
@@ -672,18 +669,6 @@ interface VodDao {
 
     @Query("DELETE FROM series WHERE playlistId = :pid AND syncStamp != :stamp")
     suspend fun deleteStaleSeries(pid: Long, stamp: Long)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertEpisodes(items: List<EpisodeEntity>)
-
-    @Query("DELETE FROM episode WHERE playlistId = :pid AND syncStamp != :stamp")
-    suspend fun deleteStaleEpisodes(pid: Long, stamp: Long)
-
-    @Query("SELECT * FROM episode WHERE playlistId = :pid AND seriesId = :seriesId ORDER BY season, number")
-    suspend fun episodes(pid: Long, seriesId: Long): List<EpisodeEntity>
-
-    @Query("SELECT * FROM episode WHERE playlistId = :pid AND episodeId = :id")
-    suspend fun episode(pid: Long, id: Long): EpisodeEntity?
 
     @Query("SELECT EXISTS(SELECT 1 FROM vod_favourite WHERE playlistId = :pid AND kind = :kind AND itemId = :id)")
     fun observeFavourite(pid: Long, kind: String, id: Long): Flow<Boolean>

@@ -7,13 +7,14 @@ import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
 const val KIND_XTREAM = "xtream"
-const val KIND_M3U = "m3u"
 const val KIND_PLEX = "plex"
+
+/** The kinds of source the app has; any other (M3U, before 0.2.2) is removed (see AppDatabase.RetiredSources). */
+val SOURCE_KINDS = setOf(KIND_PLEX, KIND_XTREAM)
 
 /**
  * A source. [kind] is [KIND_PLEX] (a Plex Media Server: [server] is the address chosen for it, [password] its access
- * token and [machineId] its identifier), [KIND_XTREAM] (server + login) or [KIND_M3U] ([server] holds the playlist
- * URL and the login fields are empty).
+ * token and [machineId] its identifier) or [KIND_XTREAM] (server + login).
  */
 @Entity(tableName = "playlist")
 @Serializable
@@ -27,23 +28,15 @@ data class PlaylistEntity(
     val lastSyncAt: Long = 0,
     val expiresAt: Long? = null,
     val maxConnections: Int? = null,
-    /** M3U: optional playlists of movies and of series (either may hold both: episodes are told apart by name). */
+    /** Unused since M3U playlists went (0.2.2); see AppDatabase. */
     val moviesUrl: String? = null,
     val seriesUrl: String? = null,
-    /** A fingerprint of the movie and series playlists last loaded, so unchanged ones aren't loaded again. */
     val vodFeedHash: Long? = null,
     /** Plex: the server's machine identifier, which stays the same when its address changes. */
     val machineId: String? = null
 ) {
-    val isM3u: Boolean get() = kind == KIND_M3U
     val isPlex: Boolean get() = kind == KIND_PLEX
     val isXtream: Boolean get() = kind == KIND_XTREAM
-
-    /** Whether it has movies and series: Xtream accounts, and M3U playlists with a movie or series playlist. */
-    val hasVod: Boolean get() = !isM3u || !moviesUrl.isNullOrBlank() || !seriesUrl.isNullOrBlank()
-
-    /** The free channels (or iptv-org's, which were offered before). */
-    val isFree: Boolean get() = server in com.biskyt.myplexplayer.data.PlaylistRepository.FREE_PLAYLIST_URLS
 
     /** Channels are refreshed in the background when the last download is older than this. */
     fun isStale(now: Long = System.currentTimeMillis()) = now - lastSyncAt > 12 * 3_600_000L
@@ -103,7 +96,7 @@ data class MovieEntity(
     /** Provider order. */
     val position: Int,
     val syncStamp: Long,
-    /** M3U: where it plays from (Xtream movies are played by [streamId] and [extension]). */
+    /** Unused since 0.2.2 (M3U films); see AppDatabase. */
     val streamUrl: String? = null
 )
 
@@ -129,7 +122,7 @@ data class SeriesEntity(
     val syncStamp: Long
 )
 
-/** An episode from an M3U series playlist (Xtream episodes are fetched from the provider when a series is opened). */
+/** Unused since 0.2.2 (M3U episodes): see AppDatabase. */
 @Entity(tableName = "episode", primaryKeys = ["playlistId", "episodeId"], indices = [Index("playlistId", "seriesId", "season", "number")])
 data class EpisodeEntity(
     val playlistId: Long,
@@ -228,11 +221,11 @@ data class ChannelEntity(
     val sortOrder: Int? = null,
     val position: Int = sortOrder ?: number,
     @ColumnInfo(defaultValue = "0") val syncStamp: Long = 0,
-    /** M3U channels carry their own URL (and sometimes required HTTP headers); Xtream URLs are built from the login. */
+    /** Unused since 0.2.2 (M3U channels' own URL and headers); see AppDatabase. Xtream URLs are built from the login. */
     val streamUrl: String? = null,
     val userAgent: String? = null,
     val referrer: String? = null,
-    /** M3U catch-up: how the archive's address is made (see M3uCatchup), and the playlist's address template. */
+    /** Unused since 0.2.2 (M3U catch-up); see AppDatabase. */
     val catchupType: String? = null,
     val catchupSource: String? = null
 )

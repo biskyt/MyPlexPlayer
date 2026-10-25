@@ -9,7 +9,6 @@ import androidx.lifecycle.viewModelScope
 import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
-import com.biskyt.myplexplayer.core.m3u.M3uCatchup
 import com.biskyt.myplexplayer.core.player.OverlayState
 import com.biskyt.myplexplayer.core.xtream.CatchupListing
 import com.biskyt.myplexplayer.core.xtream.CatchupProgramme
@@ -66,7 +65,7 @@ class CatchupPlayerViewModel(
             playlist = p
             channel = ch
             try {
-                val l = c.catchup.listing(p, ch).let { if (p.isM3u) withGuide(p, ch, it) else it }
+                val l = c.catchup.listing(p, ch)
                 listing = l
                 val start = screen.startMs ?: c.catchup.onNow(l)?.startMs
                 if (start == null) fail(appString(R.string.player_catchup_nothing_to_start_over)) else open(start)
@@ -75,19 +74,6 @@ class CatchupPlayerViewModel(
                 fail(e.message)
             }
         }
-    }
-
-    /**
-     * M3U catch-up has only hour-long slots; the TV guide's programmes, where it has them, take their place, so the
-     * title, "Start over" and "from the start" follow the real programmes.
-     */
-    private suspend fun withGuide(p: PlaylistEntity, ch: ChannelEntity, l: CatchupListing): CatchupListing {
-        val now = clock()
-        val oldest = now - ch.archiveDays * CatchupRepository.DAY_MS
-        val guide = c.epg.programmes(p.id, listOf(ch.streamId), oldest, now, details = false)[ch.streamId].orEmpty()
-            .filter { it.startMs >= oldest }
-            .map { CatchupProgramme(it.startMs, it.stopMs, it.title, it.description, hasArchive = true) }
-        return M3uCatchup.withProgrammes(l, guide)
     }
 
     /** Where playback is now. */
@@ -105,16 +91,8 @@ class CatchupPlayerViewModel(
         at = startMs
         programme = programmeAt(startMs)
         resetForNewStream()
-        // An M3U channel whose catch-up address can't be made: say so, as for any stream that won't play.
-        val url = try {
-            c.catchup.url(p, ch, l, startMs)
-        } catch (e: java.io.IOException) {
-            return fail(e.message)
-        }
-        // Xtream archives are MPEG-TS; M3U ones may be either (told by the address when it can), and may need the
-        // channel's headers.
-        val hls = if (p.isM3u) M3uCatchup.isHls(url, ch.streamUrl.orEmpty(), ch.catchupType.orEmpty()) else false
-        engine?.play(url, hls = hls, userAgent = ch.userAgent, referrer = ch.referrer)
+        // Xtream archives are MPEG-TS.
+        engine?.play(c.catchup.url(p, ch, l, startMs), hls = false)
         showControls()
     }
 

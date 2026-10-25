@@ -26,7 +26,6 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.container
 import com.biskyt.myplexplayer.data.ChannelFilter
-import com.biskyt.myplexplayer.data.PlaylistRepository
 import com.biskyt.myplexplayer.data.db.CAT_LIVE
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
@@ -333,26 +332,6 @@ class AppUiTest {
     }
 
     @Test
-    fun `free channels button shows only until they are added`() {
-        show(Screen.Playlists)
-        waitFor("Home TV")
-        waitFor("Add free TV, films and series")
-        runBlocking {
-            val c = app.container
-            c.db.playlists().insert(
-                com.biskyt.myplexplayer.data.db.PlaylistEntity(
-                    name = "Free TV",
-                    kind = "m3u",
-                    server = PlaylistRepository.FREE_PLAYLIST_URL,
-                    username = "",
-                    password = ""
-                )
-            )
-        }
-        compose.waitAdvancingClock { compose.onAllNodes(hasText("Add free channels", substring = true)).fetchSemanticsNodes().isEmpty() }
-    }
-
-    @Test
     fun `search finds channels, programmes and movies, and opens what is picked`() {
         show(Screen.Search())
         compose.waitAdvancingClock { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
@@ -617,8 +596,8 @@ class AppUiTest {
     @Test
     fun `first launch offers a choice and sets nothing up by itself`() {
         show(Screen.Welcome)
+        waitFor("Sign in to Plex")
         waitFor("Add my TV provider")
-        waitFor("Free TV, films and series")
         waitFor("Restore a backup")
         compose.mainClock.advanceTimeBy(2_000)
         compose.waitForIdle()

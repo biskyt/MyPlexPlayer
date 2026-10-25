@@ -25,15 +25,7 @@
     <string name="data_plex_unexpected">Respuesta inesperada de Plex</string>
     <string name="data_account_inactive">Esta cuenta no está activa</string>
 
-    <string name="data_free_failed">No se pudieron configurar los canales gratuitos</string>
-    <string name="data_playlist_save_failed">No se pudo guardar la lista</string>
-    <string name="data_playlist_address_invalid">Dirección de lista no válida</string>
-    <string name="data_playlist_refused">El servidor rechazó la descarga de la lista (error %1$d)</string>
-    <string name="data_playlist_download_failed">No se pudo descargar la lista: %1$s</string>
-    <string name="data_not_m3u">Esa dirección no devuelve una lista M3U</string>
 
-    <string name="data_catchup_unplayable">No se puede reproducir el diferido de este canal</string>
-    <string name="data_episode_gone">Este episodio ya no está en la lista</string>
 
     <string name="data_lang_uk">Inglés (Reino Unido)</string>
     <string name="data_lang_us">Inglés (EE. UU.)</string>
@@ -79,7 +71,6 @@
     <string name="data_accent_pink">Rosa</string>
     <string name="data_accent_silver">Plata</string>
     <string name="data_playlist_default_name">Mi TV</string>
-    <string name="data_free_playlist_name">TV gratis</string>
     <string name="data_provider_guide_name">Guía de %1$s</string>
     <string name="data_ungrouped">Sin categoría</string>
 </resources>

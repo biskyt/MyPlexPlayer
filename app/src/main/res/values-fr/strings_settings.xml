@@ -78,12 +78,8 @@
     <string name="settings_lib_nunito">La police de l\'appli</string>
 
     <string name="settings_welcome_title">Bienvenue dans MyPlexPlayer</string>
-    <string name="settings_welcome_intro">Connectez-vous à Plex pour regarder les films et séries de vos serveurs Plex. Vous pouvez aussi ajouter un service TV auquel vous êtes abonné (identifiants Xtream Codes ou adresse de playlist M3U), ou la TV gratuite, à tout moment dans Paramètres › Playlists.</string>
-    <string name="settings_welcome_downloading">Téléchargement de la liste des chaînes…</string>
+    <string name="settings_welcome_intro">Connectez-vous à Plex pour regarder les films et séries de vos serveurs Plex. Vous pouvez aussi ajouter un service TV auquel vous êtes abonné (identifiants Xtream Codes) à tout moment dans Paramètres › Playlists.</string>
     <string name="settings_welcome_add_provider">Ajouter mon fournisseur TV</string>
-    <string name="settings_welcome_setting_up">Configuration…</string>
-    <string name="settings_welcome_free_retry">Réessayer les chaînes gratuites</string>
-    <string name="settings_welcome_free">TV, films et séries gratuits</string>
     <string name="settings_welcome_restore">Restaurer une sauvegarde</string>
     <string name="settings_plex_sign_in">Se connecter à Plex</string>
     <string name="settings_plex_steps">Sur votre téléphone ou ordinateur, allez sur plex.tv/link, connecté à votre compte Plex, et saisissez ce code :</string>
@@ -156,8 +152,6 @@
     <string name="settings_playlist_update_now">Mettre à jour</string>
     <string name="settings_playlist_edit">Modifier</string>
     <string name="settings_playlist_add">+ Ajouter une playlist</string>
-    <string name="settings_playlist_downloading_free">Téléchargement des chaînes gratuites…</string>
-    <string name="settings_playlist_add_free">+ Ajouter TV, films et séries gratuits</string>
     <string name="settings_playlist_select_hint">Sélectionnez une playlist pour l\'utiliser.</string>
     <string name="settings_playlist_expired">Expiré le %1$s</string>
     <string name="settings_playlist_expires_today">Expire aujourd\'hui (%1$s)</string>
@@ -171,19 +165,12 @@
     <string name="settings_playlist_add_title">Ajouter une playlist</string>
     <string name="settings_playlist_edit_title">Modifier la playlist</string>
     <string name="settings_playlist_first_run_hint">Saisissez les informations fournies par votre fournisseur TV.</string>
-    <string name="settings_playlist_type_xtream">Xtream Codes</string>
-    <string name="settings_playlist_type_m3u">URL de playlist M3U</string>
     <string name="settings_playlist_name">Nom</string>
     <string name="settings_playlist_name_hint">ex. : TV du salon</string>
-    <string name="settings_playlist_address">Adresse de la playlist</string>
     <string name="settings_playlist_server">Adresse du serveur</string>
-    <string name="settings_playlist_movies">Playlist de films (facultatif)</string>
-    <string name="settings_playlist_series">Playlist de séries (facultatif)</string>
-    <string name="settings_playlist_m3u_vod_hint">Une seule playlist pour les deux, c\'est possible : les épisodes (« Émission S01E02 ») vont dans Séries, le reste dans Films.</string>
     <string name="settings_playlist_username">Nom d\'utilisateur</string>
     <string name="settings_playlist_password">Mot de passe</string>
     <string name="settings_playlist_connected">Connecté ✓</string>
-    <string name="settings_playlist_downloading">Téléchargement de la playlist…</string>
     <string name="settings_playlist_checking">Vérification des identifiants…</string>
     <string name="settings_playlist_wait">Veuillez patienter…</string>
     <string name="settings_playlist_save">Enregistrer</string>

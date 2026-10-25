@@ -10,6 +10,7 @@ import com.biskyt.myplexplayer.data.db.AppDatabase
 import com.biskyt.myplexplayer.data.db.CAT_LIVE
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
+import com.biskyt.myplexplayer.data.db.PlaylistEntity
 import com.biskyt.myplexplayer.data.db.VOD_EPISODE
 import com.biskyt.myplexplayer.data.db.VOD_MOVIE
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
@@ -56,7 +57,7 @@ class RepositoriesTest {
         settings = SettingsRepository(context)
         epg = EpgRepository(db, http, context.cacheDir.resolve("test-epg"), scope)
         val categoryStore = CategoryStore(db) { Locale.UK }
-        playlists = PlaylistRepository(db, http, settings, epg, context.cacheDir.resolve("test-playlists"), categoryStore)
+        playlists = PlaylistRepository(db, http, settings, epg, categoryStore)
         channels = ChannelRepository(db)
         vod = VodRepository(db, playlists, categoryStore, PlexSources(db, http, settings))
     }
@@ -100,7 +101,6 @@ class RepositoriesTest {
                 OkHttpClient(),
                 settings,
                 epg,
-                context.cacheDir.resolve("test-playlists"),
                 CategoryStore(db) {
                     Locale.US
                 }
@@ -108,41 +108,6 @@ class RepositoriesTest {
         val id = us.add("Home", provider.url, "me", "secret")
         val included = db.categories().all(id, CAT_LIVE).filter { it.included }.map { it.categoryId }
         assertEquals(listOf("1", "2"), included)
-    }
-
-    @Test
-    fun `m3u playlist loads the TV's country and keeps ids stable across refreshes`() = runBlocking {
-        val id = playlists.addM3u("Free", provider.url + "free.m3u")
-        val cats = db.categories().all(id, CAT_LIVE).associateBy { it.categoryId }
-        assertTrue(cats.getValue("United Kingdom").included)
-        assertFalse(cats.getValue("France").included)
-        assertEquals("UK", cats.getValue("United Kingdom").lang)
-
-        playlists.syncChannels(id)
-        val ids = channels.ids(id, ChannelFilter.All)
-        assertEquals(2, ids.size)
-        val kite = channels.get(id, ids[1])!!
-        assertEquals("Kite Kids (720p)", kite.name)
-        assertEquals("http://stream.example/kite.m3u8", kite.streamUrl)
-        assertEquals("Agent/2", kite.userAgent)
-        assertEquals("KiteKids.uk", kite.providerEpgId)
-
-        // The provider changes a stream URL; the channel keeps its id (and so its favourite).
-        channels.setFavourite(id, kite.streamId, true)
-        provider.m3u = provider.m3u.replace("kite.m3u8", "kite-new.m3u8")
-        playlists.syncChannels(id)
-        assertEquals("http://stream.example/kite-new.m3u8", channels.get(id, kite.streamId)!!.streamUrl)
-        assertEquals(listOf(kite.streamId), channels.ids(id, ChannelFilter.Favourites))
-    }
-
-    @Test
-    fun `an address that isn't a playlist is rejected`() = runBlocking {
-        try {
-            playlists.addM3u("Bad", provider.url + "not-a-playlist")
-            fail("expected rejection")
-        } catch (_: XtreamException) {
-        }
-        assertTrue(playlists.allIds().isEmpty())
     }
 
     @Test
@@ -201,44 +166,6 @@ class RepositoriesTest {
             it.getInt(0)
         }
         assertEquals(0, stored)
-    }
-
-    @Test
-    fun `a provider's M3U link is added as its login, for movies, series and catch-up`() = runBlocking {
-        val panel = playlists.addM3u("Panel", provider.url + "get.php?username=me&password=secret&type=m3u_plus&output=ts")
-        val p = playlists.get(panel)!!
-        assertFalse(p.isM3u)
-        assertEquals(Triple(provider.url.trimEnd('/'), "me", "secret"), Triple(p.server, p.username, p.password))
-        vod.sync(p)
-        assertTrue(vod.movie(panel, 501) != null)
-    }
-
-    @Test
-    fun `a provider's M3U link stays a playlist when the panel refuses logins, and shows the account's expiry`() = runBlocking {
-        provider.loginsRefused = true
-        val panel = playlists.addM3u("Panel", provider.url + "get.php?username=me&password=secret&type=m3u_plus&output=ts")
-        assertTrue(playlists.get(panel)!!.isM3u)
-        provider.loginsRefused = false
-        playlists.syncChannels(panel)
-        assertEquals(1_900_000_000L, playlists.get(panel)!!.expiresAt)
-        val free = playlists.addM3u("Free", provider.url + "free.m3u")
-        playlists.syncChannels(free)
-        assertNull(playlists.get(free)!!.expiresAt)
-    }
-
-    @Test
-    fun `an Xtream panel's M3U link gives its server and login`() {
-        assertEquals(
-            Triple("http://tv.example:8080", "me", "p@ss"),
-            PlaylistRepository.xtreamLoginIn("http://tv.example:8080/get.php?username=me&password=p%40ss&type=m3u_plus&output=ts")
-        )
-        assertNull(PlaylistRepository.xtreamLoginIn(PlaylistRepository.FREE_PLAYLIST_URL))
-        assertNull(PlaylistRepository.xtreamLoginIn("http://tv.example/get.php?type=m3u"))
-        // Only plain links become logins: another stream format or a choice of channels stays a playlist.
-        assertTrue(PlaylistRepository.isPlainPanelLink("http://tv.example/get.php?username=me&password=p&type=m3u_plus&output=ts"))
-        assertTrue(PlaylistRepository.isPlainPanelLink("http://tv.example/get.php?username=me&password=p"))
-        assertFalse(PlaylistRepository.isPlainPanelLink("http://tv.example/get.php?username=me&password=p&type=m3u_plus&output=m3u8"))
-        assertFalse(PlaylistRepository.isPlainPanelLink("http://tv.example/get.php?username=me&password=p&bouquet=3"))
     }
 
     @Test
@@ -406,6 +333,19 @@ class RepositoriesTest {
     }
 
     @Test
+    fun `a backup's M3U playlist is left out of the restore, with what it had`() = runBlocking {
+        val backup = BackupRepository(db, settings, epg, SyncManager(scope, playlists, vod, epg))
+        val kept = addPlaylist()
+        val m3u = db.playlists().insert(PlaylistEntity(name = "Old", kind = "m3u", server = "http://x/a.m3u", username = "", password = ""))
+        channels.setFavourite(m3u, 1, true)
+        settings.update { it.copy(activePlaylistId = m3u) }
+        assertTrue(backup.apply(backup.read(backup.export().inputStream())))
+        assertEquals(listOf(kept), playlists.allIds())
+        assertEquals(kept, settings.current().activePlaylistId)
+        assertTrue(channels.ids(m3u, ChannelFilter.Favourites).isEmpty())
+    }
+
+    @Test
     fun `a backup restores playlists, choices, favourites, guide choices and settings`() = runBlocking {
         val backup = BackupRepository(db, settings, epg, SyncManager(scope, playlists, vod, epg))
         fun import(text: String) = runBlocking { backup.apply(backup.read(text.byteInputStream())) }
@@ -568,42 +508,5 @@ class RepositoriesTest {
         val start = listing.programmes.first { it.title == "Earlier Today" }.startMs
         val url = catchup.url(p, one, listing, start)
         assertTrue(url, url.contains("/timeshift/me/secret/121/") && url.endsWith("/101.ts"))
-    }
-
-    @Test
-    fun `M3U channels that declare catch-up get hourly slots and their archive's address`() = runBlocking {
-        provider.m3u = """
-            #EXTM3U
-            #EXTINF:-1 tvg-id="One.uk" catchup="shift" catchup-days="3" group-title="United Kingdom",Channel One
-            http://stream.example/one.m3u8
-            #EXTINF:-1 tvg-id="Two.uk" catchup="append" catchup-source="?start={utc}&end={utcend}" group-title="United Kingdom",Channel Two
-            http://stream.example/two.m3u8
-            #EXTINF:-1 tvg-id="Odd.uk" catchup="vod" catchup-days="5" group-title="United Kingdom",Odd One
-            http://stream.example/odd.m3u8
-            #EXTINF:-1 tvg-id="Plain.uk" group-title="United Kingdom",Plain
-            http://stream.example/plain.m3u8
-        """.trimIndent()
-        val id = playlists.addM3u("Free", provider.url + "free.m3u")
-        playlists.syncChannels(id)
-        val p = playlists.get(id)!!
-        val all = db.channels().search(id, "", 10).associateBy { it.name }
-        assertEquals(3, all.getValue("Channel One").archiveDays)
-        assertEquals(7, all.getValue("Channel Two").archiveDays) // no days given: a week
-        assertEquals(0, all.getValue("Odd One").archiveDays) // a kind of catch-up it can't play
-        assertEquals(0, all.getValue("Plain").archiveDays)
-
-        val now = 1_714_588_200_000L // 2024-05-01 18:30 UTC
-        val catchup = CatchupRepository(playlists) { now }
-        val one = all.getValue("Channel One")
-        val listing = catchup.listing(p, one)
-        // Three days of hours, from the first that starts within them to the one on now.
-        assertEquals(3 * 24, catchup.playable(listing, one).size)
-        val start = listing.programmes.last().startMs
-        assertEquals("http://stream.example/one.m3u8?utc=${start / 1000}&lutc=${now / 1000}", catchup.url(p, one, listing, start))
-        val two = all.getValue("Channel Two")
-        assertEquals(
-            "http://stream.example/two.m3u8?start=${start / 1000}&end=${now / 1000 + 60}",
-            catchup.url(p, two, catchup.listing(p, two), start)
-        )
     }
 }

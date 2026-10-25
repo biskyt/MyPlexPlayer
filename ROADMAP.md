@@ -21,13 +21,29 @@ Each step is its own pull request.
    store listing (`store/`) are rewritten for Plex in the same step: until then they still describe MyTVPlayer.
    - Done (0.2.0): Plex sign-in, each server a source, its films and series. Xtream, M3U and the free playlist are
      still there.
-   - Next: remove Xtream, M3U, the free playlist and added guides; then the website and store listing.
+   - Done (0.2.2): M3U playlists and the free playlist removed; the emulator smoke test signs in to Plex.
+   - Next: added guides and Catch-up, then Xtream; then the website and store listing.
 4. **Home, menu and search:** Continue watching, recently added series and movies, favourite series and movies, then
    favourite Live TV channels. Live TV goes last in the menu, on Home and in search results. Empty rows are hidden.
 5. **Playback from Plex:** direct play, with the server's transcoder as the fallback; resume points and watched state
    kept in Plex.
 6. **Live TV and the TV guide from Plex.**
 7. **DVR** in place of Catch-up: recordings, what's scheduled, and Record from the TV guide.
+
+## Near future (owner's priorities, 2026-10-25)
+- **Play state from the server:** what's been watched, and how far, comes from Plex and goes back to it, so it
+  matches the owner's other Plex apps and devices. Today the app keeps its own resume points, and Plex's only start
+  with step 5. With it, each series' poster gets a badge with its number of unwatched episodes (a show's `leafCount`
+  less its `viewedLeafCount`).
+- **Skip intro (and credits):** Plex marks a title's intro and credits (`includeMarkers=1` on a title's metadata
+  gives its Marker list). A "Skip intro" button over the picture while one plays, as Plezy does.
+- **Bug: Dolby Vision files play in HDR10.** A file with Dolby Vision and HDR10 plays in Dolby Vision in Plex's own
+  app and in Plezy (2.24.0) on the owner's TV, but in HDR10 here (and in MyTVPlayer: fix both). The app uses stock Media3,
+  which hands a file to the TV's Dolby Vision decoder only for the cases it understands; others play their HDR10 base
+  layer. Plezy (GPL-3.0, like this app) wraps the MKV and MP4 extractors, converts dual-layer Profile 7 (UHD Blu-ray)
+  to single-layer Profile 8.1 with libdovi, and checks what the TV's decoders and display support. First: find the
+  file's profile (Plex's media info says, as `DOVIProfile`) and what Media3 does with it on the TV; then port what's
+  needed.
 
 ## Later
 - Plex Home users (switching between the users of one account).

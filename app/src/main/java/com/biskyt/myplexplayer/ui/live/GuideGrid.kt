@@ -500,14 +500,6 @@ internal class GuideCatchup(private val c: AppContainer, private val scope: Coro
         // The provider didn't answer: the row keeps what the downloaded guide has.
         if (ch == null || listing == null) return guide()
         val now = System.currentTimeMillis()
-        // M3U: any time can be replayed, so the guide's own programmes stay; hour slots fill the past it doesn't cover.
-        if (p?.isM3u == true) {
-            val known = guide()
-            val slots = c.catchup.playable(listing, ch)
-                .filter { s -> s.stopMs > from && s.startMs < to && known.none { it.startMs < s.stopMs && it.stopMs > s.startMs } }
-                .map { ChannelProgramme(id, it.startMs, it.stopMs, it.title, null, it.description) }
-            return (known + slots).sortedBy { it.startMs }
-        }
         // What can be replayed, plus what's on now and later (the rest isn't offered).
         return (c.catchup.playable(listing, ch) + listing.programmes.filter { it.stopMs > now })
             .distinctBy { it.startMs }

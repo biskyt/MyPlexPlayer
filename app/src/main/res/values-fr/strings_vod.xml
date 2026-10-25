@@ -4,7 +4,6 @@
     <string name="vod_recently_updated">Mis à jour récemment</string>
     <string name="vod_all_movies">Tous les films</string>
     <string name="vod_all_series">Toutes les séries</string>
-    <string name="vod_live_only">Cette playlist ne contient que des chaînes en direct. Pour ajouter des films et des séries, indiquez l\'adresse de sa playlist de films ou de séries dans Paramètres › Playlists.</string>
     <string name="vod_filter_hint">Filtrer par titre</string>
     <string name="vod_no_favourites">Pas encore de favoris. Ouvrez un titre et choisissez « Ajouter aux favoris ».</string>
     <string name="vod_nothing_here">Rien ici pour l\'instant. Chargez-les maintenant ou choisissez les catégories à charger.</string>
