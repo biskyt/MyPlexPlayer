@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
@@ -43,6 +45,7 @@ import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.rememberSchedule
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
 import com.biskyt.myplexplayer.ui.theme.Palette
+import kotlinx.coroutines.delay
 
 /** The channel guide beside the video (agreed side-overlay design); ◀ ▶ previews other channels' guides. */
 @Composable
@@ -89,7 +92,7 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
     val nav = LocalNavigator.current
     val close = { vm.sheet = null }
     SidePanel(onDismiss = close, dim = false) {
-        val first = rememberFirstFocus()
+        val first = rememberFirstFocus(sheet) // again when one sheet leads to another (More › Playback info)
         LazyColumn(Modifier.mediaKeys(vm), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             when (sheet) {
                 PlaybackViewModel.Sheet.AUDIO -> {
@@ -146,8 +149,23 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
                         }
                         Choice(sleep, false) { vm.setSleepTimer(next) }
                     }
-                    item { Muted(stringResource(R.string.player_audio_output, vm.audioLabel), maxLines = 2) }
-                    item { Muted(videoInfo(vm.tracks), maxLines = 2) }
+                    item { Choice(stringResource(R.string.player_info), false) { vm.sheet = PlaybackViewModel.Sheet.INFO } }
+                }
+                PlaybackViewModel.Sheet.INFO -> {
+                    item { Header(stringResource(R.string.player_info), null) }
+                    // Focusable, so the remote's keys (Back, play/pause) reach the panel.
+                    item {
+                        // Read again each second: the dropped frames count isn't state.
+                        val second by produceState(0) {
+                            while (true) {
+                                delay(1_000)
+                                value = value + 1
+                            }
+                        }
+                        Column(first.focusable(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            second.let { vm.info() }.forEach { Text(it, style = MaterialTheme.typography.bodyLarge) }
+                        }
+                    }
                 }
                 PlaybackViewModel.Sheet.ABOUT -> vm.about?.let { p ->
                     item { Header(programmeTitle(p.title), formatRange(p.startMs, p.stopMs)) }
@@ -187,13 +205,4 @@ private fun trackOptions(tracks: Tracks, type: Int): List<TrackOption> = tracks.
         )
         TrackOption(parts.joinToString(" · "), g, i, g.isTrackSelected(i))
     }
-}
-
-private fun videoInfo(tracks: Tracks): String {
-    val f =
-        tracks.groups.firstOrNull {
-            it.type == C.TRACK_TYPE_VIDEO && it.isSelected
-        }?.let { g -> (0 until g.length).firstOrNull { g.isTrackSelected(it) }?.let(g::getTrackFormat) }
-            ?: return appString(R.string.player_video_unknown)
-    return appString(R.string.player_video_info, f.width, f.height, f.sampleMimeType?.substringAfter('/') ?: "?")
 }
