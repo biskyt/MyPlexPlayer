@@ -39,7 +39,8 @@ class SavedTextTest {
         OkHttpClient(),
         SettingsRepository(context),
         epg,
-        CategoryStore(db) { Locale.UK }
+        CategoryStore(db) { Locale.UK },
+        PlexSources(db, OkHttpClient(), SettingsRepository(context))
     )
 
     @After

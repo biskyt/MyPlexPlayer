@@ -55,8 +55,8 @@ class PlexPlayStateTest {
         val settings = SettingsRepository(context)
         val categoryStore = CategoryStore(db) { Locale.UK }
         val epg = EpgRepository(db, http, context.cacheDir.resolve("test-epg"), scope)
-        val playlists = PlaylistRepository(db, http, settings, epg, categoryStore)
         plex = PlexSources(db, http, settings).apply { plexTv = fake.url }
+        val playlists = PlaylistRepository(db, http, settings, epg, categoryStore, plex)
         vod = VodRepository(db, playlists, categoryStore, plex)
         sync = SyncManager(scope, playlists, vod, epg)
         plex.signIn(FakePlex.ACCOUNT_TOKEN)

@@ -73,11 +73,15 @@ class PausedScreenUiTest {
     /** Lets [ms] of (simulated) time pass. */
     private fun pass(ms: Long) = repeat((ms / 1_000).toInt()) { compose.waitAdvancingClock(1_000) { true } }
 
+    /** One key event, down or up. */
+    private fun key(action: Int, code: Int) {
+        compose.topRoot().performKeyPress(KeyEvent(NativeKeyEvent(action, code)))
+        compose.idleFrames()
+    }
+
     private fun press(code: Int) {
-        for (action in listOf(NativeKeyEvent.ACTION_DOWN, NativeKeyEvent.ACTION_UP)) {
-            compose.topRoot().performKeyPress(KeyEvent(NativeKeyEvent(action, code)))
-            compose.idleFrames()
-        }
+        key(NativeKeyEvent.ACTION_DOWN, code)
+        key(NativeKeyEvent.ACTION_UP, code)
     }
 
     @Test
@@ -156,10 +160,21 @@ class PausedScreenUiTest {
     fun `a button whose release went elsewhere works on its next press`() {
         paused()
         pass(125_000)
-        compose.topRoot().performKeyPress(KeyEvent(NativeKeyEvent(NativeKeyEvent.ACTION_DOWN, NativeKeyEvent.KEYCODE_MENU)))
-        compose.idleFrames()
+        // OK with focus on play/pause: its press only lights the screen, and its release never comes here.
+        key(NativeKeyEvent.ACTION_DOWN, NativeKeyEvent.KEYCODE_DPAD_CENTER)
         assertFalse(vm.dimmed)
-        press(NativeKeyEvent.KEYCODE_MENU)
-        assertEquals(PlaybackViewModel.Sheet.MORE, vm.sheet)
+        press(NativeKeyEvent.KEYCODE_DPAD_CENTER) // the button acts on its release
+        assertTrue("playing", playWhenReady)
+    }
+
+    @Test
+    fun `a paused stream that keeps stopping and starting still dims`() {
+        paused()
+        repeat(3) {
+            pass(40_000)
+            compose.runOnIdle { vm.engine!!.player.stop() } // as a failure and a retry do
+            compose.runOnIdle { vm.engine!!.player.prepare() }
+        }
+        assertTrue("dimmed", vm.dimmed)
     }
 }
