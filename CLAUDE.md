@@ -7,7 +7,7 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
 - **It started as a copy of MyTVPlayer** (`biskyt/MyTVPlayer`, an IPTV player), imported with its history at
   `caad9d7` (1.2.1). The two apps are developed separately and are expected to drift apart. A fix worth having in
   both is ported by hand (`git cherry-pick` from a fetch of MyTVPlayer usually applies, since it follows the package
-  rename); never merge MyTVPlayer's `main` wholesale. Ported so far: everything up to MyTVPlayer 1.2.3 (`884939f`)
+  rename); never merge MyTVPlayer's `main` wholesale. Ported so far: everything up to MyTVPlayer 1.2.4 (`a54a2ad`, in 0.3.0; 1.2.3 `884939f` in 0.2.1)
   and its Play upload workflow (`dc5d194`), in MyPlexPlayer 0.2.1.
 - **The move to Plex is under way:** the plan, step by step, is in `ROADMAP.md`. Until those steps land, much of the
   code (Xtream, XMLTV guides, catch-up) is MyTVPlayer's and is due to be replaced. M3U and the free playlist went

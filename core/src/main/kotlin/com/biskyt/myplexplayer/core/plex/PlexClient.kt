@@ -107,6 +107,13 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
         }
     )
 
+    /**
+     * Takes a film or episode off Continue Watching (and On Deck) without changing whether it's watched, as Plex's
+     * own apps do. The server lists this among its features (`/media/providers`, "removeFromContinueWatching").
+     */
+    suspend fun removeFromContinueWatching(ratingKey: String) =
+        send("PUT", url("actions/removeFromContinueWatching") { addQueryParameter("ratingKey", ratingKey) })
+
     /** The file as it is: the first choice for every film and episode. */
     fun directPlay(part: PlexPart): PlexStream = PlexStream(url(part.key.trimStart('/')).toString(), headers(null))
 

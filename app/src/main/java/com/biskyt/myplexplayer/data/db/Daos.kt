@@ -544,11 +544,14 @@ data class MatchCounts(val total: Int, val unmatched: Int, val auto: Int, val ma
 /** How many visible channels, across every playlist, have a guide and how many have none. */
 data class GuideCoverage(val withGuide: Int, val noGuide: Int)
 
-/** A poster in a movie or series grid: only what the grid shows, so paging holds as little as possible. */
-data class VodCard(val id: Long, val title: String, val year: Int?, val imageUrl: String?)
+/**
+ * A poster in a movie or series grid: only what the grid shows, so paging holds as little as possible. [unwatched]:
+ * a series' episodes not yet watched, for its badge.
+ */
+data class VodCard(val id: Long, val title: String, val year: Int?, val imageUrl: String?, val unwatched: Int? = null)
 
-private const val MOVIE_CARD = "SELECT streamId AS id, title, year, posterUrl AS imageUrl"
-private const val SERIES_CARD = "SELECT seriesId AS id, title, year, coverUrl AS imageUrl"
+private const val MOVIE_CARD = "SELECT streamId AS id, title, year, posterUrl AS imageUrl, NULL AS unwatched"
+private const val SERIES_CARD = "SELECT seriesId AS id, title, year, coverUrl AS imageUrl, unwatched"
 
 // Favourite movies and series of :pid (f is the favourite), and their order: the user's, else newest first.
 private const val MOVIE_FAVOURITES =
@@ -696,13 +699,13 @@ interface VodDao {
 
     /**
      * "Carry on watching", newest first: unfinished movies, and per series its most recent episode, unless that was
-     * finished and the last one. [finished] is [WatchProgressEntity.FINISHED_FRACTION].
+     * finished and the last one; only rows on it ([WatchProgressEntity.carryOnAt]). [finished] is [WatchProgressEntity.FINISHED_FRACTION].
      */
     @Query(
-        """SELECT * FROM watch_progress w WHERE playlistId = :pid
+        """SELECT * FROM watch_progress w WHERE playlistId = :pid AND carryOnAt IS NOT NULL
            AND (NOT (durationMs > 0 AND positionMs >= durationMs * :finished) OR hasNext)
-           AND (seriesId IS NULL OR updatedAt = (SELECT MAX(x.updatedAt) FROM watch_progress x WHERE x.playlistId = w.playlistId AND x.seriesId = w.seriesId))
-           ORDER BY updatedAt DESC LIMIT :limit"""
+           AND (seriesId IS NULL OR carryOnAt = (SELECT MAX(x.carryOnAt) FROM watch_progress x WHERE x.playlistId = w.playlistId AND x.seriesId = w.seriesId))
+           ORDER BY carryOnAt DESC LIMIT :limit"""
     )
     fun observeCarryOn(pid: Long, limit: Int, finished: Double): Flow<List<WatchProgressEntity>>
 
@@ -713,6 +716,37 @@ interface VodDao {
 
     @Query("DELETE FROM watch_progress WHERE playlistId = :pid AND kind = 'movie' AND itemId = :id")
     suspend fun deleteMovieProgress(pid: Long, id: Long)
+
+    @Query("SELECT * FROM watch_progress WHERE playlistId = :pid AND kind = :kind")
+    suspend fun progressOf(pid: Long, kind: String): List<WatchProgressEntity>
+
+    @Query("SELECT * FROM watch_progress WHERE playlistId = :pid AND kind = :kind AND itemId IN (:ids)")
+    suspend fun progressOf(pid: Long, kind: String, ids: List<Long>): List<WatchProgressEntity>
+
+    @Upsert
+    suspend fun saveProgress(rows: List<WatchProgressEntity>)
+
+    @Query("DELETE FROM watch_progress WHERE playlistId = :pid AND kind = :kind AND itemId IN (:ids)")
+    suspend fun deleteProgress(pid: Long, kind: String, ids: List<Long>)
+
+    @Query("SELECT * FROM watch_progress WHERE playlistId = :pid AND pending")
+    suspend fun pendingProgress(pid: Long): List<WatchProgressEntity>
+
+    /** The server has it: unless the row has moved on since ([updatedAt] is the one reported). */
+    @Query("UPDATE watch_progress SET pending = 0 WHERE playlistId = :pid AND kind = :kind AND itemId = :id AND updatedAt = :updatedAt")
+    suspend fun reported(pid: Long, kind: String, id: Long, updatedAt: Long)
+
+    /** Takes a movie off "Carry on watching", keeping how far it got. */
+    @Query("UPDATE watch_progress SET carryOnAt = NULL WHERE playlistId = :pid AND kind = 'movie' AND itemId = :id")
+    suspend fun leaveMovieCarryOn(pid: Long, id: Long)
+
+    /** Takes a series (every episode) off "Carry on watching", keeping how far each got. */
+    @Query("UPDATE watch_progress SET carryOnAt = NULL WHERE playlistId = :pid AND kind = 'episode' AND seriesId = :seriesId")
+    suspend fun leaveSeriesCarryOn(pid: Long, seriesId: Long)
+
+    /** Only when it changed: an update wakes every list of series, even to the same value. */
+    @Query("UPDATE series SET unwatched = :unwatched WHERE playlistId = :pid AND seriesId = :seriesId AND unwatched IS NOT :unwatched")
+    suspend fun setUnwatched(pid: Long, seriesId: Long, unwatched: Int?)
 
     @Query("DELETE FROM watch_progress WHERE playlistId = :pid AND kind = 'episode' AND seriesId = :seriesId")
     suspend fun deleteSeriesProgress(pid: Long, seriesId: Long)
