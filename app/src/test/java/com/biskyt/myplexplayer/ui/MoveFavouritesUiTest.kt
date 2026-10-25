@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
 import androidx.test.core.app.ApplicationProvider
+import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.VodFilter
 import com.biskyt.myplexplayer.data.db.CAT_LIVE
@@ -22,6 +23,7 @@ import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addHomeTv
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
+import com.biskyt.myplexplayer.testutil.scrollToHomeRow
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
@@ -77,6 +79,12 @@ class MoveFavouritesUiTest {
 
     private fun waitFor(text: String) = compose.waitForText(text, stepMs = 50)
 
+    /** Home with its channels' row in view (Live TV comes last, below the films). */
+    private fun showHomeChannels() {
+        show(Screen.Home)
+        compose.scrollToHomeRow(R.string.home_on_now, loaded = R.string.home_favourite_movies)
+    }
+
     private fun order(type: String) = runBlocking { app.container.favourites.order(playlistId, type) }
 
     private fun waitForOrder(type: String, expected: List<Long>) = compose.waitAdvancingClock(stepMs = 50) { order(type) == expected }
@@ -102,7 +110,7 @@ class MoveFavouritesUiTest {
 
     @Test
     fun `on Home, a favourite channel moves along its row and stays there with OK`() {
-        show(Screen.Home)
+        showHomeChannels()
         waitFor("UK: KITE KIDZ")
         move("UK: CHANNEL ONE HD")
         press(Key.DirectionRight)
@@ -123,7 +131,7 @@ class MoveFavouritesUiTest {
 
     @Test
     fun `on Home, Back puts the row back as it was`() {
-        show(Screen.Home)
+        showHomeChannels()
         waitFor("UK: KITE KIDZ")
         move("UK: KITE KIDZ")
         press(Key.DirectionLeft)

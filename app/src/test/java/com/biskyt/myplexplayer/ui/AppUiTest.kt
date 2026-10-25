@@ -144,7 +144,7 @@ class AppUiTest {
     @Config(sdk = [28])
     fun `on android 9 the playlist and guide load, and Home, the channel list and the guide show`() {
         show(Screen.Home)
-        waitFor("Your channels, on now")
+        waitFor("Recently added movies")
         compose.runOnUiThread { navigator.reset(Screen.Live()) }
         waitFor("UK: CHANNEL ONE HD")
         compose.runOnUiThread { navigator.reset(Screen.Live(guide = true)) }

@@ -28,6 +28,8 @@
     <!-- Carry on card for a finished episode. %1$s: the episode, written short, e.g. "S1 E2". -->
     <string name="home_up_next_after">Up next after %1$s</string>
     <!-- Home rows of the favourite series and movies, below Recently watched -->
+    <string name="home_recently_added_series">Recently added series</string>
+    <string name="home_recently_added_movies">Recently added movies</string>
     <string name="home_favourite_series">Favourite series</string>
     <string name="home_favourite_movies">Favourite movies</string>
 </resources>

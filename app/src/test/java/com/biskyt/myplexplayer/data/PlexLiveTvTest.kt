@@ -135,4 +135,16 @@ class PlexLiveTvTest {
         sync.refreshNow(source.id).getOrThrow()
         assertNull(db.epg().providerSource(source.id)!!.lastError)
     }
+
+    @Test
+    fun `a guide that can't be read at all says so, in words of the moment`() = runBlocking {
+        sync.refreshNow(source.id).getOrThrow()
+        fake.guideUnreadable = true
+
+        sync.refreshNow(source.id).getOrThrow()
+
+        val error = db.epg().providerSource(source.id)!!.lastError!!
+        assertEquals(GuideError.saved(GuideError.unreadable()), error)
+        assertEquals("Couldn't read the guide", GuideError.text(error))
+    }
 }

@@ -167,8 +167,18 @@ fun SearchScreen(initialQuery: String = "") {
                 results == null -> item { Muted(stringResource(R.string.search_keep_typing)) }
                 results.isEmpty -> item { Muted(stringResource(R.string.search_nothing_found, searched)) }
                 else -> {
-                    // Channels, series, films, then TV programmes. Holding OK (or the remote's Menu button) on a result
-                    // opens its options.
+                    // Series, films, then Live TV: channels, then TV programmes. Holding OK (or the remote's Menu
+                    // button) on a result opens its options.
+                    titledRow(R.string.common_tab_series, results.series, { it.id }, SECTION_GAP) {
+                        PosterCard(it, favourite = it.id in favouriteSeries, onLongClick = { picked = Picked.Vod(CAT_SERIES, it) }) {
+                            nav.push(vodDetails(pid, CAT_SERIES, it.id))
+                        }
+                    }
+                    titledRow(R.string.common_tab_movies, results.movies, { it.id }, SECTION_GAP) {
+                        PosterCard(it, favourite = it.id in favouriteMovies, onLongClick = { picked = Picked.Vod(CAT_MOVIE, it) }) {
+                            nav.push(vodDetails(pid, CAT_MOVIE, it.id))
+                        }
+                    }
                     titledRow(R.string.common_channels, results.channels, { it.streamId }, SECTION_GAP) {
                         ChannelCard(
                             it,
@@ -181,17 +191,7 @@ fun SearchScreen(initialQuery: String = "") {
                             nav.push(Screen.Player(pid, it.streamId, ChannelFilter.All))
                         }
                     }
-                    titledRow(R.string.common_tab_series, results.series, { it.id }, SECTION_GAP) {
-                        PosterCard(it, favourite = it.id in favouriteSeries, onLongClick = { picked = Picked.Vod(CAT_SERIES, it) }) {
-                            nav.push(vodDetails(pid, CAT_SERIES, it.id))
-                        }
-                    }
-                    titledRow(R.string.common_tab_movies, results.movies, { it.id }, SECTION_GAP) {
-                        PosterCard(it, favourite = it.id in favouriteMovies, onLongClick = { picked = Picked.Vod(CAT_MOVIE, it) }) {
-                            nav.push(vodDetails(pid, CAT_MOVIE, it.id))
-                        }
-                    }
-                    // TV programmes last: often a long list, it would push films and series out of sight.
+                    // TV programmes last: often a long list, it would push the rest out of sight.
                     if (results.programmes.isNotEmpty()) {
                         item { SectionTitle(stringResource(R.string.search_on_tv), Modifier.padding(top = SECTION_GAP)) }
                         items(results.programmes, key = { "p${it.streamId}:${it.startMs}" }) { p ->
