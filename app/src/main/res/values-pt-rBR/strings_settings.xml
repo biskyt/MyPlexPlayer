@@ -78,13 +78,24 @@
     <string name="settings_lib_nunito">A fonte do app</string>
 
     <string name="settings_welcome_title">Boas-vindas ao MyPlexPlayer</string>
-    <string name="settings_welcome_intro">Adicione o serviço de TV que você assina (um login Xtream Codes ou o endereço de uma playlist M3U) ou comece com a TV grátis: canais transmitidos gratuitamente pelas próprias emissoras e filmes e séries de domínio público. Você pode adicionar a outra opção a qualquer momento em Configurações › Playlists.</string>
+    <string name="settings_welcome_intro">Entre no Plex para assistir aos filmes e séries dos seus servidores Plex. Você também pode adicionar um serviço de TV que assina (um login Xtream Codes ou o endereço de uma playlist M3U) ou a TV grátis, a qualquer momento em Configurações › Playlists.</string>
     <string name="settings_welcome_downloading">Baixando a lista de canais…</string>
     <string name="settings_welcome_add_provider">Adicionar meu provedor de TV</string>
     <string name="settings_welcome_setting_up">Configurando…</string>
     <string name="settings_welcome_free_retry">Tentar os canais gratuitos de novo</string>
     <string name="settings_welcome_free">TV, filmes e séries grátis</string>
     <string name="settings_welcome_restore">Restaurar um backup</string>
+    <string name="settings_plex_sign_in">Entrar no Plex</string>
+    <string name="settings_plex_steps">No celular ou no computador, acesse plex.tv/link conectado à sua conta Plex e digite este código:</string>
+    <string name="settings_plex_scan">Ou escaneie com a câmera do celular.</string>
+    <string name="settings_plex_waiting">Aguardando o código ser digitado…</string>
+    <string name="settings_plex_finding">Login feito. Procurando seus servidores Plex…</string>
+    <string name="settings_plex_none_answered">Nenhum dos seus servidores Plex respondeu. Verifique se estão ligados e tente de novo.</string>
+    <string name="settings_plex_no_servers">Não há servidores Plex nesta conta.</string>
+    <string name="settings_plex_not_reached">Não foi possível acessar: %1$s</string>
+    <string name="settings_plex_code_expired">O código expirou antes de ser digitado. Tente de novo para receber um novo.</string>
+    <string name="settings_plex_try_again">Tentar de novo</string>
+    <string name="settings_playlist_add_plex">Adicionar meus servidores Plex</string>
 
     <string name="settings_backup_permission_denied">Sem a permissão de armazenamento, não é possível salvar o backup. Permita em Configurações › Apps › MyPlexPlayer › Permissões da TV.</string>
     <string name="settings_backup_saving">Salvando…</string>

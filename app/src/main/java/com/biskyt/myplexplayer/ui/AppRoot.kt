@@ -48,6 +48,7 @@ import com.biskyt.myplexplayer.ui.settings.LicencesScreen
 import com.biskyt.myplexplayer.ui.settings.PlaybackSettingsScreen
 import com.biskyt.myplexplayer.ui.settings.PlaylistEditScreen
 import com.biskyt.myplexplayer.ui.settings.PlaylistsScreen
+import com.biskyt.myplexplayer.ui.settings.PlexSignInScreen
 import com.biskyt.myplexplayer.ui.settings.SettingsScreen
 import com.biskyt.myplexplayer.ui.settings.WelcomeScreen
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
@@ -177,6 +178,7 @@ internal fun ScreenContent(screen: Screen) {
         Screen.Settings -> SettingsScreen()
         Screen.Playlists -> PlaylistsScreen()
         is Screen.PlaylistEdit -> PlaylistEditScreen(screen.playlistId, screen.firstRun)
+        is Screen.PlexSignIn -> PlexSignInScreen(screen.firstRun)
         is Screen.Categories -> CategoriesScreen(screen.playlistId, screen.firstRun)
         Screen.PlaybackSettings -> PlaybackSettingsScreen()
         Screen.Appearance -> AppearanceScreen()

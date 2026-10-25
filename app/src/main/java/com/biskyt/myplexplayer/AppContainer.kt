@@ -29,6 +29,7 @@ import com.biskyt.myplexplayer.data.CrashLog
 import com.biskyt.myplexplayer.data.EpgRepository
 import com.biskyt.myplexplayer.data.Favourites
 import com.biskyt.myplexplayer.data.PlaylistRepository
+import com.biskyt.myplexplayer.data.PlexSources
 import com.biskyt.myplexplayer.data.SearchRepository
 import com.biskyt.myplexplayer.data.SettingsRepository
 import com.biskyt.myplexplayer.data.SyncManager
@@ -66,8 +67,9 @@ class AppContainer(context: Context) {
     val epg = EpgRepository(db, http, context.filesDir, appScope)
     private val categoryStore = CategoryStore(db)
     val playlists = PlaylistRepository(db, http, settings, epg, context.cacheDir.resolve("playlists"), categoryStore)
+    val plex = PlexSources(db, http, settings)
     val channels = ChannelRepository(db)
-    val vod = VodRepository(db, playlists, categoryStore)
+    val vod = VodRepository(db, playlists, categoryStore, plex)
     val favourites = Favourites(appScope, settings, channels, vod)
     val search = SearchRepository(db)
     val catchup = CatchupRepository(playlists)

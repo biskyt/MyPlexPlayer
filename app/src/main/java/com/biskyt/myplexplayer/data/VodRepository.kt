@@ -5,6 +5,9 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.room.withTransaction
+import com.biskyt.myplexplayer.core.plex.PlexException
+import com.biskyt.myplexplayer.core.plex.PlexItem
+import com.biskyt.myplexplayer.core.plex.PlexType
 import com.biskyt.myplexplayer.core.vod.VodTitles
 import com.biskyt.myplexplayer.core.xtream.SeriesDetails
 import com.biskyt.myplexplayer.core.xtream.VodDetails
@@ -38,7 +41,12 @@ sealed interface VodFilter {
  * briefly in memory; M3U episodes are stored with their series, and M3U titles have no further details. [type]
  * arguments are CAT_MOVIE or CAT_SERIES, which double as the favourite kinds.
  */
-class VodRepository(private val db: AppDatabase, private val playlists: PlaylistRepository, private val categoryStore: CategoryStore) {
+class VodRepository(
+    private val db: AppDatabase,
+    private val playlists: PlaylistRepository,
+    private val categoryStore: CategoryStore,
+    private val plex: PlexSources,
+) {
     private val vod = db.vod()
     private val categories = db.categories()
     private val m3u = M3uVod(db, playlists, categoryStore)
@@ -156,21 +164,37 @@ class VodRepository(private val db: AppDatabase, private val playlists: Playlist
     suspend fun movieDetails(p: PlaylistEntity, streamId: Long): VodDetails = if (p.isM3u) {
         M3uVod.NO_DETAILS
     } else {
-        movieDetails["${p.id}:$streamId"]
-            ?: withUserXtreamErrors { playlists.client(p).movieDetails(streamId) }.also { movieDetails.put("${p.id}:$streamId", it) }
+        movieDetails.getOrPut("${p.id}:$streamId") {
+            if (p.isPlex) {
+                withUserPlexErrors { plex.movieDetails(p, streamId) }
+            } else {
+                withUserXtreamErrors { playlists.client(p).movieDetails(streamId) }
+            }
+        }
     }
 
     suspend fun seriesDetails(p: PlaylistEntity, seriesId: Long): SeriesDetails = if (p.isM3u) {
         m3u.seriesDetails(p.id, seriesId)
     } else {
-        seriesDetails["${p.id}:$seriesId"]
-            ?: withUserXtreamErrors { playlists.client(p).seriesDetails(seriesId) }.also { seriesDetails.put("${p.id}:$seriesId", it) }
+        seriesDetails.getOrPut("${p.id}:$seriesId") {
+            if (p.isPlex) {
+                withUserPlexErrors { plex.seriesDetails(p, seriesId) }
+            } else {
+                withUserXtreamErrors { playlists.client(p).seriesDetails(seriesId) }
+            }
+        }
     }
 
-    suspend fun movieUrl(p: PlaylistEntity, m: MovieEntity): String = m.streamUrl ?: playlists.client(p).movieUrl(m.streamId, m.extension)
+    suspend fun movieUrl(p: PlaylistEntity, m: MovieEntity): String = if (p.isPlex) {
+        withUserPlexErrors { plex.playUrl(p, m.streamId) }
+    } else {
+        m.streamUrl ?: playlists.client(p).movieUrl(m.streamId, m.extension)
+    }
 
     suspend fun episodeUrl(p: PlaylistEntity, episodeId: Long, extension: String): String = if (p.isM3u) {
         m3u.episodeUrl(p.id, episodeId)
+    } else if (p.isPlex) {
+        withUserPlexErrors { plex.playUrl(p, episodeId) }
     } else {
         playlists.client(p).episodeUrl(episodeId, extension)
     }
@@ -183,6 +207,7 @@ class VodRepository(private val db: AppDatabase, private val playlists: Playlist
      */
     suspend fun sync(p: PlaylistEntity, onProgress: (Int) -> Unit = {}) {
         if (p.isM3u) return m3u.sync(p, onProgress)
+        if (p.isPlex) return syncPlex(p, onProgress)
         val client = playlists.client(p)
         var failure: java.io.IOException? = null
 
@@ -230,6 +255,57 @@ class VodRepository(private val db: AppDatabase, private val playlists: Playlist
         failure?.let { throw it }
     }
 
+    /**
+     * A Plex server's films and series: each library is a category (all of them included to start with). A server
+     * that can't be reached at its address is looked for again (its address may have changed), once.
+     */
+    private suspend fun syncPlex(p: PlaylistEntity, onProgress: (Int) -> Unit) {
+        try {
+            syncPlexAt(p, onProgress)
+        } catch (e: PlexException) {
+            val moved = e.reason == PlexException.Reason.UNREACHABLE
+            syncPlexAt(plex.reconnect(p).takeIf { moved } ?: throw e, onProgress)
+        }
+        // Films and series are all a Plex source has for now: loaded, it's up to date.
+        db.playlists().setLastSync(p.id, System.currentTimeMillis())
+    }
+
+    private suspend fun syncPlexAt(p: PlaylistEntity, onProgress: (Int) -> Unit) {
+        val client = plex.client(p)
+        // Fetched here, not by syncKind, which reads a failure as "no films": a server that can't be reached says so.
+        val libraries = plex.libraries(client)
+        var position = 0 // the server's order (by title), across libraries
+
+        // Asked for all at once, the included libraries: Plex lists one library at a time anyway.
+        fun titles(type: PlexType, category: String): suspend (String?, suspend (Pair<String, PlexItem>) -> Unit) -> Unit =
+            { library, emit ->
+                val ids = library?.let(::listOf) ?: categories.all(p.id, category).filter { it.included }.map { it.categoryId }
+                ids.forEach { plex.titles(client, type, it, emit) }
+            }
+        val movies = syncKind(
+            p.id,
+            CAT_MOVIE,
+            { libraries.getValue(PlexType.MOVIE) },
+            titles(PlexType.MOVIE, CAT_MOVIE),
+            { it.first },
+            vod::insertMovies,
+            vod::deleteStaleMovies,
+            onProgress,
+            libraries = true
+        ) { title, stamp -> plex.movie(client, p.id, title, position++, stamp) }
+        syncKind(
+            p.id,
+            CAT_SERIES,
+            { libraries.getValue(PlexType.SHOW) },
+            titles(PlexType.SHOW, CAT_SERIES),
+            { it.first },
+            vod::insertSeries,
+            vod::deleteStaleSeries,
+            { onProgress(movies + it) },
+            libraries = true
+        ) { title, stamp -> plex.series(client, p.id, title, position++, stamp) }
+    }
+
     /** One list (movies or series): categories, then the included items in batches, then what the provider dropped. */
     @Suppress("LongParameterList") // the two kinds differ only in these
     private suspend fun <T, E> syncKind(
@@ -241,16 +317,19 @@ class VodRepository(private val db: AppDatabase, private val playlists: Playlist
         insert: suspend (List<E>) -> Unit,
         deleteStale: suspend (playlistId: Long, stamp: Long) -> Unit,
         onProgress: (Int) -> Unit,
-        toEntity: (T, stamp: Long) -> E
+        /** A Plex server's libraries (see CategoryStore.store): every one included, and none means none. */
+        libraries: Boolean = false,
+        /** Null for an item to leave out. */
+        toEntity: (T, stamp: Long) -> E?
     ): Int {
         // Live-only accounts have no movie or series section (the request fails or returns nothing): nothing to do.
         val remote = runCatching { fetchCategories() }.getOrDefault(emptyList())
-        if (remote.isEmpty()) return 0
-        categoryStore.store(playlistId, type, remote)
+        if (remote.isEmpty() && !libraries) return 0
+        categoryStore.store(playlistId, type, remote, libraries = libraries)
         val stamp = System.currentTimeMillis()
         // Large batches: an open grid reloads after each one.
         val batch = Batch(BATCH, insert, onProgress)
-        categoryStore.forIncluded(playlistId, type, categoryOf, fetch) { batch.add(toEntity(it, stamp)) }
+        categoryStore.forIncluded(playlistId, type, categoryOf, fetch) { item -> toEntity(item, stamp)?.let { batch.add(it) } }
         batch.flush()
         db.withTransaction {
             deleteStale(playlistId, stamp)
@@ -258,6 +337,9 @@ class VodRepository(private val db: AppDatabase, private val playlists: Playlist
         }
         return batch.count
     }
+
+    /** The cached value for [key], or [load]'s, cached. */
+    private inline fun <V : Any> LruCache<String, V>.getOrPut(key: String, load: () -> V): V = get(key) ?: load().also { put(key, it) }
 
     private companion object {
         const val BATCH = 2_000

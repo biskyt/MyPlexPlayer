@@ -35,8 +35,17 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
      * Movie and series categories are often named without a language ("Action", "Netflix Movies"); those are taken to
      * be in the provider's main language and included too. A movie or series list the user unticked entirely is off:
      * new categories in it stay unticked too.
+     *
+     * [libraries]: a Plex server's libraries. Each new one is included whatever its name (a server is one person's
+     * own choice of films), and the list is complete: an empty one means the libraries have all gone.
      */
-    suspend fun store(playlistId: Long, type: String, remote: List<XtreamCategory>, groupByName: Boolean = false) {
+    suspend fun store(
+        playlistId: Long,
+        type: String,
+        remote: List<XtreamCategory>,
+        groupByName: Boolean = false,
+        libraries: Boolean = false
+    ) {
         val vod = type != CAT_LIVE
         val existing = categories.all(playlistId, type).associateBy { it.categoryId }
         val switchedOff = vod && existing.isNotEmpty() && existing.values.none { it.included }
@@ -60,7 +69,7 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
                 categoryId = c.id,
                 name = c.name,
                 lang = langs[i],
-                included = old?.included ?: (!switchedOff && (isNew(i) || (vod && langs[i] == null))),
+                included = old?.included ?: includedAtFirst(libraries, switchedOff, isNew(i), vod && langs[i] == null),
                 // An inherited place only once the old category has gone, so the two don't share it.
                 sortOrder = old?.takeIf { it.categoryId == c.id || it.categoryId !in remoteIds }?.sortOrder ?: (existing.size + i),
                 channelCount = old?.channelCount ?: 0,
@@ -68,12 +77,19 @@ class CategoryStore(private val db: AppDatabase, private val locale: () -> Local
             )
         }
         // Those the provider no longer has go.
-        val gone = if (remote.isEmpty()) emptyList() else existing.keys.filter { it !in remoteIds }
+        val gone = if (remote.isEmpty() && !libraries) emptyList() else existing.keys.filter { it !in remoteIds }
         db.withTransaction {
             categories.upsert(items)
             gone.chunked(MAX_SQL_ARGS).forEach { categories.delete(playlistId, type, it) }
         }
     }
+
+    /**
+     * Whether a category seen for the first time is included: every Plex library; else, unless the user switched the
+     * list off, one in a group they include ([isNew]) or a movie or series one that names no language ([unnamed]).
+     */
+    private fun includedAtFirst(libraries: Boolean, switchedOff: Boolean, isNew: Boolean, unnamed: Boolean) =
+        libraries || (!switchedOff && (isNew || unnamed))
 
     /**
      * Groups the user includes: a new category in one of these is included automatically. Worked out from the names

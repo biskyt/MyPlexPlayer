@@ -20,6 +20,9 @@
     <string name="data_xtream_empty">Respuesta vacía del servidor</string>
     <string name="data_xtream_unexpected">Respuesta inesperada del servidor</string>
     <string name="data_xtream_invalid_address">Dirección de servidor no válida</string>
+    <string name="data_plex_signed_out">Plex no aceptó el inicio de sesión: vuelve a iniciar sesión en Plex</string>
+    <string name="data_plex_unreachable">No se pudo conectar con el servidor Plex</string>
+    <string name="data_plex_unexpected">Respuesta inesperada de Plex</string>
     <string name="data_account_inactive">Esta cuenta no está activa</string>
 
     <string name="data_free_failed">No se pudieron configurar los canales gratuitos</string>

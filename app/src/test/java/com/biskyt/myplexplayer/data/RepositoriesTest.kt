@@ -58,7 +58,7 @@ class RepositoriesTest {
         val categoryStore = CategoryStore(db) { Locale.UK }
         playlists = PlaylistRepository(db, http, settings, epg, context.cacheDir.resolve("test-playlists"), categoryStore)
         channels = ChannelRepository(db)
-        vod = VodRepository(db, playlists, categoryStore)
+        vod = VodRepository(db, playlists, categoryStore, PlexSources(db, http, settings))
     }
 
     @After

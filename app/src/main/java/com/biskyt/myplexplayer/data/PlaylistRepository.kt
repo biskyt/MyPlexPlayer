@@ -229,6 +229,8 @@ class PlaylistRepository(
      */
     suspend fun syncChannels(playlistId: Long, onProgress: (Int) -> Unit = {}): Int {
         val p = playlists.get(playlistId) ?: return 0
+        // Live TV from Plex is roadmap step 6: until then, its films and series are all there is (see VodRepository).
+        if (p.isPlex) return 0
         // Alongside the download: a slow account answer mustn't hold up the channels.
         return coroutineScope {
             launch { refreshAccount(p) }
