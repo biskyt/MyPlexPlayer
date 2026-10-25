@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.4.4
+- While watching live TV with the channel guide open, the remote's Menu button now opens the menu in the guide's
+  place (it did nothing before).
+
 ## 0.4.3
 - **The TV guide:** one programme the app couldn't read made it drop the whole guide from your Plex server, leaving
   channels without what's on. Now only that programme is left out.
