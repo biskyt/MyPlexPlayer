@@ -56,6 +56,22 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
     suspend fun item(ratingKey: String): PlexItem = container(url("library/metadata/$ratingKey")).items.firstOrNull()
         ?: throw PlexException("No item $ratingKey", reason = Reason.UNEXPECTED_RESPONSE)
 
+    /** Several items in one call (for their play state); any the server no longer has are left out. */
+    suspend fun items(ratingKeys: List<String>): List<PlexItem> =
+        if (ratingKeys.isEmpty()) emptyList() else container(url("library/metadata/${ratingKeys.joinToString(",")}")).items
+
+    /**
+     * A library's films ([type] MOVIE), or its shows with an episode ([type] SHOW), played in the last [seconds]: by
+     * the server's own clock, so this device's needn't agree. Progress and watched marks move when a title was last
+     * played; marking it unwatched clears that, so it isn't found here.
+     */
+    suspend fun viewedSince(section: String, type: PlexType, seconds: Long): List<PlexItem> = container(
+        url("library/sections/$section/all") {
+            addQueryParameter("type", type.number.toString())
+            addQueryParameter(if (type == PlexType.SHOW) "episode.lastViewedAt>>" else "lastViewedAt>>", "-$seconds")
+        }
+    ).items
+
     /** A show's seasons, or a season's episodes. */
     suspend fun children(ratingKey: String): List<PlexItem> = container(url("library/metadata/$ratingKey/children")).items
 

@@ -64,6 +64,24 @@ class PlexClientTest {
     }
 
     @Test
+    fun `titles played lately, and several items at once`() = runTest {
+        assertEquals(listOf("Test Movie (2020)"), client.viewedSince("1", PlexType.MOVIE, 90).map { it.title })
+        var url = server.takeRequest().requestUrl!!
+        assertEquals("1", url.queryParameter("type"))
+        assertEquals("-90", url.queryParameter("lastViewedAt>>"))
+        client.viewedSince("2", PlexType.SHOW, 90)
+        url = server.takeRequest().requestUrl!!
+        assertEquals("2", url.queryParameter("type"))
+        assertEquals("-90", url.queryParameter("episode.lastViewedAt>>"))
+
+        responses["library/metadata/1,4"] = responses.getValue("library/metadata/1")
+        assertEquals(listOf("1"), client.items(listOf("1", "4")).map { it.ratingKey })
+        assertEquals("/library/metadata/1,4", server.takeRequest().requestUrl!!.encodedPath)
+        assertEquals(emptyList<PlexItem>(), client.items(emptyList()))
+        assertEquals("nothing asked", 0, server.requestCount - 3)
+    }
+
+    @Test
     fun `libraries, pages and recently added`() = runTest {
         assertEquals(listOf("movie", "show"), client.sections().map { it.type }.sorted())
         server.takeRequest()

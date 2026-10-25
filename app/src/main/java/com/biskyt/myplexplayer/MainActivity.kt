@@ -14,6 +14,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.biskyt.myplexplayer.ui.AppRoot
 import com.biskyt.myplexplayer.ui.common.hasTouchScreen
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val touch by lazy { hasTouchScreen() }
@@ -42,6 +43,17 @@ class MainActivity : ComponentActivity() {
     private fun takeOpenedFile(intent: Intent) {
         intent.openedFile()?.let { container.openedFile.value = it }
     }
+
+    // Back in the app, from another app or opened again: what played elsewhere meanwhile (another Plex app) shows here.
+    // The first start is the app opening (or this screen made again), which starts a sync if one is due.
+    override fun onStart() {
+        super.onStart()
+        val syncIfDue = started
+        started = true
+        container.appScope.launch { container.sync.refreshPlayState(container.settings.current().activePlaylistId, syncIfDue) }
+    }
+
+    private var started = false
 
     // Back from a picker or another app, the bars may have come back.
     override fun onWindowFocusChanged(hasFocus: Boolean) {
