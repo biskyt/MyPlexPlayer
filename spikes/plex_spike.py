@@ -13,10 +13,13 @@ addresses, account names, emails and file paths replaced, for test fixtures. rep
     python3 spikes/plex_spike.py playback  [--server URL] # S4: direct play and transcoder URLs
     python3 spikes/plex_spike.py livetv    [--server URL] [--tune]    # S5: Live TV channels, guide grid, tuning
     python3 spikes/plex_spike.py dvr       [--server URL] [--record]  # S6: recording options, schedule and cancel
+    python3 spikes/plex_spike.py favourites [--server URL] [--write-back] # S7: favourite channels (on plex.tv)
 
 Without --server the first server from `servers` is used. --tune briefly uses a tuner; --record schedules a recording
-of a programme starting in over an hour and cancels it straight away. The progress round trip uses an episode nobody
-has started and leaves it that way. How Live TV is tuned and played follows Plezy (github.com/edde746/plezy).
+of a programme starting in over an hour and cancels it straight away. --write-back (never part of `all`) saves the
+account's favourite channels back exactly as read, after a dated backup in spike-out/ (--restore FILE puts one back).
+The progress round trip uses an episode nobody has started and leaves it that way. How Live TV is tuned and played
+follows Plezy (github.com/edde746/plezy).
 """
 import argparse
 import json
@@ -181,9 +184,11 @@ class Http:
         params = {k: v for k, v in params.items() if v is not None}
         return self.base + endpoint + (("&" if "?" in endpoint else "?") + urllib.parse.urlencode(params) if params else "")
 
-    def request(self, method, endpoint, extra_headers=None, raw=False, **params):
-        req = urllib.request.Request(self.url(endpoint, **params), method=method,
-                                     headers={**headers(self.state, self.token), **(extra_headers or {})})
+    def request(self, method, endpoint, extra_headers=None, raw=False, json_body=None, **params):
+        data = None if json_body is None else json.dumps(json_body).encode()
+        extra = {**(extra_headers or {}), **({"Content-Type": "application/json"} if data else {})}
+        req = urllib.request.Request(self.url(endpoint, **params), data=data, method=method,
+                                     headers={**headers(self.state, self.token), **extra})
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as r:
                 body = r.read()
@@ -777,11 +782,84 @@ def dvr(args, state):
     rec.finish()
 
 
+# ---------------------------------------------------------------- S7: favourite channels
+EPG_CLOUD = "https://epg.provider.plex.tv"
+PROVIDER_VERSION = {"X-Plex-Provider-Version": "5.1"}
+
+
+def favourites(args, state):
+    """The account's favourite Live TV channels, kept on plex.tv (as Plezy reads and saves them), checked against the
+    server's channels. With --write-back, the same list is saved back unchanged and read again, proving a change would
+    be kept: only after a clean, complete read, and with a dated backup first (put back with --restore FILE)."""
+    rec = Recorder(args.out, "s7-favourites")
+    cloud = Http(state, EPG_CLOUD, need_token(state))
+
+    def read():
+        status, _, body = cloud.request("GET", "/settings/favoriteChannels", PROVIDER_VERSION)
+        found = mc(body).get("FavoriteChannel", [])
+        return status, body, [found] if isinstance(found, dict) else found  # a lone one may come as an object
+
+    def source(f):
+        return str(f.get("source", ""))
+
+    def same(a, b):
+        return sorted(json.dumps(f, sort_keys=True) for f in a) == sorted(json.dumps(f, sort_keys=True) for f in b)
+
+    if args.restore:
+        saved = json.loads(Path(args.restore).read_text())
+        status, _, _ = cloud.request("PUT", "/settings/favoriteChannels", PROVIDER_VERSION, json_body=saved)
+        _, _, after = read()
+        rec.check(f"restored {len(saved)} favourite(s) from {args.restore}", 200 <= status < 300 and same(after, saved),
+                  f"HTTP {status}, {len(after)} favourite(s) now")
+        return rec.finish()
+    status, body, favs = read()
+    rec.save("favourite-channels", body)
+    total = mc(body).get("totalSize", mc(body).get("size", len(favs)))
+    read_ok = status == 200 and isinstance(body, dict) and "MediaContainer" in body
+    rec.check("GET epg.provider.plex.tv/settings/favoriteChannels gives the account's favourite channels",
+              read_ok, f"HTTP {status}, {len(favs)} favourite(s) of {total}; fields {sorted(favs[0]) if favs else []}; "
+                       f"container keys {sorted(mc(body))[:8]}")
+    if not favs:
+        rec.check("the account has favourite channels to check", False,
+                  "mark one or two channels as favourites in Plex or Plezy, then run this again")
+        return rec.finish()
+    named = all(source(f).startswith("server://") and f.get("id") for f in favs)
+    rec.check("each names its server and guide (source server://{machine id}/{provider}) and channel (id)", named,
+              f"sources {sorted({source(f).split('/')[-1] for f in favs})}")
+    http = server_http(args, state)
+    note_server(rec, http)
+    provider, _ = epg_provider(http, rec)
+    if provider:
+        _, _, lineup = http.get(f"/{provider['identifier']}/lineups/dvr/channels")
+        # The key the app tunes a channel by (and would save a favourite under).
+        keys = {channel_key(c) for c in mc(lineup).get("Channel", [])}
+        ours = [f for f in favs if source(f).endswith("/" + provider["identifier"])]
+        rec.check("a favourite's id is its channel's key in the server's lineup", ours and all(f.get("id") in keys for f in ours),
+                  f"{sum(f.get('id') in keys for f in ours)} of {len(ours)} favourite(s) on this server matched")
+    if not args.write_back:
+        return rec.finish()
+    if not (read_ok and named and int(total) == len(favs)):
+        rec.check("write-back skipped: the list wasn't read cleanly and in full, so nothing was written", False)
+        return rec.finish()
+    backup = args.out / f"favourites-backup-{time.strftime('%Y%m%d-%H%M%S')}.json"  # never overwritten
+    backup.parent.mkdir(parents=True, exist_ok=True)
+    backup.write_text(json.dumps(favs, indent=1))
+    status, _, put = cloud.request("PUT", "/settings/favoriteChannels", PROVIDER_VERSION, json_body=favs)
+    rec.save("favourite-channels-put", put)
+    rec.check("PUT the same list (a JSON array, as Plezy sends it) is accepted", 200 <= status < 300, f"HTTP {status}")
+    _, _, after = read()
+    kept = same(after, favs)
+    rec.check("read again, the favourites are exactly as they were", kept,
+              f"{len(after)} favourite(s) after, {len(favs)} before" +
+              ("" if kept else f"; put them back with: favourites --restore {backup}"))
+    rec.finish()
+
+
 def run_all(args, state):
     """Every step in turn (signing in first if needed, tuning and recording included), carrying on past a step
     that fails, then the shareable results zipped into spike-results.zip."""
     args.tune = args.record = True
-    steps = ([] if state.get("token") else [signin]) + [servers, library, playback, livetv, dvr]
+    steps = ([] if state.get("token") else [signin]) + [servers, library, playback, livetv, dvr, favourites]
     for step in steps:
         print(f"\n=== {step.__name__} ===", flush=True)
         try:
@@ -802,12 +880,16 @@ def run_all(args, state):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("step", choices=["all", "signin", "servers", "library", "playback", "livetv", "dvr"])
+    parser.add_argument("step", choices=["all", "signin", "servers", "library", "playback", "livetv", "dvr",
+                                             "favourites"])
     parser.add_argument("--server", help="server URL, e.g. http://192.168.1.20:32400 (default: from `servers`)")
     parser.add_argument("--token", help="token for --server (not needed for a local unclaimed test server)")
     parser.add_argument("--out", type=Path, default=Path("spike-out"))
     parser.add_argument("--tune", action="store_true", help="livetv: also tune a channel (uses a tuner briefly)")
     parser.add_argument("--record", action="store_true", help="dvr: schedule a recording, then cancel it")
+    parser.add_argument("--write-back", action="store_true",
+                        help="favourites: save the favourite channels back unchanged (a backup first), and read them again")
+    parser.add_argument("--restore", type=Path, help="favourites: put back a backup saved by --write-back")
     args = parser.parse_args()
     state = load_state()
     KNOWN_SECRETS.update(state.get("hidden", {}))
