@@ -27,7 +27,7 @@ Android only installs an update if it is signed with the same key as the install
 
    Two more are optional, only if yours differ from the defaults: `MYPLEX_KEY_ALIAS` (default `myplexplayer`) and `MYPLEX_KEY_PASSWORD` (default: the keystore password, which is what `keytool` uses).
 
-Until these secrets exist, releases still build, but they are signed with the public development key and marked as test pre-releases.
+Until these secrets exist, releases still build, but they are signed with the public development key and marked as test pre-releases. (MyPlexPlayer's were added on 2026-10-25, from 0.3.0's release.)
 
 > **Switching keys:** the first release signed with your key won't install over a build signed with the development key. Uninstall the old build once, then install the new one. That clears the app's settings and playlists, so add them again afterwards.
 
