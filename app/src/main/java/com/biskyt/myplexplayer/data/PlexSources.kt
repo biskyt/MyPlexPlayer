@@ -321,12 +321,34 @@ class PlexSources(
      * on watching". Episodes' state comes with their series' page.
      */
     suspend fun syncPlayState(p: PlaylistEntity, client: PlexClient, films: List<PlexItem>) {
+        progress.positions(p.id, VOD_MOVIE, films, rowFor(client, p.id))
+        carryOn(p, client) // the films are in; out of reach now, Carry on watching just waits for the next sync
+    }
+
+    /** "Carry on watching" from the server's Continue Watching. */
+    private suspend fun carryOn(p: PlaylistEntity, client: PlexClient) {
         val row = rowFor(client, p.id)
-        progress.positions(p.id, VOD_MOVIE, films, row)
-        // The films are in; out of reach now, Carry on watching just waits for the next sync.
         val hub = offlineOk { client.continueWatching() }?.filter { it.vodKind != null } ?: return
         // One it suggests next, unplayed, is listed at its start.
         progress.carryOn(p.id, hub.mapNotNull { row(it) ?: row(it.copy(viewOffset = 0)) })
+    }
+
+    /**
+     * Marks a film, an episode or a whole series ([ratingKey]; [series]: the series it is or is in, null for a film)
+     * watched or unwatched on the server (unwatched also drops its resume point), then brings its play state back,
+     * and Carry on watching, which changes with it. Its progress not yet reported (a series': all its episodes') is
+     * dropped: the choice made now wins. Out of reach after the mark, the state follows at the next sync.
+     */
+    suspend fun setWatched(p: PlaylistEntity, ratingKey: Long, series: Long?, watched: Boolean) {
+        val client = client(p)
+        client.setWatched(ratingKey.toString(), watched)
+        val vod = db.vod()
+        vod.pendingProgress(p.id).filter { it.itemId == ratingKey || ratingKey == series && it.seriesId == series }
+            .forEach { vod.reported(it.playlistId, it.kind, it.itemId, it.updatedAt) }
+        offlineOk {
+            if (series == null) movieState(p, ratingKey) else seriesState(p, series)
+            carryOn(p, client)
+        }
     }
 
     suspend fun removeFromContinueWatching(p: PlaylistEntity, ratingKey: Long) = client(p).removeFromContinueWatching(ratingKey.toString())
