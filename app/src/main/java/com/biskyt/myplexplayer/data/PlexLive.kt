@@ -23,7 +23,7 @@ private const val FNV_OFFSET = -0x340d631b7bdddcdbL // FNV-1a, 64-bit
 private const val FNV_PRIME = 0x100000001b3L
 
 /**
- * The guide's showings of [programmes] as the app's guide rows, each on its channel's key ([channels]: a programme
+ * The guide's showings of [programmes] as the app's guide rows, each on its channel's key ([channels]: a showing
  * may name its channel by any of the channel's keys). An episode's title is its series', with its own as subtitle.
  */
 fun plexGuideRows(programmes: List<PlexProgramme>, channels: List<PlexChannel>): List<ProgrammeEntity> {
@@ -33,7 +33,7 @@ fun plexGuideRows(programmes: List<PlexProgramme>, channels: List<PlexChannel>):
         programme.airings.mapNotNull { airing ->
             ProgrammeEntity(
                 sourceId = 0,
-                xmlId = programme.channel(airing)?.let(keyOf::get) ?: return@mapNotNull null,
+                xmlId = airing.channelIdentifier?.let(keyOf::get) ?: return@mapNotNull null,
                 startMs = (airing.beginsAt ?: return@mapNotNull null) * 1000,
                 stopMs = (airing.endsAt ?: return@mapNotNull null) * 1000,
                 title = if (episode) programme.grandparentTitle.orEmpty() else programme.title,

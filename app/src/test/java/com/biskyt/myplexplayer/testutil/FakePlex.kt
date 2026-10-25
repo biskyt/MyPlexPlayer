@@ -247,6 +247,20 @@ class FakePlex : AutoCloseable {
                                 put("beginsAt", hour + n * 3600)
                                 put("endsAt", hour + (n + 1) * 3600)
                                 put("channelIdentifier", id)
+                                // The rest as the owner's server sends them (numbers among them).
+                                put("id", 100 + i * 2 + n)
+                                put("channelID", i + 1)
+                                put("channelVcn", "00$i")
+                                put("gridKey", id.substringAfter('-'))
+                            }
+                        )
+                    }
+                    // Tags, as the owner's server sends them: a number and a name, not the channel's key.
+                    putJsonArray("Channel") {
+                        add(
+                            obj {
+                                put("id", i + 1)
+                                put("tag", "00$i Channel")
                             }
                         )
                     }
