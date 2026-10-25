@@ -21,6 +21,7 @@ import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -181,6 +182,49 @@ class PlexPlayStateTest {
         assertEquals(21L, second.seriesId)
         assertNull("only the server's list puts it on Carry on watching", second.carryOnAt)
         assertEquals(1, db.vod().searchSeries(source.id, "Test", 10).single().unwatched)
+    }
+
+    @Test
+    fun `marking a film watched tells the server, and its point and place in Carry on watching follow`() = runBlocking {
+        fake.viewOffset["11"] = 60_000
+        fake.continueWatching = listOf("11")
+        vod.sync(source)
+        assertNotNull(db.vod().progressOf(source.id, VOD_MOVIE, listOf(11L)).single().carryOnAt)
+
+        assertTrue(vod.setWatched(source.id, 11, series = null, watched = true))
+        assertTrue("11" in fake.watched)
+        val row = db.vod().progressOf(source.id, VOD_MOVIE, listOf(11L)).single()
+        assertTrue("at its end", row.finished)
+        assertNull("off Carry on watching", row.carryOnAt)
+
+        assertTrue(vod.setWatched(source.id, 11, series = null, watched = false))
+        assertTrue("unwatched: no point left", db.vod().progressOf(source.id, VOD_MOVIE, listOf(11L)).isEmpty())
+    }
+
+    @Test
+    fun `marking a film unwatched wins over its progress not yet reported`() = runBlocking {
+        vod.sync(source)
+        db.vod().saveProgress(listOf(row(VOD_MOVIE, 11, updatedAt = 1_000).copy(pending = true)))
+        assertTrue(vod.setWatched(source.id, 11, series = null, watched = false))
+        assertTrue("its point is gone, not kept to be sent", db.vod().progressOf(source.id, VOD_MOVIE, listOf(11L)).isEmpty())
+        assertTrue(db.vod().pendingProgress(source.id).isEmpty())
+    }
+
+    @Test
+    fun `marking a series watched marks its episodes, and its badge follows`() = runBlocking {
+        vod.sync(source)
+        assertEquals(2, db.vod().searchSeries(source.id, "Test", 10).single().unwatched)
+        assertTrue(vod.setWatched(source.id, 21, series = 21, watched = true))
+        assertEquals(0, db.vod().searchSeries(source.id, "Test", 10).single().unwatched)
+        assertTrue(vod.setWatched(source.id, 21, series = 21, watched = false))
+        assertEquals(2, db.vod().searchSeries(source.id, "Test", 10).single().unwatched)
+    }
+
+    @Test
+    fun `a film can't be marked while its server is out of reach`() = runBlocking {
+        vod.sync(source)
+        fake.close()
+        assertFalse(vod.setWatched(source.id, 11, series = null, watched = true))
     }
 
     @Test

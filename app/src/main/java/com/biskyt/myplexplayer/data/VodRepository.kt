@@ -168,6 +168,24 @@ class VodRepository(
     }
 
     /**
+     * Whether [card] (a film, or a series: [type]) has been watched, for "Mark as watched / unwatched"; null where
+     * that isn't offered (not a Plex server, or a series whose count isn't known).
+     */
+    suspend fun watched(playlistId: Long, type: String, card: VodCard): Boolean? {
+        if (playlists.get(playlistId)?.isPlex != true) return null
+        return if (type == CAT_MOVIE) vod.progress(playlistId, VOD_MOVIE, card.id)?.finished == true else card.unwatched?.let { it == 0 }
+    }
+
+    /**
+     * Marks a film, episode or whole series ([id]; [series]: the series it is or is in, null for a film) watched or
+     * unwatched on its Plex server; false if it couldn't be told.
+     */
+    suspend fun setWatched(playlistId: Long, id: Long, series: Long?, watched: Boolean): Boolean {
+        val source = playlists.get(playlistId)?.takeIf { it.isPlex } ?: return false
+        return send { plex.setWatched(source, id, series, watched) } == Sent.SENT
+    }
+
+    /**
      * Takes a movie, or a whole series, off "Carry on watching": forgets how far it got (for a series, every episode).
      * From Plex, it keeps how far it got (the server does), and comes off the server's Continue Watching first:
      * out of reach, it stays on (false), as it would come back with the next sync.

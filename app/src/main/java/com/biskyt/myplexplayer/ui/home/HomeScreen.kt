@@ -16,6 +16,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -64,6 +65,7 @@ import com.biskyt.myplexplayer.ui.common.channelActions
 import com.biskyt.myplexplayer.ui.common.collectIds
 import com.biskyt.myplexplayer.ui.common.formatDuration
 import com.biskyt.myplexplayer.ui.common.guideNowNext
+import com.biskyt.myplexplayer.ui.common.markWatched
 import com.biskyt.myplexplayer.ui.common.moveAction
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.rememberMinuteClock
@@ -127,6 +129,11 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
     fun removeRecent(ch: ChannelEntity) = viewModelScope.launch { c.channels.removeRecent(ch.playlistId, ch.streamId) }
 
     fun forget(p: WatchProgressEntity) = viewModelScope.launch { c.vod.forgetProgress(p) }
+
+    /** Whether [p]'s source is a Plex server (where watched can be marked). */
+    suspend fun isPlex(p: WatchProgressEntity) = c.playlists.get(p.playlistId)?.isPlex == true
+
+    fun setWatched(p: WatchProgressEntity) = viewModelScope.launch { c.vod.setWatched(p.playlistId, p.itemId, p.seriesId, watched = true) }
 
     val nowNext = guideNowNext(viewModelScope, c) { playlistId.value }
 }
@@ -268,7 +275,8 @@ private fun TileOptions(tile: HomeTile, vm: HomeViewModel, pid: Long, onDismiss:
         is HomeTile.CarryOn -> {
             val p = tile.p
             val series = p.seriesId
-            val actions = listOf(
+            val plex by produceState(false, p) { value = vm.isPlex(p) }
+            val actions = listOfNotNull(
                 ItemAction.Open(
                     stringResource(if (p.finished) R.string.home_play_next_episode else R.string.home_resume),
                     Screen.VodPlayer(p.playlistId, p.itemId, series, continueSeries = true)
@@ -287,6 +295,15 @@ private fun TileOptions(tile: HomeTile, vm: HomeViewModel, pid: Long, onDismiss:
                 ) {
                     vm.forget(p)
                     onDismiss(true)
+                },
+                // Last: it's known once the menu is open, and mustn't move the entries above it.
+                if (plex) {
+                    markWatched(watched = false) {
+                        vm.setWatched(p)
+                        onDismiss(true)
+                    }
+                } else {
+                    null
                 }
             )
             ItemActionsPanel(p.title, actions, close)
