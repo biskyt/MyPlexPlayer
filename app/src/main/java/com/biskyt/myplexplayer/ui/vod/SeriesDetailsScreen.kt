@@ -46,8 +46,8 @@ import com.biskyt.myplexplayer.ui.common.favouriteLabel
 import com.biskyt.myplexplayer.ui.common.formatRuntime
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.restoreFocusIf
+import com.biskyt.myplexplayer.ui.common.shortEpisodeLabel
 import com.biskyt.myplexplayer.ui.player.episodeName
-import com.biskyt.myplexplayer.ui.player.shortEpisodeLabel
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
 import com.biskyt.myplexplayer.ui.theme.Palette
 import kotlinx.coroutines.flow.SharingStarted

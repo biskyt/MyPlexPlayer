@@ -7,7 +7,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
 - **It started as a copy of MyTVPlayer** (`biskyt/MyTVPlayer`, an IPTV player), imported with its history at
   `caad9d7` (1.2.1). The two apps are developed separately and are expected to drift apart. A fix worth having in
   both is ported by hand (`git cherry-pick` from a fetch of MyTVPlayer usually applies, since it follows the package
-  rename); never merge MyTVPlayer's `main` wholesale.
+  rename); never merge MyTVPlayer's `main` wholesale. Ported so far: everything up to MyTVPlayer 1.2.3 (`884939f`)
+  and its Play upload workflow (`dc5d194`), in MyPlexPlayer 0.2.1.
 - **The move to Plex is under way:** the plan, step by step, is in `ROADMAP.md`. Until those steps land, much of the
   code (Xtream, M3U, XMLTV guides, catch-up, the free playlist) is MyTVPlayer's and is due to be replaced.
 
@@ -70,6 +71,8 @@ See also:
    - A change with no app changes (CI, tests, docs) is merged without a version bump, changelog entry or release.
    - The signed Play bundle (`.aab`) goes to Play's closed testing track, and is a run artifact called
      `MyPlexPlayer-<version>-play-bundle`, kept 90 days.
+   - If only the Play upload failed (the GitHub release is out), run `play-upload.yml` on `main` with input `tag`
+     (e.g. `v0.2.1`): it uploads that release's bundle again. Don't re-run the release.
    - Versions `0.x` (or dev-key signed builds) are pre-releases. `1.x` and later are full releases.
 9. Confirm the release exists (`get_release_by_tag`), then give the owner the release link and the `.aab` artifact link
    (`actions_list` with method `list_workflow_run_artifacts` and the release run's id). For when testers see it, see
