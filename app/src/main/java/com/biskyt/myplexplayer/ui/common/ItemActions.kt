@@ -82,6 +82,10 @@ fun vodActions(playlistId: Long, type: String, id: Long, favourite: Boolean?, se
         favourite?.let { f -> ItemAction.Run(favouriteLabel(f)) { setFavourite(!f) } }
     )
 
+/** "Mark as watched", or for one [watched], "Mark as unwatched". */
+fun markWatched(watched: Boolean, setWatched: (Boolean) -> Unit) =
+    ItemAction.Run(appString(if (watched) R.string.common_mark_unwatched else R.string.common_mark_watched)) { setWatched(!watched) }
+
 /** A movie's or series' page ([type] is CAT_MOVIE or CAT_SERIES). */
 fun vodDetails(playlistId: Long, type: String, id: Long): Screen =
     if (type == CAT_MOVIE) Screen.MovieDetails(playlistId, id) else Screen.SeriesDetails(playlistId, id)

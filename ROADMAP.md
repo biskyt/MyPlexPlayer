@@ -31,7 +31,8 @@ Each step is its own pull request.
      watching", unwatched badges on series).
    - Done (0.3.4): direct stream for files the player can't open, and the token sent in headers rather than the
      address.
-   - Next: Mark as watched / unwatched, and a playback info panel.
+   - Done (0.3.5): Mark as watched / unwatched, from a poster's options and from Carry on watching.
+   - Next: a playback info panel.
 6. **Live TV and the TV guide from Plex.**
 7. **DVR** in place of Catch-up: recordings, what's scheduled, and Record from the TV guide.
 
