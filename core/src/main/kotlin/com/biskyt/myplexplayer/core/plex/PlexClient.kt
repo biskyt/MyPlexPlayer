@@ -1,6 +1,8 @@
 package com.biskyt.myplexplayer.core.plex
 
 import com.biskyt.myplexplayer.core.plex.PlexException.Reason
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 
@@ -100,12 +102,24 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
      */
     suspend fun timeline(item: PlexItem, state: PlexPlayState, timeMs: Long, session: String) {
         val known = requireNotNull(item.duration) { "timeline needs the item's duration" }
+        timeline(item.ratingKey, "/library/metadata/${item.ratingKey}", known, state, timeMs, session)
+    }
+
+    /**
+     * Reports a [tune]'s live session ([tuned]) at [timeMs] into it: every 10 seconds while it plays, which keeps the
+     * session going, and [PlexPlayState.STOPPED] at the end, which lets the tuner go.
+     */
+    suspend fun liveTimeline(tuned: PlexProgramme, state: PlexPlayState, timeMs: Long, session: String) =
+        timeline(tuned.ratingKey.orEmpty(), tuned.key, tuned.duration ?: timeMs, state, timeMs, session)
+
+    @Suppress("LongParameterList") // the item's and the live session's reports differ only in these
+    private suspend fun timeline(ratingKey: String, key: String, known: Long, state: PlexPlayState, timeMs: Long, session: String) {
         val duration = maxOf(known, timeMs) // past the end (a programme overrunning): a shorter one is refused (400)
         send(
             "POST",
             url(":/timeline") {
-                addQueryParameter("ratingKey", item.ratingKey)
-                addQueryParameter("key", "/library/metadata/${item.ratingKey}")
+                addQueryParameter("ratingKey", ratingKey)
+                addQueryParameter("key", key)
                 addQueryParameter("state", state.value)
                 addQueryParameter("time", timeMs.toString())
                 addQueryParameter("duration", duration.toString())
@@ -141,17 +155,25 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
      * The request names Plex's empty "Generic" profile plus the codecs the app plays ([codecs]): a platform
      * profile such as Android's has limits (1080p, stereo AAC) that make the server re-encode.
      */
-    suspend fun directStream(ratingKey: String, session: String, offsetMs: Long = 0, codecs: PlexCodecs = PlexCodecs()): PlexStream {
+    suspend fun directStream(ratingKey: String, session: String, offsetMs: Long = 0, codecs: PlexCodecs = PlexCodecs()): PlexStream =
+        streamAsItIs(session, codecs) { call -> directStreamUrl(call, "/library/metadata/$ratingKey", session, offsetMs) }
+
+    /** A [tune]'s live session ([sessionPath]) as HLS, its audio and video untouched, as [directStream]. */
+    suspend fun liveStream(sessionPath: String, session: String, codecs: PlexCodecs = PlexCodecs()): PlexStream =
+        streamAsItIs(session, codecs) { call -> directStreamUrl(call, sessionPath, session, offsetMs = null) }
+
+    /** The server's decision on the stream at [url] (`decision`, then `start.m3u8`), refused unless all is copied. */
+    private suspend fun streamAsItIs(session: String, codecs: PlexCodecs, url: (String) -> HttpUrl): PlexStream {
         val headers = headers(session) + mapOf(
             "X-Plex-Client-Profile-Name" to "Generic",
             "X-Plex-Client-Profile-Extra" to codecs.profileExtra(),
         )
-        val decision = container(directStreamUrl("decision", ratingKey, session, offsetMs), headers)
+        val decision = container(url("decision"), headers)
         refusal(decision)?.let { refused ->
             runCatching { stopStream(session) } // the decision opened a session on the server: close it
             throw refused
         }
-        return PlexStream(directStreamUrl("start.m3u8", ratingKey, session, offsetMs).toString(), headers)
+        return PlexStream(url("start.m3u8").toString(), headers)
     }
 
     /**
@@ -179,17 +201,20 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
     suspend fun stopStream(session: String) =
         send("GET", url("video/:/transcode/universal/stop") { addQueryParameter("session", session) }, session)
 
-    private fun directStreamUrl(call: String, ratingKey: String, session: String, offsetMs: Long): HttpUrl =
+    /** [offsetMs] null: a live session (no file, so no media or part either, and nothing to start into). */
+    private fun directStreamUrl(call: String, path: String, session: String, offsetMs: Long?): HttpUrl =
         url("video/:/transcode/universal/$call") {
-            addQueryParameter("path", "/library/metadata/$ratingKey")
-            addQueryParameter("mediaIndex", "0")
-            addQueryParameter("partIndex", "0")
+            addQueryParameter("path", path)
+            if (offsetMs != null) {
+                addQueryParameter("mediaIndex", "0")
+                addQueryParameter("partIndex", "0")
+                addQueryParameter("offset", (offsetMs / 1000).toString())
+            }
             addQueryParameter("protocol", "hls")
             addQueryParameter("directPlay", "0")
             addQueryParameter("directStream", "1")
             addQueryParameter("directStreamAudio", "1")
             addQueryParameter("subtitles", "none") // "auto" may burn subtitles into the picture, a re-encode
-            addQueryParameter("offset", (offsetMs / 1000).toString())
             addQueryParameter("session", session)
         }
 
@@ -205,6 +230,58 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
         addQueryParameter("upscale", "1")
         server.token?.let { addQueryParameter("X-Plex-Token", it) }
     }.toString()
+
+    /**
+     * The server's Live TV, or null if it has none: its first DVR, and the guide provider's (the one serving
+     * `livetv`) channel list and grid.
+     */
+    suspend fun liveTv(): PlexLiveTv? {
+        val (dvrs, providers) = coroutineScope {
+            val dvrs = async { live(url("livetv/dvrs")) }
+            val providers = async { live(url("media/providers")) }
+            dvrs.await() to providers.await()
+        }
+        val all = (dvrs.dvrs + dvrs.dvrsAsSpecified).filter { it.key.isNotEmpty() }
+        val guides = providers.providers.filter { "livetv" in it.protocols || it.identifier.startsWith("tv.plex.providers.epg") }
+        // A DVR with its own guide (its lineup names the provider: "lineup://tv.plex.providers.epg.cloud/…"), else the first of each.
+        val (dvr, provider) = all.firstNotNullOfOrNull { d ->
+            guides.firstOrNull { d.lineup.contains(it.identifier.substringBefore(':')) }?.let {
+                d to
+                    it
+            }
+        }
+            ?: ((all.firstOrNull() ?: return null) to (guides.firstOrNull() ?: return null))
+        val grid = provider.features.firstOrNull { it.type == "grid" }?.key ?: return null
+        return PlexLiveTv(dvr.key, "${provider.identifier}/lineups/dvr/channels", grid.trimStart('/'))
+    }
+
+    suspend fun channels(live: PlexLiveTv): List<PlexChannel> = live(url(live.channelsPath)).channels
+
+    /** Every channel's programmes on between [fromS] and [toS] (seconds since 1970), in one call. */
+    suspend fun guide(live: PlexLiveTv, fromS: Long, toS: Long): List<PlexProgramme> = live(
+        url(live.gridPath) {
+            addQueryParameter("endsAt>", fromS.toString())
+            addQueryParameter("beginsAt<", toS.toString())
+        }
+    ).programmes
+
+    /**
+     * Takes a tuner for a channel (its [PlexChannel.tuneKey], [channelKey]) for this [session]: what's on, whose [PlexProgramme.key] is the live session's
+     * path (for [liveStream] and [liveTimeline]). The server answers before the tuner has locked, so the stream
+     * takes a while to start. Never call it again for a tune that timed out: a second tune can take a second tuner.
+     */
+    suspend fun tune(live: PlexLiveTv, channelKey: String, session: String): PlexProgramme {
+        val reply = http.fetch<PlexLiveResponse>(
+            "POST",
+            url("livetv/dvrs/${live.dvrKey}/channels/$channelKey/tune") { addQueryParameter("X-Plex-Session-Identifier", session) },
+            headers(session)
+        ).container
+        val tuned = reply.subscriptions.firstOrNull()?.grabs?.firstOrNull()?.programme ?: reply.programmes.firstOrNull()
+        return tuned?.takeIf { it.key.isNotEmpty() }
+            ?: throw PlexException("No live session in the tune's reply", reason = Reason.UNEXPECTED_RESPONSE)
+    }
+
+    private suspend fun live(url: HttpUrl): PlexLiveContainer = http.fetch<PlexLiveResponse>("GET", url, headers(null)).container
 
     private fun url(path: String, query: HttpUrl.Builder.() -> Unit = {}): HttpUrl = base.at(path, query)
 

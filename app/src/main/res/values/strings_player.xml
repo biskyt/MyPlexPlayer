@@ -128,4 +128,6 @@
     <!-- %1$d: the HTTP error code -->
     <string name="player_error_http_other">The stream\'s server answered with error %1$d.</string>
     <string name="player_about_programme">About this programme</string>
+    <!-- While a Live TV channel is tuned (it can take a while), until its picture starts. -->
+    <string name="player_tuning">Tuning…</string>
 </resources>

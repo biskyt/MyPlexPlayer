@@ -111,6 +111,22 @@ class EpgRepository(
         }
     }
 
+    /**
+     * A Plex server's own guide ([programmes], each on its channel's key), kept as that server's guide source: its
+     * channels ([channelKeys], by stream id) use it, and the XMLTV import and matching leave it alone.
+     */
+    suspend fun savePlexGuide(p: PlaylistEntity, channelKeys: Map<Long, String>, programmes: List<ProgrammeEntity>) {
+        val stamp = clock()
+        db.withTransaction {
+            val source = epg.providerSource(p.id)?.id
+                ?: epg.insertSource(EpgSourceEntity(name = p.name, url = "$PLEX_GUIDE${p.id}", playlistId = p.id))
+            epg.upsertMappings(channelKeys.map { (id, key) -> ChannelEpgMappingEntity(p.id, id, source, key, manual = false, score = 1.0) })
+            programmes.map { it.copy(sourceId = source, stamp = stamp) }.chunked(BATCH).forEach { epg.insertProgrammes(it) }
+            epg.deleteOlderProgrammes(source, stamp)
+        }
+        changed()
+    }
+
     /** Named after its address when [name] is blank. */
     suspend fun addSource(name: String, url: String): Long =
         epg.insertSource(EpgSourceEntity(name = name.trim().ifEmpty { url.trim() }, url = url.trim()))
@@ -165,21 +181,23 @@ class EpgRepository(
         withContext(Dispatchers.IO) {
             val errors = HashMap<Long, String>()
             db.withTransaction { clearSwitchedOff() }
-            val sources = epg.enabledSources()
+            // A Plex server's guide comes with its channels (savePlexGuide): nothing to download, nothing to match.
+            val (plexGuides, sources) = epg.enabledSources().partition { it.isPlexGuide }
+            val matched = playlistIds - plexGuides.mapNotNull { it.playlistId }.toSet()
             val downloads = downloadAll(sources.filter { only == null || it.id == only || !sourceFile(it.id).exists() }, errors, onProgress)
             // Sources not read in full afterwards: which guide channels they supply before matching, so only what
             // matching adds is read.
             val mappedBefore = sources.filterNot { readInFull(it, it.id in downloads.fresh) }
                 .associate { it.id to epg.mappedXmlIds(it.id).toHashSet() }
             onProgress(GuideStep.Matching())
-            playlistIds.forEach { autoMatch(it, downloads.scope, onProgress) }
+            matched.forEach { autoMatch(it, downloads.scope, onProgress) }
             releaseMatcher()
             val late = HashMap<Long, List<EpgChannelEntity>>()
             for (s in sources) {
                 importProgrammesOf(s, s.id in downloads.fresh, mappedBefore[s.id].orEmpty(), errors, onProgress)
                     ?.let { if (it.isNotEmpty()) late[s.id] = it }
             }
-            if (late.isNotEmpty()) addLateChannels(late, playlistIds, onProgress)
+            if (late.isNotEmpty()) addLateChannels(late, matched, onProgress)
             epg.pruneProgrammes(clock() - KEEP_PAST_MS)
             changed()
             errors
@@ -646,3 +664,8 @@ class EpgRepository(
         const val REMAP_DEBOUNCE_MS = 1_500L
     }
 }
+
+/** A Plex server's guide source's address: not one to download (see [EpgRepository.savePlexGuide]). */
+private const val PLEX_GUIDE = "plex:"
+
+val EpgSourceEntity.isPlexGuide: Boolean get() = url.startsWith(PLEX_GUIDE)

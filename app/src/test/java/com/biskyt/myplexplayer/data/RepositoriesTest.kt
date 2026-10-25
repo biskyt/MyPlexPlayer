@@ -57,7 +57,7 @@ class RepositoriesTest {
         settings = SettingsRepository(context)
         epg = EpgRepository(db, http, context.cacheDir.resolve("test-epg"), scope)
         val categoryStore = CategoryStore(db) { Locale.UK }
-        playlists = PlaylistRepository(db, http, settings, epg, categoryStore)
+        playlists = PlaylistRepository(db, http, settings, epg, categoryStore, PlexSources(db, http, settings))
         channels = ChannelRepository(db)
         vod = VodRepository(db, playlists, categoryStore, PlexSources(db, http, settings))
     }
@@ -103,7 +103,8 @@ class RepositoriesTest {
                 epg,
                 CategoryStore(db) {
                     Locale.US
-                }
+                },
+                PlexSources(db, OkHttpClient(), settings)
             )
         val id = us.add("Home", provider.url, "me", "secret")
         val included = db.categories().all(id, CAT_LIVE).filter { it.included }.map { it.categoryId }

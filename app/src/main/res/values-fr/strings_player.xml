@@ -88,4 +88,6 @@
     <string name="player_error_http_server">Le serveur du flux rencontre un problème (erreur %1$d). Il est peut-être hors service pour le moment.</string>
     <string name="player_error_http_other">Le serveur du flux a répondu avec l\'erreur %1$d.</string>
     <string name="player_about_programme">À propos de ce programme</string>
+    <!-- While a Live TV channel is tuned (it can take a while), until its picture starts. -->
+    <string name="player_tuning">Recherche de la chaîne…</string>
 </resources>

@@ -34,6 +34,9 @@ Each step is its own pull request.
    - Done (0.3.5): Mark as watched / unwatched, from a poster's options and from Carry on watching.
    - Done (0.3.6): a playback info panel (More › Playback info while watching).
 6. **Live TV and the TV guide from Plex.**
+   - Done (0.4.0): the tuner's channels and the Plex guide (two days ahead, kept as the server's own guide source),
+     tuning with "Tuning…" and the tuner let go on changing channel or leaving.
+   - Next: remove the added guides, matching and Catch-up, then Xtream (step 3), moving their tests to FakePlex.
 7. **DVR** in place of Catch-up: recordings, what's scheduled, and Record from the TV guide.
 
 ## Near future (owner's priorities, 2026-10-25)

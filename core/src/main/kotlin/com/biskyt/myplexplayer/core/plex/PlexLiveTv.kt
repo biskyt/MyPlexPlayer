@@ -1,0 +1,105 @@
+package com.biskyt.myplexplayer.core.plex
+
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonPrimitive
+
+/**
+ * Where a server's Live TV is: its DVR ([dvrKey], for tuning) and its guide provider's channel list
+ * ([channelsPath]) and programme grid ([gridPath]). As proven on the owner's server (docs/plex-api.md, 12-13).
+ */
+data class PlexLiveTv(val dvrKey: String, val channelsPath: String, val gridPath: String)
+
+/**
+ * A Live TV channel of the guide provider's lineup. Its key ([tuneKey]) is the first of `key`, `ratingKey`,
+ * `identifier` and `id` it has (as Plezy reads it; the owner's server gives `id`), and is what a programme names
+ * its channel by ([PlexAiring.channel]).
+ */
+@Serializable
+data class PlexChannel(
+    val key: String? = null,
+    val ratingKey: String? = null,
+    val identifier: String? = null,
+    val id: String? = null,
+    val title: String = "",
+    val callSign: String? = null,
+    val thumb: String? = null,
+    /** The channel number ("101", or "2.1"): a string or a number in the JSON. */
+    private val vcn: JsonPrimitive? = null,
+    private val channelVcn: JsonPrimitive? = null,
+) {
+    /** Every name it may be given by a programme. */
+    val keys: Set<String> get() = setOfNotNull(key, ratingKey, identifier, id)
+
+    /** The one to tune by (part of the tune's address, so never a path). */
+    val tuneKey: String? get() = keys.firstOrNull { '/' !in it }
+
+    val number: String? get() = (vcn ?: channelVcn)?.content
+
+    val name: String get() = title.ifBlank { callSign.orEmpty() }
+}
+
+/**
+ * A programme in the guide grid, with its [airings] (one per showing: its times and channel). As a tune's result,
+ * [key] is the live session's path and [ratingKey] the programme.
+ */
+@Serializable
+data class PlexProgramme(
+    val ratingKey: String? = null,
+    val key: String = "",
+    val type: String = "",
+    val title: String = "",
+    val grandparentTitle: String? = null,
+    val summary: String = "",
+    val year: Int? = null,
+    val index: Int? = null,
+    val parentIndex: Int? = null,
+    val duration: Long? = null,
+    @SerialName("Media") val airings: List<PlexAiring> = emptyList(),
+    @SerialName("Channel") val channels: List<PlexChannelRef> = emptyList(),
+) {
+    /** The channel an airing is on: its own, else the programme's. */
+    fun channel(airing: PlexAiring): String? = airing.channelIdentifier ?: channels.firstOrNull()?.id
+}
+
+/** One showing of a programme: from [beginsAt] to [endsAt], in seconds since 1970. */
+@Serializable
+data class PlexAiring(val beginsAt: Long? = null, val endsAt: Long? = null, val channelIdentifier: String? = null)
+
+/** A programme's channel, by [id]. */
+@Serializable
+class PlexChannelRef(val id: String? = null)
+
+@Serializable
+internal class PlexDvr(val key: String = "", val lineup: String = "")
+
+@Serializable
+internal class PlexProvider(
+    val identifier: String = "",
+    val protocols: String = "",
+    @SerialName("Feature") val features: List<PlexFeature> = emptyList(),
+)
+
+@Serializable
+internal class PlexFeature(val type: String = "", val key: String? = null)
+
+/** A tune's reply: the grab of a tuner, whose programme (one object, not a list) has the session's path. */
+@Serializable
+internal class PlexSubscription(@SerialName("MediaGrabOperation") val grabs: List<PlexGrab> = emptyList())
+
+@Serializable
+internal class PlexGrab(@SerialName("Metadata") val programme: PlexProgramme? = null)
+
+@Serializable
+internal class PlexLiveResponse(@SerialName("MediaContainer") val container: PlexLiveContainer = PlexLiveContainer())
+
+/** The Live TV replies: the DVRs (named `Dvr` on the owner's server; `DVR` in the spec), providers, channels, grid. */
+@Serializable
+internal class PlexLiveContainer(
+    @SerialName("Dvr") val dvrs: List<PlexDvr> = emptyList(),
+    @SerialName("DVR") val dvrsAsSpecified: List<PlexDvr> = emptyList(),
+    @SerialName("MediaProvider") val providers: List<PlexProvider> = emptyList(),
+    @SerialName("Channel") val channels: List<PlexChannel> = emptyList(),
+    @SerialName("Metadata") val programmes: List<PlexProgramme> = emptyList(),
+    @SerialName("MediaSubscription") val subscriptions: List<PlexSubscription> = emptyList(),
+)
