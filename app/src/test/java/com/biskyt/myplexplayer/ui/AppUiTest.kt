@@ -21,7 +21,6 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.pressKey
-import androidx.compose.ui.test.printToString
 import androidx.test.core.app.ApplicationProvider
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.container
@@ -30,13 +29,11 @@ import com.biskyt.myplexplayer.data.db.CAT_LIVE
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.testutil.FakeProvider
-import com.biskyt.myplexplayer.testutil.LocalMidday
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addHomeTv
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.focusedText
-import com.biskyt.myplexplayer.testutil.otherThreads
 import com.biskyt.myplexplayer.testutil.settle
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
@@ -44,7 +41,6 @@ import com.biskyt.myplexplayer.ui.common.formatTime
 import com.biskyt.myplexplayer.ui.guide.GuideMatchingScreen
 import com.biskyt.myplexplayer.ui.guide.GuideSourcesScreen
 import com.biskyt.myplexplayer.ui.home.HomeScreen
-import com.biskyt.myplexplayer.ui.live.CatchupScreen
 import com.biskyt.myplexplayer.ui.live.LiveScreen
 import com.biskyt.myplexplayer.ui.search.SearchScreen
 import com.biskyt.myplexplayer.ui.settings.AppearanceScreen
@@ -85,8 +81,6 @@ class AppUiTest {
 
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
-
-    @get:Rule val midday = LocalMidday() // catch-up is filed by local day
 
     private val provider = FakeProvider()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
@@ -139,8 +133,6 @@ class AppUiTest {
             is Screen.VodPlayer -> Text("VOD ${screen.itemId} ${screen.seriesId}")
             // The real player needs video hardware; a marker is enough to see where navigation went.
             is Screen.Player -> Text("PLAYER ${screen.streamId}")
-            is Screen.CatchupPlayer -> Text("CATCHUP ${screen.streamId} ${screen.startMs}")
-            is Screen.Catchup -> CatchupScreen(screen)
             else -> Text(screen.toString())
         }
     }
@@ -214,73 +206,6 @@ class AppUiTest {
         assertEquals(Screen.SeriesDetails(playlistId, 77, season = 1, episode = 2), navigator.current.screen)
     }
 
-    @Test
-    fun `catch-up channels offer catch-up and start over, and the page replays a past programme`() {
-        show(Screen.Live())
-        waitFor("UK: CHANNEL ONE HD")
-        // To the screen's own window: the options open in a window of their own while OK is still held.
-        compose.onAllNodes(isRoot())[0].performKeyInput {
-            keyDown(Key.DirectionCenter)
-            advanceEventTime(1_500)
-            keyUp(Key.DirectionCenter)
-        }
-        waitFor("Start over")
-        clickOption("Catch-up")
-        compose.waitForIdle()
-        assertEquals(Screen.Catchup(playlistId, 101), navigator.current.screen)
-        waitFor("Earlier Today")
-        assertTrue(compose.onAllNodes(hasText("Not Kept")).fetchSemanticsNodes().isEmpty())
-        compose.onNode(hasText("Earlier Today")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitForIdle()
-        assertTrue(navigator.current.screen.toString(), navigator.current.screen is Screen.CatchupPlayer)
-
-        // A channel without catch-up offers neither.
-        compose.runOnUiThread { navigator.reset(Screen.Live()) }
-        waitFor("UK: ARENA SPRTS 1 FHD")
-        press(Key.DirectionDown)
-        // To the screen's own window: the options open in a window of their own while OK is still held.
-        compose.onAllNodes(isRoot())[0].performKeyInput {
-            keyDown(Key.DirectionCenter)
-            advanceEventTime(1_500)
-            keyUp(Key.DirectionCenter)
-        }
-        waitFor("Hide channel")
-        assertTrue(compose.onAllNodes(hasText("Start over")).fetchSemanticsNodes().isEmpty())
-    }
-
-    @Test
-    fun `the guide asks for catch-up only when scrolled into the past`() {
-        show(Screen.Live(guide = true))
-        compose.waitAdvancingClock { compose.focusedText().contains("Now on one.uk") }
-        assertTrue(provider.requests.none { it.endsWith("get_simple_data_table") })
-        // Left at "now" looks up how far back catch-up goes, then the guide moves back an hour.
-        press(Key.DirectionLeft)
-        compose.waitForText("Earlier Today")
-        assertTrue(provider.requests.any { it.endsWith("get_simple_data_table") })
-    }
-
-    @Test
-    fun `scrolling back while catch-up loads keeps focus on the programme`() {
-        provider.catchupDelayMs = 1_500
-        show(Screen.Live(guide = true))
-        compose.waitAdvancingClock { compose.focusedText().contains("Now on one.uk") }
-        press(Key.DirectionLeft)
-        // Until the provider answers, the row keeps showing (and focusing) what it had.
-        val focused = LinkedHashSet<String>()
-        try {
-            compose.waitUntil(8_000) {
-                org.robolectric.shadows.ShadowLooper.idleMainLooper()
-                focused += compose.focusedText()
-                compose.onAllNodes(hasText("Earlier Today", substring = true)).fetchSemanticsNodes().isNotEmpty()
-            }
-        } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
-            // Failed once in about 50 runs (it takes under 2s, even on a loaded machine): say what held it up.
-            val screen = compose.onRoot(useUnmergedTree = true).printToString()
-            throw AssertionError("Focus $focused, requests ${provider.requests}. Screen:\n$screen\nThreads:\n${otherThreads()}", e)
-        }
-        assertTrue(focused.toString(), focused.none { it.isBlank() })
-    }
-
     private fun press(key: Key) {
         compose.onRoot().performKeyInput { pressKey(key) }
         compose.waitForIdle()
@@ -347,7 +272,7 @@ class AppUiTest {
     }
 
     @Test
-    fun `a search result's options add it to favourites and open catch-up`() {
+    fun `a search result's options add it to favourites and open its guide source`() {
         show(Screen.Search("one"))
         waitFor("UK: CHANNEL ONE HD")
         // Holding OK on the channel card (its long click) opens the options.
@@ -357,10 +282,9 @@ class AppUiTest {
         compose.onNode(hasText("Add to favourites")).performSemanticsAction(SemanticsActions.OnClick)
         waitFor("Remove from favourites")
         runBlocking { assertTrue(101L in app.container.channels.observeFavouriteIds(playlistId).first()) }
-        waitFor("Programmes from the last")
-        clickOption("Catch-up")
+        clickOption("Change guide source…")
         compose.waitForIdle()
-        assertEquals(Screen.Catchup(playlistId, 101), navigator.current.screen)
+        assertEquals(Screen.GuideMatching(playlistId, 101), navigator.current.screen)
     }
 
     @Test
@@ -445,41 +369,6 @@ class AppUiTest {
         // The column scrolls to the selected category first when it's out of view, so focus can take a moment.
         // The column moves focus a frame later: let (simulated) time pass while waiting.
         compose.waitAdvancingClock(100) { compose.focusedText().contains("SPORT", ignoreCase = true) }
-    }
-
-    @Test
-    fun `the Catch-up tab lists catch-up channels, and OK opens their past programmes`() {
-        show(Screen.Home)
-        // The tab shows once the playlist is known to have catch-up channels.
-        try {
-            // The database's change notice comes through posted work.
-            compose.waitAdvancingClock(50) {
-                compose.onAllNodes(hasText("Catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty()
-            }
-        } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
-            val known = runBlocking {
-                val c = app.container
-                "playlists ${c.playlists.allIds()}, active ${c.settings.current().activePlaylistId}, this one $playlistId, " +
-                    "catch-up ${c.channels.observeHasCatchup(playlistId).first()}"
-            }
-            // It has failed only rarely, on CI: what the other threads were doing says what held it up.
-            val screen = compose.onRoot(useUnmergedTree = true).printToString()
-            throw AssertionError("No Catch-up tab: $known. Screen:\n$screen\nThreads:\n${otherThreads()}", e)
-        }
-        compose.onNode(hasText("Catch-up") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitForIdle()
-        assertEquals(Screen.Live(ChannelFilter.Catchup), navigator.current.screen)
-        compose.waitAdvancingClock(50) { compose.focusedText().contains("UK: CHANNEL ONE HD") }
-        assertTrue(compose.onAllNodes(hasText("UK: ARENA SPRTS 1 FHD")).fetchSemanticsNodes().isEmpty())
-        // Marked as having catch-up.
-        assertTrue(compose.onAllNodes(hasContentDescription("Catch-up")).fetchSemanticsNodes().isNotEmpty())
-        // Its column has the categories with catch-up channels.
-        assertTrue(compose.onAllNodes(hasText("All catch-up") and hasClickAction()).fetchSemanticsNodes().isNotEmpty())
-        assertTrue(compose.onAllNodes(hasText("ENTERTAINMENT", substring = true) and hasClickAction()).fetchSemanticsNodes().isNotEmpty())
-        assertTrue(compose.onAllNodes(hasText("SPORT", substring = true) and hasClickAction()).fetchSemanticsNodes().isEmpty())
-        press(Key.DirectionCenter)
-        compose.waitAdvancingClock { navigator.current.screen is Screen.Catchup }
-        assertEquals(Screen.Catchup(playlistId, 101), navigator.current.screen)
     }
 
     @Test
@@ -579,11 +468,11 @@ class AppUiTest {
     }
 
     @Test
-    fun `the live player's More menu adds to favourites and opens catch-up and the guide source`() {
+    fun `the live player's More menu adds to favourites and opens the guide source`() {
         val vm = com.biskyt.myplexplayer.ui.player.PlayerViewModel(app.container, app, Screen.Player(playlistId, 101, ChannelFilter.All))
         compose.waitAdvancingClock { vm.menuActions().isNotEmpty() }
         val labels = vm.menuActions().map { it.label }
-        assertEquals(listOf("Add to favourites", "Catch-up", "Change guide source…"), labels)
+        assertEquals(listOf("Add to favourites", "Change guide source…"), labels)
         assertEquals(
             Screen.GuideMatching(playlistId, 101),
             (vm.menuActions().last() as com.biskyt.myplexplayer.ui.common.ItemAction.Open).screen

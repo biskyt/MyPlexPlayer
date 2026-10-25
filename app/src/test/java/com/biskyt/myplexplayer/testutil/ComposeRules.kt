@@ -28,7 +28,7 @@ import kotlinx.coroutines.test.TestDispatcher
  * The plain rules run it on an UnconfinedTestDispatcher, where a coroutine carries on on whichever thread resumed it.
  * A Room flow resumes its collector on Room's query thread (arch_disk_io_*); the state it writes then wakes the
  * recomposer on that thread too, which records the change into the composition while the main thread may be
- * composing it. Now and then the change was lost: the UI never showed what the database had (no Catch-up tab, a
+ * composing it. Now and then the change was lost: the UI never showed what the database had (a missing tab, a
  * stale selected category), however long a test waited.
  */
 

@@ -118,7 +118,7 @@ class SearchViewModel(private val c: AppContainer, initialQuery: String = "") : 
     fun setVodFavourite(pid: Long, type: String, id: Long, favourite: Boolean) =
         viewModelScope.launch { c.vod.setFavourite(pid, type, id, favourite) }
 
-    /** The channel a programme is on (for catch-up in its options). */
+    /** The channel of a result (for its options). */
     suspend fun channel(pid: Long, streamId: Long) = c.channels.get(pid, streamId)
 }
 
@@ -207,7 +207,7 @@ fun SearchScreen(initialQuery: String = "") {
     picked?.let { ResultOptions(it, pid, vm) { picked = null } }
 }
 
-/** What can be done with a result: watch or open it, favourites, and for channels catch-up and the guide source. */
+/** What can be done with a result: watch or open it, favourites, and for channels the guide source. */
 @Composable
 private fun ResultOptions(item: Picked, pid: Long, vm: SearchViewModel, onDismiss: () -> Unit) {
     val (title, actions) = when (item) {

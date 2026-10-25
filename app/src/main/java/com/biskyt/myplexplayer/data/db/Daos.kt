@@ -171,40 +171,6 @@ interface ChannelDao {
     @Query("SELECT streamId FROM channel WHERE playlistId = :pid AND hidden = 0 AND categoryId = :cat ORDER BY position, name")
     suspend fun idsCategory(pid: Long, cat: String): List<Long>
 
-    @Query(
-        """SELECT * FROM channel WHERE playlistId = :pid AND hidden = 0 AND archiveDays > 0
-           AND (:q = '' OR $CHANNEL_MATCH)
-           ORDER BY position, name"""
-    )
-    fun pageCatchup(pid: Long, q: String): PagingSource<Int, ChannelEntity>
-
-    @Query("SELECT streamId FROM channel WHERE playlistId = :pid AND hidden = 0 AND archiveDays > 0 ORDER BY position, name")
-    suspend fun idsCatchup(pid: Long): List<Long>
-
-    @Query(
-        """SELECT * FROM channel WHERE playlistId = :pid AND categoryId = :cat AND hidden = 0 AND archiveDays > 0
-           AND (:q = '' OR $CHANNEL_MATCH)
-           ORDER BY position, name"""
-    )
-    fun pageCatchupCategory(pid: Long, cat: String, q: String): PagingSource<Int, ChannelEntity>
-
-    @Query(
-        """SELECT streamId FROM channel WHERE playlistId = :pid AND categoryId = :cat AND hidden = 0 AND archiveDays > 0
-           ORDER BY position, name"""
-    )
-    suspend fun idsCatchupCategory(pid: Long, cat: String): List<Long>
-
-    @Query(
-        """SELECT c.categoryId AS categoryId, k.name AS name, k.lang AS lang, COUNT(*) AS count
-           FROM channel c JOIN category k ON k.playlistId = c.playlistId AND k.type = 'live' AND k.categoryId = c.categoryId
-           WHERE c.playlistId = :pid AND c.hidden = 0 AND c.archiveDays > 0 AND k.included = 1
-           GROUP BY c.categoryId ORDER BY k.sortOrder"""
-    )
-    fun observeCatchupCategories(pid: Long): Flow<List<CategoryCount>>
-
-    @Query("SELECT EXISTS(SELECT 1 FROM channel WHERE playlistId = :pid AND hidden = 0 AND archiveDays > 0)")
-    fun observeHasCatchup(pid: Long): Flow<Boolean>
-
     @Query("DELETE FROM channel WHERE playlistId = :pid AND categoryId = :cat")
     suspend fun deleteCategory(pid: Long, cat: String)
 
@@ -233,10 +199,6 @@ interface ChannelDao {
     @Query("SELECT COUNT(*) FROM channel WHERE playlistId = :pid AND hidden = 0")
     fun observeCount(pid: Long): Flow<Int>
 
-    /** The longest catch-up any channel offers (0 when none do): how far back the TV guide can go. */
-    @Query("SELECT COALESCE(MAX(archiveDays), 0) FROM channel WHERE playlistId = :pid AND hidden = 0")
-    suspend fun maxArchiveDays(pid: Long): Int
-
     @Query("SELECT streamId, hidden, sortOrder FROM channel WHERE playlistId = :pid AND (hidden = 1 OR sortOrder IS NOT NULL)")
     suspend fun prefs(pid: Long): List<ChannelPrefs>
 
@@ -259,9 +221,6 @@ interface ChannelDao {
     @Query("SELECT streamId, name, providerEpgId FROM channel WHERE playlistId = :pid")
     suspend fun names(pid: Long): List<ChannelName>
 }
-
-/** A category and how many of something it has. */
-data class CategoryCount(val categoryId: String, val name: String, val lang: String?, val count: Int)
 
 data class ChannelName(val streamId: Long, val name: String, val providerEpgId: String?)
 

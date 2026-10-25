@@ -7,7 +7,6 @@ import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.xtream.XtreamException
 import com.biskyt.myplexplayer.core.xtream.XtreamException.Reason
-import com.biskyt.myplexplayer.data.db.CategoryCount
 import com.biskyt.myplexplayer.data.db.CategoryEntity
 import java.io.IOException
 import java.util.Locale
@@ -107,8 +106,6 @@ fun programmeTitle(title: String): String = title.ifBlank { appString(R.string.c
 fun categoryLabel(name: String): String = name.ifEmpty { appString(R.string.data_ungrouped) }
 
 val CategoryEntity.label: String get() = categoryLabel(name)
-
-val CategoryCount.label: String get() = categoryLabel(name)
 
 /**
  * A guide failing, in the app's own words: the server refusing it ([status]), or the download not being saved (null).

@@ -18,8 +18,6 @@
     <string name="common_tab_live">Live TV</string>
     <string name="common_tab_movies">Movies</string>
     <string name="common_tab_series">Series</string>
-    <!-- Watching programmes that were already broadcast (a top bar tab, menu entry and channel mark). Keep short -->
-    <string name="common_catchup">Catch-up</string>
 
     <!-- Buttons and menu entries used on several screens. Keep short -->
     <string name="common_continue">Continue</string>
@@ -27,8 +25,6 @@
     <string name="common_play">Play</string>
     <!-- Play a film, episode or programme from its beginning -->
     <string name="common_from_start">From the start</string>
-    <!-- Play the programme on now from its beginning -->
-    <string name="common_start_over">Start over</string>
     <!-- Player buttons, and the Playback settings that set how far they skip -->
     <string name="common_skip_back">Skip back</string>
     <string name="common_skip_forward">Skip forward</string>
@@ -55,9 +51,6 @@
     <!-- Details of a playlist or a TV guide: when it was last loaded. %1$s is a date and time -->
     <string name="common_updated_at">updated %1$s</string>
 
-    <!-- Day names in lists of days. Keep short: shown in a narrow column -->
-    <string name="common_today">Today</string>
-    <string name="common_yesterday">Yesterday</string>
     <!-- When something starts. %1$s is a time such as 20:00 -->
     <string name="common_today_at">Today %1$s</string>
     <!-- When something starts. %1$s is a time such as 06:30 -->
@@ -80,11 +73,6 @@
     <!-- Options of a film, series or episode from Plex: changes whether it's watched, on the server too -->
     <string name="common_mark_watched">Mark as watched</string>
     <string name="common_mark_unwatched">Mark as unwatched</string>
-    <!-- Help under the Catch-up menu entry. %1$d is a number of days. -->
-    <plurals name="common_catchup_days">
-        <item quantity="one">Programmes from the last %1$d day</item>
-        <item quantity="other">Programmes from the last %1$d days</item>
-    </plurals>
     <!-- Menu entry: opens the screen that picks a channel's TV guide data -->
     <string name="common_change_guide_source">Change guide source…</string>
     <string name="common_change_guide_source_help">Pick which guide data this channel uses</string>

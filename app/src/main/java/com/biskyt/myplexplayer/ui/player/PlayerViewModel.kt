@@ -44,8 +44,6 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
 
     override val isLive = true
 
-    /** The list being zapped through (kept when going to catch-up and back). */
-    val filter get() = screen.filter
     override val failureMessage = R.string.player_failure_live
 
     val nowNext = guideNowNext(viewModelScope, c) { screen.playlistId }

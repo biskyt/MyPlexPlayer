@@ -7,10 +7,8 @@
     <string name="player_subtitles">Legendas</string>
     <string name="player_more">Mais</string>
     <string name="player_channel_guide">Guia do canal</string>
-    <string name="player_watch_live">Ao vivo</string>
     <string name="player_next_episode">Próximo ep.</string>
     <string name="player_up_next">A SEGUIR · %1$s</string>
-    <string name="player_catchup_behind_live">Reprise · %1$s atrás do ao vivo</string>
 
     <string name="player_hint_skip">▲ e depois ◀ ▶ para pular (segure para percorrer) · Voltar oculta isto</string>
     <string name="player_hint_zap_up_down">▲ ▼ mudam de canal · Voltar oculta isto</string>
@@ -63,8 +61,6 @@
 
     <string name="player_failure_live">Este canal não está sendo reproduzido agora. Tente de novo mais tarde ou escolha outro canal.</string>
     <string name="player_failure_vod">Não é possível reproduzir isto agora. Tente de novo mais tarde.</string>
-    <string name="player_failure_catchup">Não é possível rever isto agora. Tente de novo mais tarde.</string>
-    <string name="player_catchup_nothing_to_start_over">Não há nada para começar de novo neste canal agora.</string>
     <string name="player_unsupported_format">Isto usa um formato de stream que o MyPlexPlayer não consegue reproduzir.</string>
 
     <string name="player_stream_source">Stream de %1$s.</string>

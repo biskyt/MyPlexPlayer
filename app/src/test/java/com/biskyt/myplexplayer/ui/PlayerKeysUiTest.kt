@@ -15,7 +15,6 @@ import androidx.compose.ui.test.pressKey
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.testutil.FakeProvider
-import com.biskyt.myplexplayer.testutil.LocalMidday
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addHomeTv
@@ -43,8 +42,6 @@ class PlayerKeysUiTest {
 
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
-
-    @get:Rule val midday = LocalMidday() // catch-up is filed by local day
 
     private val provider = FakeProvider()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
@@ -190,33 +187,12 @@ class PlayerKeysUiTest {
     }
 
     @Test
-    fun `a channel's catch-up keeps focus on its programmes on opening, right from the days, and back from one`() {
-        show(Screen.Live(ChannelFilter.Catchup))
-        waitForFocus("CHANNEL ONE")
-        press(Key.DirectionCenter)
-        waitFor("Earlier Today")
-        // Today's programmes, newest first (not nothing, which would send the first key press to the top bar).
-        waitForFocus("On Now")
-        press(Key.DirectionLeft)
-        waitForFocus("Today")
-        press(Key.DirectionRight)
-        waitForFocus("On Now")
-        // Back from playing one, focus is on it again.
-        press(Key.DirectionDown)
-        waitForFocus("Earlier Today")
-        press(Key.DirectionCenter)
-        compose.waitAdvancingClock { navigator.current.screen is Screen.CatchupPlayer }
-        compose.runOnIdle { navigator.pop() }
-        waitForFocus("Earlier Today")
-    }
-
-    @Test
     fun `the guide button works on the live screen with focus on the tabs`() {
         show(Screen.Live())
         waitForFocus("CHANNEL ONE")
         press(Key.DirectionUp) // the filter box
         press(Key.DirectionUp) // the tabs
-        assertTrue(focused(), listOf("Home", "Live TV", "Movies", "Series", "Catch-up").any { focused().contains(it) })
+        assertTrue(focused(), listOf("Home", "Live TV", "Movies", "Series").any { focused().contains(it) })
         press(Key.Guide)
         waitFor("No guide information")
     }

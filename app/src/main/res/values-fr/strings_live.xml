@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="live_all_channels">Toutes les chaînes</string>
-    <string name="live_all_catchup">Tout le replay</string>
     <string name="live_filter_hint">Filtrer par nom ou numéro</string>
     <string name="live_view_list">Liste</string>
     <string name="live_view_guide">Guide TV</string>
@@ -13,7 +12,6 @@
     <string name="live_option_find_movie">Chercher dans Films</string>
     <string name="live_option_search_for">Rechercher « %1$s »</string>
     <string name="live_option_find_help">Regarder à la demande</string>
-    <string name="live_option_start_over_help">Regarder le programme en cours depuis le début</string>
     <string name="live_option_channel_guide">Afficher le guide TV de cette chaîne</string>
     <string name="live_option_channel_guide_help">Programmes à venir</string>
     <string name="live_option_switch_to_list">Passer à la liste des chaînes</string>
@@ -21,10 +19,6 @@
     <string name="live_option_switch_help">Ou appuyez sur le bouton Guide de la télécommande</string>
     <string name="live_option_hide_channel">Masquer la chaîne</string>
     <string name="live_option_hide_channel_help">Réaffichez-la plus tard dans Paramètres › Langues et catégories</string>
-
-    <string name="live_catchup_title">Replay · %1$s</string>
-    <string name="live_catchup_load_failed">Impossible de charger le replay</string>
-    <string name="live_catchup_empty_day">Rien à revoir pour ce jour.</string>
 
     <string name="live_guide_earlier">Avant</string>
     <string name="live_guide_later">Après</string>

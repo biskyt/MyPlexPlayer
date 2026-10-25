@@ -351,13 +351,6 @@ private fun LiveControls(vm: PlayerViewModel, buttons: FocusRequester, root: Foc
             if (details?.description != null || details?.subtitle != null) {
                 PillButton(stringResource(R.string.player_about_programme), { vm.sheet = PlaybackViewModel.Sheet.ABOUT })
             }
-            if (ch.archiveDays > 0) {
-                val nav = LocalNavigator.current
-                PillButton(
-                    stringResource(R.string.common_start_over),
-                    { nav.replace(Screen.CatchupPlayer(ch.playlistId, ch.streamId, filter = vm.filter)) }
-                )
-            }
         }
         // Remote keys: no use on a touch screen.
         if (!LocalTouch.current) {
