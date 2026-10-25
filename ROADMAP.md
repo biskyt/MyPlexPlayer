@@ -45,13 +45,8 @@ Each step is its own pull request.
     delay: with 0 the skip is exactly at the marker, with no pill before it.
   - **OK on the pill skips at once** (to the marker's end); **Back cancels** the automatic skip.
   - With auto skip off: a Skip pill while the intro or credits play, skipping only when pressed.
-- **Bug: Dolby Vision files play in HDR10.** A file with Dolby Vision and HDR10 plays in Dolby Vision in Plex's own
-  app and in Plezy (2.24.0) on the owner's TV, but in HDR10 here (and in MyTVPlayer: fix both). The app uses stock Media3,
-  which hands a file to the TV's Dolby Vision decoder only for the cases it understands; others play their HDR10 base
-  layer. Plezy (GPL-3.0, like this app) wraps the MKV and MP4 extractors, converts dual-layer Profile 7 (UHD Blu-ray)
-  to single-layer Profile 8.1 with libdovi, and checks what the TV's decoders and display support. First: find the
-  file's profile (Plex's media info says, as `DOVIProfile`) and what Media3 does with it on the TV; then port what's
-  needed.
+- **Dolby Vision with HDR10+:** done in 0.3.2 (HDR10+ switched off for Dolby Vision decoders; port to MyTVPlayer).
+  Profile 7 (dual layer) still plays its HDR10 base layer; converting it with libdovi isn't planned.
 
 ## Later
 - Plex Home users (switching between the users of one account).

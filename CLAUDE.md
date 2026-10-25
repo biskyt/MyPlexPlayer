@@ -153,6 +153,10 @@ See also:
   - "Carry on watching" is the server's Continue Watching, ordered by `carryOnAt` (`updatedAt` means only "last
     watched"). Taking a title off Continue Watching keeps its resume point, so "has a point" isn't "on the row".
   - Plex times are whole seconds: two plays in the same second don't order (see `PlexServerTest`'s `nextSecond`).
+- **Dolby Vision with HDR10+** (0.3.2): the owner's TV (a MediaTek chip) shows HDR10, not Dolby Vision, while a Dolby Vision
+  decoder also gets HDR10+ (found with `spikes/dv-diagnostics`, kept for other TVs). So a Dolby Vision decoder gets no
+  HDR10+ while the screen shows Dolby Vision (`player/DolbyVisionCodec.kt`, with `core`'s `Hdr10PlusOff`): its SEI
+  NALs are retyped in place to an unused type, not cut out. Other decoders, and other screens, keep HDR10+.
 - **User-Agent:** every stream and download sends `MyPlexPlayer/<version> (+https://github.com/biskyt/MyPlexPlayer)`.
 
 ## The owner's setup
@@ -216,5 +220,3 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
   Tests live in `app/src/androidTest`; the debug build adds an x86/x86_64 ABI only with `-PemulatorAbi=<arch>`.
   `.github/scripts/start-emulator.sh` boots the emulator itself: Google TV 16 drops off adb for a second or two after
   boot, which the usual runner action doesn't wait out.
-- **Dolby Vision diagnostics** (`spikes/dv-diagnostics`, two builds: Media3 1.8 and 1.11): the owner runs it on the
-  TV and pastes the report; its findings decide the Dolby Vision fix (port it to MyTVPlayer too).
