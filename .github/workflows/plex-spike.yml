@@ -52,3 +52,4 @@ jobs:
             ${{ runner.temp }}/spike-out/report-*.md
             core/build/test-results/plexServerTest
             ${{ runner.temp }}/plex/pms.log
+            ${{ runner.temp }}/plex/data/Plex Media Server/Logs

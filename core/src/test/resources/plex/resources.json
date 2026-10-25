@@ -1,0 +1,130 @@
+[
+  {
+    "name": "Server 1",
+    "product": "Plex Media Server",
+    "productVersion": "1.43.5.11079-b3b13e506",
+    "platform": "Linux",
+    "platformVersion": "6.12.96+rpt-rpi-v8",
+    "device": "Docker Container (LinuxServer.io)",
+    "clientIdentifier": "MACHINEID0",
+    "provides": "server",
+    "ownerId": null,
+    "sourceTitle": null,
+    "publicAddress": "192.0.2.1",
+    "accessToken": "TOKEN0",
+    "searchEnabled": true,
+    "createdAt": "2025-10-25T17:53:03Z",
+    "lastSeenAt": "2026-10-24T10:01:32Z",
+    "owned": true,
+    "home": false,
+    "synced": false,
+    "relay": true,
+    "presence": true,
+    "httpsRequired": false,
+    "publicAddressMatches": true,
+    "dnsRebindingProtection": false,
+    "natLoopbackSupported": true,
+    "connections": [
+      {
+        "protocol": "https",
+        "address": "192.0.2.1",
+        "port": 32400,
+        "uri": "https://192-0-2-1.SERVERID.plex.direct:32400",
+        "local": true,
+        "relay": false,
+        "IPv6": false
+      },
+      {
+        "protocol": "https",
+        "address": "192.0.2.1",
+        "port": 52278,
+        "uri": "https://192-0-2-1.SERVERID.plex.direct:52278",
+        "local": false,
+        "relay": false,
+        "IPv6": false
+      },
+      {
+        "protocol": "https",
+        "address": "192.0.2.1",
+        "port": 8443,
+        "uri": "https://192-0-2-1.SERVERID.plex.direct:8443",
+        "local": false,
+        "relay": true,
+        "IPv6": false
+      }
+    ]
+  },
+  {
+    "name": "Phone",
+    "product": "Plex for Android (Mobile)",
+    "clientIdentifier": "player-1",
+    "provides": "client,player,pubsub-player",
+    "owned": true,
+    "accessToken": "TOKEN",
+    "connections": []
+  },
+  {
+    "name": "Server 2",
+    "product": "Plex Media Server",
+    "productVersion": "1.43.3.10861-07dfddaeb",
+    "platform": "Linux",
+    "platformVersion": "6.6.56-current-rockchip64",
+    "device": "Docker Container (LinuxServer.io)",
+    "clientIdentifier": "MACHINEID1",
+    "provides": "server",
+    "ownerId": 1,
+    "sourceTitle": "Server 2",
+    "publicAddress": "192.0.2.1",
+    "accessToken": "TOKEN1",
+    "searchEnabled": true,
+    "createdAt": "2025-05-14T14:23:41Z",
+    "lastSeenAt": "2026-10-24T14:25:09Z",
+    "owned": false,
+    "home": false,
+    "synced": false,
+    "relay": true,
+    "presence": true,
+    "httpsRequired": true,
+    "publicAddressMatches": false,
+    "dnsRebindingProtection": false,
+    "natLoopbackSupported": false,
+    "connections": [
+      {
+        "protocol": "https",
+        "address": "192.0.2.1",
+        "port": 32400,
+        "uri": "https://192-0-2-1.SERVERID.plex.direct:32400",
+        "local": true,
+        "relay": false,
+        "IPv6": false
+      },
+      {
+        "protocol": "https",
+        "address": "192.0.2.1",
+        "port": 32400,
+        "uri": "https://192-0-2-1.SERVERID.plex.direct:32400",
+        "local": true,
+        "relay": false,
+        "IPv6": false
+      },
+      {
+        "protocol": "https",
+        "address": "192.0.2.1",
+        "port": 26671,
+        "uri": "https://192-0-2-1.SERVERID.plex.direct:26671",
+        "local": false,
+        "relay": false,
+        "IPv6": false
+      },
+      {
+        "protocol": "https",
+        "address": "192.0.2.1",
+        "port": 8443,
+        "uri": "https://192-0-2-1.SERVERID.plex.direct:8443",
+        "local": false,
+        "relay": true,
+        "IPv6": false
+      }
+    ]
+  }
+]
