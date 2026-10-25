@@ -45,7 +45,24 @@ and DVR need a real account and tuner: the owner runs those (see `spikes/README.
 | 16 | Transient token | `/security/token` answers 400 on an unclaimed server; to check on the owner's server. It isn't needed for now. | S3 |
 | - | Search | `/hubs/search?query=&limit=` finds films and shows, in hubs by type. | S3 |
 
-Still open (owner's server): 1-3 (sign-in and servers), 11 (the image token), 12-15 (Live TV, guide and DVR).
+### On the owner's server (2026-10-24)
+The spike app on the owner's phone, against their Raspberry Pi 4 (PMS 1.43.5, Plex Pass, a tuner with 54 channels),
+plus a friend's server shared with them.
+
+| # | Question | Answer |
+|---|---|---|
+| 1 | Short-code sign-in | `POST https://plex.tv/api/v2/pins` (no `strong`) gives a 4-character code; entered at plex.tv/link, polling `GET /api/v2/pins/{id}` gives `authToken`; `GET /api/v2/user` accepts it. |
+| 2-3 | Servers and connections | `GET /api/v2/resources?includeHttps=1&includeRelay=1&includeIPv6=1` lists both servers, each with its own `accessToken`; racing `/identity` over `connections[].uri` picks a working `https://…plex.direct` address for each, local for the owner's own. |
+| - | Libraries and home rows | Every library check passed on a real library (7 films, 49 shows). `/hubs/home/recentlyAdded?type=2` gives episodes and seasons, never shows, so sorting by `episode.addedAt:desc` is right. `/hubs/continueWatching` holds 27 items (Continue watching plus the next episodes, as Plex's own Home shows). |
+| 9-10 | Playback | Direct play: a Matroska file answers ranges with 206. Direct stream: HEVC video and E-AC-3 audio both `copy`, playlists and segments served. |
+| 11 | Images | `/photo/:/transcode` with the token in the address returns the image. |
+| 16 | Transient token | `POST /security/token?type=delegation&scope=all` works; `GET` answers 400 (the spec is right, Plexopedia's GET isn't). |
+| 12 | Guide | `/media/providers` gives `tv.plex.providers.epg.cloud:4` and its `grid` key. `GET {grid}?endsAt>=&beginsAt<=` returns every channel's programmes for the window in one call (368 for 6 hours); each has `Media[].beginsAt/endsAt`, `channelIdentifier`, `channelVcn` and `Channel[]`. |
+| 12, 15 | Channels | `/{provider}/lineups/dvr/channels` gives 54 channels with `id` = `gridKey` (two ids joined by `-`), `vcn`, `title`, `callSign`, `thumb`. Plezy's first choice, `/lineups/plex/channels`, answers 404 here. `/livetv/dvrs` gives `Dvr[]`, not `DVR[]` (15), with no `ChannelMapping` at that level. |
+| 13 | Tuning | `POST /livetv/dvrs/{dvr.key}/channels/{channel id}/tune?X-Plex-Session-Identifier=` grabs a tuner. The reply is `MediaContainer.MediaSubscription[0].MediaGrabOperation[0]`, whose `Metadata` is **one object, not a list**: `key` = the session path (`/livetv/sessions/{uuid}`), `ratingKey` = the programme. Playing that path is still to prove (the spike stopped at reading this). |
+| 14 | Recording | `/media/subscriptions/template?guid=` gives "This Episode" (type 4) and "All Episodes" (type 2), each with `parameters` (`hints[...]`, `params[airingChannels\|airingTimes\|libraryType\|mediaProviderID]`) and `Setting[]`. `POST /media/subscriptions` with the parameters, `targetLibrarySectionID` and `type` but no `prefs[...]` answered **400**; Plezy also sends every setting as `prefs[id]=value` (e.g. `prefs[oneShot]=true` for one airing). The spike now does; still to prove. |
+
+Still open (owner's server, a second run): playing a tuned channel (13) and scheduling a recording (14).
 
 ### What Plezy does (Live TV, DVR and sign-in)
 [Plezy](https://github.com/edde746/plezy) (GPL-3.0, a Plex and Jellyfin client) answers most of the Live TV questions;
