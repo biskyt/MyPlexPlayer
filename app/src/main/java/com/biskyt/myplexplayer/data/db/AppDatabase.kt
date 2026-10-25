@@ -5,9 +5,11 @@ import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.AutoMigrationSpec
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    version = 8,
+    version = 9,
     exportSchema = true,
     // 2: M3U playlists (playlist.kind; channel.streamUrl/userAgent/referrer).
     // 3: movies and series (category.type; movie, series, watch_progress, vod_favourite).
@@ -16,6 +18,10 @@ import androidx.room.RoomDatabase
     // 6: M3U movies and series (playlist.moviesUrl/seriesUrl/vodFeedHash; movie.streamUrl; episode) and catch-up
     //    (channel.catchupType/catchupSource).
     // 7: the user's order of favourites (favourite.position, vod_favourite.position).
+    // 8: Plex servers (playlist.machineId).
+    // 9: no M3U playlists (0.2.2): any source of a kind the app no longer has is removed, with all it had.
+    // Unused since M3U went (0.2.2), to drop with Xtream: playlist.moviesUrl/seriesUrl/vodFeedHash, movie.streamUrl,
+    // the episode table, channel.streamUrl/userAgent/referrer/catchupType/catchupSource.
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
@@ -23,7 +29,8 @@ import androidx.room.RoomDatabase
         AutoMigration(from = 4, to = 5),
         AutoMigration(from = 5, to = 6),
         AutoMigration(from = 6, to = 7),
-        AutoMigration(from = 7, to = 8)
+        AutoMigration(from = 7, to = 8),
+        AutoMigration(from = 8, to = 9, spec = AppDatabase.RetiredSources::class)
     ],
     entities = [
         PlaylistEntity::class, CategoryEntity::class, ChannelEntity::class, FavouriteEntity::class, RecentEntity::class,
@@ -32,6 +39,30 @@ import androidx.room.RoomDatabase
     ]
 )
 abstract class AppDatabase : RoomDatabase() {
+    /**
+     * Removes sources of kinds the app no longer has (M3U playlists, offered until 0.2.1), with everything they had,
+     * once and before anything reads them. Their guide's file is left for the daily clean-up (EpgRepository's
+     * deleteOrphanFiles). A backup holding one leaves it out when restored (see BackupRepository).
+     */
+    class RetiredSources : AutoMigrationSpec {
+        override fun onPostMigrate(db: SupportSQLiteDatabase) {
+            val retired = "SELECT id FROM playlist WHERE kind NOT IN (${SOURCE_KINDS.joinToString { "'$it'" }})"
+            val guides = "SELECT id FROM epg_source WHERE playlistId IN ($retired)"
+            listOf("programme", "epg_channel").forEach { db.execSQL("DELETE FROM $it WHERE sourceId IN ($guides)") }
+            db.execSQL("DELETE FROM channel_epg_mapping WHERE sourceId IN ($guides)")
+            db.execSQL("DELETE FROM epg_source WHERE playlistId IN ($retired)")
+            PER_SOURCE.forEach { db.execSQL("DELETE FROM $it WHERE playlistId IN ($retired)") }
+            db.execSQL("DELETE FROM playlist WHERE id IN ($retired)")
+        }
+
+        private companion object {
+            val PER_SOURCE = listOf(
+                "category", "channel", "favourite", "recent", "channel_epg_mapping", "movie", "series", "episode",
+                "watch_progress", "vod_favourite"
+            )
+        }
+    }
+
     abstract fun playlists(): PlaylistDao
     abstract fun categories(): CategoryDao
     abstract fun channels(): ChannelDao

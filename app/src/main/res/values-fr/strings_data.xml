@@ -25,15 +25,7 @@
     <string name="data_plex_unexpected">Réponse inattendue de Plex</string>
     <string name="data_account_inactive">Ce compte n\'est pas actif</string>
 
-    <string name="data_free_failed">Impossible de configurer les chaînes gratuites</string>
-    <string name="data_playlist_save_failed">Impossible d\'enregistrer la playlist</string>
-    <string name="data_playlist_address_invalid">Adresse de playlist non valide</string>
-    <string name="data_playlist_refused">Le serveur a refusé le téléchargement de la playlist (erreur %1$d)</string>
-    <string name="data_playlist_download_failed">Impossible de télécharger la playlist : %1$s</string>
-    <string name="data_not_m3u">Cette adresse ne renvoie pas de playlist M3U</string>
 
-    <string name="data_catchup_unplayable">Le replay de cette chaîne ne peut pas être lu</string>
-    <string name="data_episode_gone">Cet épisode n\'est plus dans la playlist</string>
 
     <string name="data_lang_uk">Anglais (Royaume-Uni)</string>
     <string name="data_lang_us">Anglais (États-Unis)</string>
@@ -79,7 +71,6 @@
     <string name="data_accent_pink">Rose</string>
     <string name="data_accent_silver">Argent</string>
     <string name="data_playlist_default_name">Ma TV</string>
-    <string name="data_free_playlist_name">TV gratuite</string>
     <string name="data_provider_guide_name">Guide de %1$s</string>
     <string name="data_ungrouped">Sans catégorie</string>
 </resources>

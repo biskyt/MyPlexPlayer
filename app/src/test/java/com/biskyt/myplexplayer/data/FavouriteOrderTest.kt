@@ -50,7 +50,7 @@ class FavouriteOrderTest {
         settings = SettingsRepository(context)
         epg = EpgRepository(db, http, context.cacheDir.resolve("test-epg"), scope)
         val categoryStore = CategoryStore(db) { Locale.UK }
-        playlists = PlaylistRepository(db, http, settings, epg, context.cacheDir.resolve("test-playlists"), categoryStore)
+        playlists = PlaylistRepository(db, http, settings, epg, categoryStore)
         channels = ChannelRepository(db)
         vod = VodRepository(db, playlists, categoryStore, PlexSources(db, http, settings))
         favourites = Favourites(scope, settings, channels, vod)

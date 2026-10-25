@@ -5,8 +5,6 @@
     <string name="vod_recently_updated">Recently updated</string>
     <string name="vod_all_movies">All movies</string>
     <string name="vod_all_series">All series</string>
-    <!-- "Settings › Playlists" is where to go in the app: keep it as the Settings page is named. Up to 2 lines. -->
-    <string name="vod_live_only">This playlist only has live channels. To add movies and series, give its movie or series playlist address in Settings › Playlists.</string>
     <!-- Placeholder of the filter box above the posters. -->
     <string name="vod_filter_hint">Filter by title</string>
     <!-- "Add to favourites" is the name of the button on a movie's or series' page: keep it the same as there. -->

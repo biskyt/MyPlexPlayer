@@ -186,15 +186,7 @@ fun VodBrowseScreen(type: String, initialFilter: VodFilter?) {
             Column(Modifier.weight(1f)) {
                 Header(vm, entries.firstOrNull { it.filter == filter })
                 MoveHint(vm.mover, type, MoveLayout.GRID, Modifier.padding(bottom = 8.dp))
-                val p = playlist
-                when {
-                    p != null && !p.hasVod -> Muted(
-                        stringResource(R.string.vod_live_only),
-                        Modifier.padding(top = 24.dp),
-                        maxLines = 2
-                    )
-                    vm.filters.settled -> PosterGrid(vm, p?.id ?: 0)
-                }
+                if (vm.filters.settled) PosterGrid(vm, playlist?.id ?: 0)
             }
         }
     }

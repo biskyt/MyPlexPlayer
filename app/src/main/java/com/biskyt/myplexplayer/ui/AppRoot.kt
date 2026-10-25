@@ -28,7 +28,6 @@ import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.Settings
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
-import com.biskyt.myplexplayer.data.db.PlaylistEntity
 import com.biskyt.myplexplayer.ui.common.SyncToast
 import com.biskyt.myplexplayer.ui.common.onGuideKey
 import com.biskyt.myplexplayer.ui.guide.GuideMatchingScreen
@@ -128,7 +127,8 @@ private suspend fun firstScreen(container: AppContainer, s: Settings, safeStart:
     if (safeStart) return nav
     when {
         playlist.isStale() -> container.sync.refresh(playlist.id)
-        needsVod(container, playlist) -> container.sync.refreshVod(playlist.id)
+        // Movies and series not loaded yet (e.g. just updated from a version without them).
+        !container.vod.hasTitles(playlist.id) -> container.sync.refreshVod(playlist.id)
     }
     // Not when opened with a backup file: that's what to show (see MainActivity).
     if (s.startOnLastChannel &&
@@ -147,12 +147,6 @@ private suspend fun firstScreen(container: AppContainer, s: Settings, safeStart:
  */
 private fun Modifier.guideButton(nav: Navigator, hasPlaylist: Boolean) =
     onGuideKey({ hasPlaylist && guideButtonOpensGuide(nav.current.screen) }) { nav.push(Screen.Live(guide = true)) }
-
-/**
- * Movies and series not loaded yet (e.g. just updated from a version without them). M3U ones only if never loaded:
- * with every category unticked there are rightly none.
- */
-private suspend fun needsVod(c: AppContainer, p: PlaylistEntity) = p.hasVod && (!p.isM3u || p.vodFeedHash == null) && !c.vod.hasTitles(p.id)
 
 /**
  * Not while watching something (leaving would stop it), during set-up, or on the live screen (which switches between

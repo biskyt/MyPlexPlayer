@@ -44,8 +44,7 @@ import okhttp3.OkHttpClient
 
 /**
  * How the app names itself to servers. Some hosts (Wikimedia, archive.org) refuse or throttle clients that don't say
- * who they are and how to reach their maker. Sent with downloads, pictures and streams, except a stream whose M3U entry
- * gives its own (`http-user-agent`).
+ * who they are and how to reach their maker. Sent with downloads, pictures and streams.
  */
 val USER_AGENT = "MyPlexPlayer/${BuildConfig.VERSION_NAME} (+https://github.com/biskyt/MyPlexPlayer)"
 
@@ -66,7 +65,7 @@ class AppContainer(context: Context) {
     val settings = SettingsRepository(context)
     val epg = EpgRepository(db, http, context.filesDir, appScope)
     private val categoryStore = CategoryStore(db)
-    val playlists = PlaylistRepository(db, http, settings, epg, context.cacheDir.resolve("playlists"), categoryStore)
+    val playlists = PlaylistRepository(db, http, settings, epg, categoryStore)
     val plex = PlexSources(db, http, settings)
     val channels = ChannelRepository(db)
     val vod = VodRepository(db, playlists, categoryStore, plex)

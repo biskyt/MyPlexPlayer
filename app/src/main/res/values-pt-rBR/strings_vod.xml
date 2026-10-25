@@ -4,7 +4,6 @@
     <string name="vod_recently_updated">Atualizados recentemente</string>
     <string name="vod_all_movies">Todos os filmes</string>
     <string name="vod_all_series">Todas as séries</string>
-    <string name="vod_live_only">Esta playlist só tem canais ao vivo. Para adicionar filmes e séries, informe o endereço da playlist de filmes ou séries em Configurações › Playlists.</string>
     <string name="vod_filter_hint">Filtrar por título</string>
     <string name="vod_no_favourites">Nenhum favorito ainda. Abra um título e escolha “Adicionar aos favoritos”.</string>
     <string name="vod_nothing_here">Nada aqui ainda. Carregue agora ou escolha quais categorias carregar.</string>

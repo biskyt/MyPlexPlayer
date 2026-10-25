@@ -12,6 +12,7 @@ import com.biskyt.myplexplayer.data.db.ChannelEpgMappingEntity
 import com.biskyt.myplexplayer.data.db.EpgSourceEntity
 import com.biskyt.myplexplayer.data.db.FavouriteEntity
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
+import com.biskyt.myplexplayer.data.db.SOURCE_KINDS
 import com.biskyt.myplexplayer.data.db.VodFavouriteEntity
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import java.io.ByteArrayOutputStream
@@ -133,24 +134,29 @@ class BackupRepository(
         throw BackupException(NOT_A_BACKUP).apply { initCause(e) }
     }
 
-    /** The database and settings part of [restore], in one transaction. Returns whether there are any playlists. */
+    /**
+     * The database and settings part of [restore], in one transaction. Returns whether there are any playlists. A
+     * source of a kind the app no longer has (an M3U playlist from 0.2.1 or earlier) is left out, with all it had.
+     */
     suspend fun apply(backup: Backup): Boolean {
+        val playlists = backup.playlists.filter { it.kind in SOURCE_KINDS }
+        val ids = playlists.mapTo(HashSet()) { it.id }
         db.withTransaction {
             db.clearEveryTable()
             dao.insert(
                 // Never downloaded on this TV: zero times make everything refresh straight away.
-                backup.playlists.map { it.copy(lastSyncAt = 0, vodFeedHash = null) },
-                backup.categories,
-                backup.channels,
-                backup.favourites,
-                backup.vodFavourites,
-                backup.epgSources.map { it.copy(lastImportAt = 0, channelCount = 0, lastError = null) },
-                backup.guideChoices,
-                backup.progress
+                playlists.map { it.copy(lastSyncAt = 0) },
+                backup.categories.filter { it.playlistId in ids },
+                backup.channels.filter { it.playlistId in ids },
+                backup.favourites.filter { it.playlistId in ids },
+                backup.vodFavourites.filter { it.playlistId in ids },
+                backup.epgSources.filter { it.playlistId == null || it.playlistId in ids }
+                    .map { it.copy(lastImportAt = 0, channelCount = 0, lastError = null) },
+                backup.guideChoices.filter { it.playlistId in ids },
+                backup.progress.filter { it.playlistId in ids }
             )
         }
-        val ids = backup.playlists.map { it.id }
-        val active = backup.settings.activePlaylistId.takeIf { it in ids } ?: ids.firstOrNull() ?: 0
+        val active = backup.settings.activePlaylistId.takeIf { it in ids } ?: playlists.firstOrNull()?.id ?: 0
         settings.update { backup.settings.copy(activePlaylistId = active) }
         return ids.isNotEmpty()
     }

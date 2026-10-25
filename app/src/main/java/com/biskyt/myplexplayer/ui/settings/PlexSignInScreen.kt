@@ -38,6 +38,7 @@ import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.QrCode
 import com.biskyt.myplexplayer.ui.common.openLink
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
+import com.biskyt.myplexplayer.ui.theme.LocalAccent
 import com.biskyt.myplexplayer.ui.theme.Palette
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -180,7 +181,8 @@ fun PlexSignInScreen(firstRun: Boolean) {
             ) {
                 Column(Modifier.widthIn(max = 560.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Muted(stringResource(R.string.settings_plex_steps), maxLines = 3)
-                    Text(state.code, style = MaterialTheme.typography.displayMedium)
+                    // The theme's own large style (displayMedium isn't one: it would be black on the dark background).
+                    Text(state.code, style = MaterialTheme.typography.displaySmall, color = LocalAccent.current.color)
                     Muted(stringResource(R.string.settings_plex_waiting))
                     // On a phone, plex.tv/link can open right here.
                     PillButton(stringResource(R.string.common_link_open_here), { problem = openLink(c, LINK) }, rememberFirstFocus(state))

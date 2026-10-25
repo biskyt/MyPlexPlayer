@@ -92,7 +92,7 @@ class SyncManager(
             _state.value = SyncState.Channels(name, 0)
             playlists.syncChannels(playlistId) { _state.value = SyncState.Channels(name, it) }
             val guideErrors = if (includeGuide) importGuide() else emptyMap()
-            // Read again (by syncVod): updating the channels stores to the playlist (its account, M3U state).
+            // Read again (by syncVod): updating the channels stores to the playlist (its account).
             syncVod(playlistId)
             guideErrors
         }
@@ -110,8 +110,7 @@ class SyncManager(
 
     private suspend fun syncVod(playlistId: Long) {
         val p = playlists.get(playlistId) ?: return
-        // An M3U playlist without movie or series playlists still syncs: to clear any it had before.
-        if (p.hasVod) _state.value = SyncState.Vod(p.name, 0)
+        _state.value = SyncState.Vod(p.name, 0)
         vod.sync(p) { _state.value = SyncState.Vod(p.name, it) }
     }
 

@@ -99,16 +99,12 @@
     <string name="settings_lib_guava">Used by Media3</string>
     <string name="settings_lib_nunito">The app\'s font</string>
 
-    <!-- First launch. "Xtream Codes" and "M3U" are names: don't translate them. "Settings › Playlists" names the
+    <!-- First launch. "Xtream Codes" is a name: don't translate it. "Settings › Playlists" names the
          settings pages common_settings and settings_playlists_title. -->
     <string name="settings_welcome_title">Welcome to MyPlexPlayer</string>
-    <string name="settings_welcome_intro">Sign in to Plex to watch the films and series on your Plex servers. You can also add a TV service you subscribe to (an Xtream Codes login or an M3U playlist address), or free TV, at any time in Settings › Playlists.</string>
-    <string name="settings_welcome_downloading">Downloading the channel list…</string>
+    <string name="settings_welcome_intro">Sign in to Plex to watch the films and series on your Plex servers. You can also add a TV service you subscribe to (an Xtream Codes login) at any time in Settings › Playlists.</string>
     <!-- Buttons. -->
     <string name="settings_welcome_add_provider">Add my TV provider</string>
-    <string name="settings_welcome_setting_up">Setting up…</string>
-    <string name="settings_welcome_free_retry">Try the free channels again</string>
-    <string name="settings_welcome_free">Free TV, films and series</string>
     <string name="settings_welcome_restore">Restore a backup</string>
     <string name="settings_plex_sign_in">Sign in to Plex</string>
     <string name="settings_plex_steps">On your phone or computer, go to plex.tv/link, signed in to your Plex account, and enter this code:</string>
@@ -210,10 +206,8 @@
     <string name="settings_playlist_update_now">Update now</string>
     <string name="settings_playlist_edit">Edit</string>
     <string name="settings_playlist_add">+ Add playlist</string>
-    <string name="settings_playlist_downloading_free">Downloading free channels…</string>
-    <string name="settings_playlist_add_free">+ Add free TV, films and series</string>
     <string name="settings_playlist_select_hint">Select a playlist to switch to it.</string>
-    <!-- Under a playlist: its type ("Xtream" or "M3U", not translated) and when it was last downloaded.
+    <!-- Under a playlist: its type ("Plex" or "Xtream", not translated) and when it was last downloaded.
          %1$s: the type; %2$s: a date and time. -->
     <!-- When the TV provider's subscription ends. %1$s: a date, e.g. "12 Mar 2027". -->
     <string name="settings_playlist_expired">Expired on %1$s</string>
@@ -231,23 +225,15 @@
     <string name="settings_playlist_add_title">Add playlist</string>
     <string name="settings_playlist_edit_title">Edit playlist</string>
     <string name="settings_playlist_first_run_hint">Enter the details from your TV provider.</string>
-    <!-- Choice of account type. "Xtream Codes" and "M3U" are names: don't translate them. -->
-    <string name="settings_playlist_type_xtream">Xtream Codes</string>
-    <string name="settings_playlist_type_m3u">M3U playlist URL</string>
     <!-- Labels above the boxes, and example text in them. -->
     <string name="settings_playlist_name">Name</string>
     <string name="settings_playlist_name_hint">e.g. Home TV</string>
-    <string name="settings_playlist_address">Playlist address</string>
     <string name="settings_playlist_server">Server address</string>
-    <string name="settings_playlist_movies">Movies playlist (optional)</string>
-    <string name="settings_playlist_series">Series playlist (optional)</string>
     <!-- "Show S01E02" is an example episode name (series, season and episode numbers): keep its form. -->
-    <string name="settings_playlist_m3u_vod_hint">One playlist with both is fine: episodes (\"Show S01E02\") go to Series, the rest to Movies.</string>
     <string name="settings_playlist_username">Username</string>
     <string name="settings_playlist_password">Password</string>
     <!-- Shown after "Test connection" works. -->
     <string name="settings_playlist_connected">Connected ✓</string>
-    <string name="settings_playlist_downloading">Downloading playlist…</string>
     <string name="settings_playlist_checking">Checking login…</string>
     <!-- Buttons. -->
     <string name="settings_playlist_wait">Please wait…</string>

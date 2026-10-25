@@ -9,10 +9,8 @@
     <string name="settings_licences_title">Open source licences</string>
     <string name="settings_storage_help">Storage is managed automatically: old programmes are removed every day, logos are capped, and the database is compacted when needed.</string>
     <string name="settings_licence_link">Licence: %1$s, %2$s</string>
-    <string name="settings_welcome_intro">Sign in to Plex to watch the films and series on your Plex servers. You can also add a TV service you subscribe to (an Xtream Codes login or an M3U playlist address), or free TV, at any time in Settings › Playlists.</string>
-    <string name="settings_welcome_free">Free TV, films and series</string>
+    <string name="settings_welcome_intro">Sign in to Plex to watch the films and series on your Plex servers. You can also add a TV service you subscribe to (an Xtream Codes login) at any time in Settings › Playlists.</string>
     <string name="settings_backup_intro">Saves your playlists (with their logins), channel and category choices, favourites, TV guide sources and settings to a file. Copy it with a file manager app to keep it somewhere else. The file isn\'t encrypted, so keep it private.</string>
     <string name="settings_categories_intro">Only the categories you tick are downloaded, so lists load faster and use less storage.</string>
     <string name="settings_playlist_updated_detail">Its channels, TV guide, films and series are up to date.</string>
-    <string name="settings_playlist_add_free">+ Add free TV, films and series</string>
 </resources>
