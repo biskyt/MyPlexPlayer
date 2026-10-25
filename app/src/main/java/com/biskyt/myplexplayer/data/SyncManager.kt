@@ -1,8 +1,10 @@
 package com.biskyt.myplexplayer.data
 
+import android.util.Log
 import androidx.annotation.StringRes
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -105,13 +107,50 @@ class SyncManager(
     suspend fun updateGuide(only: Long? = null): Result<Map<Long, String>> =
         attempt(R.string.common_guide_update_failed) { importGuide(only) }
 
+    /**
+     * When each Plex source's play state was last brought up to date: by [refreshPlayState], or by a sync (when its
+     * listing began: what plays elsewhere while it runs is after that).
+     */
+    private val playStateAt = ConcurrentHashMap<Long, Long>()
+
+    /**
+     * Back in the app (from another app, or opened again): play state changed meanwhile on a Plex source (in the
+     * owner's other Plex apps) is brought here, quickly, without a sync. Not while a sync runs (it brings the same),
+     * nor within seconds of the last; out of reach, it waits for next time. Due a sync, [syncIfDue] starts one (the
+     * app opening starts its own).
+     */
+    @Suppress("TooGenericExceptionCaught") // as a sync: whatever goes wrong (a full disk, say) mustn't end the app
+    suspend fun refreshPlayState(playlistId: Long, syncIfDue: Boolean) {
+        if (!mutex.tryLock()) return
+        try {
+            val p = playlists.get(playlistId)?.takeIf { it.isPlex && it.lastSyncAt > 0 } ?: return
+            if (p.isStale()) {
+                if (syncIfDue) refresh(p.id) // once this lets go
+                return
+            }
+            val now = System.currentTimeMillis()
+            val since = playStateAt[p.id] ?: p.lastSyncAt
+            if (now - since < PLAY_STATE_GAP_MS) return
+            vod.refreshPlayState(p, since)
+            playStateAt[p.id] = now
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Play state not brought in; next time", e)
+        } finally {
+            mutex.unlock()
+        }
+    }
+
     /** Only movies and series (after their categories change). */
     fun refreshVod(playlistId: Long): Job = scope.launch { guarded(R.string.data_vod_failed) { syncVod(playlistId) } }
 
     private suspend fun syncVod(playlistId: Long) {
         val p = playlists.get(playlistId) ?: return
         _state.value = SyncState.Vod(p.name, 0)
+        val started = System.currentTimeMillis()
         vod.sync(p) { _state.value = SyncState.Vod(p.name, it) }
+        playStateAt[p.id] = started
     }
 
     private suspend fun importGuide(only: Long? = null) = epg.importAll(playlists.allIds(), only) { _state.value = SyncState.Guide(it) }
@@ -134,5 +173,12 @@ class SyncManager(
             _state.value = failed
             Result.failure(Exception(failed.message, e))
         }
+    }
+
+    private companion object {
+        const val TAG = "SyncManager"
+
+        /** Back in the app sooner than this after the last look (or a sync), play state isn't asked for again. */
+        const val PLAY_STATE_GAP_MS = 5_000L
     }
 }

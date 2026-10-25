@@ -223,10 +223,10 @@ class PlexSources(
     }
 
     /** A series' episodes' play state and unwatched count again (its page already known), with what was fetched. */
-    suspend fun seriesState(p: PlaylistEntity, ratingKey: Long): Triple<PlexClient, PlexItem, List<PlexItem>> {
+    suspend fun seriesState(p: PlaylistEntity, ratingKey: Long, listed: PlexItem? = null): Triple<PlexClient, PlexItem, List<PlexItem>> {
         val client = client(p)
         val (show, leaves) = coroutineScope {
-            val show = async { client.item(ratingKey.toString()) }
+            val show = async { listed ?: client.item(ratingKey.toString()) }
             val leaves = async { client.episodes(ratingKey.toString()) }
             show.await() to leaves.await()
         }
@@ -320,15 +320,47 @@ class PlexSources(
      * After a library sync: the films' play state (from the listing), then the server's Continue Watching as "Carry
      * on watching". Episodes' state comes with their series' page.
      */
-    suspend fun syncPlayState(p: PlaylistEntity, client: PlexClient, films: List<PlexItem>) {
+    suspend fun syncPlayState(p: PlaylistEntity, client: PlexClient, films: List<PlexItem>, hub: List<PlexItem>? = null) {
         progress.positions(p.id, VOD_MOVIE, films, rowFor(client, p.id))
-        carryOn(p, client) // the films are in; out of reach now, Carry on watching just waits for the next sync
+        carryOn(p, client, hub) // the films are in; out of reach now, Carry on watching just waits for the next sync
     }
 
-    /** "Carry on watching" from the server's Continue Watching. */
-    private suspend fun carryOn(p: PlaylistEntity, client: PlexClient) {
+    /**
+     * Play state changed on the server since [sinceMs] (in the owner's other Plex apps, say), brought here without a
+     * library sync: first what played here and wasn't reported yet; then the films of [movieLibraries] and the
+     * series of [showLibraries] played since (a series: its episodes again), and those that were on Carry on watching
+     * here but have left the server's Continue Watching (marked unwatched elsewhere, a title's resume point goes, and
+     * no date shows it); then Continue Watching itself.
+     */
+    suspend fun refreshPlayState(p: PlaylistEntity, movieLibraries: List<String>, showLibraries: List<String>, sinceMs: Long) {
+        val client = client(p)
+        sendPending(p, client)
+        val seconds = (System.currentTimeMillis() - sinceMs).coerceAtLeast(0) / 1000 + SINCE_MARGIN_S
+        val (films, shows, hub) = coroutineScope {
+            val films = async { movieLibraries.flatMap { client.viewedSince(it, PlexType.MOVIE, seconds) } }
+            val shows = async { showLibraries.flatMap { client.viewedSince(it, PlexType.SHOW, seconds) } }
+            val hub = async { client.continueWatching() }
+            Triple(films.await(), shows.await(), hub.await())
+        }
+        val onHub = hub.mapNotNullTo(HashSet()) { it.ratingKey.toLongOrNull() }
+        suspend fun leftHub(kind: String) = db.vod().progressOf(p.id, kind).filter {
+            it.carryOnAt != null &&
+                !it.pending &&
+                it.itemId !in onHub
+        }
+        val filmIds = films.mapNotNullTo(HashSet()) { it.ratingKey.toLongOrNull() }
+        val filmsLeft = leftHub(VOD_MOVIE).map { it.itemId }.filter { it !in filmIds }
+            .chunked(ITEMS_PER_CALL).flatMap { ids -> client.items(ids.map { it.toString() }) }
+        val listed = shows.associateBy { it.ratingKey.toLongOrNull() }
+        (listed.keys.filterNotNull() + leftHub(VOD_EPISODE).mapNotNull { it.seriesId }).distinct()
+            .forEach { offlineOk { seriesState(p, it, listed[it]) } } // one gone from the server doesn't hold up the rest
+        syncPlayState(p, client, films + filmsLeft, hub)
+    }
+
+    /** "Carry on watching" from the server's Continue Watching ([hub], when already fetched). */
+    private suspend fun carryOn(p: PlaylistEntity, client: PlexClient, hub: List<PlexItem>? = null) {
         val row = rowFor(client, p.id)
-        val hub = offlineOk { client.continueWatching() }?.filter { it.vodKind != null } ?: return
+        val hub = (hub ?: offlineOk { client.continueWatching() })?.filter { it.vodKind != null } ?: return
         // One it suggests next, unplayed, is listed at its start.
         progress.carryOn(p.id, hub.mapNotNull { row(it) ?: row(it.copy(viewOffset = 0)) })
     }
@@ -365,6 +397,12 @@ class PlexSources(
     companion object {
         const val PRODUCT = "MyPlexPlayer"
         private const val PAGE = 200
+
+        /** Films asked for by id, this many to a call (their ids make up its address). */
+        private const val ITEMS_PER_CALL = 100
+
+        /** Plex times are whole seconds, and the check takes a moment: titles played this long before it count too. */
+        private const val SINCE_MARGIN_S = 60L
         private const val POSTER_WIDTH = 240
         private const val POSTER_HEIGHT = 360
         private const val STILL_WIDTH = 400

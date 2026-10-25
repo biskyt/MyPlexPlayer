@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.3.8
+- **Back in the app, what you watched elsewhere shows here:** coming back from another app (the Plex app, say), or
+  opening the app again, brings in how far you got and what you finished meanwhile, and Carry on watching, in moments
+  rather than with a full refresh.
+
 ## 0.3.7
 - **Paused, the controls stay on screen.** Left paused for two minutes, the screen dims, to spare OLED screens from
   burn-in. Any button lights it again, and the remote's play button plays straight away.
