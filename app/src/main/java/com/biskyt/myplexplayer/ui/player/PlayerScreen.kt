@@ -82,12 +82,12 @@ import com.biskyt.myplexplayer.ui.common.ignoreHeldSelect
 import com.biskyt.myplexplayer.ui.common.numberLabel
 import com.biskyt.myplexplayer.ui.common.onAnyTouch
 import com.biskyt.myplexplayer.ui.common.onGuideKey
+import com.biskyt.myplexplayer.ui.common.onMenuKey
 import com.biskyt.myplexplayer.ui.common.onPlainTap
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.rememberMinuteClock
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
 import com.biskyt.myplexplayer.ui.theme.Palette
-import com.biskyt.myplexplayer.ui.common.onMenuKey
 
 @Composable
 fun PlayerScreen(screen: Screen.Player) {
