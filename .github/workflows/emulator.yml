@@ -26,6 +26,7 @@ on:
       - ".github/scripts/start-plex.sh"
       - ".github/workflows/plex-spike.yml"
       - ".github/workflows/spike-app.yml"
+      - ".github/workflows/dv-diagnostics.yml"
       - "spikes/**"
   workflow_dispatch:
 
