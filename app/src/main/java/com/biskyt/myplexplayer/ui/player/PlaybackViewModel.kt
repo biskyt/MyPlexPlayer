@@ -20,6 +20,7 @@ import com.biskyt.myplexplayer.core.player.PlayerAction
 import com.biskyt.myplexplayer.core.player.RemoteKey
 import com.biskyt.myplexplayer.core.player.scrubTarget
 import com.biskyt.myplexplayer.data.Settings
+import com.biskyt.myplexplayer.data.db.ChannelProgramme
 import com.biskyt.myplexplayer.player.PlaybackEngine
 import com.biskyt.myplexplayer.player.PlaybackError
 import com.biskyt.myplexplayer.player.failureReason
@@ -63,11 +64,14 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     /** Which side sheet is open over the video (null = none). */
     var sheet by mutableStateOf<Sheet?>(null)
 
+    /** The programme the About sheet tells of (live TV's, on now). */
+    open val about: ChannelProgramme? get() = null
+
     /** Set when playback should end and the screen close. */
     var exit by mutableStateOf(false)
         private set
 
-    enum class Sheet { AUDIO, SUBTITLES, MORE }
+    enum class Sheet { AUDIO, SUBTITLES, MORE, ABOUT }
 
     /**
      * What can be done with what's playing, at the top of the More menu; read while drawing it, so labels follow state

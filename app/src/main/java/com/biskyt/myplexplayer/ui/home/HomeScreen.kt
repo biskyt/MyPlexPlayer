@@ -12,7 +12,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -21,7 +20,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,12 +37,10 @@ import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.data.db.VOD_TYPES
 import com.biskyt.myplexplayer.data.db.VodCard
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
-import com.biskyt.myplexplayer.data.programmeTitle
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
-import com.biskyt.myplexplayer.ui.common.CatchupMark
-import com.biskyt.myplexplayer.ui.common.ChannelLogo
+import com.biskyt.myplexplayer.ui.common.ChannelCard
 import com.biskyt.myplexplayer.ui.common.FavouriteMover
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.ItemActionsPanel
@@ -67,14 +63,14 @@ import com.biskyt.myplexplayer.ui.common.TvCard
 import com.biskyt.myplexplayer.ui.common.channelActions
 import com.biskyt.myplexplayer.ui.common.collectIds
 import com.biskyt.myplexplayer.ui.common.formatDuration
-import com.biskyt.myplexplayer.ui.common.formatTime
+import com.biskyt.myplexplayer.ui.common.guideNowNext
 import com.biskyt.myplexplayer.ui.common.moveAction
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.rememberMinuteClock
+import com.biskyt.myplexplayer.ui.common.shortEpisodeLabel
 import com.biskyt.myplexplayer.ui.common.titledRow
 import com.biskyt.myplexplayer.ui.common.vodActions
 import com.biskyt.myplexplayer.ui.common.vodDetails
-import com.biskyt.myplexplayer.ui.player.shortEpisodeLabel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -132,8 +128,7 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
 
     fun forget(p: WatchProgressEntity) = viewModelScope.launch { c.vod.forgetProgress(p) }
 
-    val nowNext =
-        NowNextLoader(viewModelScope, c.epg.changes) { ids, from, to -> c.epg.programmes(playlistId.value, ids, from, to, details = false) }
+    val nowNext = guideNowNext(viewModelScope, c) { playlistId.value }
 }
 
 @Composable
@@ -329,36 +324,8 @@ private fun ChannelCardRow(
     KeepInView(state) { mover?.movingId(CAT_LIVE)?.let { p -> channels.indexOfFirst { it.streamId == p } } }
     LazyRow(state = state, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         items(channels, key = { it.streamId }) { c ->
-            LaunchedEffect(c.streamId) { loader.request(c.streamId) }
-            val nn = loader.entries[c.streamId]
             MovableTile(mover, CAT_LIVE, c.streamId, MoveLayout.ROW) {
-                TvCard(
-                    onClick = { onPlay(c) },
-                    onLongClick = { onOptions(c) },
-                    modifier = (if (c == channels.first()) modifier else Modifier).width(272.dp)
-                ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            ChannelLogo(c.logoUrl, c.name, 64.dp, 38.dp)
-                            Muted(c.name, Modifier.padding(start = 10.dp).weight(1f, fill = false))
-                            CatchupMark(c, Modifier.padding(start = 6.dp))
-                        }
-                        Text(
-                            nn?.now?.let { programmeTitle(it.title) } ?: " ",
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Muted(
-                            nn?.now?.let { on ->
-                                val until = formatTime(on.stopMs)
-                                nn.next?.let { stringResource(R.string.home_until_then, until, programmeTitle(it.title)) }
-                                    ?: stringResource(R.string.home_until, until)
-                            } ?: stringResource(R.string.common_no_guide)
-                        )
-                        ProgressLine(nn?.progress(now) ?: 0f, Modifier.fillMaxWidth())
-                    }
-                }
+                ChannelCard(c, loader, now, { onOptions(c) }, if (c == channels.first()) modifier else Modifier) { onPlay(c) }
             }
         }
     }
