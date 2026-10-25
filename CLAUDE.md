@@ -176,6 +176,9 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
   (repackaged, video and audio copied: `PlexClient.directStream`, which checks the server's decision says `copy`
   for every stream). Anything else is refused with a message, never sent for re-encoding. Live TV is direct
   streamed the same way. Don't use Plex's platform profiles (Android re-encodes past 1080p or stereo AAC).
+- **Tuning a channel is slow** on the owner's server: Plex answers the tune before the tuner has locked (see
+  docs/plex-api.md). Show "Tuning…" until the picture starts, let the player wait for the live stream to fill,
+  and never retry a tune that timed out (a second tune can take a second tuner).
 - **Live TV goes last:** in the menu, on Home and in search results.
 - **DVR replaces Catch-up.**
 - **Home rows:** Continue watching, recently added series, recently added movies, favourite series, favourite movies,
