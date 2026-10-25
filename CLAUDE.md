@@ -147,6 +147,12 @@ See also:
 - **Android TV stand-in pickers:** some TVs (e.g. a Philips 48OLED806 on Android TV 10) ship stand-in "pickers" that only say "no application can handle this request".
   - The backup screen opens a picker directly only if it's Android's own (`…documentsui`). Otherwise it offers the installed file managers.
   - MyPlexPlayer also accepts backup files via Open with / Share (JSON).
+- **Plex play state** (0.3.0, `data/PlexProgress.kt`): the `watch_progress` rows mirror the server.
+  - The server wins, except over a row marked `pending` (played here, not yet reported). Pending rows are sent again
+    at the start of each sync, before the library is listed. A refusal (4xx) isn't retried.
+  - "Carry on watching" is the server's Continue Watching, ordered by `carryOnAt` (`updatedAt` means only "last
+    watched"). Taking a title off Continue Watching keeps its resume point, so "has a point" isn't "on the row".
+  - Plex times are whole seconds: two plays in the same second don't order (see `PlexServerTest`'s `nextSecond`).
 - **User-Agent:** every stream and download sends `MyPlexPlayer/<version> (+https://github.com/biskyt/MyPlexPlayer)`.
 
 ## The owner's setup
@@ -199,10 +205,16 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
   - Permissions are asked for only when backing up or restoring.
 - **Licences** aren't a reason to avoid the best library.
 
-## Open items (as of 0.1.0)
-- **Google Play:** MyPlexPlayer needs its own Play listing, release keystore (`MYPLEX_*` secrets) and service account
-  before the first signed release; until then release builds fall back to the debug key (see RELEASING.md).
+## Open items (as of 0.3.0)
+- **Release signing:** the owner added the `MYPLEX_*` keystore secrets on 2026-10-25, so releases from 0.3.0 on are
+  signed with the release key (check the release run's "signed with" line). The first one won't install over the
+  earlier development-key builds: the owner uninstalls once (backing up first; play state is on the Plex server).
+  Releases stay pre-releases while the version is 0.x.
+- **Google Play:** needs MyPlexPlayer's own Play listing and the `PLAY_SERVICE_ACCOUNT_JSON` secret; until then the
+  release skips the upload.
 - **Emulator smoke tests** on CI for pull requests (`.github/workflows/emulator.yml`: Android TV 9 and Google TV 16).
   Tests live in `app/src/androidTest`; the debug build adds an x86/x86_64 ABI only with `-PemulatorAbi=<arch>`.
   `.github/scripts/start-emulator.sh` boots the emulator itself: Google TV 16 drops off adb for a second or two after
   boot, which the usual runner action doesn't wait out.
+- **Dolby Vision diagnostics** (`spikes/dv-diagnostics`, two builds: Media3 1.8 and 1.11): the owner runs it on the
+  Philips TV and pastes the report; its findings decide the Dolby Vision fix (port it to MyTVPlayer too).
