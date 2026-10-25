@@ -10,6 +10,9 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   rename); never merge MyTVPlayer's `main` wholesale. Ported so far: everything up to MyTVPlayer 1.2.4 (`a54a2ad`, in 0.3.0; 1.2.3 `884939f` in 0.2.1),
   its Play upload workflow (`dc5d194`, in 0.2.1), its clearer secondary text (MyTVPlayer 1.2.6, `900d6ae`, in 0.3.3),
   the dimmed paused screen (1.2.7, `29c9c71`, in 0.3.7) and its fixes (1.2.8, `40609e4`, in 0.4.0).
+- **Where a change is made first** (the owner, 2026-10-25): a feature or fix both apps need (the player, remote keys,
+  menus, the guide's screens) is made in MyTVPlayer first, then cherry-picked here, so the shared code stays the same
+  and ports apply cleanly. Plex-only work (sign-in, servers, play state, Live TV, DVR) is made here only.
 - **The move to Plex is under way:** the plan, step by step, is in `ROADMAP.md`. Until those steps land, much of the
   code (Xtream, XMLTV guides, catch-up) is MyTVPlayer's and is due to be replaced. M3U and the free playlist went
   in 0.2.2.
@@ -32,6 +35,8 @@ See also:
   - Never skip, disable or quarantine a test.
   - Don't just raise timeouts.
 - **Long waits (CI, test loops, agents) go in the background**, so the conversation isn't blocked.
+- **Answer the owner's questions straight away** (the owner, 2026-10-25): when they ask something, pause the work,
+  answer first, then carry on. Leaving a question waiting behind other work reads as ignoring them.
 - **Release every merged app change** (the owner, 2026-10-25: "always build until I say otherwise"): once an app PR
   is merged, start `release.yml` (step 8) and give the owner the release link.
 - **When the owner says "don't release until X", don't merge or release** until they confirm.
