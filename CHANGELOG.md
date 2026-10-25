@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.3.7
+- **Paused, the controls stay on screen.** Left paused for two minutes, the screen dims, to spare OLED screens from
+  burn-in. Any button lights it again, and the remote's play button plays straight away.
+
 ## 0.3.6
 - **Playback info:** while watching, More › Playback info shows how it's playing (the file as it is, or repackaged by
   your server), the picture (size, codec, Dolby Vision or HDR, frame rate), which decoder plays it, the sound and
