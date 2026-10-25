@@ -97,4 +97,11 @@ class PlexLiveUiTest {
         repeat(30) { compose.waitAdvancingClock(1_000) { true } } // the player's own retries come and go
         assertEquals(listOf("ch-1"), plex.tuned.toList())
     }
+
+    @Test
+    fun `the guide shows what's on each channel`() {
+        val navigator = navigators.new(Screen.Live(guide = true))
+        compose.setContent { MyPlexTheme { NavHost(remember { navigator }) { ScreenContent(it) } } }
+        compose.waitForText("Show 0", stepMs = 100)
+    }
 }

@@ -110,6 +110,21 @@ class PlexClientTest {
     }
 
     @Test
+    fun `a guide entry that can't be read is left out, not the whole guide`() = runTest {
+        val live = client.liveTv()!!
+        responses["tv.plex.providers.epg.cloud:12/grid"] = MockResponse().setBody(
+            """{"MediaContainer":{"Metadata":[
+                {"type":"movie","title":null,"Media":[{"beginsAt":1792950000,"endsAt":1792953600,"channelIdentifier":"ch1"}]},
+                {"type":"movie","title":"Odd","year":"unknown","Media":[{"beginsAt":1792950000,"endsAt":1792953600}]},
+                {"type":"episode","title":"Pilot","Media":[{"beginsAt":"later"},{"beginsAt":1792953600,"endsAt":1792957200,"channelIdentifier":"ch1"}]}
+            ]}}"""
+        )
+        val guide = client.guide(live, fromS = 1_792_950_000, toS = 1_792_970_000)
+        assertEquals(listOf("", "Pilot"), guide.map { it.title }) // no title: blank; a year that isn't one: left out
+        assertEquals(listOf(1_792_953_600L), guide.last().airings.map { it.beginsAt }) // only the showing it can read
+    }
+
+    @Test
     fun `a server without live tv says so`() = runTest {
         responses["livetv/dvrs"] = MockResponse().setBody("""{"MediaContainer":{"size":0}}""")
         assertNull(client.liveTv())

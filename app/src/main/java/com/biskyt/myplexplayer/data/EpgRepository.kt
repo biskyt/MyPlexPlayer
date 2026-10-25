@@ -10,6 +10,7 @@ import com.biskyt.myplexplayer.core.epg.EpgCandidate
 import com.biskyt.myplexplayer.core.epg.EpgMatch
 import com.biskyt.myplexplayer.core.epg.XmltvChannel
 import com.biskyt.myplexplayer.core.epg.XmltvParser
+import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.data.db.AppDatabase
 import com.biskyt.myplexplayer.data.db.ChannelEpgMappingEntity
 import com.biskyt.myplexplayer.data.db.ChannelProgramme
@@ -118,14 +119,25 @@ class EpgRepository(
     suspend fun savePlexGuide(p: PlaylistEntity, channelKeys: Map<Long, String>, programmes: List<ProgrammeEntity>) {
         val stamp = clock()
         db.withTransaction {
-            val source = epg.providerSource(p.id)?.id
-                ?: epg.insertSource(EpgSourceEntity(name = p.name, url = "$PLEX_GUIDE${p.id}", playlistId = p.id))
+            val source = plexGuide(p)
             epg.upsertMappings(channelKeys.map { (id, key) -> ChannelEpgMappingEntity(p.id, id, source, key, manual = false, score = 1.0) })
             programmes.map { it.copy(sourceId = source, stamp = stamp) }.chunked(BATCH).forEach { epg.insertProgrammes(it) }
             epg.deleteOlderProgrammes(source, stamp)
+            epg.setImportResult(source, stamp, channelKeys.size, error = null)
         }
         changed()
     }
+
+    /** A Plex server's guide that couldn't be fetched: the last one stays, and why it failed shows with the guides. */
+    suspend fun plexGuideFailed(p: PlaylistEntity, e: PlexException) {
+        // A server's answer is kept as its code, to read in the language of the moment.
+        val error = GuideError.saved(e.code?.let(GuideError::server) ?: e)
+        db.withTransaction { epg.setSourceError(plexGuide(p), error) }
+    }
+
+    /** The id of [p]'s own guide source, added the first time. */
+    private suspend fun plexGuide(p: PlaylistEntity): Long = epg.providerSource(p.id)?.id
+        ?: epg.insertSource(EpgSourceEntity(name = p.name, url = "$PLEX_GUIDE${p.id}", playlistId = p.id))
 
     /** Named after its address when [name] is blank. */
     suspend fun addSource(name: String, url: String): Long =

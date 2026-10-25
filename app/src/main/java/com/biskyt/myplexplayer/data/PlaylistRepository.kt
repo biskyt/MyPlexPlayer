@@ -190,9 +190,9 @@ class PlaylistRepository(
 
     /**
      * A Plex server's Live TV channels, in one list (Plex has no channel groups), then its guide for the next two
-     * days. A guide that can't be fetched leaves the last one; a server without Live TV (or that won't share it: a
-     * friend's, refusing), no channels. A server failing for now (starting up, say) leaves the channels as they were;
-     * out of reach, the sync fails, as it would for the films.
+     * days. A guide that can't be fetched leaves the last one (and, unless out of reach, says why with the guides); a
+     * server without Live TV (or that won't share it: a friend's, refusing), no channels. A server failing for now
+     * (starting up, say) leaves the channels as they were; out of reach, the sync fails, as it would for the films.
      */
     private suspend fun syncPlex(p: PlaylistEntity, onProgress: (Int) -> Unit): Int {
         val lineup = try {
@@ -221,8 +221,13 @@ class PlaylistRepository(
         val count = out.finish()
         if (lineup != null) {
             val now = System.currentTimeMillis()
-            offlineOk { plex.guide(p, lineup.live, now - GUIDE_BEFORE_MS, now + GUIDE_AHEAD_MS) }
-                ?.let { epg.savePlexGuide(p, keys, plexGuideRows(it, lineup.channels)) }
+            try {
+                val guide = plex.guide(p, lineup.live, now - GUIDE_BEFORE_MS, now + GUIDE_AHEAD_MS)
+                epg.savePlexGuide(p, keys, plexGuideRows(guide, lineup.channels))
+            } catch (e: PlexException) {
+                // Out of reach, it's tried at the next sync; anything else is said with the guides.
+                if (e.reason != PlexException.Reason.UNREACHABLE) epg.plexGuideFailed(p, e)
+            }
         }
         return count
     }
