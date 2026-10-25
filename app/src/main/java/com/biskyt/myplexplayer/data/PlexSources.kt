@@ -9,8 +9,10 @@ import com.biskyt.myplexplayer.core.plex.PlexClient
 import com.biskyt.myplexplayer.core.plex.PlexDevice
 import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.plex.PlexItem
+import com.biskyt.myplexplayer.core.plex.PlexLiveTv
 import com.biskyt.myplexplayer.core.plex.PlexPin
 import com.biskyt.myplexplayer.core.plex.PlexPlayState
+import com.biskyt.myplexplayer.core.plex.PlexProgramme
 import com.biskyt.myplexplayer.core.plex.PlexServer
 import com.biskyt.myplexplayer.core.plex.PlexStream
 import com.biskyt.myplexplayer.core.plex.PlexType
@@ -261,6 +263,35 @@ class PlexSources(
         return PlexPlayback(client.directPlay(part), item, client) { refreshUnwatched(p, client, it) }
     }
 
+    // --- Live TV ---
+
+    /** Each server's Live TV, as last found: tuning needs its DVR. */
+    private val liveTv = java.util.concurrent.ConcurrentHashMap<Long, PlexLiveTv>()
+
+    /** A server's Live TV and its channels, or null when it has none. */
+    suspend fun lineup(p: PlaylistEntity): PlexLineup? {
+        val client = client(p)
+        val live = client.liveTv() ?: return null.also { liveTv -= p.id }
+        liveTv[p.id] = live
+        return PlexLineup(live, client.channels(live))
+    }
+
+    /** Every channel's programmes from [fromMs] to [toMs], asked for [GUIDE_CHUNK_MS] at a time (a low-powered server builds each answer slowly). */
+    suspend fun guide(p: PlaylistEntity, live: PlexLiveTv, fromMs: Long, toMs: Long): List<PlexProgramme> {
+        val client = client(p)
+        return (fromMs until toMs step GUIDE_CHUNK_MS).flatMap { start ->
+            client.guide(live, start / 1000, minOf(start + GUIDE_CHUNK_MS, toMs) / 1000)
+        }
+    }
+
+    /** A Live TV channel ([channelKey], its key on the server) to tune and play: see [PlexLive]. */
+    suspend fun live(p: PlaylistEntity, channelKey: String): PlexLive {
+        val client = client(p)
+        val live = liveTv[p.id] ?: client.liveTv()?.also { liveTv[p.id] = it }
+            ?: throw PlexException("No Live TV on this server", reason = PlexException.Reason.UNEXPECTED_RESPONSE)
+        return PlexLive(client, live, channelKey)
+    }
+
     // --- play state (see PlexProgress) ---
 
     /**
@@ -397,6 +428,9 @@ class PlexSources(
     companion object {
         const val PRODUCT = "MyPlexPlayer"
         private const val PAGE = 200
+
+        /** The guide is asked for this much at a time. */
+        private const val GUIDE_CHUNK_MS = 12 * 3_600_000L
 
         /** Films asked for by id, this many to a call (their ids make up its address). */
         private const val ITEMS_PER_CALL = 100

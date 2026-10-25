@@ -8,7 +8,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   `caad9d7` (1.2.1). The two apps are developed separately and are expected to drift apart. A fix worth having in
   both is ported by hand (`git cherry-pick` from a fetch of MyTVPlayer usually applies, since it follows the package
   rename); never merge MyTVPlayer's `main` wholesale. Ported so far: everything up to MyTVPlayer 1.2.4 (`a54a2ad`, in 0.3.0; 1.2.3 `884939f` in 0.2.1),
-  its Play upload workflow (`dc5d194`, in 0.2.1) and its clearer secondary text (MyTVPlayer 1.2.6, `900d6ae`, in 0.3.3).
+  its Play upload workflow (`dc5d194`, in 0.2.1), its clearer secondary text (MyTVPlayer 1.2.6, `900d6ae`, in 0.3.3),
+  the dimmed paused screen (1.2.7, `29c9c71`, in 0.3.7) and its fixes (1.2.8, `40609e4`, in 0.4.0).
 - **The move to Plex is under way:** the plan, step by step, is in `ROADMAP.md`. Until those steps land, much of the
   code (Xtream, XMLTV guides, catch-up) is MyTVPlayer's and is due to be replaced. M3U and the free playlist went
   in 0.2.2.
@@ -160,6 +161,11 @@ See also:
     without a sync: titles played since the last look (`viewedSince`, relative seconds, so clocks needn't agree),
     those that left Continue Watching since (marked unwatched elsewhere, `lastViewedAt` is cleared, so no filter finds
     them: films by id, episodes with their series) and Continue Watching. Skipped when a sync is due.
+- **Plex Live TV** (0.4.0, `data/PlexLive.kt`): channels sync with the server (`PlaylistRepository.syncPlex`), each
+  with a stable id from its key (`plexChannelId`, so favourites stay) and the key in `providerEpgId`. The guide is
+  saved as the server's own guide source (`EpgRepository.savePlexGuide`, url `plex:<id>`), which the XMLTV import
+  and matching skip. A channel is tuned once (`PlexLive`), its tuner let go before the next tune and on leaving; a
+  server that refuses Live TV (a friend's) just has no channels.
 - **Dolby Vision with HDR10+** (0.3.2): the owner's TV (a MediaTek chip) shows HDR10, not Dolby Vision, while a Dolby Vision
   decoder also gets HDR10+ (found with `spikes/dv-diagnostics`, kept for other TVs). So a Dolby Vision decoder gets no
   HDR10+ while the screen shows Dolby Vision (`player/DolbyVisionCodec.kt`, with `core`'s `Hdr10PlusOff`): its SEI
