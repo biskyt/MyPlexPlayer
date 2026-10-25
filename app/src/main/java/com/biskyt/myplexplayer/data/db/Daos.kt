@@ -541,6 +541,9 @@ interface VodDao {
     @Query("$MOVIE_CARD $MOVIE_FAVOURITES $FAVOURITE_ORDER LIMIT :limit")
     fun observeMovieFavourites(pid: Long, limit: Int): Flow<List<VodCard>>
 
+    @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid ORDER BY added DESC LIMIT :limit")
+    fun observeNewestMovies(pid: Long, limit: Int): Flow<List<VodCard>>
+
     @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND (:q = '' OR title $LIKE_Q) ORDER BY position, title")
     fun pageSeries(pid: Long, q: String): PagingSource<Int, VodCard>
 
@@ -557,6 +560,9 @@ interface VodDao {
 
     @Query("$SERIES_CARD $SERIES_FAVOURITES $FAVOURITE_ORDER LIMIT :limit")
     fun observeSeriesFavourites(pid: Long, limit: Int): Flow<List<VodCard>>
+
+    @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND newest IS NOT NULL ORDER BY newest LIMIT :limit")
+    fun observeNewestSeries(pid: Long, limit: Int): Flow<List<VodCard>>
 
     /** The favourite movies' ids, in order. */
     @Query("SELECT m.streamId $MOVIE_FAVOURITES $FAVOURITE_ORDER")

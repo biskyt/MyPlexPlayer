@@ -8,11 +8,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -22,6 +25,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -99,13 +103,20 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
     @OptIn(ExperimentalCoroutinesApi::class)
     val recent = activePlaylist.flatMapLatest {
         c.channels.observeRecent(it, CHANNEL_ROW_LIMIT)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** The first favourite series and movies, by type ([VOD_TYPES]). */
+    /** The first favourite series and movies, by type ([VOD_TYPES]); null until read. */
     @OptIn(ExperimentalCoroutinesApi::class)
-    val favouriteVod: Map<String, StateFlow<List<VodCard>>> = VOD_TYPES.associateWith { type ->
+    val favouriteVod: Map<String, StateFlow<List<VodCard>?>> = VOD_TYPES.associateWith { type ->
         activePlaylist.flatMapLatest { c.vod.observeFavouriteCards(it, type, VOD_ROW_LIMIT) }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }
+
+    /** The series with the newest episodes, and the newest movies, by type ([VOD_TYPES]); null until read. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val newestVod: Map<String, StateFlow<List<VodCard>?>> = VOD_TYPES.associateWith { type ->
+        activePlaylist.flatMapLatest { c.vod.observeNewestCards(it, type, VOD_ROW_LIMIT) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     }
 
     /** Moving a favourite within its row. */
@@ -117,7 +128,7 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val carryOn = activePlaylist.flatMapLatest { c.vod.observeCarryOn(it) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Which channels, movies and series are favourites, for their options. */
     val favouriteSets = c.favourites
@@ -143,16 +154,40 @@ fun HomeScreen() {
     val vm = appViewModel { HomeViewModel(it) }
     vm.nowNext.PauseWhenHidden()
     val nav = LocalNavigator.current
+    // States, read where used: shown() below must see a row change after its card is taken off, and Home recomposes
+    // when what it shows changes, not with every row's update (as during a sync).
     val favourites by vm.favourites.collectAsState()
     val recent by vm.recent.collectAsState()
     val carryOn by vm.carryOn.collectAsState()
-    // States, read where used: shown() below must see a row change after its card is taken off.
     val favouriteVod = VOD_TYPES.associateWith { vm.favouriteVod.getValue(it).collectAsState() }
+    val newestVod = VOD_TYPES.associateWith { vm.newestVod.getValue(it).collectAsState() }
     val pid = vm.playlistId.collectAsState().value
-    // Again after a card is taken off its row (focus would otherwise go with it): back to the first card.
-    var refocus by remember { mutableIntStateOf(0) }
-    val first = rememberFirstFocus((favourites != null) to refocus)
+    val ready by remember {
+        derivedStateOf {
+            listOf(favourites, recent, carryOn).all { it != null } && (favouriteVod.values + newestVod.values).all { it.value != null }
+        }
+    }
+    val top by remember {
+        derivedStateOf {
+            topRow(
+                carryOn.orEmpty(),
+                newestVod.mapValues { it.value.value },
+                favouriteVod.mapValues { it.value.value },
+                favourites.orEmpty(),
+                recent.orEmpty()
+            )
+        }
+    }
     var options by remember { mutableStateOf<HomeTile?>(null) }
+    // The row on top takes focus once every row is read, and again when focus has nowhere to be: after a card is
+    // taken off its row, or the row it was on goes (a sync changes what's on top), but not away from the top bar.
+    var refocus by remember { mutableIntStateOf(0) }
+    var screenFocused by remember { mutableStateOf(false) }
+    val first = rememberFirstFocus(ready to refocus)
+    LaunchedEffect(top) { if (ready && !screenFocused && options == null) refocus++ }
+
+    /** Focus for the first card of [row], when it's the row on top. */
+    fun focusOn(row: HomeRow) = if (row == top) first else Modifier
     val scope = rememberCoroutineScope()
     fun shown(tile: HomeTile) = when (tile) {
         is HomeTile.Channel -> (
@@ -161,65 +196,53 @@ fun HomeScreen() {
             ) {
                 recent
             } else {
-                favourites.orEmpty()
+                favourites
             }
-            ).any { it.streamId == tile.ch.streamId }
-        is HomeTile.CarryOn -> carryOn.any { it.kind == tile.p.kind && it.itemId == tile.p.itemId }
-        is HomeTile.Vod -> favouriteVod.getValue(tile.type).value.any { it.id == tile.card.id }
+            ).orEmpty().any { it.streamId == tile.ch.streamId }
+        is HomeTile.CarryOn -> carryOn.orEmpty().any { it.kind == tile.p.kind && it.itemId == tile.p.itemId }
+        is HomeTile.Vod -> favouriteVod.getValue(tile.type).value.orEmpty().any { it.id == tile.card.id }
+        is HomeTile.New -> true // never taken off its row (its options don't)
     }
 
     MoveBackHandler(vm.mover)
-    TabScaffold(Tab.HOME) {
+    TabScaffold(Tab.HOME, Modifier.onFocusChanged { screenFocused = it.hasFocus }) {
+        // Carry on watching, recently added series and movies, favourite series and movies, then Live TV last.
         LazyColumn(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 56.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(28.dp)
         ) {
-            if (carryOn.isNotEmpty()) {
+            val carryOnRow = carryOn.orEmpty()
+            if (carryOnRow.isNotEmpty()) {
                 item {
                     Column {
                         SectionTitle(stringResource(R.string.home_carry_on))
-                        CarryOnRow(carryOn, { options = HomeTile.CarryOn(it) }) {
+                        CarryOnRow(carryOnRow, { options = HomeTile.CarryOn(it) }, focusOn(HomeRow.CarryOn)) {
                             nav.push(Screen.VodPlayer(pid, it.itemId, it.seriesId, continueSeries = true))
                         }
                     }
                 }
             }
-            item {
-                Column {
-                    SectionTitle(stringResource(R.string.home_on_now))
-                    MoveHint(vm.mover, CAT_LIVE, MoveLayout.ROW)
-                    val favs = favourites
-                    when {
-                        favs == null -> Unit
-                        favs.isEmpty() -> EmptyFavourites(first) { nav.reset(Screen.Live()) }
-                        else -> ChannelCardRow(favs, vm.nowNext, {
-                            options = HomeTile.Channel(it, ChannelFilter.Favourites)
-                        }, first, vm.mover) {
-                            nav.push(Screen.Player(pid, it.streamId, ChannelFilter.Favourites))
-                        }
-                    }
+            newestVod.forEach { (type, cards) ->
+                val row = cards.value.orEmpty()
+                titledRow(newestRowTitle(type), row, { it.id }) { card ->
+                    val focus = if (card == row.first()) focusOn(HomeRow.Newest(type)) else Modifier
+                    PosterCard(card, focus, onLongClick = {
+                        options = HomeTile.New(type, card)
+                    }) { nav.push(vodDetails(pid, type, card.id)) }
                 }
             }
-            if (recent.isNotEmpty()) {
-                item {
-                    Column {
-                        SectionTitle(stringResource(R.string.common_recent))
-                        ChannelCardRow(recent, vm.nowNext, { options = HomeTile.Channel(it, ChannelFilter.Recent) }) {
-                            nav.push(Screen.Player(pid, it.streamId, ChannelFilter.Recent))
-                        }
-                    }
-                }
-            }
-            // Favourite series, then movies.
             favouriteVod.forEach { (type, cards) ->
-                titledRow(favouriteRowTitle(type), cards.value, {
-                    it.id
-                }, move = MovableRow(vm.mover, type)) { card ->
+                val row = cards.value.orEmpty()
+                titledRow(favouriteRowTitle(type), row, { it.id }, move = MovableRow(vm.mover, type)) { card ->
                     MovableTile(vm.mover, type, card.id, MoveLayout.ROW) {
-                        PosterCard(card, onLongClick = { options = HomeTile.Vod(type, card) }) { nav.push(vodDetails(pid, type, card.id)) }
+                        val focus = if (card == row.first()) focusOn(HomeRow.Favourites(type)) else Modifier
+                        PosterCard(card, focus, onLongClick = {
+                            options = HomeTile.Vod(type, card)
+                        }) { nav.push(vodDetails(pid, type, card.id)) }
                     }
                 }
             }
+            channelRows(favourites, recent.orEmpty(), top, ::focusOn, vm) { options = it }
         }
     }
     options?.let { tile ->
@@ -240,6 +263,77 @@ private sealed interface HomeTile {
     data class CarryOn(val p: WatchProgressEntity) : HomeTile
 
     data class Vod(val type: String, val card: VodCard) : HomeTile
+
+    /** A movie or series on a recently added row. */
+    data class New(val type: String, val card: VodCard) : HomeTile
+}
+
+/** Home's rows, top to bottom (each shown only when it has something). */
+private sealed interface HomeRow {
+    data object CarryOn : HomeRow
+    data class Newest(val type: String) : HomeRow
+    data class Favourites(val type: String) : HomeRow
+    data object Channels : HomeRow
+    data object Recent : HomeRow
+}
+
+/** The first row with something in it (it takes focus); the favourite channels' (with a hint) when none has. */
+private fun topRow(
+    carryOn: List<WatchProgressEntity>,
+    newest: Map<String, List<VodCard>?>,
+    favouriteVod: Map<String, List<VodCard>?>,
+    channels: List<ChannelEntity>,
+    recent: List<ChannelEntity>,
+): HomeRow = when {
+    carryOn.isNotEmpty() -> HomeRow.CarryOn
+    else -> VOD_TYPES.firstOrNull { !newest[it].isNullOrEmpty() }?.let(HomeRow::Newest)
+        ?: VOD_TYPES.firstOrNull { !favouriteVod[it].isNullOrEmpty() }?.let(HomeRow::Favourites)
+        ?: if (channels.isEmpty() && recent.isNotEmpty()) HomeRow.Recent else HomeRow.Channels
+}
+
+/**
+ * Live TV, last: favourite channels with what's on, then those watched lately. With nothing else on Home, an empty
+ * favourites row says how to add some.
+ */
+@Suppress("LongParameterList") // Home's state for its last rows, read where Home reads it
+private fun LazyListScope.channelRows(
+    favourites: List<ChannelEntity>?,
+    recent: List<ChannelEntity>,
+    top: HomeRow,
+    focusOn: (HomeRow) -> Modifier,
+    vm: HomeViewModel,
+    onOptions: (HomeTile) -> Unit,
+) {
+    val favs = favourites ?: return
+    if (favs.isNotEmpty() || top == HomeRow.Channels) {
+        item {
+            val nav = LocalNavigator.current
+            Column {
+                SectionTitle(stringResource(R.string.home_on_now))
+                MoveHint(vm.mover, CAT_LIVE, MoveLayout.ROW)
+                val focus = focusOn(HomeRow.Channels)
+                if (favs.isEmpty()) {
+                    EmptyFavourites(focus) { nav.reset(Screen.Live()) }
+                } else {
+                    ChannelCardRow(favs, vm.nowNext, { onOptions(HomeTile.Channel(it, ChannelFilter.Favourites)) }, focus, vm.mover) {
+                        nav.push(Screen.Player(vm.playlistId.value, it.streamId, ChannelFilter.Favourites))
+                    }
+                }
+            }
+        }
+    }
+    if (recent.isNotEmpty()) {
+        item {
+            val nav = LocalNavigator.current
+            Column {
+                SectionTitle(stringResource(R.string.common_recent))
+                val focus = focusOn(HomeRow.Recent)
+                ChannelCardRow(recent, vm.nowNext, { onOptions(HomeTile.Channel(it, ChannelFilter.Recent)) }, focus) {
+                    nav.push(Screen.Player(vm.playlistId.value, it.streamId, ChannelFilter.Recent))
+                }
+            }
+        }
+    }
 }
 
 /** Holding OK on a Home card: watch it, and favourites and the guide source, or take it off its row. */
@@ -308,6 +402,11 @@ private fun TileOptions(tile: HomeTile, vm: HomeViewModel, pid: Long, onDismiss:
             )
             ItemActionsPanel(p.title, actions, close)
         }
+        is HomeTile.New -> {
+            val favourite = tile.card.id in vm.favouriteSets.of(tile.type).collectIds()
+            val actions = vodActions(pid, tile.type, tile.card.id, favourite) { vm.setVodFavourite(tile.type, tile.card.id, it) }
+            ItemActionsPanel(tile.card.title, actions, close)
+        }
         is HomeTile.Vod -> {
             // A card on these rows is a favourite.
             val actions = vodActions(pid, tile.type, tile.card.id, favourite = true) { favourite ->
@@ -350,10 +449,16 @@ private fun ChannelCardRow(
 
 /** Movies and episodes part-watched (or the next episode up): a poster-sized card each, with how much is left. */
 @Composable
-private fun CarryOnRow(items: List<WatchProgressEntity>, onOptions: (WatchProgressEntity) -> Unit, onPlay: (WatchProgressEntity) -> Unit) {
+private fun CarryOnRow(
+    items: List<WatchProgressEntity>,
+    onOptions: (WatchProgressEntity) -> Unit,
+    first: Modifier,
+    onPlay: (WatchProgressEntity) -> Unit
+) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         items(items, key = { "${it.kind}${it.itemId}" }) { p ->
-            TvCard(onClick = { onPlay(p) }, onLongClick = { onOptions(p) }, modifier = Modifier.width(272.dp)) {
+            val focus = if (p == items.first()) first else Modifier
+            TvCard(onClick = { onPlay(p) }, onLongClick = { onOptions(p) }, modifier = focus.width(272.dp)) {
                 Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Poster(p.imageUrl, p.title, 64.dp)
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -372,6 +477,11 @@ private fun CarryOnRow(items: List<WatchProgressEntity>, onOptions: (WatchProgre
         }
     }
 }
+
+/** The title of Home's row of recently added movies or series ([type]). */
+@StringRes
+private fun newestRowTitle(type: String) =
+    if (type == CAT_MOVIE) R.string.home_recently_added_movies else R.string.home_recently_added_series
 
 /** The title of Home's row of favourite movies or series ([type]). */
 @StringRes

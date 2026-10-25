@@ -1,20 +1,13 @@
 package com.biskyt.myplexplayer.ui
 
-import androidx.annotation.StringRes
 import androidx.compose.runtime.remember
 import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange
-import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasClickAction
-import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.isFocused
-import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.R
-import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.testutil.FakeProvider
@@ -22,6 +15,8 @@ import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addHomeTv
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
+import com.biskyt.myplexplayer.testutil.focusedText
+import com.biskyt.myplexplayer.testutil.scrollToHomeRow
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
@@ -38,7 +33,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** Home's rows of favourite series and movies, below the channels. */
+/** Home's rows of favourite series and movies, below the recently added ones and above Live TV's. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestApp::class, qualifiers = "+w960dp-h540dp-tvdpi")
 class HomeFavouritesUiTest {
@@ -70,18 +65,6 @@ class HomeFavouritesUiTest {
 
     private fun waitFor(text: String) = compose.waitForText(text, stepMs = 50)
 
-    // The page itself: the rows in it scroll too, sideways.
-    private val page = hasScrollToNodeAction() and SemanticsMatcher.keyIsDefined(VerticalScrollAxisRange)
-
-    /** Scrolls to the row titled [title] once the page has it (its rows load after the channels' one). */
-    private fun scrollToRow(@StringRes title: Int) {
-        compose.waitAdvancingClock(stepMs = 50) {
-            val indexForKey = compose.onNode(page).fetchSemanticsNode().config[SemanticsProperties.IndexForKey]
-            indexForKey(title) >= 0
-        }
-        compose.onNode(page).performScrollToNode(hasText(appString(title)))
-    }
-
     private fun top(text: String) = compose.onNode(hasText(text)).fetchSemanticsNode().boundsInRoot.top
 
     private fun shown(text: String) = compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()
@@ -89,14 +72,14 @@ class HomeFavouritesUiTest {
     @Test
     fun `favourite series and movies have rows of their own, series first, opening their page`() {
         show()
-        waitFor("Your channels, on now")
-        scrollToRow(R.string.home_favourite_movies)
+        compose.scrollToHomeRow(R.string.home_favourite_movies)
         waitFor("Paddington 2")
         waitFor("Heat")
         assertTrue(top("Favourite series") < top("Favourite movies"))
         assertTrue(top("Line of Duty") < top("Favourite movies"))
 
-        compose.onNode(hasText("Paddington 2") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        // The favourites' card (it's also among the recently added, above).
+        compose.onAllNodes(hasText("Paddington 2") and hasClickAction()).onLast().performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
         assertEquals(Screen.MovieDetails(playlistId, 502), navigator.current.screen)
     }
@@ -104,8 +87,7 @@ class HomeFavouritesUiTest {
     @Test
     fun `a favourite's options take it off favourites, and its row with it when it was the last`() {
         show()
-        waitFor("Your channels, on now")
-        scrollToRow(R.string.home_favourite_series)
+        compose.scrollToHomeRow(R.string.home_favourite_series)
         waitFor("Line of Duty")
         val card = compose.onNode(hasText("Line of Duty") and hasClickAction())
         card.performSemanticsAction(SemanticsActions.RequestFocus)
@@ -114,11 +96,8 @@ class HomeFavouritesUiTest {
         waitFor("Remove from favourites")
         compose.onNode(hasText("Remove from favourites")).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitAdvancingClock(stepMs = 50) { !shown("Favourite series") }
-        // Focus doesn't go with the card: it goes back to the first one on Home (here, as there are no favourite
-        // channels, the button to browse them).
-        compose.waitAdvancingClock(stepMs = 50) {
-            compose.onAllNodes(hasText("Browse channels") and isFocused()).fetchSemanticsNodes().isNotEmpty()
-        }
+        // Focus doesn't go with the card: it goes back to the first one on Home (the newest movie's).
+        compose.waitAdvancingClock(stepMs = 50) { "Heat" in compose.focusedText() }
         runBlocking { assertFalse(77L in app.container.vod.observeFavouriteIds(playlistId, CAT_SERIES).first()) }
         assertTrue(shown("Favourite movies"))
     }

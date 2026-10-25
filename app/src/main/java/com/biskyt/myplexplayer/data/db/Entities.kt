@@ -106,7 +106,8 @@ data class MovieEntity(
     indices = [
         Index("playlistId", "categoryId", "position", "title"),
         Index("playlistId", "position", "title"),
-        Index("playlistId", "lastModified")
+        Index("playlistId", "lastModified"),
+        Index("playlistId", "newest")
     ]
 )
 data class SeriesEntity(
@@ -121,7 +122,9 @@ data class SeriesEntity(
     val position: Int,
     val syncStamp: Long,
     /** Plex: how many of its episodes haven't been watched, for the badge on its poster (null: not known). */
-    @ColumnInfo(defaultValue = "NULL") val unwatched: Int? = null
+    @ColumnInfo(defaultValue = "NULL") val unwatched: Int? = null,
+    /** Plex: its place among the series with the newest episodes (0 first), for Home; null when not among them. */
+    @ColumnInfo(defaultValue = "NULL") val newest: Int? = null
 )
 
 /** Unused since 0.2.2 (M3U episodes): see AppDatabase. */

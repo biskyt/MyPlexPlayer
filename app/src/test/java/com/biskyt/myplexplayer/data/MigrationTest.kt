@@ -196,4 +196,20 @@ class MigrationTest {
             }
         }
     }
+
+    @Test
+    fun `version 10 to 11 keeps series, none among the newest until the next sync`() {
+        helper.createDatabase("migration-test-11", 10).use { db ->
+            db.execSQL(
+                "INSERT INTO series (playlistId, seriesId, title, categoryId, lastModified, position, syncStamp) VALUES (1, 77, 'S', '1', 0, 0, 0)"
+            )
+        }
+        helper.runMigrationsAndValidate("migration-test-11", 11, true).use { db ->
+            db.query("SELECT title, newest FROM series").use {
+                it.moveToFirst()
+                assertEquals("S", it.getString(0))
+                assertTrue(it.isNull(1))
+            }
+        }
+    }
 }
