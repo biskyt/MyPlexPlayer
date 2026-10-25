@@ -30,7 +30,7 @@ import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.theme.Palette
 import kotlinx.coroutines.launch
 
-/** First launch: the free channels, films and series, when the user picks them. */
+/** First launch: signing in to Plex, or the free channels, films and series, when the user picks them. */
 class WelcomeViewModel(private val c: AppContainer) : ViewModel() {
     var error by mutableStateOf<String?>(null)
         private set
@@ -75,11 +75,12 @@ fun WelcomeScreen() {
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             PillButton(
-                stringResource(R.string.settings_welcome_add_provider),
-                { nav.replace(Screen.PlaylistEdit(null, firstRun = true)) },
+                stringResource(R.string.settings_plex_sign_in),
+                { nav.replace(Screen.PlexSignIn(firstRun = true)) },
                 if (error == null) rememberFirstFocus() else Modifier,
                 primary = true,
             )
+            PillButton(stringResource(R.string.settings_welcome_add_provider), { nav.replace(Screen.PlaylistEdit(null, firstRun = true)) })
             // Stays on screen while setting up, so the button pressed keeps focus.
             PillButton(
                 stringResource(

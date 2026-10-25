@@ -11,6 +11,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.biskyt.myplexplayer.core.player.SubtitleMode
 import com.biskyt.myplexplayer.core.ui.AccentPalette
 import java.util.Locale
+import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -95,6 +96,23 @@ class SettingsRepository(private val context: Context) {
 
     private fun formatKey(playlistId: Long) = stringPreferencesKey("$FORMAT_FOR$playlistId")
 
+    /**
+     * How Plex tells this install apart from the user's other devices: made once and kept. Not in [Settings], so a
+     * backup restored on another device doesn't take it there.
+     */
+    suspend fun plexClientId(): String {
+        var id = ""
+        context.dataStore.edit { prefs -> id = prefs[PLEX_CLIENT_ID] ?: UUID.randomUUID().toString().also { prefs[PLEX_CLIENT_ID] = it } }
+        return id
+    }
+
+    /** The Plex account's token, for its server list; null when not signed in. Not in [Settings] (nor backups). */
+    suspend fun plexToken(): String? = context.dataStore.data.first()[PLEX_TOKEN]
+
+    suspend fun setPlexToken(token: String?) {
+        context.dataStore.edit { if (token == null) it.remove(PLEX_TOKEN) else it[PLEX_TOKEN] = token }
+    }
+
     private fun Preferences.toSettings(): Settings {
         val d = Settings()
         return Settings(
@@ -141,5 +159,7 @@ class SettingsRepository(private val context: Context) {
 
     private companion object {
         const val FORMAT_FOR = "stream_format_for_"
+        val PLEX_CLIENT_ID = stringPreferencesKey("plex_client_id")
+        val PLEX_TOKEN = stringPreferencesKey("plex_token")
     }
 }

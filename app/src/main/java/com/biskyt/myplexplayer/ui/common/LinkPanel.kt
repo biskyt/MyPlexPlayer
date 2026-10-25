@@ -1,6 +1,7 @@
 package com.biskyt.myplexplayer.ui.common
 
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
@@ -36,17 +37,19 @@ fun LinkPanel(title: String, url: String, note: String? = null, onDismiss: () ->
             QrCode(url, Modifier.size(240.dp))
             Text(url.removePrefix("https://"), style = MaterialTheme.typography.titleSmall)
             note?.let { Muted(it, maxLines = 2) }
-            PillButton(stringResource(R.string.common_link_open_here), {
-                try {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                } catch (_: ActivityNotFoundException) {
-                    problem = appString(R.string.common_link_no_browser)
-                } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
-                    // Some TVs refuse in other ways (e.g. a browser that's switched off): never a crash.
-                    problem = appString(R.string.common_link_open_failed, e.javaClass.simpleName)
-                }
-            }, rememberFirstFocus())
+            PillButton(stringResource(R.string.common_link_open_here), { problem = openLink(context, url) }, rememberFirstFocus())
             problem?.let { Muted(it, maxLines = 2) }
         }
     }
+}
+
+/** Opens [url] in a browser on this device; what went wrong, for the user, if it couldn't. */
+fun openLink(context: Context, url: String): String? = try {
+    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    null
+} catch (_: ActivityNotFoundException) {
+    appString(R.string.common_link_no_browser)
+} catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
+    // Some TVs refuse in other ways (e.g. a browser that's switched off): never a crash.
+    appString(R.string.common_link_open_failed, e.javaClass.simpleName)
 }

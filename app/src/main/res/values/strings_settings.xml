@@ -102,7 +102,7 @@
     <!-- First launch. "Xtream Codes" and "M3U" are names: don't translate them. "Settings › Playlists" names the
          settings pages common_settings and settings_playlists_title. -->
     <string name="settings_welcome_title">Welcome to MyPlexPlayer</string>
-    <string name="settings_welcome_intro">Add the TV service you subscribe to (an Xtream Codes login or an M3U playlist address), or start with free TV: channels streamed free by their broadcasters, and public-domain films and series. You can add the other at any time in Settings › Playlists.</string>
+    <string name="settings_welcome_intro">Sign in to Plex to watch the films and series on your Plex servers. You can also add a TV service you subscribe to (an Xtream Codes login or an M3U playlist address), or free TV, at any time in Settings › Playlists.</string>
     <string name="settings_welcome_downloading">Downloading the channel list…</string>
     <!-- Buttons. -->
     <string name="settings_welcome_add_provider">Add my TV provider</string>
@@ -110,6 +110,17 @@
     <string name="settings_welcome_free_retry">Try the free channels again</string>
     <string name="settings_welcome_free">Free TV, films and series</string>
     <string name="settings_welcome_restore">Restore a backup</string>
+    <string name="settings_plex_sign_in">Sign in to Plex</string>
+    <string name="settings_plex_steps">On your phone or computer, go to plex.tv/link, signed in to your Plex account, and enter this code:</string>
+    <string name="settings_plex_scan">Or scan this with your phone’s camera.</string>
+    <string name="settings_plex_waiting">Waiting for the code to be entered…</string>
+    <string name="settings_plex_finding">Signed in. Finding your Plex servers…</string>
+    <string name="settings_plex_none_answered">None of your Plex servers answered. Check they’re on, then try again.</string>
+    <string name="settings_plex_no_servers">There are no Plex servers on this account.</string>
+    <string name="settings_plex_not_reached">Couldn\'t reach: %1$s</string>
+    <string name="settings_plex_code_expired">The code ran out before it was entered. Try again for a new one.</string>
+    <string name="settings_plex_try_again">Try again</string>
+    <string name="settings_playlist_add_plex">Add my Plex servers</string>
 
     <!-- Backup & restore page. "MyPlexPlayer" is the app's name; "Settings › Apps › MyPlexPlayer › Permissions" is the
          path through the TV's own settings menus. -->

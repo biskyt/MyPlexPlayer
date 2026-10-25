@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import com.biskyt.myplexplayer.AppText
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
+import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.xtream.XtreamException
 import com.biskyt.myplexplayer.core.xtream.XtreamException.Reason
 import com.biskyt.myplexplayer.data.db.CategoryCount
@@ -13,8 +14,29 @@ import java.util.Locale
 
 // The app's words for what the core module reports as codes (core has no Android resources).
 
-/** What [e] says to the user: an Xtream failure in the app's language, anything else its own message. */
-fun userMessage(e: Throwable): String? = if (e is XtreamException) e.userMessage() else e.message
+/** What [e] says to the user: an Xtream or Plex failure in the app's language, anything else its own message. */
+fun userMessage(e: Throwable): String? = when (e) {
+    is XtreamException -> e.userMessage()
+    is PlexException -> e.userMessage()
+    else -> e.message
+}
+
+/** This failure in the app's language ([PlexException.message] is the English, for logs). */
+fun PlexException.userMessage(): String = when (reason) {
+    PlexException.Reason.UNAUTHORIZED -> appString(R.string.data_plex_signed_out)
+    PlexException.Reason.UNREACHABLE -> appString(R.string.data_plex_unreachable)
+    PlexException.Reason.SERVER_ERROR -> appString(R.string.data_server_error, code)
+    PlexException.Reason.UNEXPECTED_RESPONSE, PlexException.Reason.INVALID_ADDRESS -> appString(R.string.data_plex_unexpected)
+    // Playing from Plex (direct stream) comes in roadmap step 5, with these words.
+    PlexException.Reason.NEEDS_TRANSCODE, PlexException.Reason.CANNOT_STREAM, PlexException.Reason.OTHER -> message.orEmpty()
+}
+
+/** Runs [block] (a call to a Plex server or plex.tv), so that a failure's message is in the app's language. */
+internal inline fun <T> withUserPlexErrors(block: () -> T): T = try {
+    block()
+} catch (e: PlexException) {
+    throw PlexException(e.userMessage(), e, e.reason, e.code)
+}
 
 /** This failure in the app's language ([XtreamException.message] is the English, for logs). */
 fun XtreamException.userMessage(): String = when (reason) {
