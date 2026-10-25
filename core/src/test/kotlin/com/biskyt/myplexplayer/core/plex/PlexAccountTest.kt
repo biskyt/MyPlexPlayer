@@ -28,6 +28,13 @@ class PlexAccountTest {
     private val home = MockWebServer()
     private val outside = MockWebServer()
     private val relay = MockWebServer()
+    private val more = mutableListOf<MockWebServer>()
+
+    /**
+     * A server of its own, for a test's next case: a probe cut off before it reached the last case's server leaves that
+     * server's queued answer unused, which the next request to it would get.
+     */
+    private fun fresh() = MockWebServer().also { more += it }
     private val device = PlexDevice(clientId = "client-1", product = "MyPlexPlayer", version = "0.1.0")
     private lateinit var account: PlexAccount
 
@@ -52,7 +59,7 @@ class PlexAccountTest {
     }
 
     @After
-    fun tearDown() = listOf(plexTv, home, outside, relay).forEach { it.shutdown() }
+    fun tearDown() = (listOf(plexTv, home, outside, relay) + more).forEach { it.shutdown() }
 
     @Test
     fun `a short code to enter at plex dot tv slash link, then the token once it's entered`() = runBlocking {
@@ -122,12 +129,12 @@ class PlexAccountTest {
         assertQuick { assertEquals(uri(home), account.connect(server(home to Kind.HOME, outside to Kind.OUTSIDE))?.baseUrl) }
 
         // Away from home: the home address hangs, and the outside one is taken soon after it answers.
-        home.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
-        outside.enqueue(identity.clone())
-        assertQuick { assertEquals(uri(outside), account.connect(server(home to Kind.HOME, outside to Kind.OUTSIDE))?.baseUrl) }
+        val away = fresh().apply { enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE)) }
+        val reached = fresh().apply { enqueue(identity.clone()) }
+        assertQuick { assertEquals(uri(reached), account.connect(server(away to Kind.HOME, reached to Kind.OUTSIDE))?.baseUrl) }
 
-        // An address that sends its headers and then stalls is cut off too (home answers once it's stalled).
-        home.enqueue(identity.clone().setHeadersDelay(300, TimeUnit.MILLISECONDS))
+        // An address that sends its headers and then stalls is cut off too (the home one, slow, answers once it's stalled).
+        val slow = fresh().apply { enqueue(identity.clone().setHeadersDelay(300, TimeUnit.MILLISECONDS)) }
         ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { stalls ->
             thread(isDaemon = true) {
                 runCatching {
@@ -138,8 +145,8 @@ class PlexAccountTest {
                 }
             }
             val stalled = PlexConnection("http://127.0.0.1:${stalls.localPort}")
-            val both = server(home to Kind.HOME).let { it.copy(connections = it.connections + stalled) }
-            assertQuick { assertEquals(uri(home), account.connect(both)?.baseUrl) }
+            val both = server(slow to Kind.HOME).let { it.copy(connections = it.connections + stalled) }
+            assertQuick { assertEquals(uri(slow), account.connect(both)?.baseUrl) }
         }
     }
 
