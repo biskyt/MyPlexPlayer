@@ -23,6 +23,8 @@
     <string name="data_plex_signed_out">Plex no aceptó el inicio de sesión: vuelve a iniciar sesión en Plex</string>
     <string name="data_plex_unreachable">No se pudo conectar con el servidor Plex</string>
     <string name="data_plex_unexpected">Respuesta inesperada de Plex</string>
+    <string name="data_plex_needs_converting">Este archivo solo se reproduce si el servidor lo convierte, y MyPlexPlayer nunca lo pide.</string>
+    <string name="data_plex_cannot_stream">El servidor no puede transmitir este archivo.</string>
     <string name="data_account_inactive">Esta cuenta no está activa</string>
 
 

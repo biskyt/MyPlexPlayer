@@ -142,8 +142,9 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
         override fun onPlayerError(e: PlaybackException) {
             val player = engine?.player ?: return
-            // A stream that failed again after a retry, before it ever played, may play another way.
-            if (engine?.retryAsHls(e) == true || (!hasPlayed && retries.used > 0 && tryOtherFormat())) return
+            // A failure retrying can't mend, or a stream that failed again after a retry before it ever played, may
+            // play another way.
+            if (playAnotherWay(e) || engine?.retryAsHls(e) == true || (!hasPlayed && retries.used > 0 && tryOtherFormat())) return
             // Streams drop out now and then; retry a few times before showing an error.
             if (playedSinceFailure() >= STEADY_MS) retries.reset()
             playedMs = 0
@@ -207,6 +208,9 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
     /** A stream that keeps failing before it ever played may be tried another way (live TV: the other format); true if so. */
     protected open fun tryOtherFormat(): Boolean = false
+
+    /** Whether a failure [e] that retrying can't mend is handled another way (true: the failure is left to that). */
+    protected open fun playAnotherWay(e: PlaybackException): Boolean = false
 
     protected open fun onEnded() = Unit
 

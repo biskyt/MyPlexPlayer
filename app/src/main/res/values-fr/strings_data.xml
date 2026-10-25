@@ -23,6 +23,8 @@
     <string name="data_plex_signed_out">Plex n\'a pas accepté la connexion : reconnectez-vous à Plex</string>
     <string name="data_plex_unreachable">Impossible de joindre le serveur Plex</string>
     <string name="data_plex_unexpected">Réponse inattendue de Plex</string>
+    <string name="data_plex_needs_converting">Ce fichier ne se lit que si le serveur le convertit, ce que MyPlexPlayer ne demande jamais.</string>
+    <string name="data_plex_cannot_stream">Le serveur ne peut pas diffuser ce fichier.</string>
     <string name="data_account_inactive">Ce compte n\'est pas actif</string>
 
 

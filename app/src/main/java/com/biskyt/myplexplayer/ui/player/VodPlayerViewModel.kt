@@ -6,10 +6,12 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewModelScope
+import androidx.media3.common.PlaybackException
 import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.player.OverlayState
+import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.xtream.EpisodeInfo
 import com.biskyt.myplexplayer.data.VodStream
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
@@ -18,6 +20,7 @@ import com.biskyt.myplexplayer.data.db.PlaylistEntity
 import com.biskyt.myplexplayer.data.db.VOD_EPISODE
 import com.biskyt.myplexplayer.data.db.VOD_MOVIE
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
+import com.biskyt.myplexplayer.data.userMessage
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.favouriteFlash
@@ -139,11 +142,36 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         play(p, Playing(VOD_EPISODE, e.id, show?.title ?: e.title, show?.coverUrl ?: e.imageUrl, stream, e), fromStart)
     }
 
+    /**
+     * A file from Plex in a container the player can't read is streamed by the server instead, repackaged with its
+     * picture and sound as they are (once), from where it got to. One the server could only convert stops with why.
+     */
+    override fun playAnotherWay(e: PlaybackException): Boolean {
+        val plex = current?.stream?.plex
+        val engine = engine
+        // Once only: not when the server's stream is the one that failed.
+        val fileUnreadable = e.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED && plex?.streaming == false
+        if (plex == null || engine == null || !fileUnreadable) return false
+        val position = engine.player.currentPosition
+        viewModelScope.launch {
+            val stream = try {
+                plex.directStream()
+            } catch (x: PlexException) {
+                return@launch fail(x.userMessage())
+            }
+            // Moved on to another title meanwhile: this one's stream isn't wanted.
+            if (current?.stream?.plex !== plex) return@launch plex.close()
+            engine.play(stream.url, hls = true, headers = stream.headers)
+            if (position > 0) engine.player.seekTo(position)
+        }
+        return true
+    }
+
     private suspend fun play(p: PlaylistEntity, playing: Playing, fromStart: Boolean) {
         current = playing
         resetForNewStream()
         val engine = engine ?: return
-        engine.play(playing.stream.url, hls = null)
+        engine.play(playing.stream.url, hls = null, headers = playing.stream.plex?.stream?.headers.orEmpty())
         // Resume unless it was nearly finished (or the user asked to start over). From Plex, the row has the server's point.
         val saved = if (fromStart) null else c.vod.progress(p.id, playing.kind, playing.itemId)
         if (saved != null && !saved.finished && saved.positionMs > RESUME_AFTER_MS) {
@@ -208,6 +236,8 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
 
     /** Taken now and written in the app's scope, so it completes even as the screen closes ([stopped]: playback ends). */
     private fun save(stopped: Boolean = false) {
+        // The server's stream ends with playback, saved or not (before it has started, there's nothing to save).
+        if (stopped) current?.stream?.plex?.let { plex -> c.appScope.launch { plex.close() } }
         val row = snapshot() ?: return
         val stream = current?.stream ?: return
         val playing = engine?.player?.isPlaying == true

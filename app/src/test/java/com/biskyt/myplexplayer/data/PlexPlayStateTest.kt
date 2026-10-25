@@ -184,11 +184,25 @@ class PlexPlayStateTest {
     }
 
     @Test
+    fun `a file streamed by the server is stopped there once, when playback closes`() = runBlocking {
+        vod.sync(source)
+        val playback = plex.playback(source, 11, VOD_MOVIE)
+        val stream = playback.directStream()
+        assertTrue(stream.url.startsWith(fake.url + "/video/:/transcode/universal/start.m3u8"))
+        assertEquals(FakePlex.SERVER_TOKEN, stream.headers["X-Plex-Token"])
+        playback.report(PlexPlayState.STOPPED, 60_000, takenAt = 1) {}
+        assertTrue("not stopped by a report", fake.stopped.isEmpty())
+        playback.close()
+        playback.close()
+        assertEquals(1, fake.stopped.size)
+    }
+
+    @Test
     fun `playback reports to the server in one session, its end once, and the series' badge follows`() = runBlocking {
         vod.sync(source)
         assertEquals(2, db.vod().searchSeries(source.id, "Test", 10).single().unwatched)
         val playback = plex.playback(source, 211, VOD_EPISODE)
-        assertTrue(playback.url.startsWith(fake.url + "/library/parts/2101/"))
+        assertTrue(playback.stream.url.startsWith(fake.url + "/library/parts/2101/"))
         playback.report(PlexPlayState.PLAYING, 60_000, takenAt = 1) {}
         playback.report(PlexPlayState.STOPPED, 590_000, takenAt = 2) {}
         playback.report(PlexPlayState.STOPPED, 590_000, takenAt = 3) {} // the player's stop after its end: not sent again

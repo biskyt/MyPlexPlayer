@@ -12,6 +12,7 @@ import com.biskyt.myplexplayer.core.plex.PlexItem
 import com.biskyt.myplexplayer.core.plex.PlexPin
 import com.biskyt.myplexplayer.core.plex.PlexPlayState
 import com.biskyt.myplexplayer.core.plex.PlexServer
+import com.biskyt.myplexplayer.core.plex.PlexStream
 import com.biskyt.myplexplayer.core.plex.PlexType
 import com.biskyt.myplexplayer.core.xtream.EpisodeInfo
 import com.biskyt.myplexplayer.core.xtream.SeasonInfo
@@ -33,7 +34,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 
 /**
@@ -257,10 +257,8 @@ class PlexSources(
         val item = client.item(ratingKey.toString())
         val part = item.part ?: throw PlexException("No file for $ratingKey", reason = PlexException.Reason.UNEXPECTED_RESPONSE)
         progress.positions(p.id, kind, listOf(item), rowFor(client, p.id))
-        // The token goes in the address for now, as the player sends no headers of its own yet.
-        val url = client.directPlay(part).url.toHttpUrl().newBuilder()
-        p.password.takeIf { it.isNotEmpty() }?.let { url.addQueryParameter("X-Plex-Token", it) }
-        return PlexPlayback(url.build().toString(), item, client) { refreshUnwatched(p, client, it) }
+        // The token goes in the request headers, not the address, so it isn't in logs or error reports.
+        return PlexPlayback(client.directPlay(part), item, client) { refreshUnwatched(p, client, it) }
     }
 
     // --- play state (see PlexProgress) ---
@@ -421,13 +419,48 @@ private val PlexException.answered: Boolean
  * (later reports are dropped, and say how the end went), and then [ended] runs with the episode's series, so the
  * series' badge follows.
  */
-class PlexPlayback(val url: String, private val item: PlexItem, private val client: PlexClient, private val ended: suspend (Long) -> Unit) {
+class PlexPlayback(
+    val stream: PlexStream,
+    private val item: PlexItem,
+    private val client: PlexClient,
+    private val ended: suspend (Long) -> Unit
+) {
     private val session = UUID.randomUUID().toString()
     private val mutex = Mutex()
     private var end: Sent? = null
 
+    // Starting and closing the server's stream, one at a time: a close waits for a start under way, so the session
+    // it opens is the one closed.
+    private val streamLock = Mutex()
+
+    /** Whether the server has been asked to stream the file ([directStream]), until [close]. */
+    @Volatile var streaming = false
+        private set
+
     /** The newest progress saved for this playback, so an older save landing late is dropped. */
     private var newest = 0L
+
+    /**
+     * The file repackaged by the server, its picture and sound copied as they are, for a container the player can't
+     * read. Throws [PlexException] when the server could only convert it: never asked for.
+     */
+    suspend fun directStream(): PlexStream = streamLock.withLock {
+        streaming = true // first: a stream the server starts is stopped by [close] even if this is cut short
+        try {
+            client.directStream(item.ratingKey, session)
+        } catch (e: PlexException) {
+            streaming = false // refused (the client has closed the session): asking again may be tried
+            throw e
+        }
+    }
+
+    /** Ends the server's side of a [directStream] (its session would otherwise run on until Plex times it out). */
+    suspend fun close() = streamLock.withLock {
+        if (streaming) {
+            streaming = false
+            send { client.stopStream(session) }
+        }
+    }
 
     /**
      * Runs [save] (the local write) and reports [state] at [timeMs], one save at a time, in the order they were taken

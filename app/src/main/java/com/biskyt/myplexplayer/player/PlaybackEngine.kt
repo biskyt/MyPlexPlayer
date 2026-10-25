@@ -129,9 +129,10 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
 
     /**
      * [hls]: null works the format out from the stream (retrying once as HLS when that fails, see [retryAsHls]).
-     * [userAgent] / [referrer]: some M3U streams only play when these headers are sent.
+     * [userAgent] / [referrer]: some streams only play when these headers are sent. [headers]: sent with every request
+     * for the stream (a Plex server's token, so it isn't in the address).
      */
-    fun play(url: String, hls: Boolean?, userAgent: String? = null, referrer: String? = null) {
+    fun play(url: String, hls: Boolean?, userAgent: String? = null, referrer: String? = null, headers: Map<String, String> = emptyMap()) {
         subtitlesApplied = false
         // A track chosen on the last stream mustn't carry over (or quietly match a different one on this).
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
@@ -143,7 +144,7 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         started = false
         currentInferred = hls == null && url !in hlsUrls
         http.setUserAgent(userAgent ?: USER_AGENT)
-        http.setDefaultRequestProperties(if (referrer != null) mapOf("Referer" to referrer) else emptyMap())
+        http.setDefaultRequestProperties(if (referrer != null) headers + ("Referer" to referrer) else headers)
         val asHls = hls ?: (url in hlsUrls)
         val item = MediaItem.Builder().setUri(url).apply { if (asHls) setMimeType(MimeTypes.APPLICATION_M3U8) }.build()
         if (!start(item)) return
