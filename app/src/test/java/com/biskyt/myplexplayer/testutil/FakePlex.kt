@@ -41,6 +41,17 @@ class FakePlex : AutoCloseable {
     /** How many more times checking the code fails (plex.tv not answering) before it answers again. */
     @Volatile var codeCheckFailures = 0
 
+    /** Play state, by ratingKey: how far in (ms), when last played (s), and the watched ones. */
+    val viewOffset: MutableMap<String, Long> = java.util.concurrent.ConcurrentHashMap()
+    val lastViewedAt: MutableMap<String, Long> = java.util.concurrent.ConcurrentHashMap()
+    val watched: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
+    /** Continue Watching, newest first. */
+    @Volatile var continueWatching: List<String> = emptyList()
+
+    /** The progress reports (timeline) received: ratingKey, state, time and session. */
+    val reports: MutableList<List<String?>> = java.util.Collections.synchronizedList(mutableListOf())
+
     val url: String get() = server.url("/").toString().trimEnd('/')
 
     init {
@@ -72,16 +83,64 @@ class FakePlex : AutoCloseable {
                     add(section("2", "show", "TV Programmes"))
                 }
             }
-            path == "/library/sections/1/all" -> page(request, MOVIES)
-            path == "/library/sections/2/all" -> page(request, SHOWS)
-            path == "/library/metadata/21/allLeaves" -> container { put("Metadata", JsonArray(EPISODES)) }
+            path == "/library/sections/1/all" -> page(request, MOVIES.map(::withState))
+            path == "/library/sections/2/all" -> page(request, SHOWS.map(::withState))
+            path == "/library/metadata/21/allLeaves" -> container { put("Metadata", JsonArray(EPISODES.map(::withState))) }
             path.startsWith("/library/metadata/") ->
-                (MOVIES + SHOWS + EPISODES).firstOrNull { it.string("ratingKey") == path.substringAfterLast('/') }
-                    ?.let { item -> container { putJsonArray("Metadata") { add(item) } } }
+                byKey(path.substringAfterLast('/'))?.let { item -> container { putJsonArray("Metadata") { add(withState(item)) } } }
                     ?: MockResponse().setResponseCode(404)
+            path == "/hubs/continueWatching" -> {
+                val items = continueWatching.map { withState(byKey(it)!!) }
+                container { putJsonArray("Hub") { add(obj { put("Metadata", JsonArray(items)) }) } }
+            }
+            path == "/:/timeline" -> timeline(request)
+            path == "/actions/removeFromContinueWatching" -> {
+                continueWatching = continueWatching - request.requestUrl!!.queryParameter("ratingKey").orEmpty()
+                MockResponse()
+            }
             path == "/photo/:/transcode" -> MockResponse().setBody("")
             else -> MockResponse().setResponseCode(404)
         }
+    }
+
+    private fun byKey(key: String) = (MOVIES + SHOWS + EPISODES).firstOrNull { it.string("ratingKey") == key }
+
+    /** [item] with its play state, as the server lists it (a show: its episodes, and how many are watched). */
+    private fun withState(item: JsonObject): JsonObject {
+        val key = item.string("ratingKey")!!
+        return JsonObject(
+            item + buildMap {
+                viewOffset[key]?.let { put("viewOffset", JsonPrimitive(it)) }
+                lastViewedAt[key]?.let { put("lastViewedAt", JsonPrimitive(it)) }
+                if (key in watched) put("viewCount", JsonPrimitive(1))
+                if (item.string("type") == "show") {
+                    put("leafCount", JsonPrimitive(EPISODES.size))
+                    put("viewedLeafCount", JsonPrimitive(EPISODES.count { it.string("ratingKey") in watched }))
+                }
+            }
+        )
+    }
+
+    /**
+     * A progress report: kept, and as the server does, the resume point saved (and the title first on Continue
+     * Watching, in place of its series' other episode), or watched once past 90%.
+     */
+    private fun timeline(request: RecordedRequest): MockResponse {
+        val url = request.requestUrl!!
+        val key = url.queryParameter("ratingKey")!!
+        val time = url.queryParameter("time")!!.toLong()
+        reports += listOf(key, url.queryParameter("state"), time.toString(), request.getHeader("X-Plex-Session-Identifier"))
+        if (time >= url.queryParameter("duration")!!.toLong() * 9 / 10) {
+            watched += key
+            viewOffset -= key
+        } else {
+            viewOffset[key] = time
+            val show = byKey(key)?.string("grandparentRatingKey")
+            continueWatching =
+                listOf(key) + continueWatching.filter { it != key && (show == null || byKey(it)?.string("grandparentRatingKey") != show) }
+        }
+        lastViewedAt[key] = System.currentTimeMillis() / 1000
+        return MockResponse()
     }
 
     private fun section(key: String, type: String, title: String) = obj {
@@ -215,6 +274,7 @@ class FakePlex : AutoCloseable {
                 put("parentIndex", 1)
                 put("index", n)
                 put("grandparentRatingKey", "21")
+                put("grandparentTitle", "Test Show")
                 put("duration", 600_000)
                 put("Media", media(2100 + n, "mkv"))
             }

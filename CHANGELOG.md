@@ -2,6 +2,13 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.3.0
+- **What you've watched now comes from Plex, and goes back to it**: films and episodes carry on from where you left
+  them in any of your Plex apps, and what you watch here shows as watched there. "Carry on watching" on Home is your
+  server's Continue Watching, including the next episode of a series.
+- Each series' poster shows how many of its episodes you haven't watched yet.
+- Removing something from "Carry on watching" takes it off Plex's Continue Watching too. It keeps how far you got.
+
 ## 0.2.2
 - M3U playlists and the free channels, films and series are no longer offered: MyPlexPlayer is for your Plex servers.
   One added in an earlier version is removed when the app updates, with its favourites and progress.

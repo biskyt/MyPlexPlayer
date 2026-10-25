@@ -112,6 +112,7 @@ class PlexClientTest {
         assertEquals("episode", carryOn.type)
         assertEquals("Test Show", carryOn.grandparentTitle)
         assertEquals(180_013L, carryOn.viewOffset)
+        assertTrue("when it was last played", carryOn.lastViewedAt!! > 1_600_000_000)
 
         assertEquals(setOf("movie", "show"), client.search("Test").map { it.type }.toSet())
         server.takeRequest()
@@ -154,6 +155,15 @@ class PlexClientTest {
             assertEquals("com.plexapp.plugins.library", request.requestUrl!!.queryParameter("identifier"))
             assertEquals("4", request.requestUrl!!.queryParameter("key"))
         }
+    }
+
+    @Test
+    fun `taking a title off continue watching`() = runTest {
+        client.removeFromContinueWatching("4")
+        val request = server.takeRequest()
+        assertEquals("PUT", request.method)
+        assertEquals("/actions/removeFromContinueWatching", request.requestUrl!!.encodedPath)
+        assertEquals("4", request.requestUrl!!.queryParameter("ratingKey"))
     }
 
     @Test

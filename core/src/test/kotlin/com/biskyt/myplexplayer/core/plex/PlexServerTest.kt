@@ -1,6 +1,7 @@
 package com.biskyt.myplexplayer.core.plex
 
 import java.util.UUID
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -25,6 +26,9 @@ class PlexServerTest {
         PlexServer(requireNotNull(System.getProperty("plex.server")) { "plex.server isn't set" }, null),
         PlexDevice(clientId = "plex-server-test", product = "MyPlexPlayer", version = "test"),
     )
+
+    /** Waits into the next second: the server times plays in whole seconds, so one in the same second isn't later. */
+    private suspend fun nextSecond() = delay(1000 - System.currentTimeMillis() % 1000 + 50)
 
     private suspend fun section(type: String) = client.sections().single { it.type == type }.key
 
@@ -63,6 +67,52 @@ class PlexServerTest {
         client.item(episode.ratingKey).let {
             assertNull(it.viewCount)
             assertNull(it.viewOffset)
+        }
+    }
+
+    @Test
+    fun `a series counts its watched episodes, for the unwatched badge`() = runBlocking {
+        val show = client.recentlyAdded(section("show"), PlexType.SHOW, 1).single()
+        val first = client.episodes(show.ratingKey).first()
+        client.setWatched(first.ratingKey, watched = true)
+        try {
+            val listed = client.page(section("show"), PlexType.SHOW, 0, 10).items.single()
+            assertEquals(2, listed.leafCount)
+            assertEquals(1, listed.viewedLeafCount)
+            assertTrue("when it was played", client.item(first.ratingKey).lastViewedAt!! > 0)
+        } finally {
+            client.setWatched(first.ratingKey, watched = false)
+        }
+    }
+
+    @Test
+    fun `a title taken off continue watching`() = runBlocking {
+        val film = movie()
+        val session = UUID.randomUUID().toString()
+        client.timeline(film, PlexPlayState.PLAYING, 120_000, session)
+        client.timeline(film, PlexPlayState.STOPPED, 120_000, session)
+        assertTrue(client.continueWatching().any { it.ratingKey == film.ratingKey })
+        client.removeFromContinueWatching(film.ratingKey)
+        assertTrue(client.continueWatching().none { it.ratingKey == film.ratingKey })
+        client.setWatched(film.ratingKey, watched = false)
+    }
+
+    @Test
+    fun `an episode taken off continue watching leaves only itself off`() = runBlocking {
+        val (first, second) = client.episodes(client.recentlyAdded(section("show"), PlexType.SHOW, 1).single().ratingKey)
+        try {
+            client.timeline(first, PlexPlayState.STOPPED, 120_000, UUID.randomUUID().toString())
+            client.removeFromContinueWatching(first.ratingKey)
+            assertTrue(client.continueWatching().none { it.ratingKey == first.ratingKey })
+            // Its series comes back with the next episode played, or the same one again (later than the removal).
+            nextSecond()
+            client.timeline(second, PlexPlayState.STOPPED, 120_000, UUID.randomUUID().toString())
+            assertTrue(client.continueWatching().any { it.ratingKey == second.ratingKey })
+            nextSecond()
+            client.timeline(first, PlexPlayState.STOPPED, 200_000, UUID.randomUUID().toString())
+            assertTrue(client.continueWatching().any { it.ratingKey == first.ratingKey })
+        } finally {
+            listOf(first, second).forEach { client.setWatched(it.ratingKey, watched = false) }
         }
     }
 

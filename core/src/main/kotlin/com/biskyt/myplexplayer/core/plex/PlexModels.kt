@@ -84,6 +84,8 @@ data class PlexItem(
     val duration: Long? = null,
     val viewOffset: Long? = null,
     val viewCount: Int? = null,
+    /** When it was last played, in seconds since 1970. */
+    val lastViewedAt: Long? = null,
     val addedAt: Long? = null,
     val leafCount: Int? = null,
     val viewedLeafCount: Int? = null,

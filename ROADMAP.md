@@ -27,14 +27,15 @@ Each step is its own pull request.
    favourite Live TV channels. Live TV goes last in the menu, on Home and in search results. Empty rows are hidden.
 5. **Playback from Plex:** direct play, with the server's transcoder as the fallback; resume points and watched state
    kept in Plex.
+   - Done (0.3.0): play state from and to the server (resume points, watched, Continue Watching as "Carry on
+     watching", unwatched badges on series).
+   - Next: direct stream for files the player can't read, the token in headers rather than the address, Mark as
+     watched / unwatched, and a playback info panel.
 6. **Live TV and the TV guide from Plex.**
 7. **DVR** in place of Catch-up: recordings, what's scheduled, and Record from the TV guide.
 
 ## Near future (owner's priorities, 2026-10-25)
-- **Play state from the server:** what's been watched, and how far, comes from Plex and goes back to it, so it
-  matches the owner's other Plex apps and devices. Today the app keeps its own resume points, and Plex's only start
-  with step 5. With it, each series' poster gets a badge with its number of unwatched episodes (a show's `leafCount`
-  less its `viewedLeafCount`).
+- **Play state from the server:** done in 0.3.0 (see step 5).
 - **Skip intro (and credits):** Plex marks a title's intro and credits (`includeMarkers=1` on a title's metadata
   gives its Marker list), as Plezy uses. As the owner set it out:
   - **Settings:** auto skip intro, and auto skip credits, each Off or a delay of 0 to 10 seconds (default 3).
