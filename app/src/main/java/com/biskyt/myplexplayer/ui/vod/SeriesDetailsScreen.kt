@@ -20,6 +20,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -106,7 +109,14 @@ class SeriesDetailsViewModel(
     }
 
     /** Marks [e] watched or unwatched on the server, and its row follows (out of reach, nothing changes). */
-    fun setWatched(e: EpisodeInfo, watched: Boolean) = viewModelScope.launch { c.vod.setWatched(playlistId, e.id, seriesId, watched) }
+    fun setWatched(e: EpisodeInfo, watched: Boolean) {
+        // The list stays on this season (it otherwise follows the episode to carry on with, which this may move on).
+        if (season == null) season = e.season
+        viewModelScope.launch { c.vod.setWatched(playlistId, e.id, seriesId, watched) }
+    }
+
+    /** Whether the remote is in the episode list: changes made there (marking one watched) leave it there. */
+    var listFocused by mutableStateOf(false)
 
     fun toggleFavourite() = viewModelScope.launch { c.vod.setFavourite(playlistId, CAT_SERIES, seriesId, !favourite.value) }
 }
@@ -148,8 +158,7 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
                         shortEpisodeLabel(next.season, next.number)
                     ),
                     { play(next) },
-                    // Once, when the episodes come: not again when marking one changes which is next.
-                    if (target == null || !vm.focusEpisodePending) rememberFirstFocus() else Modifier,
+                    if (target == null || !vm.focusEpisodePending) playFocus(vm, next.id) else Modifier,
                     primary = true
                 )
             }
@@ -194,7 +203,12 @@ private fun Episodes(
         val i = shown.indexOf(target)
         if (vm.focusEpisodePending && i >= 0) list.scrollToItem(i)
     }
-    LazyColumn(state = list, verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(
+        state = list,
+        modifier = Modifier.onFocusChanged { vm.listFocused = it.hasFocus },
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        contentPadding = PaddingValues(bottom = 24.dp)
+    ) {
         items(shown, key = { it.id }) { e ->
             val focus = Modifier.restoreFocusIf(vm.focusEpisodePending && e == target) { vm.focusEpisodePending = false }
             EpisodeRow(e, progress[e.id], focus, onLongClick = { vm.optionsFor = e }.takeIf { vm.canMark }) { play(e) }
@@ -202,12 +216,26 @@ private fun Episodes(
     }
     vm.optionsFor?.let { e ->
         val close = { vm.optionsFor = null }
-        val action = markWatched(progress[e.id]?.finished == true) {
+        val saved = progress[e.id]
+        val set = { watched: Boolean ->
             close()
-            vm.setWatched(e, it)
+            vm.setWatched(e, watched)
         }
-        ItemActionsPanel(episodeName(e), listOf(action), close)
+        // One partly watched can be counted as watched, or started again (its progress forgotten).
+        val actions = listOfNotNull(
+            if (saved?.finished != true) markWatched(false, set) else null,
+            if (saved != null) markWatched(true, set) else null
+        )
+        ItemActionsPanel(episodeName(e), actions, close)
     }
+}
+
+/** Focus for Play as the page opens and whenever where to carry on changes, unless the remote is in the episode list. */
+@Composable
+private fun playFocus(vm: SeriesDetailsViewModel, key: Any): Modifier {
+    val r = remember { FocusRequester() }
+    LaunchedEffect(key) { if (!vm.listFocused) runCatching { r.requestFocus() } }
+    return Modifier.focusRequester(r)
 }
 
 @Composable

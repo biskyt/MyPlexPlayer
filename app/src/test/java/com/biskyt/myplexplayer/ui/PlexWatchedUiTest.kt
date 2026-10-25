@@ -12,11 +12,13 @@ import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
+import com.biskyt.myplexplayer.testutil.focusedText
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -24,7 +26,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** A poster's options mark a film watched, then unwatched, on the server. */
+/** A poster's options (or an episode's) mark a film (or an episode) watched, then unwatched, on the server. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestApp::class, qualifiers = "+w960dp-h540dp-tvdpi")
 class PlexWatchedUiTest {
@@ -46,10 +48,11 @@ class PlexWatchedUiTest {
     @After
     fun tearDown() = plex.close()
 
-    /** Holds OK on [title] (a poster, or an episode) and picks [action] from its options. */
-    private fun choose(action: String, title: String = "Big Buck Bunny") {
+    /** Holds OK on [title] (a poster, or an episode) and picks [action] from its options (once [alsoShown] is there too). */
+    private fun choose(action: String, title: String = "Big Buck Bunny", alsoShown: String? = null) {
         compose.waitForText(title, stepMs = 50)
         compose.onAllNodes(hasText(title) and hasClickAction())[0].performSemanticsAction(SemanticsActions.OnLongClick)
+        alsoShown?.let { compose.waitForText(it, stepMs = 50) }
         compose.waitForText(action, stepMs = 50)
         compose.onNode(hasText(action) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
     }
@@ -77,5 +80,32 @@ class PlexWatchedUiTest {
         compose.waitAdvancingClock(stepMs = 50) { "211" in plex.watched && finished(VOD_EPISODE, 211) }
         choose("Mark as unwatched", title = "Pilot")
         compose.waitAdvancingClock(stepMs = 50) { "211" !in plex.watched && !finished(VOD_EPISODE, 211) }
+    }
+
+    @Test
+    fun `marking an episode leaves the remote on it`() {
+        val navigator = navigators.new(Screen.SeriesDetails(source, 21))
+        compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
+        compose.waitForText("Play S1 E1", stepMs = 50)
+        compose.onNode(hasText("Pilot") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
+        compose.waitAdvancingClock { "Pilot" in compose.focusedText() }
+
+        choose("Mark as watched", title = "Pilot")
+        // Where to carry on moves to the next episode; the remote stays on the one marked.
+        compose.waitForText("Continue: S1 E2", stepMs = 50)
+        compose.waitAdvancingClock(stepMs = 50) { finished(VOD_EPISODE, 211) }
+        assertTrue(compose.focusedText(), "Pilot" in compose.focusedText())
+    }
+
+    @Test
+    fun `a part-watched episode can be counted as watched or started again`() {
+        plex.viewOffset["211"] = 120_000
+        runBlocking { app.container.vod.sync(app.container.db.playlists().get(source)!!) }
+        val navigator = navigators.new(Screen.SeriesDetails(source, 21))
+        compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
+        compose.waitForText("Continue: S1 E1", stepMs = 50)
+        choose("Mark as unwatched", title = "Pilot", alsoShown = "Mark as watched")
+        // Unwatched on the server forgets the resume point too.
+        compose.waitAdvancingClock(stepMs = 50) { "211" !in plex.viewOffset }
     }
 }

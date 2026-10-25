@@ -2,6 +2,12 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.4.3
+- **The TV guide:** one programme the app couldn't read made it drop the whole guide from your Plex server, leaving
+  channels without what's on. Now only that programme is left out.
+- A part-watched episode's options offer both Mark as watched and Mark as unwatched (which starts it again). Marking
+  an episode keeps the list on its season, and the remote on the episode.
+
 ## 0.4.2
 - **Catch-up is gone**, from the menu, the TV guide, channel options and the player: it came from IPTV providers,
   and the DVR (recording from the Plex guide) is planned in its place. The TV guide now starts from what's on now.
