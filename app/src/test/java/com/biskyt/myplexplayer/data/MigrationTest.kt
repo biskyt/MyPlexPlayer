@@ -172,4 +172,28 @@ class MigrationTest {
             assertEquals(listOf(1L, 3L), ids("SELECT sourceId FROM programme ORDER BY sourceId"))
         }
     }
+
+    @Test
+    fun `version 9 to 10 keeps progress on carry on watching in its order, and series' badges unknown`() {
+        helper.createDatabase("migration-test-10", 9).use { db ->
+            db.execSQL(
+                "INSERT INTO watch_progress (playlistId, kind, itemId, positionMs, durationMs, updatedAt, title, hasNext) " +
+                    "VALUES (1, 'movie', 501, 1, 2, 3, 'Film', 0)"
+            )
+            db.execSQL(
+                "INSERT INTO series (playlistId, seriesId, title, categoryId, lastModified, position, syncStamp) VALUES (1, 77, 'S', '1', 0, 0, 0)"
+            )
+        }
+        helper.runMigrationsAndValidate("migration-test-10", 10, true).use { db ->
+            db.query("SELECT carryOnAt, pending FROM watch_progress").use {
+                it.moveToFirst()
+                assertEquals("on Carry on watching, in the order last played", 3L, it.getLong(0))
+                assertEquals(0, it.getInt(1))
+            }
+            db.query("SELECT unwatched FROM series").use {
+                it.moveToFirst()
+                assertTrue(it.isNull(0))
+            }
+        }
+    }
 }
