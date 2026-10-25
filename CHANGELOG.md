@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.3.6
+- **Playback info:** while watching, More › Playback info shows how it's playing (the file as it is, or repackaged by
+  your server), the picture (size, codec, Dolby Vision or HDR, frame rate), which decoder plays it, the sound and
+  where it goes, and any dropped frames.
+
 ## 0.3.5
 - **Mark as watched / unwatched:** hold OK on a poster in Films or Series, or on something in "Carry on watching". It
   changes on your Plex server too, so your other Plex apps agree.

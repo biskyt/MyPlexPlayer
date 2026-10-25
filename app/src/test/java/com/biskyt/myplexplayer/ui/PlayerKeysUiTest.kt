@@ -2,12 +2,15 @@ package com.biskyt.myplexplayer.ui
 
 import androidx.compose.runtime.remember
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.ChannelFilter
@@ -164,6 +167,26 @@ class PlayerKeysUiTest {
         press(Key.Menu)
         waitGone("Sleep timer")
         assertTrue(navigator.current.screen is Screen.Player) // still playing
+    }
+
+    @Test
+    fun `playback info takes focus from the More panel, and the menu button closes it`() {
+        show(Screen.Player(playlistId, 101, ChannelFilter.All))
+        waitFor("Channel guide")
+        press(Key.Menu)
+        waitFor("Playback info")
+        compose.onNode(hasText("Playback info") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("Video:")
+        // Media buttons reach the panel, so it has focus.
+        press(Key.MediaFastForward)
+        waitFor("Skipping isn't available here")
+        press(Key.Menu)
+        waitFor("Playback info")
+        compose.onNode(hasText("Playback info") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("Video:")
+        press(Key.Menu)
+        waitGone("Video:")
+        assertTrue(compose.onAllNodes(hasText("Sleep timer", substring = true)).fetchSemanticsNodes().isEmpty()) // not back to More
     }
 
     @Test

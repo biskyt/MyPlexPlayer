@@ -213,20 +213,21 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
      */
     fun audioOutputLabel(tracks: Tracks = player.currentTracks, playing: Format? = player.audioFormat): String {
         // The format being played when known (it has the real channel count); else the chosen track's.
-        val f = playing ?: selectedAudioFormat(tracks) ?: return appString(R.string.player_audio_none)
+        val f = playing ?: selectedFormat(tracks, C.TRACK_TYPE_AUDIO) ?: return appString(R.string.player_audio_none)
         val name = encodedName(f.sampleMimeType)
         if (name != null && settings.audioPassthrough) {
             val caps = AudioCapabilities.getCapabilities(context, AudioAttributes.DEFAULT, null)
             if (caps.isPassthroughPlaybackSupported(f, AudioAttributes.DEFAULT)) return appString(R.string.player_audio_passthrough, name)
         }
-        val channels = f.channelCount.takeIf { it != Format.NO_VALUE } ?: 2
-        val layout = if (channels > 2) appString(R.string.player_track_channels, channels) else appString(R.string.player_audio_stereo)
+        val layout = channelLayout(f.channelCount.takeIf { it != Format.NO_VALUE } ?: 2)
         return if (name != null) appString(R.string.player_audio_decoded, name, layout) else appString(R.string.player_audio_layout, layout)
     }
 
-    private fun selectedAudioFormat(tracks: Tracks): Format? = tracks.groups
-        .firstOrNull { it.type == C.TRACK_TYPE_AUDIO && it.isSelected }
-        ?.let { g -> (0 until g.length).firstOrNull(g::isTrackSelected)?.let(g::getTrackFormat) }
+    /** Frames the video decoder dropped so far, if it has started. */
+    fun droppedFrames(): Int? = player.videoDecoderCounters?.run {
+        ensureUpdated()
+        droppedBufferCount
+    }
 
     fun release() {
         handler.removeCallbacks(checkStall)
@@ -268,17 +269,27 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         /** Buffering this long without getting any further counts as a failure. */
         const val STALL_MS = 20_000L
         const val STALL_CHECK_MS = 5_000L
-
-        fun encodedName(mime: String?): String? = when (mime) {
-            MimeTypes.AUDIO_AC3 -> "Dolby Digital"
-            MimeTypes.AUDIO_E_AC3 -> "Dolby Digital Plus"
-            MimeTypes.AUDIO_E_AC3_JOC -> "Dolby Atmos"
-            MimeTypes.AUDIO_AC4 -> "Dolby AC-4"
-            MimeTypes.AUDIO_TRUEHD -> "Dolby TrueHD"
-            MimeTypes.AUDIO_DTS -> "DTS"
-            MimeTypes.AUDIO_DTS_HD -> "DTS-HD"
-            MimeTypes.AUDIO_DTS_X -> "DTS:X"
-            else -> null
-        }
     }
+}
+
+/** The track of [type] playing, if any. */
+fun selectedFormat(tracks: Tracks, type: Int): Format? = tracks.groups.firstOrNull { it.type == type && it.isSelected }
+    ?.let { g -> (0 until g.length).firstOrNull(g::isTrackSelected)?.let(g::getTrackFormat) }
+
+/** "Stereo" for two channels or fewer, else the count ("6ch"). */
+fun channelLayout(channels: Int): String =
+    if (channels > 2) appString(R.string.player_track_channels, channels) else appString(R.string.player_audio_stereo)
+
+/** The brand name of a surround sound format (Dolby, DTS), if it is one. */
+@OptIn(UnstableApi::class)
+fun encodedName(mime: String?): String? = when (mime) {
+    MimeTypes.AUDIO_AC3 -> "Dolby Digital"
+    MimeTypes.AUDIO_E_AC3 -> "Dolby Digital Plus"
+    MimeTypes.AUDIO_E_AC3_JOC -> "Dolby Atmos"
+    MimeTypes.AUDIO_AC4 -> "Dolby AC-4"
+    MimeTypes.AUDIO_TRUEHD -> "Dolby TrueHD"
+    MimeTypes.AUDIO_DTS -> "DTS"
+    MimeTypes.AUDIO_DTS_HD -> "DTS-HD"
+    MimeTypes.AUDIO_DTS_X -> "DTS:X"
+    else -> null
 }
