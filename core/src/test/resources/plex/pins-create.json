@@ -1,0 +1,13 @@
+{
+  "id": 1001,
+  "code": "ABCD",
+  "product": "MyPlexPlayer",
+  "trusted": false,
+  "qr": "https://plex.tv/api/v2/pins/qr/ABCD",
+  "clientIdentifier": "client-1",
+  "expiresIn": 900,
+  "createdAt": "2026-10-24T23:52:05Z",
+  "expiresAt": "2026-10-25T00:07:05Z",
+  "authToken": null,
+  "newRegistration": null
+}
