@@ -8,6 +8,7 @@ on:
   pull_request:
     paths:
       - "spikes/**"
+      - "!spikes/dv-diagnostics/**" # its own workflow: dv-diagnostics.yml
       - "core/src/*/kotlin/com/biskyt/myplexplayer/core/plex/**"
       - "core/build.gradle.kts"
       - "gradle/libs.versions.toml"
