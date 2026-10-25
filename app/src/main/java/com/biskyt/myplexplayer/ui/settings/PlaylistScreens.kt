@@ -66,6 +66,12 @@ class PlaylistsViewModel(private val c: AppContainer) : ViewModel() {
         then()
     }
 
+    /** Removes [p]; [onRemoved] is told whether any source is left. */
+    fun remove(p: PlaylistEntity, onRemoved: (Boolean) -> Unit) = viewModelScope.launch {
+        c.playlists.delete(p.id)
+        onRemoved(c.playlists.allIds().isNotEmpty())
+    }
+
     private val work = WorkRunner(c.appScope, viewModelScope, c.sync.state)
 
     /** Progress and the outcome of the last update from this page. */
@@ -155,14 +161,23 @@ fun PlaylistsScreen() {
                     }
                 }
                 PillButton(stringResource(R.string.settings_playlist_update_now), { vm.update(p) })
-                PillButton(stringResource(R.string.settings_playlist_edit), { nav.push(Screen.PlaylistEdit(p.id)) })
+                // A Plex server has nothing to type in (its address and token come from the account): only removing.
+                if (p.isPlex) {
+                    PillButton(stringResource(R.string.common_remove), { vm.remove(p) { any -> if (!any) nav.reset(Screen.Welcome) } })
+                } else {
+                    PillButton(stringResource(R.string.settings_playlist_edit), { nav.push(Screen.PlaylistEdit(p.id)) })
+                }
             }
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                PillButton(stringResource(R.string.settings_playlist_add), {
-                    nav.push(Screen.PlaylistEdit(null))
-                }, if (playlists.isEmpty()) rememberFirstFocus() else Modifier, primary = playlists.isEmpty())
+                PillButton(
+                    stringResource(R.string.settings_playlist_add_plex),
+                    { nav.push(Screen.PlexSignIn()) },
+                    if (playlists.isEmpty()) rememberFirstFocus() else Modifier,
+                    primary = playlists.isEmpty()
+                )
+                PillButton(stringResource(R.string.settings_playlist_add), { nav.push(Screen.PlaylistEdit(null)) })
                 // The free channels can be typed in as an M3U address too, but that's a long one to enter with a remote.
                 if (playlists.none { it.isFree }) {
                     PillButton(
@@ -223,7 +238,13 @@ private fun expiryText(e: Expiry): String {
 }
 
 private fun playlistDetails(p: PlaylistEntity): String {
-    val parts = mutableListOf(if (p.isM3u) "M3U" else "Xtream")
+    val parts = mutableListOf(
+        when {
+            p.isPlex -> "Plex"
+            p.isM3u -> "M3U"
+            else -> "Xtream"
+        }
+    )
     if (p.lastSyncAt > 0) parts += appString(R.string.common_updated_at, formatDateTime(p.lastSyncAt))
     return parts.joinToString(" · ")
 }

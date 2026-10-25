@@ -8,10 +8,12 @@ import kotlinx.serialization.Serializable
 
 const val KIND_XTREAM = "xtream"
 const val KIND_M3U = "m3u"
+const val KIND_PLEX = "plex"
 
 /**
- * An IPTV source. [kind] is [KIND_XTREAM] (server + login) or [KIND_M3U] ([server] holds the playlist URL and the
- * login fields are empty).
+ * A source. [kind] is [KIND_PLEX] (a Plex Media Server: [server] is the address chosen for it, [password] its access
+ * token and [machineId] its identifier), [KIND_XTREAM] (server + login) or [KIND_M3U] ([server] holds the playlist
+ * URL and the login fields are empty).
  */
 @Entity(tableName = "playlist")
 @Serializable
@@ -29,9 +31,13 @@ data class PlaylistEntity(
     val moviesUrl: String? = null,
     val seriesUrl: String? = null,
     /** A fingerprint of the movie and series playlists last loaded, so unchanged ones aren't loaded again. */
-    val vodFeedHash: Long? = null
+    val vodFeedHash: Long? = null,
+    /** Plex: the server's machine identifier, which stays the same when its address changes. */
+    val machineId: String? = null
 ) {
     val isM3u: Boolean get() = kind == KIND_M3U
+    val isPlex: Boolean get() = kind == KIND_PLEX
+    val isXtream: Boolean get() = kind == KIND_XTREAM
 
     /** Whether it has movies and series: Xtream accounts, and M3U playlists with a movie or series playlist. */
     val hasVod: Boolean get() = !isM3u || !moviesUrl.isNullOrBlank() || !seriesUrl.isNullOrBlank()
