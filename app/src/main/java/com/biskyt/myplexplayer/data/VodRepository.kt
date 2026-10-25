@@ -7,6 +7,7 @@ import androidx.paging.PagingData
 import androidx.room.withTransaction
 import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.plex.PlexItem
+import com.biskyt.myplexplayer.core.plex.PlexPlayState
 import com.biskyt.myplexplayer.core.plex.PlexType
 import com.biskyt.myplexplayer.core.vod.VodTitles
 import com.biskyt.myplexplayer.core.xtream.SeriesDetails
@@ -20,6 +21,8 @@ import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.data.db.MovieEntity
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
 import com.biskyt.myplexplayer.data.db.SeriesEntity
+import com.biskyt.myplexplayer.data.db.VOD_EPISODE
+import com.biskyt.myplexplayer.data.db.VOD_MOVIE
 import com.biskyt.myplexplayer.data.db.VodCard
 import com.biskyt.myplexplayer.data.db.VodFavouriteEntity
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
@@ -139,6 +142,22 @@ class VodRepository(
 
     fun observeCarryOn(playlistId: Long, limit: Int = 12) = vod.observeCarryOn(playlistId, limit, WatchProgressEntity.FINISHED_FRACTION)
 
+    /**
+     * Where playback of [stream] has got to ([row]), as it plays ([playing]) or pauses, or when it [stopped]. From
+     * Plex it's reported to the server too, the row marked pending until it gets there. Otherwise a stop also drops
+     * the oldest rows beyond the cap (Plex's mirror the server's, so aren't capped).
+     */
+    suspend fun saveProgress(row: WatchProgressEntity, stream: VodStream, playing: Boolean, stopped: Boolean) {
+        val plex = stream.plex ?: return saveProgress(row, trim = stopped)
+        val state = when {
+            stopped -> PlexPlayState.STOPPED
+            playing -> PlexPlayState.PLAYING
+            else -> PlexPlayState.PAUSED
+        }
+        val sent = plex.report(state, row.positionMs, row.updatedAt) { vod.saveProgress(row.copy(pending = true)) }
+        if (sent != null && sent != Sent.NOT_YET) vod.reported(row.playlistId, row.kind, row.itemId, row.updatedAt)
+    }
+
     /** Saves progress; [trim] (when playback stops) also drops the oldest rows beyond the cap, in the same write. */
     suspend fun saveProgress(p: WatchProgressEntity, trim: Boolean = false) {
         if (!trim) return vod.saveProgress(p)
@@ -148,10 +167,23 @@ class VodRepository(
         }
     }
 
-    /** Takes a movie, or a whole series, off "Carry on watching": forgets how far it got (for a series, every episode). */
-    suspend fun forgetProgress(p: WatchProgressEntity) {
+    /**
+     * Takes a movie, or a whole series, off "Carry on watching": forgets how far it got (for a series, every episode).
+     * From Plex, it keeps how far it got (the server does), and comes off the server's Continue Watching first:
+     * out of reach, it stays on (false), as it would come back with the next sync.
+     */
+    suspend fun forgetProgress(p: WatchProgressEntity): Boolean {
         val series = p.seriesId
-        if (series == null) vod.deleteMovieProgress(p.playlistId, p.itemId) else vod.deleteSeriesProgress(p.playlistId, series)
+        val source = playlists.get(p.playlistId)
+        if (source?.isPlex == true) {
+            if (send { plex.removeFromContinueWatching(source, p.itemId) } == Sent.NOT_YET) return false
+            if (series == null) vod.leaveMovieCarryOn(p.playlistId, p.itemId) else vod.leaveSeriesCarryOn(p.playlistId, series)
+        } else if (series == null) {
+            vod.deleteMovieProgress(p.playlistId, p.itemId)
+        } else {
+            vod.deleteSeriesProgress(p.playlistId, series)
+        }
+        return true
     }
 
     // --- details (fetched when opened) ---
@@ -159,33 +191,47 @@ class VodRepository(
     private val movieDetails = LruCache<String, VodDetails>(DETAILS_CACHE)
     private val seriesDetails = LruCache<String, SeriesDetails>(DETAILS_CACHE)
 
-    suspend fun movieDetails(p: PlaylistEntity, streamId: Long): VodDetails = movieDetails.getOrPut("${p.id}:$streamId") {
-        if (p.isPlex) {
+    /**
+     * A movie's page (kept, once fetched). From Plex, it brings the film's play state too, again each time when
+     * [withState] (a page opening), even when the page is kept.
+     */
+    suspend fun movieDetails(p: PlaylistEntity, streamId: Long, withState: Boolean = true): VodDetails {
+        val key = "${p.id}:$streamId"
+        movieDetails.get(key)?.let { kept ->
+            if (withState && p.isPlex) offlineOk { plex.movieState(p, streamId) }
+            return kept
+        }
+        val fetched = if (p.isPlex) {
             withUserPlexErrors { plex.movieDetails(p, streamId) }
         } else {
             withUserXtreamErrors { playlists.client(p).movieDetails(streamId) }
         }
+        return fetched.also { movieDetails.put(key, it) }
     }
 
-    suspend fun seriesDetails(p: PlaylistEntity, seriesId: Long): SeriesDetails = seriesDetails.getOrPut("${p.id}:$seriesId") {
-        if (p.isPlex) {
+    /** A series' page and episodes (kept, once fetched); from Plex, with their play state, as [movieDetails]. */
+    suspend fun seriesDetails(p: PlaylistEntity, seriesId: Long, withState: Boolean = true): SeriesDetails {
+        val key = "${p.id}:$seriesId"
+        seriesDetails.get(key)?.let { kept ->
+            if (withState && p.isPlex) offlineOk { plex.seriesState(p, seriesId) }
+            return kept
+        }
+        val fetched = if (p.isPlex) {
             withUserPlexErrors { plex.seriesDetails(p, seriesId) }
         } else {
             withUserXtreamErrors { playlists.client(p).seriesDetails(seriesId) }
         }
+        return fetched.also { seriesDetails.put(key, it) }
     }
 
-    suspend fun movieUrl(p: PlaylistEntity, m: MovieEntity): String = if (p.isPlex) {
-        withUserPlexErrors { plex.playUrl(p, m.streamId) }
-    } else {
-        playlists.client(p).movieUrl(m.streamId, m.extension)
-    }
+    suspend fun movieStream(p: PlaylistEntity, m: MovieEntity): VodStream =
+        if (p.isPlex) plexStream(p, m.streamId, VOD_MOVIE) else VodStream(playlists.client(p).movieUrl(m.streamId, m.extension))
 
-    suspend fun episodeUrl(p: PlaylistEntity, episodeId: Long, extension: String): String = if (p.isPlex) {
-        withUserPlexErrors { plex.playUrl(p, episodeId) }
-    } else {
-        playlists.client(p).episodeUrl(episodeId, extension)
-    }
+    suspend fun episodeStream(p: PlaylistEntity, episodeId: Long, extension: String): VodStream =
+        if (p.isPlex) plexStream(p, episodeId, VOD_EPISODE) else VodStream(playlists.client(p).episodeUrl(episodeId, extension))
+
+    private suspend fun plexStream(p: PlaylistEntity, id: Long, kind: String) =
+        withUserPlexErrors { plex.playback(p, id, kind).let { VodStream(it.url, it) } }
 
     // --- sync ---
 
@@ -259,9 +305,11 @@ class VodRepository(
 
     private suspend fun syncPlexAt(p: PlaylistEntity, onProgress: (Int) -> Unit) {
         val client = plex.client(p)
+        plex.sendPending(p, client)
         // Fetched here, not by syncKind, which reads a failure as "no films": a server that can't be reached says so.
         val libraries = plex.libraries(client)
         var position = 0 // the server's order (by title), across libraries
+        val films = mutableListOf<PlexItem>() // for their play state, after
 
         // Asked for all at once, the included libraries: Plex lists one library at a time anyway.
         fun titles(type: PlexType, category: String): suspend (String?, suspend (Pair<String, PlexItem>) -> Unit) -> Unit =
@@ -279,7 +327,7 @@ class VodRepository(
             vod::deleteStaleMovies,
             onProgress,
             libraries = true
-        ) { title, stamp -> plex.movie(client, p.id, title, position++, stamp) }
+        ) { title, stamp -> plex.movie(client, p.id, title, position++, stamp)?.also { films += title.second.playState() } }
         syncKind(
             p.id,
             CAT_SERIES,
@@ -291,6 +339,7 @@ class VodRepository(
             { onProgress(movies + it) },
             libraries = true
         ) { title, stamp -> plex.series(client, p.id, title, position++, stamp) }
+        plex.syncPlayState(p, client, films)
     }
 
     /** One list (movies or series): categories, then the included items in batches, then what the provider dropped. */
@@ -325,9 +374,6 @@ class VodRepository(
         return batch.count
     }
 
-    /** The cached value for [key], or [load]'s, cached. */
-    private inline fun <V : Any> LruCache<String, V>.getOrPut(key: String, load: () -> V): V = get(key) ?: load().also { put(key, it) }
-
     private companion object {
         const val BATCH = 2_000
         const val DETAILS_CACHE = 20
@@ -335,3 +381,6 @@ class VodRepository(
         const val FIND_LIMIT = 500
     }
 }
+
+/** Where a film or episode plays from, and for one from Plex, its [plex] playback (to report to). */
+data class VodStream(val url: String, val plex: PlexPlayback? = null)

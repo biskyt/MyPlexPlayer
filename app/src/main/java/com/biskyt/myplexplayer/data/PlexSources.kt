@@ -10,6 +10,7 @@ import com.biskyt.myplexplayer.core.plex.PlexDevice
 import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.plex.PlexItem
 import com.biskyt.myplexplayer.core.plex.PlexPin
+import com.biskyt.myplexplayer.core.plex.PlexPlayState
 import com.biskyt.myplexplayer.core.plex.PlexServer
 import com.biskyt.myplexplayer.core.plex.PlexType
 import com.biskyt.myplexplayer.core.xtream.EpisodeInfo
@@ -22,9 +23,16 @@ import com.biskyt.myplexplayer.data.db.KIND_PLEX
 import com.biskyt.myplexplayer.data.db.MovieEntity
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
 import com.biskyt.myplexplayer.data.db.SeriesEntity
+import com.biskyt.myplexplayer.data.db.VOD_EPISODE
+import com.biskyt.myplexplayer.data.db.VOD_MOVIE
+import com.biskyt.myplexplayer.data.db.WatchProgressEntity
+import java.io.IOException
+import java.util.UUID
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 
@@ -43,6 +51,9 @@ class PlexSources(
     var plexTv: String = PlexAccount.PLEX_TV
 
     private val playlists = db.playlists()
+
+    /** The server's play state, brought into the app's progress rows. */
+    val progress = PlexProgress(db)
 
     private var device: PlexDevice? = null
 
@@ -171,6 +182,7 @@ class PlexSources(
             lastModified = s.addedAt ?: 0,
             position = position,
             syncStamp = stamp,
+            unwatched = unwatched(s),
         )
     }
 
@@ -178,18 +190,23 @@ class PlexSources(
     fun image(client: PlexClient, path: String?, width: Int = POSTER_WIDTH, height: Int = POSTER_HEIGHT): String? =
         path?.let { client.imageUrl(it, width, height) }
 
+    /** A film's page, bringing its play state from the server into its progress row. */
     suspend fun movieDetails(p: PlaylistEntity, ratingKey: Long): VodDetails {
         val client = client(p)
-        return details(client, client.item(ratingKey.toString()))
+        val item = client.item(ratingKey.toString())
+        progress.positions(p.id, VOD_MOVIE, listOf(item), rowFor(client, p.id))
+        return details(client, item)
     }
 
-    suspend fun seriesDetails(p: PlaylistEntity, ratingKey: Long): SeriesDetails {
+    /** A film's play state again (its page already known). */
+    suspend fun movieState(p: PlaylistEntity, ratingKey: Long) {
         val client = client(p)
-        val (show, leaves) = coroutineScope {
-            val show = async { client.item(ratingKey.toString()) }
-            val leaves = async { client.episodes(ratingKey.toString()) }
-            show.await() to leaves.await()
-        }
+        progress.positions(p.id, VOD_MOVIE, listOf(client.item(ratingKey.toString())), rowFor(client, p.id))
+    }
+
+    /** A series' page, bringing its episodes' play state and its unwatched count from the server. */
+    suspend fun seriesDetails(p: PlaylistEntity, ratingKey: Long): SeriesDetails {
+        val (client, show, leaves) = seriesState(p, ratingKey)
         val episodes = leaves.mapNotNull { e ->
             EpisodeInfo(
                 id = e.ratingKey.toLongOrNull() ?: return@mapNotNull null,
@@ -205,6 +222,20 @@ class PlexSources(
         return SeriesDetails(details(client, show), episodes.map { it.season }.distinct().map { SeasonInfo(it, null) }, episodes)
     }
 
+    /** A series' episodes' play state and unwatched count again (its page already known), with what was fetched. */
+    suspend fun seriesState(p: PlaylistEntity, ratingKey: Long): Triple<PlexClient, PlexItem, List<PlexItem>> {
+        val client = client(p)
+        val (show, leaves) = coroutineScope {
+            val show = async { client.item(ratingKey.toString()) }
+            val leaves = async { client.episodes(ratingKey.toString()) }
+            show.await() to leaves.await()
+        }
+        val last = leaves.lastOrNull()?.ratingKey
+        progress.positions(p.id, VOD_EPISODE, leaves, rowFor(client, p.id, show = show) { it.ratingKey != last })
+        db.vod().setUnwatched(p.id, ratingKey, unwatched(show))
+        return Triple(client, show, leaves)
+    }
+
     private fun details(client: PlexClient, item: PlexItem) = VodDetails(
         plot = item.summary.ifBlank { null },
         cast = null,
@@ -218,18 +249,98 @@ class PlexSources(
     )
 
     /**
-     * Where a film or episode plays from: its file as it is (direct play; the server never re-encodes). The token
-     * goes in the address for now, as the player sends no headers of its own yet; playing from Plex properly
-     * (direct stream when the player can't read the file, progress kept in Plex) is roadmap step 5.
+     * A film or episode from the server: where it plays from (its file as it is: never re-encoded), and its play state
+     * brought into its progress row first, so playback resumes from that row alone.
      */
-    suspend fun playUrl(p: PlaylistEntity, ratingKey: Long): String {
+    suspend fun playback(p: PlaylistEntity, ratingKey: Long, kind: String): PlexPlayback {
         val client = client(p)
-        val part = client.item(ratingKey.toString()).part
-            ?: throw PlexException("No file for $ratingKey", reason = PlexException.Reason.UNEXPECTED_RESPONSE)
+        val item = client.item(ratingKey.toString())
+        val part = item.part ?: throw PlexException("No file for $ratingKey", reason = PlexException.Reason.UNEXPECTED_RESPONSE)
+        progress.positions(p.id, kind, listOf(item), rowFor(client, p.id))
+        // The token goes in the address for now, as the player sends no headers of its own yet.
         val url = client.directPlay(part).url.toHttpUrl().newBuilder()
         p.password.takeIf { it.isNotEmpty() }?.let { url.addQueryParameter("X-Plex-Token", it) }
-        return url.build().toString()
+        return PlexPlayback(url.build().toString(), item, client) { refreshUnwatched(p, client, it) }
     }
+
+    // --- play state (see PlexProgress) ---
+
+    /**
+     * How a film's or episode's progress row is made from the server's item: where it got to, or the end once
+     * watched; null when it hasn't been played. An episode is filed under its series ([show], else the one the
+     * item names), with [hasNext] saying whether another follows.
+     */
+    private fun rowFor(
+        client: PlexClient,
+        playlistId: Long,
+        show: PlexItem? = null,
+        hasNext: (PlexItem) -> Boolean = { false },
+    ): (PlexItem) -> WatchProgressEntity? {
+        val showImage = show?.let { image(client, it.thumb) }
+        return { item -> row(client, playlistId, item, show, showImage, hasNext(item)) }
+    }
+
+    @Suppress("LongParameterList")
+    private fun row(
+        client: PlexClient,
+        playlistId: Long,
+        item: PlexItem,
+        show: PlexItem?,
+        showImage: String?,
+        hasNext: Boolean,
+    ): WatchProgressEntity? {
+        val kind = item.vodKind
+        val id = item.ratingKey.toLongOrNull()
+        val duration = item.duration
+        val position = item.viewOffset ?: duration.takeIf { (item.viewCount ?: 0) > 0 }
+        if (kind == null || id == null || duration == null || position == null) return null
+        val episode = kind == VOD_EPISODE
+        return WatchProgressEntity(
+            playlistId = playlistId,
+            kind = kind,
+            itemId = id,
+            positionMs = position,
+            durationMs = duration,
+            updatedAt = item.lastViewedMs ?: 0,
+            title = if (episode) show?.title ?: item.grandparentTitle.orEmpty() else item.title,
+            imageUrl = if (episode) showImage ?: image(client, item.grandparentThumb) else image(client, item.thumb),
+            seriesId = if (episode) (show?.ratingKey ?: item.grandparentRatingKey)?.toLongOrNull() else null,
+            season = item.parentIndex.takeIf { episode },
+            episode = item.index.takeIf { episode },
+            episodeTitle = item.title.ifBlank { null }.takeIf { episode },
+            hasNext = hasNext,
+            carryOnAt = null,
+        )
+    }
+
+    /** Before a library sync: progress that didn't reach the server, sent again (so the listing has it). */
+    suspend fun sendPending(p: PlaylistEntity, client: PlexClient) = progress.sendPending(p.id) { row ->
+        client.timeline(row.asItem(), PlexPlayState.STOPPED, row.positionMs, UUID.randomUUID().toString())
+    }
+
+    /**
+     * After a library sync: the films' play state (from the listing), then the server's Continue Watching as "Carry
+     * on watching". Episodes' state comes with their series' page.
+     */
+    suspend fun syncPlayState(p: PlaylistEntity, client: PlexClient, films: List<PlexItem>) {
+        val row = rowFor(client, p.id)
+        progress.positions(p.id, VOD_MOVIE, films, row)
+        // The films are in; out of reach now, Carry on watching just waits for the next sync.
+        val hub = offlineOk { client.continueWatching() }?.filter { it.vodKind != null } ?: return
+        // One it suggests next, unplayed, is listed at its start.
+        progress.carryOn(p.id, hub.mapNotNull { row(it) ?: row(it.copy(viewOffset = 0)) })
+    }
+
+    suspend fun removeFromContinueWatching(p: PlaylistEntity, ratingKey: Long) = client(p).removeFromContinueWatching(ratingKey.toString())
+
+    /** A series' unwatched count, again from the server (after one of its episodes played): for its badge. */
+    private suspend fun refreshUnwatched(p: PlaylistEntity, client: PlexClient, seriesId: Long) {
+        val show = offlineOk { client.item(seriesId.toString()) } ?: return // not answered: the next sync updates it
+        db.vod().setUnwatched(p.id, seriesId, unwatched(show))
+    }
+
+    /** A series' episodes not yet watched; null when the server doesn't say. */
+    fun unwatched(show: PlexItem): Int? = show.leafCount?.let { (it - (show.viewedLeafCount ?: 0)).coerceAtLeast(0) }
 
     companion object {
         const val PRODUCT = "MyPlexPlayer"
@@ -245,8 +356,95 @@ class PlexSources(
         /** The file's type, as its extension ("mkv"). */
         private val PlexItem.extension: String get() = part?.container ?: media.firstOrNull()?.container.orEmpty()
         private val PlexItem.durationSec: Int? get() = duration?.let { (it / MS_PER_SEC).toInt() }
+
+        /** The kind of progress row a Plex item makes: a film or an episode, else none. */
+        private val PlexItem.vodKind: String? get() = type.takeIf { it == VOD_MOVIE || it == VOD_EPISODE }
+
+        /** A progress row as just enough of an item to report to the server. */
+        private fun WatchProgressEntity.asItem() = PlexItem(ratingKey = itemId.toString(), duration = durationMs)
     }
 }
 
 /** The library type ("section") holding items of this type. */
 private val PlexType.section: String get() = if (this == PlexType.SHOW) "show" else "movie"
+
+/** Just what a film's play state needs, to hold for the length of a sync. */
+fun PlexItem.playState() = PlexItem(
+    ratingKey = ratingKey,
+    type = type,
+    title = title,
+    thumb = thumb,
+    duration = duration,
+    viewOffset = viewOffset,
+    viewCount = viewCount,
+    lastViewedAt = lastViewedAt,
+)
+
+/** When it was last played, in ms (the server gives seconds). */
+val PlexItem.lastViewedMs: Long? get() = lastViewedAt?.times(1000)
+
+/** [block]'s result, or null when the server didn't answer it (out of reach, or a failure). */
+suspend fun <T> offlineOk(block: suspend () -> T): T? = try {
+    block()
+} catch (ignored: IOException) {
+    null
+}
+
+/** How a report to the server went. */
+enum class Sent {
+    SENT,
+
+    /** The server answered no (it no longer has the title, say): sending it again won't help. */
+    REFUSED,
+
+    /** Out of reach, or the server failing for now: worth sending again later. */
+    NOT_YET,
+}
+
+/** Sends [block] to the server, saying how it went. */
+suspend fun send(block: suspend () -> Unit): Sent = try {
+    block()
+    Sent.SENT
+} catch (e: PlexException) {
+    if (e.answered) Sent.REFUSED else Sent.NOT_YET
+} catch (ignored: IOException) {
+    Sent.NOT_YET
+}
+
+/** The server answered, and no (a 4xx other than a refused token, or a reply it can't make sense of). */
+private val PlexException.answered: Boolean
+    get() = reason == PlexException.Reason.UNEXPECTED_RESPONSE || reason == PlexException.Reason.SERVER_ERROR && code in 400..499
+
+/**
+ * A film or episode playing from a Plex server: where it plays from, and reports back of how far it has got (one
+ * session per playback, one at a time), which keep the resume point and mark it watched. Its end is reported once
+ * (later reports are dropped, and say how the end went), and then [ended] runs with the episode's series, so the
+ * series' badge follows.
+ */
+class PlexPlayback(val url: String, private val item: PlexItem, private val client: PlexClient, private val ended: suspend (Long) -> Unit) {
+    private val session = UUID.randomUUID().toString()
+    private val mutex = Mutex()
+    private var end: Sent? = null
+
+    /** The newest progress saved for this playback, so an older save landing late is dropped. */
+    private var newest = 0L
+
+    /**
+     * Runs [save] (the local write) and reports [state] at [timeMs], one save at a time, in the order they were taken
+     * ([takenAt]); a save older than one already done is dropped. Says how the report went.
+     */
+    suspend fun report(state: PlexPlayState, timeMs: Long, takenAt: Long, save: suspend () -> Unit): Sent? = mutex.withLock {
+        if (takenAt < newest) return@withLock null
+        newest = takenAt
+        save()
+        end?.let { return@withLock it }
+        // Without its duration, the server would read every report as the end: none is sent.
+        if (item.duration == null) return@withLock Sent.SENT
+        val sent = send { client.timeline(item, state, timeMs, session) }
+        if (state == PlexPlayState.STOPPED) {
+            end = sent
+            item.grandparentRatingKey?.toLongOrNull()?.let { ended(it) }
+        }
+        sent
+    }
+}

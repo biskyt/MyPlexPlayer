@@ -47,7 +47,10 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -203,6 +206,22 @@ private fun FavouriteBadge(favourite: Boolean, content: @Composable () -> Unit) 
     }
 }
 
+/** A series' episodes not yet watched, in the accent colour on the poster's top left (the heart has the right). */
+@Composable
+private fun UnwatchedBadge(unwatched: Int?, content: @Composable () -> Unit) = Box {
+    content()
+    if (unwatched != null && unwatched > 0) {
+        val description = pluralStringResource(R.plurals.vod_unwatched_episodes, unwatched, unwatched)
+        val accent = LocalAccent.current
+        Box(
+            Modifier.align(Alignment.TopStart).padding(6.dp).clip(RoundedCornerShape(6.dp)).background(accent.color)
+                .padding(horizontal = 6.dp, vertical = 1.dp).semantics { contentDescription = description }
+        ) {
+            Text(unwatched.toString(), style = MaterialTheme.typography.labelLarge, color = accent.onAccent)
+        }
+    }
+}
+
 /** A [com.biskyt.myplexplayer.data.Favourites] set while it's shown: empty until read. */
 @Composable
 fun StateFlow<Set<Long>?>.collectIds(): Set<Long> = collectAsState().value.orEmpty()
@@ -228,7 +247,7 @@ fun PosterCard(
 ) {
     TvCard(onClick = onClick, onLongClick = onLongClick, color = Palette.background, modifier = modifier) {
         Column(Modifier.padding(6.dp).width(POSTER_WIDTH), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            FavouriteBadge(favourite) { Poster(card.imageUrl, card.title, POSTER_WIDTH) }
+            FavouriteBadge(favourite) { UnwatchedBadge(card.unwatched) { Poster(card.imageUrl, card.title, POSTER_WIDTH) } }
             OneLine(card.title, MaterialTheme.typography.labelLarge)
             Muted(card.year?.toString() ?: " ")
         }

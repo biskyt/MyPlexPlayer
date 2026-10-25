@@ -22,4 +22,10 @@
     <string name="vod_watched">Visto</string>
     <string name="vod_season">Temporada %1$d</string>
     <string name="vod_episode">Episodio %1$d</string>
+    <!-- Read out for the number on a series' poster: its episodes not yet watched. -->
+    <plurals name="vod_unwatched_episodes">
+        <item quantity="one">%1$d episodio sin ver</item>
+        <item quantity="many">%1$d episodios sin ver</item>
+        <item quantity="other">%1$d episodios sin ver</item>
+    </plurals>
 </resources>

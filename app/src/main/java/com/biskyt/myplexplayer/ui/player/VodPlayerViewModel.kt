@@ -11,6 +11,7 @@ import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.player.OverlayState
 import com.biskyt.myplexplayer.core.xtream.EpisodeInfo
+import com.biskyt.myplexplayer.data.VodStream
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
@@ -56,12 +57,13 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     private var current: Playing? = null
     private var tickJob: Job? = null
 
-    /** What is playing, with what its progress row needs. */
+    /** What is playing, with what its progress row needs, and where it plays from. */
     private data class Playing(
         val kind: String,
         val itemId: Long,
         val title: String,
         val imageUrl: String?,
+        val stream: VodStream,
         val episode: EpisodeInfo? = null
     )
 
@@ -92,7 +94,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         }
     )
 
-    override fun beforeLeaving() = save(trim = true)
+    override fun beforeLeaving() = save(stopped = true)
 
     init {
         viewModelScope.launch { c.vod.observeFavourite(screen.playlistId, favouriteType, favouriteId).collect { favourite = it } }
@@ -113,7 +115,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         val m = c.vod.movie(p.id, screen.itemId) ?: return stop()
         title = m.title
         subtitle = m.year?.toString().orEmpty()
-        play(p, Playing(VOD_MOVIE, m.streamId, m.title, m.posterUrl), c.vod.movieUrl(p, m), screen.fromStart)
+        play(p, Playing(VOD_MOVIE, m.streamId, m.title, m.posterUrl, c.vod.movieStream(p, m)), screen.fromStart)
     }
 
     /** [continueSeries]: coming from "Carry on watching", where [episodeId] may be one already finished: play the next. */
@@ -125,7 +127,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         continueSeries: Boolean = false
     ) {
         val show = c.vod.series(p.id, seriesId)
-        val episodes = c.vod.seriesDetails(p, seriesId).episodes
+        val episodes = c.vod.seriesDetails(p, seriesId, withState = false).episodes // playback brings the episode's own
         var index = episodes.indexOfFirst { it.id == episodeId }.takeIf { it >= 0 } ?: return stop()
         if (continueSeries && c.vod.progress(p.id, VOD_EPISODE, episodeId)?.finished == true && index < episodes.lastIndex) index++
         val e = episodes[index]
@@ -133,16 +135,16 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         subtitle = episodeLabel(e)
         nextEpisode = episodes.getOrNull(index + 1)
         // Saved for Carry on watching: the provider's words only, never the app's (they'd stay in today's language).
-        val playing = Playing(VOD_EPISODE, e.id, show?.title ?: e.title, show?.coverUrl ?: e.imageUrl, e)
-        play(p, playing, c.vod.episodeUrl(p, e.id, e.extension), fromStart)
+        val stream = c.vod.episodeStream(p, e.id, e.extension)
+        play(p, Playing(VOD_EPISODE, e.id, show?.title ?: e.title, show?.coverUrl ?: e.imageUrl, stream, e), fromStart)
     }
 
-    private suspend fun play(p: PlaylistEntity, playing: Playing, url: String, fromStart: Boolean) {
+    private suspend fun play(p: PlaylistEntity, playing: Playing, fromStart: Boolean) {
         current = playing
         resetForNewStream()
         val engine = engine ?: return
-        engine.play(url, hls = null)
-        // Resume unless it was nearly finished (or the user asked to start over).
+        engine.play(playing.stream.url, hls = null)
+        // Resume unless it was nearly finished (or the user asked to start over). From Plex, the row has the server's point.
         val saved = if (fromStart) null else c.vod.progress(p.id, playing.kind, playing.itemId)
         if (saved != null && !saved.finished && saved.positionMs > RESUME_AFTER_MS) {
             engine.player.seekTo(saved.positionMs)
@@ -204,15 +206,17 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         )
     }
 
-    /** Taken now and written in the app's scope, so it completes even as the screen closes. */
-    private fun save(trim: Boolean = false) {
+    /** Taken now and written in the app's scope, so it completes even as the screen closes ([stopped]: playback ends). */
+    private fun save(stopped: Boolean = false) {
         val row = snapshot() ?: return
-        c.appScope.launch { c.vod.saveProgress(row, trim) }
+        val stream = current?.stream ?: return
+        val playing = engine?.player?.isPlaying == true
+        c.appScope.launch { c.vod.saveProgress(row, stream, playing, stopped) }
     }
 
     /** At the end: a movie closes; an episode is saved as watched and the next one starts. */
     override fun onEnded() {
-        save(trim = true)
+        save(stopped = true)
         if (nextEpisode == null) stop() else playNext()
     }
 
@@ -220,7 +224,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         val p = playlist ?: return
         val next = nextEpisode ?: return
         val seriesId = screen.seriesId ?: return
-        save()
+        save(stopped = true)
         viewModelScope.launch { startEpisode(p, seriesId, next.id, fromStart = true) }
     }
 
@@ -232,14 +236,16 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
 
     override fun stop() {
         // Saved before the player stops, while its position is still known.
-        save(trim = true)
+        save(stopped = true)
         tickJob?.cancel()
         super.stop()
     }
 
     private companion object {
         const val TICK_MS = 500L
-        const val SAVE_EVERY_MS = 15_000L
+
+        /** Plex asks for a report every 10 seconds while playing. */
+        const val SAVE_EVERY_MS = 10_000L
 
         /** Less than this in, it just starts from the beginning. */
         const val RESUME_AFTER_MS = 30_000L

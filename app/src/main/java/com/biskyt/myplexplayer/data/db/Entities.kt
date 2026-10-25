@@ -119,7 +119,9 @@ data class SeriesEntity(
     val rating: Double?,
     val lastModified: Long,
     val position: Int,
-    val syncStamp: Long
+    val syncStamp: Long,
+    /** Plex: how many of its episodes haven't been watched, for the badge on its poster (null: not known). */
+    @ColumnInfo(defaultValue = "NULL") val unwatched: Int? = null
 )
 
 /** Unused since 0.2.2 (M3U episodes): see AppDatabase. */
@@ -164,7 +166,14 @@ data class WatchProgressEntity(
     val episode: Int? = null,
     val episodeTitle: String? = null,
     /** Episodes: whether another follows, so a finished one still leads "Carry on watching" to the next. */
-    val hasNext: Boolean = false
+    val hasNext: Boolean = false,
+    /**
+     * Where it sorts in "Carry on watching" (newest first): when it was last played here, or for Plex, by the
+     * server's Continue Watching. Null keeps it off the row (taken off it, there or here), with its resume point.
+     */
+    val carryOnAt: Long? = updatedAt,
+    /** Plex: played here, and not yet reported to the server (sent again at the next sync; the server can't overwrite it). */
+    @ColumnInfo(defaultValue = "0") val pending: Boolean = false
 ) {
     val finished: Boolean get() = durationMs > 0 && positionMs >= durationMs * FINISHED_FRACTION
     val fraction: Float get() = if (durationMs > 0) positionMs.toFloat() / durationMs else 0f
