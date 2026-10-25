@@ -25,12 +25,13 @@ Each step is its own pull request.
    - Next: added guides and Catch-up, then Xtream; then the website and store listing.
 4. **Home, menu and search:** Continue watching, recently added series and movies, favourite series and movies, then
    favourite Live TV channels. Live TV goes last in the menu, on Home and in search results. Empty rows are hidden.
-5. **Playback from Plex:** direct play, with the server's transcoder as the fallback; resume points and watched state
-   kept in Plex.
+5. **Playback from Plex:** direct play, with the server repackaging a file the player can't open (direct stream,
+   never converting); resume points and watched state kept in Plex.
    - Done (0.3.0): play state from and to the server (resume points, watched, Continue Watching as "Carry on
      watching", unwatched badges on series).
-   - Next: direct stream for files the player can't read, the token in headers rather than the address, Mark as
-     watched / unwatched, and a playback info panel.
+   - Done (0.3.4): direct stream for files the player can't open, and the token sent in headers rather than the
+     address.
+   - Next: Mark as watched / unwatched, and a playback info panel.
 6. **Live TV and the TV guide from Plex.**
 7. **DVR** in place of Catch-up: recordings, what's scheduled, and Record from the TV guide.
 

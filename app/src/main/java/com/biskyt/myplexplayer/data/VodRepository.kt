@@ -231,7 +231,7 @@ class VodRepository(
         if (p.isPlex) plexStream(p, episodeId, VOD_EPISODE) else VodStream(playlists.client(p).episodeUrl(episodeId, extension))
 
     private suspend fun plexStream(p: PlaylistEntity, id: Long, kind: String) =
-        withUserPlexErrors { plex.playback(p, id, kind).let { VodStream(it.url, it) } }
+        withUserPlexErrors { plex.playback(p, id, kind).let { VodStream(it.stream.url, it) } }
 
     // --- sync ---
 
