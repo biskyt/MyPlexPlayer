@@ -19,6 +19,9 @@ Each step is its own pull request.
 3. **Sign in to Plex and choose a server**, in place of Xtream, M3U, the free playlist and added guides. Several
    servers on one account, switched from the top bar. The website (`docs/index.html`, `docs/privacy.html`) and the
    store listing (`store/`) are rewritten for Plex in the same step: until then they still describe MyTVPlayer.
+   - Done (0.2.0): Plex sign-in, each server a source, its films and series. Xtream, M3U and the free playlist are
+     still there.
+   - Next: remove Xtream, M3U, the free playlist and added guides; then the website and store listing.
 4. **Home, menu and search:** Continue watching, recently added series and movies, favourite series and movies, then
    favourite Live TV channels. Live TV goes last in the menu, on Home and in search results. Empty rows are hidden.
 5. **Playback from Plex:** direct play, with the server's transcoder as the fallback; resume points and watched state
