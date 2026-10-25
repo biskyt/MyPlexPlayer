@@ -1,5 +1,6 @@
 package com.biskyt.myplexplayer.ui.player
 
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,16 +25,19 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
+import com.biskyt.myplexplayer.data.programmeTitle
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.common.ChannelLogo
 import com.biskyt.myplexplayer.ui.common.LocalTouch
 import com.biskyt.myplexplayer.ui.common.Muted
+import com.biskyt.myplexplayer.ui.common.ProgrammeAbout
 import com.biskyt.myplexplayer.ui.common.ScheduleList
 import com.biskyt.myplexplayer.ui.common.SidePanel
 import com.biskyt.myplexplayer.ui.common.TouchStepButtons
 import com.biskyt.myplexplayer.ui.common.TvCard
 import com.biskyt.myplexplayer.ui.common.cycle
 import com.biskyt.myplexplayer.ui.common.displayLanguage
+import com.biskyt.myplexplayer.ui.common.formatRange
 import com.biskyt.myplexplayer.ui.common.perform
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.rememberSchedule
@@ -144,6 +148,11 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
                     }
                     item { Muted(stringResource(R.string.player_audio_output, vm.audioLabel), maxLines = 2) }
                     item { Muted(videoInfo(vm.tracks), maxLines = 2) }
+                }
+                PlaybackViewModel.Sheet.ABOUT -> vm.about?.let { p ->
+                    item { Header(programmeTitle(p.title), formatRange(p.startMs, p.stopMs)) }
+                    // Focusable, so the remote's keys (Back, play/pause) reach the panel.
+                    item { Column(first.focusable()) { ProgrammeAbout(p, maxLines = 18) } }
                 }
             }
         }

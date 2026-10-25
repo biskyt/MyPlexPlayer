@@ -2,6 +2,13 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.2.1
+- While watching TV, the controls show the programme's episode and the start of its description, and "About this
+  programme" shows all of it. The TV guide shows more of the description too.
+- Long channel names take two lines in the TV guide, the channel list and the channel cards, so most show in full.
+  Channels found in Search use the same card as on Home.
+- Hiding a category keeps your place in the list: the next category shows, instead of going back to the top.
+
 ## 0.2.0
 - **Sign in to Plex**: on first launch, or in Settings › Playlists. Enter the code shown at plex.tv/link on your phone
   or computer (or scan the QR code), and each of your Plex servers that answers is added and can be chosen from the top
