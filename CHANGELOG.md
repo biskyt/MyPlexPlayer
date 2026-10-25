@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.3.1
+- Hiding a category from the column now always leaves the remote on the category shown next.
+
 ## 0.3.0
 - **What you've watched now comes from Plex, and goes back to it**: films and episodes carry on from where you left
   them in any of your Plex apps, and what you watch here shows as watched there. "Carry on watching" on Home is your
