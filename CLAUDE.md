@@ -156,6 +156,10 @@ See also:
   - "Carry on watching" is the server's Continue Watching, ordered by `carryOnAt` (`updatedAt` means only "last
     watched"). Taking a title off Continue Watching keeps its resume point, so "has a point" isn't "on the row".
   - Plex times are whole seconds: two plays in the same second don't order (see `PlexServerTest`'s `nextSecond`).
+  - Back in the app (`MainActivity.onStart`, 0.3.8), `SyncManager.refreshPlayState` brings what played elsewhere
+    without a sync: titles played since the last look (`viewedSince`, relative seconds, so clocks needn't agree),
+    those that left Continue Watching since (marked unwatched elsewhere, `lastViewedAt` is cleared, so no filter finds
+    them: films by id, episodes with their series) and Continue Watching. Skipped when a sync is due.
 - **Dolby Vision with HDR10+** (0.3.2): the owner's Philips shows HDR10, not Dolby Vision, while a Dolby Vision
   decoder also gets HDR10+ (found with `spikes/dv-diagnostics`, kept for other TVs). So a Dolby Vision decoder gets no
   HDR10+ while the screen shows Dolby Vision (`player/DolbyVisionCodec.kt`, with `core`'s `Hdr10PlusOff`): its SEI
