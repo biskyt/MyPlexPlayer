@@ -8,6 +8,7 @@ Each version's section becomes its GitHub release notes, so it is written for th
   server's Continue Watching, including the next episode of a series.
 - Each series' poster shows how many of its episodes you haven't watched yet.
 - Removing something from "Carry on watching" takes it off Plex's Continue Watching too. It keeps how far you got.
+- While watching, pressing the remote's Menu button again closes the menu it opened, as Back does.
 
 ## 0.2.2
 - M3U playlists and the free channels, films and series are no longer offered: MyPlexPlayer is for your Plex servers.
