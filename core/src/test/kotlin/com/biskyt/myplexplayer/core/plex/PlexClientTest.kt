@@ -85,10 +85,10 @@ class PlexClientTest {
         val url = server.takeRequest().requestUrl!!
         assertEquals("1792950000", url.queryParameter("endsAt>"))
         assertEquals("1792970000", url.queryParameter("beginsAt<"))
-        val pilot = guide.first()
-        assertEquals(listOf("5fc705db-ch1", "5fc705db-ch2"), pilot.airings.map { pilot.channel(it) }) // each showing its own
-        val film = guide.last()
-        assertEquals("5fc705db-ch2", film.channel(film.airings.single())) // else the programme's channel
+        // As the owner's server sends it: each showing names its channel, and the programme's Channel list holds tags
+        // (a number and a name), which mustn't cost the programme.
+        assertEquals(listOf("The Pilot", "A Film"), guide.map { it.title })
+        assertEquals(listOf("5fc705db-ch1", "5fc705db-ch2", "5fc705db-ch2"), guide.flatMap { it.airings }.map { it.channelIdentifier })
 
         val tuned = client.tune(live, channels.first().tuneKey!!, "session-1")
         val tune = server.takeRequest()
@@ -107,6 +107,18 @@ class PlexClientTest {
         assertEquals("/livetv/sessions/0f3c-uuid", stopped.queryParameter("key"))
         assertEquals("stopped", stopped.queryParameter("state"))
         assertEquals("3600000", stopped.queryParameter("duration"))
+    }
+
+    @Test
+    fun `the owner's server's guide reads in full`() = runTest {
+        // Trimmed from the owner's guide reply (spikes/plex_spike.py livetv, sanitised): every field as the server sends it.
+        responses["tv.plex.providers.epg.cloud:4/grid"] =
+            MockResponse().setBody(javaClass.getResource("/plex/grid-owner.json")!!.readText())
+        val guide = client.guide(client.liveTv()!!, fromS = 1_792_910_000, toS = 1_792_930_000)
+        assertEquals(listOf("episode", "movie"), guide.map { it.type })
+        val airings = guide.flatMap { it.airings }
+        assertEquals(guide.size, airings.size)
+        assertTrue(airings.all { it.beginsAt != null && it.endsAt != null && it.channelIdentifier?.contains('-') == true })
     }
 
     @Test
