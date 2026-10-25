@@ -130,8 +130,14 @@ class EpgRepository(
 
     /** A Plex server's guide that couldn't be fetched: the last one stays, and why it failed shows with the guides. */
     suspend fun plexGuideFailed(p: PlaylistEntity, e: PlexException) {
-        // A server's answer is kept as its code, to read in the language of the moment.
-        val error = GuideError.saved(e.code?.let(GuideError::server) ?: e)
+        // Kept as what failed (the server's code, or a guide not understood), to read in the language of the moment.
+        val error = GuideError.saved(
+            when {
+                e.code > 0 -> GuideError.server(e.code)
+                e.reason == PlexException.Reason.UNEXPECTED_RESPONSE -> GuideError.unreadable()
+                else -> e
+            }
+        )
         db.withTransaction { epg.setSourceError(plexGuide(p), error) }
     }
 

@@ -12,6 +12,7 @@
 
     <string name="data_server_error">Le serveur a renvoyé l\'erreur %1$d</string>
     <string name="data_guide_save_failed">Impossible d\'enregistrer le fichier du guide</string>
+    <string name="data_guide_unreadable">Impossible de lire le guide</string>
 
     <string name="data_xtream_login_failed">Échec de la connexion : vérifiez l\'adresse du serveur, le nom d\'utilisateur et le mot de passe</string>
     <string name="data_xtream_no_movie_details">Aucun détail pour ce film</string>

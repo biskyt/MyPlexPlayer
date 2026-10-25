@@ -122,6 +122,18 @@ class PlexClientTest {
     }
 
     @Test
+    fun `a guide none of which can be read fails, rather than looking empty`() = runTest {
+        val live = client.liveTv()!!
+        responses["tv.plex.providers.epg.cloud:12/grid"] = MockResponse().setBody(
+            """{"MediaContainer":{"size":2,"Metadata":[{"title":"A","year":"x"},{"title":"B","Media":"no"}]}}"""
+        )
+        expectFailure(PlexException.Reason.UNEXPECTED_RESPONSE) { client.guide(live, 0, 1) }
+        // An empty guide is just empty.
+        responses["tv.plex.providers.epg.cloud:12/grid"] = MockResponse().setBody("""{"MediaContainer":{"size":0}}""")
+        assertEquals(emptyList<PlexProgramme>(), client.guide(live, 0, 1))
+    }
+
+    @Test
     fun `a guide entry that can't be read is left out, not the whole guide`() = runTest {
         val live = client.liveTv()!!
         responses["tv.plex.providers.epg.cloud:12/grid"] = MockResponse().setBody(

@@ -20,6 +20,7 @@
     <!-- Errors downloading a guide or talking to a provider's server. %1$d: the HTTP status code, e.g. 404. -->
     <string name="data_server_error">Server returned error %1$d</string>
     <string name="data_guide_save_failed">Couldn\'t save guide file</string>
+    <string name="data_guide_unreadable">Couldn\'t read the guide</string>
 
     <!-- Errors from a provider's (Xtream Codes) server. -->
     <string name="data_xtream_login_failed">Login failed: check the server address, username and password</string>

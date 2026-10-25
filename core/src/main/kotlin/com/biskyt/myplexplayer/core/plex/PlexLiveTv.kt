@@ -89,6 +89,8 @@ internal class PlexLiveResponse(@SerialName("MediaContainer") val container: Ple
 /** The Live TV replies: the DVRs (named `Dvr` on the owner's server; `DVR` in the spec), providers, channels, grid. */
 @Serializable
 internal class PlexLiveContainer(
+    /** How many items the server sent (before any that can't be read are left out). */
+    val size: Int = 0,
     @SerialName("Dvr") val dvrs: List<PlexDvr> = emptyList(),
     @SerialName("DVR") val dvrsAsSpecified: List<PlexDvr> = emptyList(),
     @SerialName("MediaProvider") val providers: List<PlexProvider> = emptyList(),
