@@ -16,6 +16,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -33,6 +34,7 @@ import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.data.VodFilter
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
+import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.data.db.CategoryEntity
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
 import com.biskyt.myplexplayer.data.db.VodCard
@@ -60,6 +62,7 @@ import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.TabScaffold
 import com.biskyt.myplexplayer.ui.common.categoryEntries
 import com.biskyt.myplexplayer.ui.common.collectIds
+import com.biskyt.myplexplayer.ui.common.markWatched
 import com.biskyt.myplexplayer.ui.common.moveAction
 import com.biskyt.myplexplayer.ui.common.openOnShown
 import com.biskyt.myplexplayer.ui.common.restoreFocusIf
@@ -137,6 +140,13 @@ class VodBrowseViewModel(
     /** Moving a favourite within Favourites. */
     val mover = FavouriteMover(viewModelScope, c.favourites) { playlist.value?.id ?: 0 }
 
+    /** Whether [card] has been watched, for its menu; null where it can't be marked. */
+    suspend fun watched(card: VodCard): Boolean? = playlist.value?.let { c.vod.watched(it.id, type, card) }
+
+    fun setWatched(pid: Long, card: VodCard, watched: Boolean) = viewModelScope.launch {
+        c.vod.setWatched(pid, card.id, series = card.id.takeIf { type == CAT_SERIES }, watched)
+    }
+
     fun setFavourite(card: VodCard, favourite: Boolean) = viewModelScope.launch {
         c.vod.setFavourite(playlist.value?.id ?: return@launch, type, card.id, favourite)
     }
@@ -201,13 +211,23 @@ private fun PosterOptions(vm: VodBrowseViewModel, card: VodCard, filter: VodFilt
     val query by vm.query.collectAsState()
     val favourite = favourites?.let { card.id in it }
     val inFavourites = filter == VodFilter.Favourites
+    val watched by produceState<Boolean?>(null, card) { value = vm.watched(card) }
     val actions = vodActions(pid, vm.type, card.id, favourite) {
         vm.setFavourite(card, it)
         if (!it && inFavourites) {
             close()
             vm.removedId = card.id
         }
-    } + listOfNotNull(if (inFavourites && favourite == true && query.isEmpty()) moveAction(vm.mover, vm.type, card.id, close) else null)
+    } + listOfNotNull(
+        if (inFavourites && favourite == true && query.isEmpty()) moveAction(vm.mover, vm.type, card.id, close) else null,
+        // Last: it's read once the menu is open, and mustn't move the entries above it.
+        watched?.let { w ->
+            markWatched(w) {
+                close()
+                vm.setWatched(pid, card, it)
+            }
+        }
+    )
     ItemActionsPanel(card.title, actions, close)
 }
 

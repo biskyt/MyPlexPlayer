@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.3.5
+- **Mark as watched / unwatched:** hold OK on a poster in Films or Series, or on something in "Carry on watching". It
+  changes on your Plex server too, so your other Plex apps agree.
+
 ## 0.3.4
 - **Files in a format the player can't open now play:** the Plex server repackages them as they are, with the
   picture and sound untouched, never converted. A file the server could only play by converting it says so instead.

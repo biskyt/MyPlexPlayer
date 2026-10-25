@@ -105,6 +105,7 @@ class FakePlex : AutoCloseable {
                 container { putJsonArray("Hub") { add(obj { put("Metadata", JsonArray(items)) }) } }
             }
             path == "/:/timeline" -> timeline(request)
+            path == "/:/scrobble" || path == "/:/unscrobble" -> mark(request.requestUrl!!.queryParameter("key")!!, path == "/:/scrobble")
             path == "/actions/removeFromContinueWatching" -> {
                 continueWatching = continueWatching - request.requestUrl!!.queryParameter("ratingKey").orEmpty()
                 MockResponse()
@@ -147,6 +148,20 @@ class FakePlex : AutoCloseable {
         put("streamType", type)
         put("codec", codec)
         put("decision", decision)
+    }
+
+    /**
+     * Marks [key] (a film, an episode, or a show: its episodes) [watched] or not, as the server does: either way its
+     * resume point goes, and a watched one leaves Continue Watching.
+     */
+    private fun mark(key: String, watched: Boolean): MockResponse {
+        val keys = if (byKey(key)?.string("type") == "show") EPISODES.map { it.string("ratingKey")!! } else listOf(key)
+        keys.forEach { k ->
+            viewOffset -= k
+            if (watched) this.watched += k else this.watched -= k
+        }
+        if (watched) continueWatching = continueWatching - keys
+        return MockResponse()
     }
 
     private fun byKey(key: String) = (MOVIES + SHOWS + EPISODES).firstOrNull { it.string("ratingKey") == key }
