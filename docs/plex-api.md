@@ -44,6 +44,7 @@ and DVR need a real account and tuner: the owner runs those (see `spikes/README.
 | 11 | Images | `/photo/:/transcode?url={thumb}&width=&height=&minSize=1&upscale=1` returns a JPEG. Plezy puts the token both in the encoded inner `url` and on the outer query; to check on a signed-in server. | S3 |
 | 16 | Transient token | `/security/token` answers 400 on an unclaimed server; to check on the owner's server. It isn't needed for now. | S3 |
 | - | Search | `/hubs/search?query=&limit=` finds films and shows, in hubs by type. | S3 |
+| - | Played since (2026-10-25, PMS 1.43.5, by hand) | `/library/sections/{id}/all?type=1&lastViewedAt>>=-{seconds}` lists the films played in the last N seconds (by the server's clock: no need for the device's to agree), and `type=2&episode.lastViewedAt>>=-{seconds}` the shows with an episode played; `>>` may be URL-encoded. Progress reports (`/:/timeline`) and `/:/scrobble` move `lastViewedAt`; `/:/unscrobble` **clears** it (and `updatedAt` doesn't move), so a title marked unwatched elsewhere isn't found this way. `/library/metadata/{a},{b},…` returns several items in one call. Plezy only re-reads Continue Watching when it comes back to the foreground. | by hand |
 
 ### On the owner's server (2026-10-24)
 The spike app on the owner's phone, against their own server (Plex Pass, a tuner),

@@ -306,6 +306,14 @@ class VodRepository(
         failure?.let { throw it }
     }
 
+    /** A Plex source's play state, brought up to date since [sinceMs] (see [PlexSources.refreshPlayState]). */
+    suspend fun refreshPlayState(p: PlaylistEntity, sinceMs: Long) =
+        plex.refreshPlayState(p, includedLibraries(p.id, CAT_MOVIE), includedLibraries(p.id, CAT_SERIES), sinceMs)
+
+    /** A Plex source's libraries of films or series ([category]) included here. */
+    private suspend fun includedLibraries(playlistId: Long, category: String) =
+        categories.included(playlistId, category).map { it.categoryId }
+
     /**
      * A Plex server's films and series: each library is a category (all of them included to start with). A server
      * that can't be reached at its address is looked for again (its address may have changed), once.
@@ -332,7 +340,7 @@ class VodRepository(
         // Asked for all at once, the included libraries: Plex lists one library at a time anyway.
         fun titles(type: PlexType, category: String): suspend (String?, suspend (Pair<String, PlexItem>) -> Unit) -> Unit =
             { library, emit ->
-                val ids = library?.let(::listOf) ?: categories.all(p.id, category).filter { it.included }.map { it.categoryId }
+                val ids = library?.let(::listOf) ?: includedLibraries(p.id, category)
                 ids.forEach { plex.titles(client, type, it, emit) }
             }
         val movies = syncKind(

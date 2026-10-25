@@ -65,6 +65,9 @@ class FakePlex : AutoCloseable {
 
     val url: String get() = server.url("/").toString().trimEnd('/')
 
+    /** How many requests it has had. */
+    val requestCount: Int get() = server.requestCount
+
     init {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse = answer(request)
@@ -94,12 +97,13 @@ class FakePlex : AutoCloseable {
                     add(section("2", "show", "TV Programmes"))
                 }
             }
-            path == "/library/sections/1/all" -> page(request, MOVIES.map(::withState))
-            path == "/library/sections/2/all" -> page(request, SHOWS.map(::withState))
+            path == "/library/sections/1/all" -> page(request, MOVIES.filter { viewedSince(request, it) }.map(::withState))
+            path == "/library/sections/2/all" -> page(request, SHOWS.filter { viewedSince(request, it) }.map(::withState))
             path == "/library/metadata/21/allLeaves" -> container { put("Metadata", JsonArray(EPISODES.map(::withState))) }
-            path.startsWith("/library/metadata/") ->
-                byKey(path.substringAfterLast('/'))?.let { item -> container { putJsonArray("Metadata") { add(withState(item)) } } }
-                    ?: MockResponse().setResponseCode(404)
+            // One item, or several ("11,12"): those it has.
+            path.startsWith("/library/metadata/") -> path.substringAfterLast('/').split(',').mapNotNull(::byKey)
+                .takeIf { it.isNotEmpty() }?.let { items -> container { put("Metadata", JsonArray(items.map(::withState))) } }
+                ?: MockResponse().setResponseCode(404)
             path == "/hubs/continueWatching" -> {
                 val items = continueWatching.map { withState(byKey(it)!!) }
                 container { putJsonArray("Hub") { add(obj { put("Metadata", JsonArray(items)) }) } }
@@ -154,14 +158,29 @@ class FakePlex : AutoCloseable {
      * Marks [key] (a film, an episode, or a show: its episodes) [watched] or not, as the server does: either way its
      * resume point goes, and a watched one leaves Continue Watching.
      */
-    private fun mark(key: String, watched: Boolean): MockResponse {
+    fun mark(key: String, watched: Boolean): MockResponse {
         val keys = if (byKey(key)?.string("type") == "show") EPISODES.map { it.string("ratingKey")!! } else listOf(key)
         keys.forEach { k ->
             viewOffset -= k
+            // As the server does: watched counts as played now; unwatched, it was never played.
             if (watched) this.watched += k else this.watched -= k
+            if (watched) lastViewedAt[k] = System.currentTimeMillis() / 1000 else lastViewedAt -= k
         }
-        if (watched) continueWatching = continueWatching - keys
+        continueWatching = continueWatching - keys // watched, it's done; unwatched, there's nothing to carry on from
         return MockResponse()
+    }
+
+    /**
+     * Whether [item] passes the listing's "played in the last N seconds" filter, if it has one: a film by when it was
+     * last played, a show by its episodes.
+     */
+    private fun viewedSince(request: RecordedRequest, item: JsonObject): Boolean {
+        val url = request.requestUrl!!
+        val seconds = (url.queryParameter("lastViewedAt>>") ?: url.queryParameter("episode.lastViewedAt>>"))
+            ?.removePrefix("-")?.toLong() ?: return true
+        val keys = if (item.string("type") == "show") EPISODES.map { it.string("ratingKey")!! } else listOf(item.string("ratingKey")!!)
+        val after = System.currentTimeMillis() / 1000 - seconds
+        return keys.any { (lastViewedAt[it] ?: return@any false) >= after }
     }
 
     private fun byKey(key: String) = (MOVIES + SHOWS + EPISODES).firstOrNull { it.string("ratingKey") == key }

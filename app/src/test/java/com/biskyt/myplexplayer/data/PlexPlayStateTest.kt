@@ -15,8 +15,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -41,6 +43,7 @@ class PlexPlayStateTest {
     private lateinit var plex: PlexSources
     private lateinit var vod: VodRepository
     private lateinit var source: PlaylistEntity
+    private lateinit var sync: SyncManager
 
     /** Minutes ago, in seconds since 1970 (as the server gives times). */
     private fun minutesAgo(minutes: Int) = System.currentTimeMillis() / 1000 - minutes * 60
@@ -51,10 +54,11 @@ class PlexPlayStateTest {
         val http = OkHttpClient()
         val settings = SettingsRepository(context)
         val categoryStore = CategoryStore(db) { Locale.UK }
-        val playlists =
-            PlaylistRepository(db, http, settings, EpgRepository(db, http, context.cacheDir.resolve("test-epg"), scope), categoryStore)
+        val epg = EpgRepository(db, http, context.cacheDir.resolve("test-epg"), scope)
+        val playlists = PlaylistRepository(db, http, settings, epg, categoryStore)
         plex = PlexSources(db, http, settings).apply { plexTv = fake.url }
         vod = VodRepository(db, playlists, categoryStore, plex)
+        sync = SyncManager(scope, playlists, vod, epg)
         plex.signIn(FakePlex.ACCOUNT_TOKEN)
         source = db.playlists().all().single { it.machineId == FakePlex.MACHINE_ID }
     }
@@ -142,6 +146,82 @@ class PlexPlayStateTest {
         db.vod().saveProgress(listOf(row(VOD_MOVIE, 11, updatedAt = 1_000)))
         vod.sync(source) // the server hasn't started it
         assertNull(progress(VOD_MOVIE, 11))
+    }
+
+    @Test
+    fun `played elsewhere since the last look, a film's point, an episode watched and continue watching come in`() = runBlocking {
+        vod.sync(source)
+        val looked = System.currentTimeMillis()
+        // In another Plex app: a film half watched, an episode finished. A film played long before isn't asked for.
+        fake.viewOffset["11"] = 200_000
+        fake.lastViewedAt["11"] = minutesAgo(0)
+        fake.continueWatching = listOf("11")
+        fake.watched += "211"
+        fake.lastViewedAt["211"] = minutesAgo(0)
+        fake.viewOffset["12"] = 50_000
+        fake.lastViewedAt["12"] = minutesAgo(60)
+
+        vod.refreshPlayState(db.playlists().get(source.id)!!, looked)
+
+        assertEquals(200_000L, progress(VOD_MOVIE, 11)?.positionMs)
+        assertTrue(progress(VOD_EPISODE, 211)!!.finished)
+        assertEquals(listOf(VOD_MOVIE to 11L), carryOn())
+        assertNull("not played since: the next sync brings it", progress(VOD_MOVIE, 12))
+    }
+
+    @Test
+    fun `marked unwatched elsewhere, a title on carry on watching loses its point and its place at the next look`() = runBlocking {
+        fake.viewOffset["11"] = 200_000
+        fake.lastViewedAt["11"] = minutesAgo(60)
+        fake.continueWatching = listOf("11")
+        vod.sync(source)
+        assertEquals(listOf(VOD_MOVIE to 11L), carryOn())
+        val looked = System.currentTimeMillis()
+        fake.mark("11", watched = false) // as the other app does
+
+        vod.refreshPlayState(db.playlists().get(source.id)!!, looked)
+
+        assertNull(progress(VOD_MOVIE, 11))
+        assertEquals(emptyList<Pair<String, Long>>(), carryOn())
+    }
+
+    @Test
+    fun `marked unwatched elsewhere, an episode on carry on watching loses its point, its series read again`() = runBlocking {
+        fake.viewOffset["211"] = 200_000
+        fake.lastViewedAt["211"] = minutesAgo(60)
+        fake.continueWatching = listOf("211")
+        vod.sync(source)
+        plex.seriesDetails(source, 21) // the series' page, bringing its episodes in
+        assertEquals(listOf(VOD_EPISODE to 211L), carryOn())
+        val looked = System.currentTimeMillis()
+        fake.mark("211", watched = false)
+
+        vod.refreshPlayState(db.playlists().get(source.id)!!, looked)
+
+        assertNull(progress(VOD_EPISODE, 211))
+        assertEquals(emptyList<Pair<String, Long>>(), carryOn())
+    }
+
+    @Test
+    fun `back in the app moments after a sync, the server isn't asked again`() = runBlocking {
+        sync.refreshNow(source.id)
+        val asked = fake.requestCount
+        sync.refreshPlayState(source.id, syncIfDue = true)
+        assertEquals(asked, fake.requestCount)
+    }
+
+    @Test
+    fun `due a sync, coming back to the app starts one, and opening it leaves that to the app`() = runBlocking {
+        sync.refreshNow(source.id)
+        db.playlists().setLastSync(source.id, 1)
+        val asked = fake.requestCount
+        sync.refreshPlayState(source.id, syncIfDue = false)
+        assertEquals(asked, fake.requestCount)
+
+        sync.refreshPlayState(source.id, syncIfDue = true)
+        withTimeout(10_000) {
+            while (db.playlists().get(source.id)!!.lastSyncAt == 1L) delay(50)
+        }
     }
 
     @Test
