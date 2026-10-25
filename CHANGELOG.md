@@ -9,6 +9,8 @@ Each version's section becomes its GitHub release notes, so it is written for th
   movies, then your favourite series and movies, and Live TV (favourite channels, then those watched lately) last.
   Rows with nothing in them are hidden.
 - **Live TV comes last** in the menu (Home, Series, Movies, Live TV) and in search results.
+- Holding the remote's Guide or Menu button no longer carries on into the panel it opens (which on some TVs could
+  open the TV's own guide too).
 - If a guide arrives that the app can't read at all, Settings › TV guides says so, rather than every channel quietly
   showing no information.
 
