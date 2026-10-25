@@ -13,7 +13,7 @@ data class PlexLiveTv(val dvrKey: String, val channelsPath: String, val gridPath
 /**
  * A Live TV channel of the guide provider's lineup. Its key ([tuneKey]) is the first of `key`, `ratingKey`,
  * `identifier` and `id` it has (as Plezy reads it; the owner's server gives `id`), and is what a programme names
- * its channel by ([PlexAiring.channel]).
+ * its channel by ([PlexAiring.channelIdentifier]).
  */
 @Serializable
 data class PlexChannel(
@@ -55,20 +55,13 @@ data class PlexProgramme(
     val index: Int? = null,
     val parentIndex: Int? = null,
     val duration: Long? = null,
+    // Its `Channel` list isn't read: those are tags (a number and a name), not the channel's key.
     @SerialName("Media") @Serializable(with = SkippingList::class) val airings: List<PlexAiring> = emptyList(),
-    @SerialName("Channel") val channels: List<PlexChannelRef> = emptyList(),
-) {
-    /** The channel an airing is on: its own, else the programme's. */
-    fun channel(airing: PlexAiring): String? = airing.channelIdentifier ?: channels.firstOrNull()?.id
-}
+)
 
-/** One showing of a programme: from [beginsAt] to [endsAt], in seconds since 1970. */
+/** One showing of a programme: from [beginsAt] to [endsAt], in seconds since 1970, on the channel [channelIdentifier]. */
 @Serializable
 data class PlexAiring(val beginsAt: Long? = null, val endsAt: Long? = null, val channelIdentifier: String? = null)
-
-/** A programme's channel, by [id]. */
-@Serializable
-class PlexChannelRef(val id: String? = null)
 
 @Serializable
 internal class PlexDvr(val key: String = "", val lineup: String = "")
@@ -96,6 +89,8 @@ internal class PlexLiveResponse(@SerialName("MediaContainer") val container: Ple
 /** The Live TV replies: the DVRs (named `Dvr` on the owner's server; `DVR` in the spec), providers, channels, grid. */
 @Serializable
 internal class PlexLiveContainer(
+    /** How many items the server sent (before any that can't be read are left out). */
+    val size: Int = 0,
     @SerialName("Dvr") val dvrs: List<PlexDvr> = emptyList(),
     @SerialName("DVR") val dvrsAsSpecified: List<PlexDvr> = emptyList(),
     @SerialName("MediaProvider") val providers: List<PlexProvider> = emptyList(),

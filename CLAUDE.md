@@ -10,10 +10,13 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   rename); never merge MyTVPlayer's `main` wholesale. Ported so far: everything up to MyTVPlayer 1.2.4 (`a54a2ad`, in 0.3.0; 1.2.3 `884939f` in 0.2.1),
   its Play upload workflow (`dc5d194`, in 0.2.1), its clearer secondary text (MyTVPlayer 1.2.6, `900d6ae`, in 0.3.3),
   the dimmed paused screen (1.2.7, `29c9c71`, in 0.3.7) and its fixes (1.2.8, `40609e4`, in 0.4.0), the episode
-  list's marks (1.3.0, `b4c1bc3`, in 0.4.3) and one list of the keys panels pass on (1.3.1, `c4074e5`, in 0.4.4).
+  list's marks (1.3.0, `b4c1bc3`, in 0.4.3) and one list of the keys panels pass on (1.3.1, `c4074e5`, in 0.4.4), held buttons not carrying on into a panel
+  (1.3.2, `73c1631`, in 0.5.0).
 - **Where a change is made first** (the owner, 2026-10-25): a feature or fix both apps need (the player, remote keys,
   menus, the guide's screens) is made in MyTVPlayer first, then cherry-picked here, so the shared code stays the same
   and ports apply cleanly. Plex-only work (sign-in, servers, play state, Live TV, DVR) is made here only.
+  - Home's rows, the menu's order and search results' order differ from MyTVPlayer on purpose (Live TV last, 0.5.0):
+    a port touching HomeScreen, TopBar's `Tab` or SearchScreen's results expects conflicts there.
 - **The move to Plex is under way:** the plan, step by step, is in `ROADMAP.md`. Until those steps land, much of the
   code (Xtream, XMLTV guides) is MyTVPlayer's and is due to be replaced. M3U and the free playlist went
   in 0.2.2; Catch-up has gone too (DVR replaces it).

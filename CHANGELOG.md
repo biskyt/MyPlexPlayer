@@ -2,6 +2,18 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.5.0
+- **The TV guide from your Plex server now shows**, on the Live TV channels and in the TV guide: the app couldn't
+  read the programmes as the server sends them, so every channel said there was no information.
+- **Home leads with what's new:** after Carry on watching come the series with new episodes and the newest
+  movies, then your favourite series and movies, and Live TV (favourite channels, then those watched lately) last.
+  Rows with nothing in them are hidden.
+- **Live TV comes last** in the menu (Home, Series, Movies, Live TV) and in search results.
+- Holding the remote's Guide or Menu button no longer carries on into the panel it opens (which on some TVs could
+  open the TV's own guide too).
+- If a guide arrives that the app can't read at all, Settings › TV guides says so, rather than every channel quietly
+  showing no information.
+
 ## 0.4.4
 - While watching live TV with the channel guide open, the remote's Menu button now opens the menu in the guide's
   place (it did nothing before).

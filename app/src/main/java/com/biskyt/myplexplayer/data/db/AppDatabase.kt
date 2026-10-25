@@ -9,7 +9,7 @@ import androidx.room.migration.AutoMigrationSpec
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    version = 10,
+    version = 11,
     exportSchema = true,
     // 2: M3U playlists (playlist.kind; channel.streamUrl/userAgent/referrer).
     // 3: movies and series (category.type; movie, series, watch_progress, vod_favourite).
@@ -21,6 +21,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     // 8: Plex servers (playlist.machineId).
     // 9: no M3U playlists (0.2.2): any source of a kind the app no longer has is removed, with all it had.
     // 10: play state from Plex (series.unwatched, watch_progress.carryOnAt and pending).
+    // 11: Home's recently added series (series.newest).
     // Unused since M3U went (0.2.2), to drop with Xtream: playlist.moviesUrl/seriesUrl/vodFeedHash, movie.streamUrl,
     // the episode table, channel.streamUrl/userAgent/referrer/catchupType/catchupSource.
     // Unused since Catch-up went (DVR replaces it), also to drop with Xtream: channel.archiveDays and its index.
@@ -33,7 +34,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AutoMigration(from = 6, to = 7),
         AutoMigration(from = 7, to = 8),
         AutoMigration(from = 8, to = 9, spec = AppDatabase.RetiredSources::class),
-        AutoMigration(from = 9, to = 10, spec = AppDatabase.CarryOnOrder::class)
+        AutoMigration(from = 9, to = 10, spec = AppDatabase.CarryOnOrder::class),
+        AutoMigration(from = 10, to = 11)
     ],
     entities = [
         PlaylistEntity::class, CategoryEntity::class, ChannelEntity::class, FavouriteEntity::class, RecentEntity::class,

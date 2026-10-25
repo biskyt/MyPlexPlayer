@@ -257,13 +257,25 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
 
     suspend fun channels(live: PlexLiveTv): List<PlexChannel> = live(url(live.channelsPath)).channels
 
-    /** Every channel's programmes on between [fromS] and [toS] (seconds since 1970), in one call. */
-    suspend fun guide(live: PlexLiveTv, fromS: Long, toS: Long): List<PlexProgramme> = live(
-        url(live.gridPath) {
-            addQueryParameter("endsAt>", fromS.toString())
-            addQueryParameter("beginsAt<", toS.toString())
+    /**
+     * Every channel's programmes on between [fromS] and [toS] (seconds since 1970), in one call. Programmes sent but
+     * none of them readable (or none with a showing that is) is a reply not understood, not an empty guide: that fails.
+     */
+    suspend fun guide(live: PlexLiveTv, fromS: Long, toS: Long): List<PlexProgramme> {
+        val reply = live(
+            url(live.gridPath) {
+                addQueryParameter("endsAt>", fromS.toString())
+                addQueryParameter("beginsAt<", toS.toString())
+            }
+        )
+        if (reply.size > 0 && reply.programmes.none { it.airings.isNotEmpty() }) {
+            throw PlexException(
+                "None of the guide's ${reply.size} programmes could be read",
+                reason = PlexException.Reason.UNEXPECTED_RESPONSE
+            )
         }
-    ).programmes
+        return reply.programmes
+    }
 
     /**
      * Takes a tuner for a channel (its [PlexChannel.tuneKey], [channelKey]) for this [session]: what's on, whose [PlexProgramme.key] is the live session's

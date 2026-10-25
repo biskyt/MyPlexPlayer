@@ -58,7 +58,7 @@ plus a friend's server shared with them.
 | 9-10 | Playback | Direct play: a Matroska file answers ranges with 206. Direct stream: HEVC video and E-AC-3 audio both `copy`, playlists and segments served. |
 | 11 | Images | `/photo/:/transcode` with the token in the address returns the image. |
 | 16 | Transient token | `POST /security/token?type=delegation&scope=all` works; `GET` answers 400 (the spec is right, Plexopedia's GET isn't). |
-| 12 | Guide | `/media/providers` gives `tv.plex.providers.epg.cloud:4` and its `grid` key. `GET {grid}?endsAt>=&beginsAt<=` returns every channel's programmes for the window in one call (368 for 6 hours); each has `Media[].beginsAt/endsAt`, `channelIdentifier`, `channelVcn` and `Channel[]`. |
+| 12 | Guide | `/media/providers` gives `tv.plex.providers.epg.cloud:4` and its `grid` key. `GET {grid}?endsAt>=&beginsAt<=` returns every channel's programmes for the window in one call (368 for 6 hours); each has `Media[].beginsAt/endsAt`, `channelIdentifier` (the lineup channel's `id`), `channelVcn`, and `Channel[]` tags with numeric ids. |
 | 12, 15 | Channels | `/{provider}/lineups/dvr/channels` gives 54 channels with `id` = `gridKey` (two ids joined by `-`), `vcn`, `title`, `callSign`, `thumb`. Plezy's first choice, `/lineups/plex/channels`, answers 404 here. `/livetv/dvrs` gives `Dvr[]`, not `DVR[]` (15), with no `ChannelMapping` at that level. |
 | 13 | Tuning and playing | `POST /livetv/dvrs/{dvr.key}/channels/{channel id}/tune?X-Plex-Session-Identifier=` grabs a tuner. The reply is `MediaContainer.MediaSubscription[0].MediaGrabOperation[0]`, whose `Metadata` is **one object, not a list**: `key` = the session path (`/livetv/sessions/{uuid}`), `ratingKey` = the programme. That path direct streams like a library item (`decision`, then `start.m3u8` with `path={session path}`): MPEG-2 video and MP2 audio both `copy`, playlists and segments served; a `stopped` timeline for the path frees the tuner (second run). |
 | 13 | Tuning is slow | **The tune reply comes back before the tuner has locked**: the grab is `status: inprogress`, `percent: 0`, `currentSize: 0`, and the live playlist fetched straight after held one 1-second segment. The owner sees Plex take a while to find a channel. So the app shows "Tuning…" from the tune until the picture starts, lets the player wait for the live playlist to grow rather than calling a short one a failure, gives the tune call a long time-out (Plezy: 30 s) and never retries a tune that timed out (a second tune can take a second tuner). The spike didn't time it; the whole tune took under its 20-second limit. |
@@ -73,7 +73,9 @@ uses the API was taken, no code.
 - **Guide:** `/media/providers` gives the guide provider (`protocols` contains `livetv`) and its `grid` feature key.
   One call covers every channel: `GET {grid}?endsAt>={from}&beginsAt<={to}` (epoch seconds; the parameter names are
   `endsAt>` and `beginsAt<`). Programmes are `Metadata[]`, with times in `Media[].beginsAt/endsAt` and the channel in
-  `Channel[0].id` or `Media.channelIdentifier`. So the per-channel, per-day `channelGridKey`/`date` form isn't needed.
+  `Media.channelIdentifier` (the lineup channel's `id`). So the per-channel, per-day `channelGridKey`/`date` form isn't
+  needed. On the owner's server a programme's `Channel[]` holds tags (`id` a number, `filter`, `tag` "006 ITV2"), not the
+  channel's key: reading it as one lost every programme (0.4.0 to 0.4.4).
 - **Channels:** `/lineups/plex/channels`, falling back to `/{provider}/lineups/dvr/channels`. A channel's key is
   `key`, else `ratingKey`, `identifier` or `id`; only channels in the DVR's enabled `ChannelMapping.channelKey` are
   shown. `/livetv/dvrs` returns `Dvr[]`.

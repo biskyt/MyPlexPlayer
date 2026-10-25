@@ -47,11 +47,12 @@ import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
 import com.biskyt.myplexplayer.ui.theme.Palette
 
+/** The menu, in order: Live TV last (a Plex library comes first). */
 enum class Tab(@StringRes val label: Int) {
     HOME(R.string.common_tab_home),
-    LIVE(R.string.common_tab_live),
     SERIES(R.string.common_tab_series),
-    MOVIES(R.string.common_tab_movies)
+    MOVIES(R.string.common_tab_movies),
+    LIVE(R.string.common_tab_live)
 }
 
 /** Top bar from the agreed design: logo, tabs, clock, search, settings and the playlist switcher. */

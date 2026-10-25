@@ -77,8 +77,14 @@ class FakePlex : AutoCloseable {
     /** Live TV refused (403), as a friend's server does to a user it's shared with. */
     @Volatile var liveTvRefused = false
 
+    /** The shows by newest episode (Home's recently added series) failing (500), the library still listing. */
+    @Volatile var newestFails = false
+
     /** The guide failing (500), its channels still answering. */
     @Volatile var guideFails = false
+
+    /** The guide sent in a shape the app can't read (each showing's times as words). */
+    @Volatile var guideUnreadable = false
 
     /** Tuning answers 500 ("Tuning failed"). */
     @Volatile var tuneFails = false
@@ -98,6 +104,14 @@ class FakePlex : AutoCloseable {
     }
 
     override fun close() = server.shutdown()
+
+    /** The TV library's shows (by newest episode, failing when [newestFails]). */
+    private fun shows(request: RecordedRequest): MockResponse =
+        if (newestFails && request.requestUrl!!.queryParameter("sort") == "episode.addedAt:desc") {
+            MockResponse().setResponseCode(500)
+        } else {
+            page(request, SHOWS.filter { viewedSince(request, it) }.map(::withState))
+        }
 
     private fun answer(request: RecordedRequest): MockResponse {
         val path = request.requestUrl!!.encodedPath
@@ -121,7 +135,7 @@ class FakePlex : AutoCloseable {
                 }
             }
             path == "/library/sections/1/all" -> page(request, MOVIES.filter { viewedSince(request, it) }.map(::withState))
-            path == "/library/sections/2/all" -> page(request, SHOWS.filter { viewedSince(request, it) }.map(::withState))
+            path == "/library/sections/2/all" -> shows(request)
             path == "/library/metadata/21/allLeaves" -> container { put("Metadata", JsonArray(EPISODES.map(::withState))) }
             // One item, or several ("11,12"): those it has.
             path.startsWith("/library/metadata/") -> path.substringAfterLast('/').split(',').mapNotNull(::byKey)
@@ -185,6 +199,17 @@ class FakePlex : AutoCloseable {
         }
         path == "/$EPG/lineups/dvr/channels" -> container { put("Channel", JsonArray(CHANNELS)) }
         path == "/$EPG/grid" && guideFails -> MockResponse().setResponseCode(500)
+        path == "/$EPG/grid" && guideUnreadable -> container {
+            put("size", 1)
+            putJsonArray("Metadata") {
+                add(
+                    obj {
+                        put("title", "Odd")
+                        putJsonArray("Media") { add(obj { put("beginsAt", "soon") }) }
+                    }
+                )
+            }
+        }
         path == "/$EPG/grid" -> container { put("Metadata", JsonArray(guide(request))) }
         path.startsWith("/livetv/dvrs/$DVR/channels/") && path.endsWith("/tune") -> tune(path.split('/')[5])
         path == "/:/timeline" && request.requestUrl!!.queryParameter("key").orEmpty().startsWith("/livetv/sessions/") -> {
@@ -247,6 +272,20 @@ class FakePlex : AutoCloseable {
                                 put("beginsAt", hour + n * 3600)
                                 put("endsAt", hour + (n + 1) * 3600)
                                 put("channelIdentifier", id)
+                                // The rest as the owner's server sends them (numbers among them).
+                                put("id", 100 + i * 2 + n)
+                                put("channelID", i + 1)
+                                put("channelVcn", "00$i")
+                                put("gridKey", id.substringAfter('-'))
+                            }
+                        )
+                    }
+                    // Tags, as the owner's server sends them: a number and a name, not the channel's key.
+                    putJsonArray("Channel") {
+                        add(
+                            obj {
+                                put("id", i + 1)
+                                put("tag", "00$i Channel")
                             }
                         )
                     }

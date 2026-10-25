@@ -5,6 +5,7 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.room.withTransaction
+import com.biskyt.myplexplayer.core.plex.PlexClient
 import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.plex.PlexItem
 import com.biskyt.myplexplayer.core.plex.PlexPlayState
@@ -105,6 +106,10 @@ class VodRepository(
     /** The first [limit] favourite movies or series ([type]), as listed. */
     fun observeFavouriteCards(playlistId: Long, type: String, limit: Int): Flow<List<VodCard>> =
         if (type == CAT_MOVIE) vod.observeMovieFavourites(playlistId, limit) else vod.observeSeriesFavourites(playlistId, limit)
+
+    /** The newest movies, or the series with the newest episodes (Plex), for Home. */
+    fun observeNewestCards(playlistId: Long, type: String, limit: Int): Flow<List<VodCard>> =
+        if (type == CAT_MOVIE) vod.observeNewestMovies(playlistId, limit) else vod.observeNewestSeries(playlistId, limit)
 
     /** A new favourite goes at the end of the user's order. */
     suspend fun setFavourite(playlistId: Long, type: String, id: Long, favourite: Boolean) {
@@ -336,12 +341,17 @@ class VodRepository(
         val libraries = plex.libraries(client)
         var position = 0 // the server's order (by title), across libraries
         val films = mutableListOf<PlexItem>() // for their play state, after
+        val newest = HashMap<Long, Int>() // series' places on Home's recently added row, as each TV library is listed
+        var tvLibraries = 0
 
         // Asked for all at once, the included libraries: Plex lists one library at a time anyway.
         fun titles(type: PlexType, category: String): suspend (String?, suspend (Pair<String, PlexItem>) -> Unit) -> Unit =
             { library, emit ->
                 val ids = library?.let(::listOf) ?: includedLibraries(p.id, category)
-                ids.forEach { plex.titles(client, type, it, emit) }
+                ids.forEach {
+                    if (type == PlexType.SHOW) rankNewest(client, it, tvLibraries++, newest)
+                    plex.titles(client, type, it, emit)
+                }
             }
         val movies = syncKind(
             p.id,
@@ -364,8 +374,18 @@ class VodRepository(
             vod::deleteStaleSeries,
             { onProgress(movies + it) },
             libraries = true
-        ) { title, stamp -> plex.series(client, p.id, title, position++, stamp) }
+        ) { title, stamp -> plex.series(client, p.id, title, position++, stamp, newest) }
         plex.syncPlayState(p, client, films)
+    }
+
+    /**
+     * Home's recently added series: [library]'s shows with the newest episodes first, into [ranks] by series id. Shows
+     * carry no date of their newest episode, only the server's order, so TV libraries take places in turn ([index]).
+     * It's an extra: a library that can't say has none on the row, rather than failing the sync.
+     */
+    private suspend fun rankNewest(client: PlexClient, library: String, index: Int, ranks: MutableMap<Long, Int>) {
+        val shows = offlineOk { client.recentlyAdded(library, PlexType.SHOW, NEWEST_SERIES) } ?: return
+        shows.forEachIndexed { i, show -> show.ratingKey.toLongOrNull()?.let { ranks[it] = i * MAX_TV_LIBRARIES + index } }
     }
 
     /** One list (movies or series): categories, then the included items in batches, then what the provider dropped. */
@@ -410,3 +430,9 @@ class VodRepository(
 
 /** Where a film or episode plays from, and for one from Plex, its [plex] playback (to report to). */
 data class VodStream(val url: String, val plex: PlexPlayback? = null)
+
+/** How many series with new episodes Home's row is given. */
+private const val NEWEST_SERIES = 20
+
+/** TV libraries a server has, at most, for their places on Home's recently added row to take turns. */
+private const val MAX_TV_LIBRARIES = 1_000

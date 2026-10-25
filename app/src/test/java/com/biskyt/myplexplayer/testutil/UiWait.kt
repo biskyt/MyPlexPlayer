@@ -1,13 +1,22 @@
 package com.biskyt.myplexplayer.testutil
 
+import android.view.KeyEvent as NativeKeyEvent
+import androidx.annotation.StringRes
+import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ComposeTimeoutException
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.compose.ui.test.performKeyPress
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.printToString
+import com.biskyt.myplexplayer.appString
 import java.util.concurrent.TimeUnit
 import org.robolectric.shadows.ShadowLooper
 
@@ -55,8 +64,24 @@ fun ComposeTestRule.idleFrames() = repeat(10) { waitAdvancingClock { true } }
 /** The topmost window's root: where keys go (a side panel is a window of its own). */
 fun ComposeTestRule.topRoot() = onAllNodes(isRoot()).let { it[it.fetchSemanticsNodes().lastIndex] }
 
+/** A remote key event ([action] down or up, [repeat] while held) to the topmost window; whether the app kept it. */
+@OptIn(ExperimentalTestApi::class)
+fun ComposeTestRule.sendKey(code: Int, action: Int, repeat: Int = 0): Boolean =
+    topRoot().performKeyPress(KeyEvent(NativeKeyEvent(0, 0, action, code, repeat))).also { idleFrames() }
+
 /** Lets a second of (simulated) time pass, idling as it goes: for checking that something did *not* happen. */
 fun ComposeTestRule.settle() = repeat(10) {
     ShadowLooper.idleMainLooper(100, TimeUnit.MILLISECONDS)
     waitForIdle()
+}
+
+/**
+ * Scrolls Home to its row titled [title], once the page has the row titled [loaded] (the rows load one by one; a
+ * row of channels has no title key of its own, so wait for one that has).
+ */
+fun ComposeTestRule.scrollToHomeRow(@StringRes title: Int, @StringRes loaded: Int = title) {
+    // The page itself: the rows in it scroll too, sideways.
+    val page = hasScrollToNodeAction() and SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange)
+    waitAdvancingClock(stepMs = 50) { onNode(page).fetchSemanticsNode().config[SemanticsProperties.IndexForKey](loaded) >= 0 }
+    onNode(page).performScrollToNode(hasText(appString(title)))
 }
