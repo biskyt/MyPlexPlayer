@@ -34,7 +34,13 @@
     <string name="player_picture">Imagem: %1$s</string>
     <string name="player_audio_output">Saída de áudio: %1$s</string>
     <string name="player_video_unknown">Vídeo: desconhecido</string>
-    <string name="player_video_info">Vídeo: %1$d×%2$d · %3$s</string>
+    <string name="player_info">Informações de reprodução</string>
+    <string name="player_info_direct_play">Reproduz o arquivo como está (reprodução direta)</string>
+    <string name="player_info_direct_stream">Transmitido pelo servidor, com imagem e som como estão (transmissão direta)</string>
+    <string name="player_info_video">Vídeo: %1$s</string>
+    <string name="player_info_decoder">Decodificador de vídeo: %1$s</string>
+    <string name="player_info_audio">Áudio: %1$s</string>
+    <string name="player_info_dropped">Quadros perdidos: %1$d</string>
     <string name="player_track_number">Faixa %1$d</string>
     <string name="player_track_forced">forçada</string>
     <string name="player_track_channels">%1$dch</string>

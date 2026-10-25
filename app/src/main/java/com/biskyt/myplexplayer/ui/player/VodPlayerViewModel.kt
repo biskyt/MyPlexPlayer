@@ -97,6 +97,11 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         }
     )
 
+    override val playsHow: String?
+        get() = current?.stream?.plex?.let {
+            appString(if (it.streaming) R.string.player_info_direct_stream else R.string.player_info_direct_play)
+        }
+
     override fun beforeLeaving() = save(stopped = true)
 
     init {

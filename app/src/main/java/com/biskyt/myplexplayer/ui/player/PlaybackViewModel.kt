@@ -71,13 +71,23 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     var exit by mutableStateOf(false)
         private set
 
-    enum class Sheet { AUDIO, SUBTITLES, MORE, ABOUT }
+    enum class Sheet { AUDIO, SUBTITLES, MORE, ABOUT, INFO }
 
     /**
      * What can be done with what's playing, at the top of the More menu; read while drawing it, so labels follow state
      * (e.g. "Remove from favourites"). A screen opened from it stops playback until Back, like leaving the app.
      */
     open fun menuActions(): List<ItemAction> = emptyList()
+
+    /** The video decoder playing the stream (for Playback info). */
+    var videoDecoder by mutableStateOf<String?>(null)
+        private set
+
+    /** How what's playing reaches the player, for Playback info (on-demand: as the file, or streamed by the server). */
+    protected open val playsHow: String? get() = null
+
+    /** The Playback info panel's lines, as playback stands now. */
+    fun info(): List<String> = playbackInfo(tracks, playsHow, videoDecoder, audioLabel, engine?.droppedFrames())
 
     /** Before an action replaces the player with another screen (e.g. saves how far a movie got). */
     open fun beforeLeaving() = Unit
@@ -166,9 +176,21 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         }
     }
 
-    /** The sound's real format arrives once its output starts (after the tracks): the label follows it. */
+    /**
+     * The video decoder chosen, and the sound's real format, which arrives once its output starts (after the tracks):
+     * the label follows it.
+     */
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-    private val audioFormatListener = object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+    private val formatListener = object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+        override fun onVideoDecoderInitialized(
+            eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+            decoderName: String,
+            initializedTimestampMs: Long,
+            initializationDurationMs: Long
+        ) {
+            videoDecoder = decoderName
+        }
+
         override fun onAudioInputFormatChanged(
             eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
             format: androidx.media3.common.Format,
@@ -184,7 +206,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         mapper = KeyActionMapper(settings.skipBackSec * 1_000L, settings.skipForwardSec * 1_000L, settings.zapWithUpDown)
         return PlaybackEngine(appContext, settings).also {
             it.player.addListener(listener)
-            it.player.addAnalyticsListener(audioFormatListener)
+            it.player.addAnalyticsListener(formatListener)
             it.onStalled = listener::onPlayerError
             it.onUnsupported = { url -> fail(appString(R.string.player_unsupported_format), failureReason(null, url)) }
             engine = it
@@ -230,7 +252,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         if (!::mapper.isInitialized) return false
         // A held OK or Menu does it once (its repeats would toggle the controls, the pause or the menu back and forth).
         if ((key == RemoteKey.OK || key == RemoteKey.MENU) && repeat > 0) return true
-        val action = mapper.map(key, overlay, isLive, digit, menuOpen = sheet == Sheet.MORE)
+        val action = mapper.map(key, overlay, isLive, digit, menuOpen = sheet == Sheet.MORE || sheet == Sheet.INFO)
         if (overlay != OverlayState.NONE) showControls(keepOverlay = true)
         return perform(action, repeat)
     }
@@ -461,7 +483,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     override fun onCleared() {
         released = true
         engine?.player?.removeListener(listener)
-        engine?.player?.removeAnalyticsListener(audioFormatListener)
+        engine?.player?.removeAnalyticsListener(formatListener)
         engine?.release()
     }
 

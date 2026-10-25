@@ -48,8 +48,14 @@
     <!-- %1$s: how the sound is played, e.g. "Passthrough · Dolby Atmos" -->
     <string name="player_audio_output">Audio output: %1$s</string>
     <string name="player_video_unknown">Video: unknown</string>
-    <!-- %1$d × %2$d: the picture's width and height in pixels; %3$s: its format, e.g. "avc" (not translated) -->
-    <string name="player_video_info">Video: %1$d×%2$d · %3$s</string>
+    <!-- Playback info (from More while watching): how it plays, the picture, the sound -->
+    <string name="player_info">Playback info</string>
+    <string name="player_info_direct_play">Plays the file as it is (direct play)</string>
+    <string name="player_info_direct_stream">Streamed by the server, picture and sound as they are (direct stream)</string>
+    <string name="player_info_video">Video: %1$s</string>
+    <string name="player_info_decoder">Video decoder: %1$s</string>
+    <string name="player_info_audio">Audio: %1$s</string>
+    <string name="player_info_dropped">Dropped frames: %1$d</string>
     <!-- A track with no name or language. %1$d: its number -->
     <string name="player_track_number">Track %1$d</string>
     <!-- Marks a subtitle track that is forced (shown only for foreign-language parts) -->

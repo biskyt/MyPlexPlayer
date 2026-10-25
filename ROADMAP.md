@@ -32,7 +32,7 @@ Each step is its own pull request.
    - Done (0.3.4): direct stream for files the player can't open, and the token sent in headers rather than the
      address.
    - Done (0.3.5): Mark as watched / unwatched, from a poster's options and from Carry on watching.
-   - Next: a playback info panel.
+   - Done (0.3.6): a playback info panel (More › Playback info while watching).
 6. **Live TV and the TV guide from Plex.**
 7. **DVR** in place of Catch-up: recordings, what's scheduled, and Record from the TV guide.
 
