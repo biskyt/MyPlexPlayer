@@ -1,5 +1,5 @@
-"""Runs the Plex spike's "all" step inside the app: its printed lines go to the screen, its files to the app's own
-storage. spikes/plex_spike.py itself is unchanged."""
+"""Runs a step of spikes/plex_spike.py ("all", or "save-favourites") inside the app: its printed lines go to the
+screen, its files to the app's own storage."""
 import os
 import sys
 from pathlib import Path
@@ -20,13 +20,14 @@ class _Lines:
         pass
 
 
-def run(files_dir, emit):
-    """Runs every step; returns the zip's path (or "" if it wasn't made)."""
+def run(files_dir, emit, step="all"):
+    """Runs [step] ("all": every step); returns the zip's path (or "" if it wasn't made)."""
     home = Path(str(files_dir))
     os.environ["HOME"] = str(home)  # the sign-in is kept in ~/.myplexplayer-spike.json
     os.chdir(home)
     sys.stdout = sys.stderr = _Lines(emit)
-    sys.argv = ["plex_spike.py", "all", "--out", str(home / "spike-out")]
+    (home / "spike-results.zip").unlink(missing_ok=True)  # a zip from an earlier run isn't shown as this one's
+    sys.argv = ["plex_spike.py", step, "--out", str(home / "spike-out")]
     try:
         import plex_spike
         plex_spike.main()
