@@ -16,6 +16,11 @@
     <string name="settings_skip_back_help">Esquerda no controle remoto durante a reprodução</string>
     <string name="settings_skip_forward_help">Direita no controle remoto durante a reprodução</string>
     <string name="settings_seconds">%1$d s</string>
+    <string name="settings_auto_skip_intro">Pular aberturas sozinho</string>
+    <string name="settings_auto_skip_intro_help">Segundos de contagem no botão Pular; Voltar cancela. Desativado: só ao apertar.</string>
+    <string name="settings_auto_skip_credits">Pular créditos sozinho</string>
+    <string name="settings_auto_skip_credits_help">O mesmo para os créditos: os finais de um episódio vão para o próximo; os de um filme o encerram.</string>
+    <string name="settings_auto_skip_off">Desativado</string>
     <string name="settings_passthrough">Passthrough de áudio</string>
     <string name="settings_passthrough_help">Envia Dolby / DTS / Atmos para a soundbar ou TV decodificar. Desative se ficar sem som.</string>
     <string name="settings_subtitles">Legendas padrão</string>

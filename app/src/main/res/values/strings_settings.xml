@@ -20,6 +20,11 @@
     <string name="settings_skip_forward_help">Right on the remote during playback</string>
     <!-- A number of seconds in a small value box, e.g. "10 s". Keep it short. -->
     <string name="settings_seconds">%1$d s</string>
+    <string name="settings_auto_skip_intro">Skip intros by themselves</string>
+    <string name="settings_auto_skip_intro_help">Seconds the Skip button counts down first; Back cancels it. Off: only when pressed.</string>
+    <string name="settings_auto_skip_credits">Skip credits by themselves</string>
+    <string name="settings_auto_skip_credits_help">The same for credits: after an episode\'s last credits the next one plays; after a film\'s, it ends.</string>
+    <string name="settings_auto_skip_off">Off</string>
     <!-- "Dolby", "DTS" and "Atmos" are brand names: don't translate them. -->
     <string name="settings_passthrough">Audio passthrough</string>
     <string name="settings_passthrough_help">Send Dolby / DTS / Atmos to your soundbar or TV to decode. Turn off if you get no sound.</string>

@@ -16,6 +16,11 @@
     <string name="settings_skip_back_help">Gauche sur la télécommande pendant la lecture</string>
     <string name="settings_skip_forward_help">Droite sur la télécommande pendant la lecture</string>
     <string name="settings_seconds">%1$d s</string>
+    <string name="settings_auto_skip_intro">Passer les intros seul</string>
+    <string name="settings_auto_skip_intro_help">Secondes de décompte sur le bouton Passer ; Retour l\'annule. Désactivé : seulement si on appuie.</string>
+    <string name="settings_auto_skip_credits">Passer le générique seul</string>
+    <string name="settings_auto_skip_credits_help">Pareil pour le générique : celui de fin d\'un épisode passe au suivant, celui d\'un film le termine.</string>
+    <string name="settings_auto_skip_off">Désactivé</string>
     <string name="settings_passthrough">Passthrough audio</string>
     <string name="settings_passthrough_help">Envoie le Dolby / DTS / Atmos à votre barre de son ou téléviseur pour le décodage. Désactivez-le si vous n\'avez pas de son.</string>
     <string name="settings_subtitles">Sous-titres par défaut</string>

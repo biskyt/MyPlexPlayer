@@ -227,6 +227,9 @@ class FakePlex : AutoCloseable {
         }
     }
 
+    /** An intro or credits marker, as [episode] lists it. */
+    data class Marker(val type: String, val startMs: Long, val endMs: Long, val final: Boolean = false)
+
     /** The libraries, what's in them, and each title's details. */
     private fun libraryAnswer(path: String, request: RecordedRequest): MockResponse = when {
         path == "/library/sections" -> container {
@@ -241,7 +244,7 @@ class FakePlex : AutoCloseable {
             container { put("Metadata", JsonArray(episodesOf(path.split('/')[3]).map(::withState))) }
         // One item, or several ("11,12"): those it has.
         path.startsWith("/library/metadata/") -> path.substringAfterLast('/').split(',').mapNotNull(::byKey)
-            .takeIf { it.isNotEmpty() }?.let { items -> container { put("Metadata", JsonArray(items.map(::withState))) } }
+            .takeIf { it.isNotEmpty() }?.let { items -> details(items, request) }
             ?.setBodyDelay(metadataDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
             ?: MockResponse().setResponseCode(404)
         else -> MockResponse().setResponseCode(404)
@@ -439,6 +442,13 @@ class FakePlex : AutoCloseable {
         val after = System.currentTimeMillis() / 1000 - seconds
         return keys.any { (lastViewedAt[it] ?: return@any false) >= after }
     }
+
+    private fun details(items: List<JsonObject>, request: RecordedRequest) =
+        container { put("Metadata", JsonArray(items.map { withMarkers(withState(it), request) })) }
+
+    /** Markers come only when asked for, as from a real server. */
+    private fun withMarkers(item: JsonObject, request: RecordedRequest) =
+        if (request.requestUrl?.queryParameter("includeMarkers") == "1") item else JsonObject(item - "Marker")
 
     private fun byKey(key: String) = (movies + shows + episodes).firstOrNull { it.string("ratingKey") == key }
 
@@ -663,9 +673,18 @@ class FakePlex : AutoCloseable {
             put("addedAt", addedAt)
         }
 
-        /** Episode [index] of [season] of [show] (its key and title), its key [key]. */
+        /** Episode [index] of [season] of [show] (its key and title), its key [key], with Plex's [markers] if any. */
         @Suppress("LongParameterList") // an episode's fields, as the server lists them
-        fun episode(show: String, showTitle: String, key: String, season: Int, index: Int, title: String, duration: Long = 600_000) = obj {
+        fun episode(
+            show: String,
+            showTitle: String,
+            key: String,
+            season: Int,
+            index: Int,
+            title: String,
+            duration: Long = 600_000,
+            markers: List<Marker> = emptyList()
+        ) = obj {
             put("ratingKey", key)
             put("type", "episode")
             put("title", title)
@@ -675,6 +694,20 @@ class FakePlex : AutoCloseable {
             put("grandparentTitle", showTitle)
             put("duration", duration)
             put("Media", media(show.toInt() * 100 + (season - 1) * 50 + index, "mkv")) // series 1: 2101, 2102 for show 21
+            if (markers.isNotEmpty()) {
+                putJsonArray("Marker") {
+                    markers.forEach { m ->
+                        add(
+                            obj {
+                                put("type", m.type)
+                                put("startTimeOffset", m.startMs)
+                                put("endTimeOffset", m.endMs)
+                                if (m.final) put("final", true)
+                            }
+                        )
+                    }
+                }
+            }
         }
 
         private val MOVIES = listOf(

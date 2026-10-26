@@ -37,9 +37,17 @@ data class Settings(
     val zapWithUpDown: Boolean = false,
     val lastChannelId: Long = 0,
     val accent: Int = AccentPalette.DEFAULT,
-    val largeText: Boolean = false
+    val largeText: Boolean = false,
+    /** Seconds the Skip pill counts down before skipping an intro by itself; [AUTO_SKIP_OFF]: only when pressed. */
+    val autoSkipIntroSec: Int = 3,
+    /** The same for credits. */
+    val autoSkipCreditsSec: Int = 3
 ) {
     val effectiveSubtitleLanguage: String get() = subtitleLanguage.ifEmpty { Locale.getDefault().language }
+
+    companion object {
+        const val AUTO_SKIP_OFF = -1
+    }
 }
 
 internal val Context.dataStore by preferencesDataStore("settings")
@@ -58,6 +66,8 @@ class SettingsRepository(private val context: Context) {
         val lastChannel = longPreferencesKey("last_channel")
         val accent = intPreferencesKey("accent")
         val largeText = booleanPreferencesKey("large_text")
+        val autoSkipIntro = intPreferencesKey("auto_skip_intro")
+        val autoSkipCredits = intPreferencesKey("auto_skip_credits")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings() }.distinctUntilChanged()
@@ -99,6 +109,8 @@ class SettingsRepository(private val context: Context) {
             lastChannelId = this[K.lastChannel] ?: d.lastChannelId,
             accent = this[K.accent] ?: d.accent,
             largeText = this[K.largeText] ?: d.largeText,
+            autoSkipIntroSec = this[K.autoSkipIntro] ?: d.autoSkipIntroSec,
+            autoSkipCreditsSec = this[K.autoSkipCredits] ?: d.autoSkipCreditsSec,
         )
     }
 
@@ -122,6 +134,8 @@ class SettingsRepository(private val context: Context) {
             prefs[K.lastChannel] = s.lastChannelId
             prefs[K.accent] = s.accent
             prefs[K.largeText] = s.largeText
+            prefs[K.autoSkipIntro] = s.autoSkipIntroSec
+            prefs[K.autoSkipCredits] = s.autoSkipCreditsSec
         }
     }
 

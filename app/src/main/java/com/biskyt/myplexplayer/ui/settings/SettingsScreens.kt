@@ -140,6 +140,16 @@ fun PlaybackSettingsScreen() {
             )
         }
         item {
+            AutoSkipRow(R.string.settings_auto_skip_intro, R.string.settings_auto_skip_intro_help, s.autoSkipIntroSec) { d ->
+                vm.update { it.copy(autoSkipIntroSec = autoSkipSteps.cycle(it.autoSkipIntroSec, d)) }
+            }
+        }
+        item {
+            AutoSkipRow(R.string.settings_auto_skip_credits, R.string.settings_auto_skip_credits_help, s.autoSkipCreditsSec) { d ->
+                vm.update { it.copy(autoSkipCreditsSec = autoSkipSteps.cycle(it.autoSkipCreditsSec, d)) }
+            }
+        }
+        item {
             SettingRow(
                 stringResource(R.string.settings_passthrough),
                 stringResource(R.string.settings_passthrough_help),
@@ -198,6 +208,19 @@ fun PlaybackSettingsScreen() {
             }
         }
     }
+}
+
+/** Off, then 0 to 10 seconds. */
+private val autoSkipSteps = listOf(Settings.AUTO_SKIP_OFF) + (0..10)
+
+/** An automatic skip's delay: Off, or the seconds its pill counts down. */
+@Composable
+private fun AutoSkipRow(title: Int, help: Int, sec: Int, step: (Int) -> Unit) {
+    val label = when (sec) {
+        Settings.AUTO_SKIP_OFF -> stringResource(R.string.settings_auto_skip_off)
+        else -> stringResource(R.string.settings_seconds, sec)
+    }
+    CycleSettingRow(stringResource(title), stringResource(help), label, step)
 }
 
 /** The app's language: each press moves to the next, and the screens switch to it straight away. */

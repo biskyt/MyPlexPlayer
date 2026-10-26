@@ -90,9 +90,29 @@ data class PlexItem(
     val leafCount: Int? = null,
     val viewedLeafCount: Int? = null,
     @SerialName("Media") val media: List<PlexMedia> = emptyList(),
+    /** Its intro and credits, when Plex has found them; sent only when asked for ([PlexClient.item] does). */
+    @SerialName("Marker") @Serializable(with = SkippingList::class) val markers: List<PlexMarker> = emptyList(),
 ) {
     /** The first file of the first version, the one played. */
     val part: PlexPart? get() = media.firstOrNull()?.parts?.firstOrNull()
+}
+
+/**
+ * A stretch of a film or episode that Plex Pass found ([type] [INTRO] or [CREDITS]), from [startMs] to [endMs]
+ * into it. [final] credits run to the end (Plex's "next episode" moment); others are mid-film or mid-episode.
+ */
+@Serializable
+data class PlexMarker(
+    val type: String,
+    @SerialName("startTimeOffset") val startMs: Long,
+    @SerialName("endTimeOffset") val endMs: Long,
+    val final: Boolean = false,
+) {
+    companion object {
+        const val INTRO = "intro"
+        const val CREDITS = "credits"
+        val SKIPPABLE = setOf(INTRO, CREDITS)
+    }
 }
 
 @Serializable
