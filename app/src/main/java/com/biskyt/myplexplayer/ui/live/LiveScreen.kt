@@ -34,6 +34,9 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -94,13 +97,21 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
     LaunchedEffect(Unit) { vm.restoreFocusPending = true }
     // So a late focus target in the guide knows when the user has moved on (see GuideGrid).
     val screenFocus = remember { ScreenFocus() }
+    // Right from the categories enters the guide's programmes (see GuideGrid).
+    val guideEntry = remember { FocusRequester() }
 
     TabScaffold(
         Tab.LIVE,
         // Anywhere on the screen, the tabs included (else the TV would take the Guide button for its own guide): 0–9
         // on the remote jumps straight to that channel number; the Guide button switches list/guide.
-        Modifier.onFocusChanged { screenFocus.hasFocus = it.hasFocus }.onPreviewKeyEvent { e ->
-            if (e.type == KeyEventType.KeyDown && e.key in arrowKeys) screenFocus.arrowPresses++
+        Modifier.pointerInput(Unit) {
+            awaitPointerEventScope {
+                while (true) {
+                    if (awaitPointerEvent(PointerEventPass.Initial).type == PointerEventType.Press) screenFocus.moves++
+                }
+            }
+        }.onPreviewKeyEvent { e ->
+            if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0 && e.key in movingKeys) screenFocus.moves++
             val digit = e.key.digit()
             when {
                 e.type != KeyEventType.KeyDown -> e.key.isGuide()
@@ -118,7 +129,7 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
         }
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 56.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            LiveCategories(vm, filter)
+            LiveCategories(vm, filter, if (vm.guideMode) guideEntry else FocusRequester.Default)
             Column(Modifier.weight(1f)) {
                 val filterBox = remember { FocusRequester() }
                 ListHeader(vm, filter, Modifier.focusRequester(filterBox))
@@ -128,7 +139,7 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
                 BackToFilter(filterBox, atTop = { vm.guideMode && vm.focusIndex == 0 }) {
                     when {
                         !vm.filters.settled -> Unit
-                        vm.guideMode -> GuideGrid(vm, items, play, screenFocus)
+                        vm.guideMode -> GuideGrid(vm, items, play, screenFocus, guideEntry)
                         else -> ChannelList(vm, items, play)
                     }
                 }
@@ -157,7 +168,7 @@ private fun BackToFilter(filterBox: FocusRequester, atTop: () -> Boolean, conten
 }
 
 @Composable
-private fun LiveCategories(vm: LiveViewModel, selected: ChannelFilter) {
+private fun LiveCategories(vm: LiveViewModel, selected: ChannelFilter, right: FocusRequester) {
     val categories by vm.categories.collectAsState()
     val favourites = stringResource(R.string.common_favourites)
     val recent = stringResource(R.string.common_recent)
@@ -169,7 +180,7 @@ private fun LiveCategories(vm: LiveViewModel, selected: ChannelFilter) {
             CategoryEntry(ChannelFilter.All, all)
         ) + categoryEntries<ChannelFilter>(categories) { ChannelFilter.Category(it.categoryId) }
     }
-    FilteredCategoryColumn(entries, fixed = 3, selected, vm.filters::focus, vm.filters::select, vm::hideCategory)
+    FilteredCategoryColumn(entries, fixed = 3, selected, vm.filters::focus, vm.filters::select, vm::hideCategory, right)
 }
 
 @Composable
@@ -306,4 +317,5 @@ private fun PlaceholderRow() {
     Box(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(14.dp)).background(Palette.surfaceLow))
 }
 
-private val arrowKeys = setOf(Key.DirectionUp, Key.DirectionDown, Key.DirectionLeft, Key.DirectionRight)
+/** The keys that move around the screen (or leave it): when one is pressed, focus is where the user wants it. */
+private val movingKeys = setOf(Key.DirectionUp, Key.DirectionDown, Key.DirectionLeft, Key.DirectionRight, Key.Back)

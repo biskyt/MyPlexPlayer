@@ -1,10 +1,18 @@
 package com.biskyt.myplexplayer.ui
 
+import android.os.Handler
+import android.os.Looper
+import androidx.arch.core.executor.ArchTaskExecutor
+import androidx.arch.core.executor.TaskExecutor
 import androidx.compose.runtime.remember
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.ChannelFilter
@@ -17,9 +25,11 @@ import com.biskyt.myplexplayer.testutil.focusedText
 import com.biskyt.myplexplayer.testutil.settle
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
+import java.util.concurrent.LinkedBlockingQueue
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -95,5 +105,63 @@ class GuideScrollUiTest {
         assertFalse("after a held Right: $focus", focus.contains("Home Plex") || focus.isEmpty())
         press(Key.DirectionRight)
         assertFalse("then Right again: ${compose.focusedText()}", compose.focusedText().contains("Home Plex"))
+    }
+
+    /** The owner's steps: click the TV guide button, scroll the guide, go back to the categories, and into the guide again. */
+    @Test
+    fun `from the categories, right goes back into the guide, not to the buttons above it`() {
+        compose.setContent {
+            MyPlexTheme { NavHost(remember { navigators.new(Screen.Live(ChannelFilter.All)) }) { ScreenContent(it) } }
+        }
+        compose.waitAdvancingClock { compose.focusedText().contains("One") }
+        compose.onNode(hasText("TV guide") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
+        compose.waitAdvancingClock { compose.focusedText().contains("TV guide") }
+        press(Key.DirectionCenter)
+        compose.waitAdvancingClock(50) { compose.focusedText().isNotEmpty() && !compose.focusedText().contains("TV guide") }
+        assertTrue("in the guide after the click: ${compose.focusedText()}", compose.focusedText().contains("Show 0"))
+        repeat(3) { press(Key.DirectionRight) }
+        repeat(8) { press(Key.DirectionLeft) }
+        assertTrue("in the categories: ${compose.focusedText()}", compose.focusedText().contains("All channels"))
+        repeat(8) {
+            press(Key.DirectionRight)
+            val focus = compose.focusedText()
+            assertTrue("Right ${it + 1} from the categories: $focus", "Show" in focus || "Film" in focus || "No guide" in focus)
+        }
+    }
+
+    /** Programmes arriving late replace the cell holding focus; a TV may hand focus to the Home tab as that happens. */
+    @Test
+    fun `focus handed to another tab while the guide's programmes load comes back to the guide`() {
+        compose.setContent {
+            MyPlexTheme { NavHost(remember { navigators.new(Screen.Live(ChannelFilter.All)) }) { ScreenContent(it) } }
+        }
+        compose.waitAdvancingClock { compose.focusedText().contains("One") }
+        val held = LinkedBlockingQueue<Runnable>()
+        ArchTaskExecutor.getInstance().setDelegate(
+            object : TaskExecutor() {
+                override fun executeOnDiskIO(runnable: Runnable) {
+                    held += runnable
+                }
+
+                override fun postToMainThread(runnable: Runnable) {
+                    Handler(Looper.getMainLooper()).post(runnable)
+                }
+
+                override fun isMainThread() = Looper.getMainLooper().isCurrentThread
+            }
+        )
+        try {
+            press(Key.Guide)
+            // The row holds focus with its placeholder; then focus is handed away without a key (as a TV does).
+            compose.onNode(hasText("Home") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
+            compose.settle()
+            assertTrue(compose.focusedText(), compose.focusedText().contains("Home"))
+        } finally {
+            ArchTaskExecutor.getInstance().setDelegate(null)
+            generateSequence { held.poll() }.forEach(ArchTaskExecutor.getInstance()::executeOnDiskIO)
+        }
+        compose.waitAdvancingClock(50) { compose.onAllNodes(hasText("Film 0")).fetchSemanticsNodes().isNotEmpty() }
+        compose.settle()
+        assertFalse("back in the guide: ${compose.focusedText()}", compose.focusedText().contains("Home"))
     }
 }
