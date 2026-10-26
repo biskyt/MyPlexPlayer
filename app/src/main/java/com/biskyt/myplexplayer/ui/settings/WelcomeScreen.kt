@@ -23,7 +23,7 @@ import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.theme.Palette
 
-/** First launch: sign in to Plex (or add a provider, or restore a backup). */
+/** First launch: sign in to Plex (or restore a backup). */
 @Composable
 fun WelcomeScreen() {
     val nav = LocalNavigator.current
@@ -44,7 +44,6 @@ fun WelcomeScreen() {
                 rememberFirstFocus(),
                 primary = true,
             )
-            PillButton(stringResource(R.string.settings_welcome_add_provider), { nav.replace(Screen.PlaylistEdit(null, firstRun = true)) })
             // After reinstalling: everything back from a backup file.
             PillButton(stringResource(R.string.settings_welcome_restore), { nav.push(Screen.Backup) })
         }

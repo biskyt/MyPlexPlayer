@@ -12,9 +12,7 @@ import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.player.OverlayState
 import com.biskyt.myplexplayer.core.plex.PlexException
-import com.biskyt.myplexplayer.core.xtream.XtreamClient
 import com.biskyt.myplexplayer.data.PlexLive
-import com.biskyt.myplexplayer.data.StreamFormat
 import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.data.db.ChannelProgramme
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
@@ -81,7 +79,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
 
     override fun menuActions(): List<ItemAction> {
         val ch = channel ?: return emptyList()
-        return channelActions(ch, ch.streamId in favouriteIds) { favourite ->
+        return channelActions(ch.streamId in favouriteIds) { favourite ->
             viewModelScope.launch {
                 c.channels.setFavourite(ch.playlistId, ch.streamId, favourite)
                 flash(favouriteFlash(favourite))
@@ -89,19 +87,12 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
         }
     }
 
-    private var client: XtreamClient? = null
-
-    /** The Plex server, for a Plex source: its channels come from its tuner ([live]). */
+    /** The Plex server: its channels come from its tuner ([live]). */
     private var plexSource: PlaylistEntity? = null
     private var live: PlexLive? = null
     private var closing: Job? = null
     private var heartbeat: Job? = null
 
-    /** The format provider channels are played in first: the one that worked for this provider, else the setting. */
-    private var format = StreamFormat.TS
-
-    /** The format the channel being tuned is playing in: null for an M3U one, else [format] until the other is tried. */
-    private var tuningFormat: StreamFormat? = null
     private var ids: List<Long> = emptyList()
 
     /** Whether the channel list (for zapping and the guide panel's ◀ ▶) has loaded: it comes after tuning starts. */
@@ -116,10 +107,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
         viewModelScope.launch { c.channels.observeFavouriteIds(screen.playlistId).collect { favouriteIds = it.toSet() } }
         viewModelScope.launch {
             startEngine()
-            format = c.settings.streamFormatFor(screen.playlistId) ?: settings.streamFormat
-            val p = c.playlists.get(screen.playlistId)
-            client = p?.takeIf { it.isXtream }?.let(c.playlists::client)
-            plexSource = p?.takeIf { it.isPlex }
+            plexSource = c.playlists.get(screen.playlistId)
             tuneTo(screen.streamId)
             // Only needed for changing channel: not worth delaying the first picture for.
             ids = c.channels.ids(screen.playlistId, screen.filter)
@@ -137,14 +125,12 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
     /** Starts tuning to [streamId], cancelling any tune still in progress so the last request always wins. */
     private fun tuneTo(streamId: Long) {
         targetStreamId = streamId
-        tuningFormat = null // the last channel's failures mustn't try it in the other format any more
         tuneJob?.cancel()
         tuneJob = viewModelScope.launch { tune(streamId) }
     }
 
     private suspend fun tune(streamId: Long) {
         val ch = c.channels.get(screen.playlistId, streamId) ?: return
-        val client = client
         channel = ch
         guideChannel = ch
         previewStreamId = ch.streamId
@@ -152,13 +138,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
         // Its name and what's on show straight away, while a Plex tuner takes its time.
         nowNext.refresh(ch.streamId)
         showControls()
-        val plex = plexSource
-        when {
-            plex != null -> if (!playPlex(plex, ch)) return
-            // M3U channel: its own URL; the format is worked out from the stream itself.
-            ch.streamUrl != null -> engine?.play(ch.streamUrl, hls = null, userAgent = ch.userAgent, referrer = ch.referrer)
-            else -> playFrom(client ?: return, ch, format)
-        }
+        if (!playPlex(plexSource ?: return fail(), ch)) return
         // Only remember channels actually watched: zapping past one shouldn't write to storage.
         delay(WATCHED_AFTER_MS)
         c.channels.markWatched(ch.playlistId, ch.streamId)
@@ -205,13 +185,11 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
     /** In the background nothing streams: a Plex channel's tuner goes too, and coming back tunes it again. */
     override fun onAppHidden() {
         super.onAppHidden()
-        if (plexSource != null) {
-            tuneJob?.cancel()
-            letTunerGo()
-        }
+        tuneJob?.cancel()
+        letTunerGo()
     }
 
-    override fun resume() = if (plexSource != null) tuneTo(targetStreamId) else super.resume()
+    override fun resume() = tuneTo(targetStreamId)
 
     override fun stop() {
         tuneJob?.cancel() // a tune under way goes no further
@@ -224,40 +202,8 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
         super.onCleared()
     }
 
-    private fun playFrom(client: XtreamClient, ch: ChannelEntity, f: StreamFormat) {
-        tuningFormat = f
-        val hls = f == StreamFormat.HLS
-        engine?.play(client.liveStreamUrl(ch.streamId, if (hls) "m3u8" else "ts"), hls)
-    }
-
-    /** Some providers only offer one of HLS and MPEG-TS (or only one works): a channel that won't start gets the other. */
-    override fun tryOtherFormat(): Boolean {
-        val ch = channel
-        val client = client
-        val tried = tuningFormat
-        if (ch == null || client == null || tried != format) return false
-        playFrom(client, ch, StreamFormat.entries.cycle(tried))
-        return true
-    }
-
-    /** The other format played: this provider starts with it from now on. */
-    override fun onPlayingChanged(playing: Boolean) {
-        val playingIn = tuningFormat
-        if (!playing || playingIn == null || playingIn == format) return
-        format = playingIn
-        // Kept even if the player is closed straight away.
-        c.appScope.launch { c.settings.rememberStreamFormat(screen.playlistId, playingIn) }
-    }
-
-    /** A provider channel starts again in its usual format (then the other); anything else as before. */
-    override fun retry() {
-        if (plexSource != null) return tuneTo(targetStreamId) // asked for: tuned again
-        val ch = channel
-        val client = client
-        if (tuningFormat == null || ch == null || client == null) return super.retry()
-        resetForNewStream()
-        playFrom(client, ch, format)
-    }
+    /** Asked for: tuned again. */
+    override fun retry() = tuneTo(targetStreamId)
 
     override fun zap(step: Int) {
         if (ids.isNotEmpty()) tuneTo(ids.cycle(targetStreamId, step))

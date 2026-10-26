@@ -25,16 +25,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
-import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -51,9 +48,7 @@ import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.ui.AccentPalette
 import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.categoryLabel
-import com.biskyt.myplexplayer.data.db.CAT_LIVE
 import com.biskyt.myplexplayer.testutil.FakePlex
-import com.biskyt.myplexplayer.testutil.FakeProvider
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
@@ -142,15 +137,6 @@ class StoreAssetsTest {
     private val language = System.getProperty("storeLanguage").orEmpty()
     private val out = if (language.isEmpty()) OUT else "build/store-assets/$language"
 
-    /** For the guide matching screenshot only: an Xtream provider with an XMLTV guide, the same channels on both. */
-    private val provider = FakeProvider().apply {
-        categories = listOf("1" to "Entertainment")
-        streams =
-            CHANNELS.map { FakeProvider.Stream(100L + it.number.toLong(), it.number.toInt(), it.name, "1", it.logo, art("${it.logo}.png")) }
-        guideChannels = CHANNELS.map { it.logo to it.name }
-        images = { name -> javaClass.getResourceAsStream("/demo-art/$name")?.use { it.readBytes() } }
-    }
-
     @Before
     fun setUp() = runBlocking {
         assumeTrue("Run with -PstoreAssets", System.getProperty("storeAssets") == "true")
@@ -167,7 +153,6 @@ class StoreAssetsTest {
     @After
     fun tearDown() {
         plex.close()
-        provider.close()
         SingletonImageLoader.reset()
         AppText.setLanguage(app, "")
     }
@@ -228,28 +213,6 @@ class StoreAssetsTest {
     @Test fun movieDetails() = screenshot("7-movie-details", Screen.MovieDetails(playlistId, 805), "A giant, gentle rabbit")
 
     @Test fun seriesDetails() = screenshot("8-series-details", Screen.SeriesDetails(playlistId, 901), "Llamigos")
-
-    // XMLTV guides only (not a Plex server's own): one channel set by hand (an hour's shift), and another open on its
-    // suggestions.
-    @Test fun guideMatching() {
-        val id = runBlocking {
-            val c = app.container
-            val id = c.playlists.add("My TV provider", provider.url, "me", "secret")
-            // The demo category has no country prefix, so it isn't picked by default: show it.
-            c.db.categories().setIncluded(id, CAT_LIVE, provider.categories.map { it.first }, true)
-            c.playlists.syncChannels(id)
-            c.playlists.get(id)?.let { c.epg.ensureProviderSource(it, c.playlists.client(it).xmltvUrl()) }
-            c.epg.importAll(listOf(id))
-            val source = c.db.epg().enabledSources().first { it.playlistId == id }.id
-            c.epg.setManual(id, 108, source, "comedy", offsetMinutes = 60)
-            id
-        }
-        screenshot("6-guide-matching", Screen.GuideMatching(id), "Meadow Comedy") {
-            // As AppUiTest does: performClick() doesn't reach the TV card's onClick under Robolectric.
-            compose.onAllNodes(hasText("Harbour Sport 2") and hasClickAction())[0].performSemanticsAction(SemanticsActions.OnClick)
-            waitFor(appString(R.string.live_guide_time_shift, 0).substringBefore(':'))
-        }
-    }
 
     // Not in the store listing: settings pages, whose long labels are the likeliest not to fit when translated.
     @Test fun settings() = translatedOnly { screenshot("9-settings", Screen.Settings, appString(R.string.settings_playlists_title)) }

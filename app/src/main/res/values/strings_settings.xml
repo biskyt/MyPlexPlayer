@@ -7,9 +7,6 @@
     <string name="settings_playback_help">Skip times, audio passthrough, subtitles, buffer</string>
     <string name="settings_categories_title">Languages &amp; categories</string>
     <string name="settings_categories_help">Choose which channels are loaded; unhide channels</string>
-    <!-- "XMLTV" is a guide format's name: don't translate it. -->
-    <string name="settings_guide_sources_help">Your provider\'s guide and extra XMLTV guides</string>
-    <string name="settings_guide_matching_help">Pick the guide channel used by each channel</string>
     <string name="settings_appearance_title">Appearance</string>
     <string name="settings_appearance_help">Accent colour and text size</string>
     <string name="settings_backup_title">Backup &amp; restore</string>
@@ -44,9 +41,6 @@
     <string name="settings_buffer_small">Small</string>
     <string name="settings_buffer_normal">Normal</string>
     <string name="settings_buffer_large">Large</string>
-    <!-- The value shown is "MPEG-TS" or "HLS" (format names, not translated). -->
-    <string name="settings_stream_format">Stream format</string>
-    <string name="settings_stream_format_help">Tried first; if a channel won\'t start, the other is tried and kept if it works</string>
     <string name="settings_start_last">Start on last channel</string>
     <string name="settings_start_last_help">Open the app straight into the channel you watched last</string>
     <string name="settings_zap_up_down">Change channel with up and down</string>
@@ -65,8 +59,6 @@
     <string name="settings_storage">Storage</string>
     <!-- %1$s: a size, e.g. "12 MB". -->
     <string name="settings_storage_database">Channels &amp; guide database: %1$s</string>
-    <!-- %1$s: a size, e.g. "12 MB". -->
-    <string name="settings_storage_guides">Downloaded guide files: %1$s</string>
     <!-- %1$s: a size, e.g. "12 MB". -->
     <string name="settings_storage_logos">Channel logos: %1$s (limited to 30 MB)</string>
     <string name="settings_storage_help">Storage is managed automatically: old programmes are removed every day, logos are capped, and the database is compacted when needed.</string>
@@ -99,12 +91,9 @@
     <string name="settings_lib_guava">Used by Media3</string>
     <string name="settings_lib_nunito">The app\'s font</string>
 
-    <!-- First launch. "Xtream Codes" is a name: don't translate it. "Settings › Playlists" names the
-         settings pages common_settings and settings_playlists_title. -->
+    <!-- First launch. -->
     <string name="settings_welcome_title">Welcome to MyPlexPlayer</string>
-    <string name="settings_welcome_intro">Sign in to Plex to watch the films and series on your Plex servers. You can also add a TV service you subscribe to (an Xtream Codes login) at any time in Settings › Playlists.</string>
-    <!-- Buttons. -->
-    <string name="settings_welcome_add_provider">Add my TV provider</string>
+    <string name="settings_welcome_intro">Sign in to Plex to watch the films, series and Live TV on your Plex servers.</string>
     <string name="settings_welcome_restore">Restore a backup</string>
     <string name="settings_plex_sign_in">Sign in to Plex</string>
     <string name="settings_plex_steps">On your phone or computer, go to plex.tv/link, signed in to your Plex account, and enter this code:</string>
@@ -135,7 +124,7 @@
     <string name="settings_backup_choose_file">Choose the backup file</string>
     <!-- "X-plore" is an app's name; "Open with" and "Share" are Android's menu items. -->
     <string name="settings_backup_no_picker">This TV has no way to choose a file. Open the backup with MyPlexPlayer from a file manager app such as X-plore (Open with, or Share), or install one and try again.</string>
-    <string name="settings_backup_intro">Saves your playlists (with their logins), channel and category choices, favourites, TV guide sources and settings to a file. Copy it with a file manager app to keep it somewhere else. The file isn\'t encrypted, so keep it private.</string>
+    <string name="settings_backup_intro">Saves your Plex servers (with their access tokens), channel and category choices, favourites and settings to a file. Copy it with a file manager app to keep it somewhere else. The file isn\'t encrypted, so keep it private.</string>
     <!-- %1$s: when and where, e.g. "Mon 12 Mar 18:30 · Download/MyPlexPlayer/myplexplayer-backup.json". -->
     <string name="settings_backup_last">Last backup: %1$s</string>
     <string name="settings_backup_none">No backup on this TV yet.</string>
@@ -197,47 +186,13 @@
     <string name="settings_playlist_updated">%1$s updated</string>
     <string name="settings_playlist_updated_detail">Its channels, TV guide, films and series are up to date.</string>
     <!-- %1$s: the playlist's name. -->
-    <string name="settings_playlist_updated_guides_failed">%1$s updated, but some guides couldn\'t be loaded</string>
+    <string name="settings_playlist_guide_failed">TV guide not loaded: %1$s</string>
+    <string name="settings_playlist_updated_guides_failed">%1$s updated, but its TV guide couldn\'t be loaded</string>
     <!-- %1$s: the playlist's name. -->
     <string name="settings_playlist_update_failed">Couldn\'t update %1$s</string>
     <!-- A small label on the playlist being used, in capitals. Keep it short. -->
     <string name="settings_playlist_in_use">IN USE</string>
     <!-- Buttons. -->
     <string name="settings_playlist_update_now">Update now</string>
-    <string name="settings_playlist_edit">Edit</string>
-    <string name="settings_playlist_add">+ Add playlist</string>
     <string name="settings_playlist_select_hint">Select a playlist to switch to it.</string>
-    <!-- Under a playlist: its type ("Plex" or "Xtream", not translated) and when it was last downloaded.
-         %1$s: the type; %2$s: a date and time. -->
-    <!-- When the TV provider's subscription ends. %1$s: a date, e.g. "12 Mar 2027". -->
-    <string name="settings_playlist_expired">Expired on %1$s</string>
-    <!-- %1$s: today's date, e.g. "12 Mar 2027". -->
-    <string name="settings_playlist_expires_today">Expires today (%1$s)</string>
-    <!-- %1$s: a date, e.g. "12 Mar 2027"; %2$d: the days left. -->
-    <plurals name="settings_playlist_expires_in">
-        <item quantity="one">Expires %1$s, in %2$d day</item>
-        <item quantity="other">Expires %1$s, in %2$d days</item>
-    </plurals>
-    <!-- %1$s: a date, e.g. "12 Mar 2027". -->
-    <string name="settings_playlist_expires">Expires %1$s</string>
-
-    <!-- Adding or editing a playlist. -->
-    <string name="settings_playlist_add_title">Add playlist</string>
-    <string name="settings_playlist_edit_title">Edit playlist</string>
-    <string name="settings_playlist_first_run_hint">Enter the details from your TV provider.</string>
-    <!-- Labels above the boxes, and example text in them. -->
-    <string name="settings_playlist_name">Name</string>
-    <string name="settings_playlist_name_hint">e.g. Home TV</string>
-    <string name="settings_playlist_server">Server address</string>
-    <!-- "Show S01E02" is an example episode name (series, season and episode numbers): keep its form. -->
-    <string name="settings_playlist_username">Username</string>
-    <string name="settings_playlist_password">Password</string>
-    <!-- Shown after "Test connection" works. -->
-    <string name="settings_playlist_connected">Connected ✓</string>
-    <string name="settings_playlist_checking">Checking login…</string>
-    <!-- Buttons. -->
-    <string name="settings_playlist_wait">Please wait…</string>
-    <string name="settings_playlist_save">Save</string>
-    <string name="settings_playlist_test">Test connection</string>
-    <string name="settings_playlist_delete">Delete playlist</string>
 </resources>

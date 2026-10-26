@@ -133,6 +133,9 @@ class FakePlex : AutoCloseable {
     /** The guide sent in a shape the app can't read (each showing's times as words). */
     @Volatile var guideUnreadable = false
 
+    /** The guide out of reach (the connection dropped), the rest answering. */
+    @Volatile var guideUnreachable = false
+
     /** Tuning answers 500 ("Tuning failed"). */
     @Volatile var tuneFails = false
 
@@ -276,6 +279,9 @@ class FakePlex : AutoCloseable {
         }
         path == "/$EPG/lineups/dvr/channels" -> container { put("Channel", JsonArray(channels.map(::lineupChannel))) }
         path == "/$EPG/grid" && guideFails -> MockResponse().setResponseCode(500)
+        path == "/$EPG/grid" && guideUnreachable -> MockResponse().setSocketPolicy(
+            okhttp3.mockwebserver.SocketPolicy.DISCONNECT_AFTER_REQUEST
+        )
         path == "/$EPG/grid" && guideUnreadable -> container {
             put("size", 1)
             putJsonArray("Metadata") {

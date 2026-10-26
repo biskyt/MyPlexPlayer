@@ -5,8 +5,8 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.db.AppDatabase
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
+import com.biskyt.myplexplayer.data.db.ProgrammeEntity
 import com.biskyt.myplexplayer.testutil.FakePlex
-import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -41,10 +41,10 @@ class PlexLiveTvTest {
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
         val http = OkHttpClient()
         val settings = SettingsRepository(context)
-        val categoryStore = CategoryStore(db) { Locale.UK }
-        epg = EpgRepository(db, http, context.cacheDir.resolve("test-epg"), scope)
+        val categoryStore = CategoryStore(db)
+        epg = EpgRepository(db)
         val plex = PlexSources(db, http, settings).apply { plexTv = fake.url }
-        val playlists = PlaylistRepository(db, http, settings, epg, categoryStore, plex)
+        val playlists = PlaylistRepository(db, settings, epg, categoryStore, plex)
         sync = SyncManager(scope, playlists, VodRepository(db, playlists, categoryStore, plex), epg)
         plex.signIn(FakePlex.ACCOUNT_TOKEN)
         source = db.playlists().all().single { it.machineId == FakePlex.MACHINE_ID }
@@ -93,6 +93,48 @@ class PlexLiveTvTest {
         sync.refreshNow(source.id).getOrThrow()
         assertEquals(emptyList<Long>(), ChannelRepository(db).ids(source.id, ChannelFilter.All))
         assertTrue(db.vod().observeMovieCount(source.id).first() > 0)
+    }
+
+    @Test
+    fun `a server that stops sharing its live tv loses its guide too`() = runBlocking {
+        sync.refreshNow(source.id).getOrThrow()
+        fake.guideFails = true
+        sync.refreshNow(source.id).getOrThrow()
+        fake.liveTvRefused = true
+
+        // No guide error is left to report either.
+        assertNull(sync.refreshNow(source.id).getOrThrow())
+
+        assertNull(db.epg().providerSource(source.id))
+        assertEquals(emptyMap<Long, String>(), epg.observeGuideErrors().first())
+    }
+
+    @Test
+    fun `a sync drops programmes over hours ago`() = runBlocking {
+        sync.refreshNow(source.id).getOrThrow()
+        val guide = db.epg().providerSource(source.id)!!.id
+        val now = System.currentTimeMillis()
+        val old = ProgrammeEntity(guide, "ch-1", now - 5 * 3_600_000, now - 4 * 3_600_000, "Old", null, null)
+        db.epg().insertProgrammes(listOf(old))
+        fake.guideFails = true // a guide that no longer loads would keep it
+
+        sync.refreshNow(source.id).getOrThrow()
+
+        val one = epg.programmes(source.id, listOf(plexChannelId("ch-1")), now - 6 * 3_600_000, now)
+        assertEquals(emptyList<String>(), one[plexChannelId("ch-1")].orEmpty().filter { it.title == "Old" }.map { it.title })
+    }
+
+    @Test
+    fun `a guide out of reach says so, not an older failure`() = runBlocking {
+        fake.guideFails = true
+        sync.refreshNow(source.id).getOrThrow()
+        fake.guideFails = false
+        fake.guideUnreachable = true
+
+        val error = sync.refreshNow(source.id).getOrThrow()
+
+        assertEquals(GuideError.saved(GuideError.unreachable()), db.epg().providerSource(source.id)!!.lastError)
+        assertEquals("Couldn't reach the Plex server", error)
     }
 
     @Test

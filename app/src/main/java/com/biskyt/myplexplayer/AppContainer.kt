@@ -34,6 +34,7 @@ import com.biskyt.myplexplayer.data.SettingsRepository
 import com.biskyt.myplexplayer.data.SyncManager
 import com.biskyt.myplexplayer.data.VodRepository
 import com.biskyt.myplexplayer.data.db.AppDatabase
+import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,16 +63,16 @@ class AppContainer(context: Context) {
         }
         .build()
     val settings = SettingsRepository(context)
-    val epg = EpgRepository(db, http, context.filesDir, appScope)
+    val epg = EpgRepository(db)
     private val categoryStore = CategoryStore(db)
     val plex = PlexSources(db, http, settings)
-    val playlists = PlaylistRepository(db, http, settings, epg, categoryStore, plex)
+    val playlists = PlaylistRepository(db, settings, epg, categoryStore, plex)
     val channels = ChannelRepository(db)
     val vod = VodRepository(db, playlists, categoryStore, plex)
     val favourites = Favourites(appScope, settings, channels, vod)
     val search = SearchRepository(db)
     val sync = SyncManager(appScope, playlists, vod, epg)
-    val backup = BackupRepository(db, settings, epg, sync)
+    val backup = BackupRepository(db, settings, sync, epg)
     val backupFile = BackupFile(context)
     val crashLog = CrashLog(context.filesDir, BuildConfig.VERSION_NAME)
 
@@ -132,7 +133,8 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
         val c = applicationContext.container
         c.sync.refreshAllNow()
         // Storage housekeeping: everything else (logos, programmes, recents) is size- or age-limited as it is written.
-        c.epg.deleteOrphanFiles()
+        // Guide files downloaded until 0.5.2 (added guides, Xtream's), unused since.
+        File(applicationContext.filesDir, "epg").deleteRecursively()
         c.db.compactIfWorthwhile()
         return Result.success()
     }

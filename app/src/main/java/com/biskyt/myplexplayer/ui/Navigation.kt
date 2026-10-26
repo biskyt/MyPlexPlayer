@@ -49,15 +49,12 @@ sealed interface Screen {
     data class SeriesDetails(val playlistId: Long, val seriesId: Long, val season: Int? = null, val episode: Int? = null) : Screen
     data object Settings : Screen
     data object Playlists : Screen
-    data class PlaylistEdit(val playlistId: Long?, val firstRun: Boolean = false) : Screen
 
     /** Signing in to Plex (or, signed in already, looking for the account's servers again). */
     data class PlexSignIn(val firstRun: Boolean = false) : Screen
     data class Categories(val playlistId: Long, val firstRun: Boolean = false) : Screen
     data object PlaybackSettings : Screen
     data object Appearance : Screen
-    data object GuideSources : Screen
-    data class GuideMatching(val playlistId: Long, val streamId: Long? = null) : Screen
     data object Backup : Screen
     data object About : Screen
     data object Licences : Screen
@@ -147,7 +144,6 @@ val Screen.isPlayback: Boolean get() = this is Screen.Player || this is Screen.V
 /** First-launch set-up, before there is anything to watch. */
 val Screen.isSetup: Boolean
     get() = this == Screen.Welcome ||
-        (this is Screen.PlaylistEdit && firstRun) ||
         (this is Screen.PlexSignIn && firstRun) ||
         (this is Screen.Categories && firstRun)
 

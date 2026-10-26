@@ -1,6 +1,7 @@
 package com.biskyt.myplexplayer.core.vod
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VodTitlesTest {
@@ -18,5 +19,14 @@ class VodTitlesTest {
             "Star Wars: A New Hope" to CleanTitle("Star Wars: A New Hope", null),
         )
         cases.forEach { (input, expected) -> assertEquals(input, expected, VodTitles.clean(input)) }
+    }
+
+    @Test
+    fun `titles compare without case, punctuation, year or a leading the`() {
+        val key = VodTitles::key
+        assertEquals(key("Grey's Anatomy"), key("Greys Anatomy"))
+        assertEquals(key("The Simpsons"), key("|EN| Simpsons (1989)"))
+        assertEquals("the", key("The"))
+        assertTrue(key("Dune") != key("Dune: Part Two"))
     }
 }

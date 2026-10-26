@@ -30,8 +30,6 @@ import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.ui.common.SyncToast
 import com.biskyt.myplexplayer.ui.common.onGuideKey
-import com.biskyt.myplexplayer.ui.guide.GuideMatchingScreen
-import com.biskyt.myplexplayer.ui.guide.GuideSourcesScreen
 import com.biskyt.myplexplayer.ui.home.HomeScreen
 import com.biskyt.myplexplayer.ui.live.LiveScreen
 import com.biskyt.myplexplayer.ui.player.PlayerScreen
@@ -43,7 +41,6 @@ import com.biskyt.myplexplayer.ui.settings.BackupScreen
 import com.biskyt.myplexplayer.ui.settings.CategoriesScreen
 import com.biskyt.myplexplayer.ui.settings.LicencesScreen
 import com.biskyt.myplexplayer.ui.settings.PlaybackSettingsScreen
-import com.biskyt.myplexplayer.ui.settings.PlaylistEditScreen
 import com.biskyt.myplexplayer.ui.settings.PlaylistsScreen
 import com.biskyt.myplexplayer.ui.settings.PlexSignInScreen
 import com.biskyt.myplexplayer.ui.settings.SettingsScreen
@@ -95,7 +92,7 @@ fun AppRoot() {
         BackHandler {
             when {
                 nav.pop() -> Unit
-                nav.current.screen != Screen.Home && nav.current.screen != Screen.Welcome && nav.current.screen !is Screen.PlaylistEdit ->
+                nav.current.screen != Screen.Home && nav.current.screen != Screen.Welcome ->
                     nav.reset(Screen.Home)
                 else -> activity?.finish()
             }
@@ -167,13 +164,10 @@ internal fun ScreenContent(screen: Screen) {
         is Screen.Player -> PlayerScreen(screen)
         Screen.Settings -> SettingsScreen()
         Screen.Playlists -> PlaylistsScreen()
-        is Screen.PlaylistEdit -> PlaylistEditScreen(screen.playlistId, screen.firstRun)
         is Screen.PlexSignIn -> PlexSignInScreen(screen.firstRun)
         is Screen.Categories -> CategoriesScreen(screen.playlistId, screen.firstRun)
         Screen.PlaybackSettings -> PlaybackSettingsScreen()
         Screen.Appearance -> AppearanceScreen()
-        Screen.GuideSources -> GuideSourcesScreen()
-        is Screen.GuideMatching -> GuideMatchingScreen(screen.playlistId, screen.streamId)
         Screen.Backup -> BackupScreen()
         Screen.About -> AboutScreen()
         Screen.Licences -> LicencesScreen()

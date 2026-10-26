@@ -4,41 +4,16 @@
     <string name="data_refresh_failed">Couldn\'t refresh</string>
     <string name="data_vod_failed">Couldn\'t load movies and series</string>
 
-    <!-- TV guide update progress, in the status line. Keep these short. -->
-    <string name="data_matching">Matching channels…</string>
-    <!-- %1$s: channels matched so far; %2$s: how many there are (both numbers, already formatted). -->
-    <string name="data_matching_progress">Matching channels… %1$s of %2$s</string>
-    <!-- %1$s: the guide's name, e.g. "Free TV guide". -->
-    <string name="data_downloading">Downloading %1$s…</string>
-    <!-- %1$s: the guide's name. -->
-    <string name="data_reading">Reading %1$s…</string>
-    <!-- %1$s: the guide's name. -->
-    <string name="data_loading_programmes">Loading programmes from %1$s…</string>
-    <!-- When the guide's name isn't known. -->
-    <string name="data_loading_programmes_guide">Loading programmes from the guide…</string>
-
     <!-- Errors downloading a guide or talking to a provider's server. %1$d: the HTTP status code, e.g. 404. -->
     <string name="data_server_error">Server returned error %1$d</string>
     <string name="data_guide_save_failed">Couldn\'t save guide file</string>
     <string name="data_guide_unreadable">Couldn\'t read the guide</string>
 
-    <!-- Errors from a provider's (Xtream Codes) server. -->
-    <string name="data_xtream_login_failed">Login failed: check the server address, username and password</string>
-    <string name="data_xtream_no_movie_details">No details for this movie</string>
-    <string name="data_xtream_no_episodes">No episodes found for this series</string>
-    <!-- %1$s: the network error, as the system words it (often in English). -->
-    <string name="data_xtream_unreachable">Couldn\'t reach the server: %1$s</string>
-    <string name="data_xtream_empty">Empty response from server</string>
-    <string name="data_xtream_unexpected">Unexpected response from server</string>
-    <string name="data_xtream_invalid_address">Invalid server address</string>
     <string name="data_plex_signed_out">Plex didn\'t accept the sign-in: sign in to Plex again</string>
     <string name="data_plex_unreachable">Couldn\'t reach the Plex server</string>
     <string name="data_plex_unexpected">Unexpected response from Plex</string>
     <string name="data_plex_needs_converting">This file plays only if the server converts it, which MyPlexPlayer never asks for.</string>
     <string name="data_plex_cannot_stream">The server can\'t stream this file.</string>
-    <string name="data_account_inactive">This account is not active</string>
-
-
 
     <!--
     Group headings on the Languages & categories screen (and next to category names that appear in several groups):
@@ -91,10 +66,6 @@
     <string name="data_accent_lime">Lime</string>
     <string name="data_accent_pink">Pink</string>
     <string name="data_accent_silver">Silver</string>
-    <!-- Name given to a new playlist when none is typed. Stored with the playlist, which the user can rename. -->
-    <string name="data_playlist_default_name">My TV</string>
-    <!-- Name of the TV guide that comes with a playlist, saved when the playlist is added. %1$s: the playlist's name. -->
-    <string name="data_provider_guide_name">%1$s guide</string>
     <!-- Category for a playlist's entries that name no category of their own; kept apart from a playlist's own
          category called "Other" (and from data_lang_other, a language group). -->
     <string name="data_ungrouped">No category</string>

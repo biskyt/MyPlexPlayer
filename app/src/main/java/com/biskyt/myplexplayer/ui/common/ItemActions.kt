@@ -11,7 +11,6 @@ import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
-import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Navigator
 import com.biskyt.myplexplayer.ui.Screen
@@ -52,17 +51,9 @@ fun favouriteLabel(favourite: Boolean) = appString(if (favourite) R.string.commo
 
 fun favouriteFlash(added: Boolean) = appString(if (added) R.string.common_favourite_added else R.string.common_favourite_removed)
 
-/** What every channel menu offers (search, the player): favourites and its guide. */
-fun channelActions(ch: ChannelEntity, favourite: Boolean, setFavourite: (Boolean) -> Unit): List<ItemAction> = buildList {
-    add(ItemAction.Run(favouriteLabel(favourite)) { setFavourite(!favourite) })
-    add(
-        ItemAction.Open(
-            appString(R.string.common_change_guide_source),
-            Screen.GuideMatching(ch.playlistId, ch.streamId),
-            appString(R.string.common_change_guide_source_help)
-        )
-    )
-}
+/** What every channel menu offers (search, the player): add it to favourites or take it off. */
+fun channelActions(favourite: Boolean, setFavourite: (Boolean) -> Unit): List<ItemAction> =
+    listOf(ItemAction.Run(favouriteLabel(favourite)) { setFavourite(!favourite) })
 
 /**
  * What a movie or series menu offers (search, Home): open it, and add or remove it from favourites once that's known
