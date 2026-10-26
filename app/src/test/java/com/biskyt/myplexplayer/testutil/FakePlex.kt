@@ -563,7 +563,7 @@ class FakePlex : AutoCloseable {
         const val SERVER_TOKEN = "server-token"
         const val MACHINE_ID = "home-plex"
         private const val DVR = "7"
-        private const val EPG = "tv.plex.providers.epg.cloud:4"
+        private const val EPG = "tv.plex.providers.epg.cloud:12"
 
         private fun obj(body: JsonObjectBuilder.() -> Unit) = buildJsonObject(body)
 

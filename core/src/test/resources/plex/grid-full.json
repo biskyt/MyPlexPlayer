@@ -1,0 +1,165 @@
+{
+ "MediaContainer": {
+  "size": 2,
+  "Metadata": [
+   {
+    "ratingKey": "plex%3A%2F%2Fepisode%2F31039a6d4afab464c041c7da",
+    "key": "/tv.plex.providers.epg.cloud:12/metadata/plex%3A%2F%2Fepisode%2F31039a6d4afab464c041c7da",
+    "skipParent": true,
+    "grandparentRatingKey": "plex%3A%2F%2Fshow%2F1d396a93eaa7f5213d332821",
+    "guid": "plex://episode/31039a6d4afab464c041c7da",
+    "parentGuid": "plex://season/1d396a93eaa7f5213d332821",
+    "grandparentGuid": "plex://show/1d396a93eaa7f5213d332821",
+    "type": "episode",
+    "title": "Episode One",
+    "grandparentKey": "/tv.plex.providers.epg.cloud:12/metadata/plex%3A%2F%2Fshow%2F1d396a93eaa7f5213d332821",
+    "grandparentTitle": "A Home Makeover",
+    "parentTitle": "Season 1",
+    "summary": "A family's house gets a new look.",
+    "index": 1,
+    "parentIndex": 1,
+    "year": 2010,
+    "thumb": "https://metadata-static.plex.tv/d/gracenote/SERVERID.jpg",
+    "art": "https://metadata-static.plex.tv/d/gracenote/SERVERID.jpg",
+    "grandparentThumb": "https://metadata-static.plex.tv/9/gracenote/SERVERID.jpg",
+    "grandparentArt": "https://metadata-static.plex.tv/2/gracenote/SERVERID.jpg",
+    "duration": 3600000,
+    "originallyAvailableAt": "2010-01-01 12:00:00",
+    "addedAt": 1792312080,
+    "onAir": true,
+    "Media": [
+     {
+      "id": 1115,
+      "duration": 3600000,
+      "audioChannels": 2,
+      "videoResolution": "480",
+      "channelCallSign": "CH1",
+      "channelIdentifier": "2f179d39510303601e247e11-3127366f8c4d78cc48fa80d8",
+      "channelThumb": "https://provider-static.plex.tv/d/epg/channels/logos/gracenote/SERVERID.png",
+      "channelTitle": "001 Channel 1",
+      "channelVcn": "001",
+      "gridKey": "3127366f8c4d78cc48fa80d8",
+      "protocol": "livetv",
+      "beginsAt": 1792311600,
+      "endsAt": 1792315200,
+      "onAir": true,
+      "channelID": 1
+     }
+    ],
+    "Image": [
+     {
+      "alt": "Episode One",
+      "type": "coverPoster",
+      "url": "https://metadata-static.plex.tv/9/gracenote/SERVERID.jpg"
+     },
+     {
+      "alt": "Episode One",
+      "type": "snapshot",
+      "url": "https://metadata-static.plex.tv/d/gracenote/SERVERID.jpg"
+     },
+     {
+      "alt": "Episode One",
+      "type": "background",
+      "url": "https://metadata-static.plex.tv/d/gracenote/SERVERID.jpg"
+     }
+    ],
+    "Genre": [
+     {
+      "id": 901,
+      "filter": "genre=901",
+      "tag": "Drama",
+      "ratingKey": "genre_00000000000000000000901"
+     },
+     {
+      "id": 902,
+      "filter": "genre=902",
+      "tag": "Home",
+      "ratingKey": "genre_00000000000000000000902"
+     }
+    ],
+    "Channel": [
+     {
+      "id": 1,
+      "filter": "channel=1",
+      "tag": "001 Channel 1"
+     },
+     {
+      "id": 2,
+      "filter": "channel=2",
+      "tag": "002 CH1P1 (Channel 1 +1)"
+     }
+    ]
+   },
+   {
+    "ratingKey": "plex%3A%2F%2Fmovie%2F650da41ef7801af444cf6940",
+    "key": "/tv.plex.providers.epg.cloud:12/metadata/plex%3A%2F%2Fmovie%2F650da41ef7801af444cf6940",
+    "guid": "plex://movie/650da41ef7801af444cf6940",
+    "type": "movie",
+    "title": "A Feature Film",
+    "summary": "A film about a long journey.",
+    "year": 2005,
+    "thumb": "https://metadata-static.plex.tv/2/gracenote/SERVERID.jpg",
+    "art": "https://metadata-static.plex.tv/1/gracenote/SERVERID.jpg",
+    "duration": 6000000,
+    "originallyAvailableAt": "2005-01-01",
+    "addedAt": 1606245266,
+    "Media": [
+     {
+      "id": 1003,
+      "duration": 6000000,
+      "audioChannels": 2,
+      "videoResolution": "480",
+      "channelCallSign": "CH1",
+      "channelIdentifier": "2f179d39510303601e247e11-3127366f8c4d78cc48fa80d8",
+      "channelThumb": "https://provider-static.plex.tv/d/epg/channels/logos/gracenote/SERVERID.png",
+      "channelTitle": "001 Channel 1",
+      "channelVcn": "001",
+      "gridKey": "3127366f8c4d78cc48fa80d8",
+      "protocol": "livetv",
+      "beginsAt": 1792329600,
+      "endsAt": 1792335600,
+      "channelID": 1
+     }
+    ],
+    "Image": [
+     {
+      "alt": "A Feature Film",
+      "type": "coverPoster",
+      "url": "https://metadata-static.plex.tv/2/gracenote/SERVERID.jpg"
+     },
+     {
+      "alt": "A Feature Film",
+      "type": "background",
+      "url": "https://metadata-static.plex.tv/1/gracenote/SERVERID.jpg"
+     }
+    ],
+    "Genre": [
+     {
+      "id": 901,
+      "filter": "genre=901",
+      "tag": "Drama",
+      "ratingKey": "genre_00000000000000000000901"
+     },
+     {
+      "id": 902,
+      "filter": "genre=902",
+      "tag": "Home",
+      "ratingKey": "genre_00000000000000000000902"
+     }
+    ],
+    "Channel": [
+     {
+      "id": 1,
+      "filter": "channel=1",
+      "tag": "001 Channel 1"
+     },
+     {
+      "id": 2,
+      "filter": "channel=2",
+      "tag": "002 CH1P1 (Channel 1 +1)"
+     }
+    ]
+   }
+  ]
+ }
+}

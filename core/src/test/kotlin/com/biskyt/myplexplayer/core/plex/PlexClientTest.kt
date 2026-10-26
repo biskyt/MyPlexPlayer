@@ -37,8 +37,8 @@ class PlexClientTest {
         "video/:/transcode/universal/decision" to "direct-stream-decision",
         "livetv/dvrs" to "livetv-dvrs",
         "media/providers" to "media-providers",
-        "tv.plex.providers.epg.cloud:4/lineups/dvr/channels" to "lineup-channels",
-        "tv.plex.providers.epg.cloud:4/grid" to "grid",
+        "tv.plex.providers.epg.cloud:12/lineups/dvr/channels" to "lineup-channels",
+        "tv.plex.providers.epg.cloud:12/grid" to "grid",
         "livetv/dvrs/7/channels/5fc705db-ch1/tune" to "tune",
     ).mapValues { (_, name) -> MockResponse().setBody(javaClass.getResource("/plex/$name.json")!!.readText()) }
         .toMutableMap()
@@ -71,14 +71,14 @@ class PlexClientTest {
     @Test
     fun `live tv, its channels and guide, and tuning a channel to stream it as it is`() = runTest {
         val live = client.liveTv()!!
-        assertEquals(PlexLiveTv("7", "tv.plex.providers.epg.cloud:4/lineups/dvr/channels", "tv.plex.providers.epg.cloud:4/grid"), live)
+        assertEquals(PlexLiveTv("7", "tv.plex.providers.epg.cloud:12/lineups/dvr/channels", "tv.plex.providers.epg.cloud:12/grid"), live)
         server.takeRequest()
         server.takeRequest()
 
         val channels = client.channels(live)
         assertEquals(listOf("5fc705db-ch1", "5fc705db-ch2"), channels.map { it.tuneKey })
         assertEquals(listOf("1", "101"), channels.map { it.number }) // a string, or a number
-        assertEquals(listOf("BBC One", "ITV"), channels.map { it.name }) // no title: its call sign
+        assertEquals(listOf("Channel One", "CH2"), channels.map { it.name }) // no title: its call sign
         server.takeRequest()
 
         val guide = client.guide(live, fromS = 1_792_950_000, toS = 1_792_970_000)
@@ -110,11 +110,11 @@ class PlexClientTest {
     }
 
     @Test
-    fun `the owner's server's guide reads in full`() = runTest {
-        // Trimmed from the owner's guide reply (spikes/plex_spike.py livetv, sanitised): every field as the server sends it.
-        responses["tv.plex.providers.epg.cloud:4/grid"] =
-            MockResponse().setBody(javaClass.getResource("/plex/grid-owner.json")!!.readText())
-        val guide = client.guide(client.liveTv()!!, fromS = 1_792_910_000, toS = 1_792_930_000)
+    fun `a guide with every field a real server sends reads in full`() = runTest {
+        // Shaped like a real server's guide reply (every field it sends), with made-up titles, channels and ids.
+        responses["tv.plex.providers.epg.cloud:12/grid"] =
+            MockResponse().setBody(javaClass.getResource("/plex/grid-full.json")!!.readText())
+        val guide = client.guide(client.liveTv()!!, fromS = 1_792_300_000, toS = 1_792_340_000)
         assertEquals(listOf("episode", "movie"), guide.map { it.type })
         val airings = guide.flatMap { it.airings }
         assertEquals(guide.size, airings.size)
@@ -124,19 +124,19 @@ class PlexClientTest {
     @Test
     fun `a guide none of which can be read fails, rather than looking empty`() = runTest {
         val live = client.liveTv()!!
-        responses["tv.plex.providers.epg.cloud:4/grid"] = MockResponse().setBody(
+        responses["tv.plex.providers.epg.cloud:12/grid"] = MockResponse().setBody(
             """{"MediaContainer":{"size":2,"Metadata":[{"title":"A","year":"x"},{"title":"B","Media":"no"}]}}"""
         )
         expectFailure(PlexException.Reason.UNEXPECTED_RESPONSE) { client.guide(live, 0, 1) }
         // An empty guide is just empty.
-        responses["tv.plex.providers.epg.cloud:4/grid"] = MockResponse().setBody("""{"MediaContainer":{"size":0}}""")
+        responses["tv.plex.providers.epg.cloud:12/grid"] = MockResponse().setBody("""{"MediaContainer":{"size":0}}""")
         assertEquals(emptyList<PlexProgramme>(), client.guide(live, 0, 1))
     }
 
     @Test
     fun `a guide entry that can't be read is left out, not the whole guide`() = runTest {
         val live = client.liveTv()!!
-        responses["tv.plex.providers.epg.cloud:4/grid"] = MockResponse().setBody(
+        responses["tv.plex.providers.epg.cloud:12/grid"] = MockResponse().setBody(
             """{"MediaContainer":{"Metadata":[
                 {"type":"movie","title":null,"Media":[{"beginsAt":1792950000,"endsAt":1792953600,"channelIdentifier":"ch1"}]},
                 {"type":"movie","title":"Odd","year":"unknown","Media":[{"beginsAt":1792950000,"endsAt":1792953600}]},

@@ -1,1 +1,1 @@
-{"MediaContainer":{"size":2,"Channel":[{"id":"5fc705db-ch1","gridKey":"5fc705db-ch1","vcn":"1","title":"BBC One","callSign":"BBC1","thumb":"https://example.org/bbc1.png","hd":true},{"id":"5fc705db-ch2","gridKey":"5fc705db-ch2","vcn":101,"title":"","callSign":"ITV","thumb":null}]}}
+{"MediaContainer":{"size":2,"Channel":[{"id":"5fc705db-ch1","gridKey":"5fc705db-ch1","vcn":"1","title":"Channel One","callSign":"CH1","thumb":"https://example.org/channel1.png","hd":true},{"id":"5fc705db-ch2","gridKey":"5fc705db-ch2","vcn":101,"title":"","callSign":"CH2","thumb":null}]}}
