@@ -9,8 +9,9 @@ generated library (`.github/scripts/start-plex.sh`; no Plex account needed) and 
 steps. It runs on pull requests that change the spike or that set-up, or by hand from the Actions tab.
 
 ## On your own server (the owner's part)
-Sign-in, choosing a server, Live TV and DVR need a real Plex account and tuner, so run these on a computer on your
-home network, from the repository's folder:
+Sign-in, choosing a server, Live TV and DVR need a real Plex account and tuner, and intro and credits markers a Plex
+Pass server whose libraries have been analysed, so run these on a computer on your home network, from the
+repository's folder:
 
 The quickest way is one command: it signs in, runs every step below (tuning and recording included), and puts the
 shareable results in `spike-results.zip`:
@@ -29,6 +30,7 @@ python3 spikes/plex_spike.py playback        # direct play, and direct stream (c
 python3 spikes/plex_spike.py livetv --tune   # channels, the guide from Plex, and tuning one channel briefly
 python3 spikes/plex_spike.py dvr --record    # recording options; schedules one recording and cancels it at once
 python3 spikes/plex_spike.py favourites --write-back  # favourite channels: read, saved back unchanged, read again (not in `all`)
+python3 spikes/plex_spike.py markers         # intro and credits markers, for Skip intro (only reads)
 ```
 
 - `library` uses one episode you haven't started (unwatched, no resume point): it sets a resume point, plays it

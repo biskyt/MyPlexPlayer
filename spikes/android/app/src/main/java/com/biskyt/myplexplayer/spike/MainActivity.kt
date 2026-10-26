@@ -111,8 +111,8 @@ class MainActivity : Activity() {
         column.addView(
             text(
                 "Tests how MyPlexPlayer will talk to your Plex server: sign-in, your servers, libraries, playback " +
-                    "(never transcoding), Live TV and DVR. Keep this phone on your home Wi-Fi until it says Done " +
-                    "(about 10 minutes).",
+                    "(never transcoding), Live TV, DVR, favourite channels and skip-intro markers. Keep this phone " +
+                    "on your home Wi-Fi until it says Done (about 10 minutes).",
                 15f
             )
         )

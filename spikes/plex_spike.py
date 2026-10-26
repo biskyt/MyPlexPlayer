@@ -14,6 +14,7 @@ addresses, account names, emails and file paths replaced, for test fixtures. rep
     python3 spikes/plex_spike.py livetv    [--server URL] [--tune]    # S5: Live TV channels, guide grid, tuning
     python3 spikes/plex_spike.py dvr       [--server URL] [--record]  # S6: recording options, schedule and cancel
     python3 spikes/plex_spike.py favourites [--server URL] [--write-back] # S7: favourite channels (on plex.tv)
+    python3 spikes/plex_spike.py markers   [--server URL] # S8: intro and credits markers, for skip intro
 
 Without --server the first server from `servers` is used. --tune briefly uses a tuner; --record schedules a recording
 of a programme starting in over an hour and cancels it straight away. --write-back (never part of `all`) saves the
@@ -33,6 +34,7 @@ import urllib.parse
 import urllib.request
 import uuid
 import zipfile
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -855,11 +857,87 @@ def favourites(args, state):
     rec.finish()
 
 
+# ---------------------------------------------------------------- S8: intro and credits markers
+MARKER_SAMPLE = 60  # the newest episodes, and films, of each library: likeliest to have been analysed
+MARKER_BATCH = 20  # ids per request: a long list of full items is slow on a small server
+MARKER_SLACK_MS = 1000  # a final credits marker can end a moment past the listed length
+# Marker settings (only a Plex Pass server lists them; their names aren't documented): any whose id says so.
+MARKER_SETTING = re.compile(r"marker|intro|credit", re.I)
+
+
+def markers(args, state):
+    """Intro and credits markers (Plex Pass finds them), for Skip intro and Skip credits: how many of the newest
+    episodes and films have each, then one of each fetched as the app will before playing it, with and without
+    includeMarkers=1, for the markers' fields and times. Only reads."""
+    rec = Recorder(args.out, "s8-markers")
+    http = server_http(args, state)
+    note_server(rec, http)
+    _, _, sections = http.get("/library/sections")
+    dirs = [d for d in mc(sections).get("Directory", []) if d.get("type") in ("movie", "show")]
+
+    # For information: the settings that decide whether the server looks for markers. Only those are kept.
+    settings = {}
+    for label, path in [("server", "/:/prefs")] + [(f"library {d.get('key')} ({d.get('type')})",
+                                                    f"/library/sections/{d['key']}/prefs") for d in dirs]:
+        _, _, body = http.get(path)
+        settings.update({f"{label}: {st.get('id')}": pref_value(st) for st in mc(body).get("Setting", [])
+                         if MARKER_SETTING.search(st.get("id", ""))})
+    rec.save("marker-settings", settings)
+    rec.check("marker settings (for information)", True,
+              ", ".join(f"{k}={v}" for k, v in settings.items()) or "none listed (a Plex Pass server lists them)")
+
+    def newest(type_no):
+        """The ids of each library's newest [type_no] items (1 films, 4 episodes)."""
+        kind = "movie" if type_no == 1 else "show"
+        return [i["ratingKey"] for d in dirs if d.get("type") == kind
+                for i in mc(http.get(f"/library/sections/{d['key']}/all", type=type_no, sort="addedAt:desc",
+                                     **{"X-Plex-Container-Start": 0, "X-Plex-Container-Size": MARKER_SAMPLE})[2]
+                            ).get("Metadata", [])]
+
+    for kind, keys in (("episodes", newest(4)), ("films", newest(1))):
+        if not keys:  # no library of this kind
+            continue
+        # How many have each kind of marker: several ids (comma-separated) per call.
+        got, statuses = [], set()
+        for at in range(0, len(keys), MARKER_BATCH):
+            status, _, body = http.get(f"/library/metadata/{','.join(keys[at:at + MARKER_BATCH])}", includeMarkers=1)
+            statuses.add(status)
+            got += mc(body).get("Metadata", [])
+        counts = Counter(t for i in got for t in {m.get("type") for m in i.get("Marker", [])})
+        wanted = ("intro", "credits") if kind == "episodes" else ("credits",)
+        for t in wanted:
+            rec.check(f"{kind} with {t} markers", counts[t], f"{counts[t]} of {len(keys)} (HTTP {sorted(statuses)}); "
+                      f"by type: {dict(counts) or 'none'}" + ("" if counts[t] else
+                                                             " (Plex Pass finds them when a library is analysed)"))
+        # As the app will ask, before playing it: one item, with includeMarkers=1. One with the marker wanted most,
+        # else any marker, else the newest (so this is tried even if the batches sent no markers).
+        sample = (next((i for i in got if any(m.get("type") == wanted[0] for m in i.get("Marker", []))), None)
+                  or next((i for i in got if i.get("Marker")), None) or {"ratingKey": keys[0]})
+        path = f"/library/metadata/{sample['ratingKey']}"
+        status, _, reply = http.get(path, includeMarkers=1)
+        rec.save(f"{kind}-item-with-markers", reply)
+        item = first(mc(reply), "Metadata")
+        marks = item.get("Marker", [])
+        length = item.get("duration") or 0
+        inside = marks and all(0 <= m.get("startTimeOffset", -1) < m.get("endTimeOffset", -1) <= length + MARKER_SLACK_MS
+                               for m in marks)
+        rec.check(f"GET {{one {kind[:-1]}}}?includeMarkers=1 (HTTP {status}): its markers, in ms within its length",
+                  inside,
+                  f"fields {sorted({k for m in marks for k in m})}; " +
+                  "; ".join(f"{m.get('type')} {m.get('startTimeOffset')}-{m.get('endTimeOffset')} ms" +
+                            (" (final)" if m.get("final") else "") for m in marks) + f"; length {item.get('duration')} ms")
+        unasked = first(mc(http.get(path)[2]), "Metadata").get("Marker")
+        rec.check(f"the same request without includeMarkers=1 ({kind[:-1]})", True,
+                  "markers sent anyway" if unasked else
+                  "no markers: the app must ask for them" if marks else "no markers either way")
+    rec.finish()
+
+
 def run_all(args, state):
     """Every step in turn (signing in first if needed, tuning and recording included), carrying on past a step
     that fails, then the shareable results zipped into spike-results.zip."""
     args.tune = args.record = True
-    steps = ([] if state.get("token") else [signin]) + [servers, library, playback, livetv, dvr, favourites]
+    steps = ([] if state.get("token") else [signin]) + [servers, library, playback, livetv, dvr, favourites, markers]
     for step in steps:
         print(f"\n=== {step.__name__} ===", flush=True)
         try:
@@ -881,7 +959,7 @@ def run_all(args, state):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("step", choices=["all", "signin", "servers", "library", "playback", "livetv", "dvr",
-                                             "favourites"])
+                                             "favourites", "markers"])
     parser.add_argument("--server", help="server URL, e.g. http://192.168.1.20:32400 (default: from `servers`)")
     parser.add_argument("--token", help="token for --server (not needed for a local unclaimed test server)")
     parser.add_argument("--out", type=Path, default=Path("spike-out"))
