@@ -11,7 +11,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   its Play upload workflow (`dc5d194`, in 0.2.1), its clearer secondary text (MyTVPlayer 1.2.6, `900d6ae`, in 0.3.3),
   the dimmed paused screen (1.2.7, `29c9c71`, in 0.3.7) and its fixes (1.2.8, `40609e4`, in 0.4.0), the episode
   list's marks (1.3.0, `b4c1bc3`, in 0.4.3) and one list of the keys panels pass on (1.3.1, `c4074e5`, in 0.4.4), held buttons not carrying on into a panel
-  (1.3.2, `73c1631`, in 0.5.0).
+  (1.3.2, `73c1631`, in 0.5.0), the player not closing when shown before it's loaded (1.3.3, `1387654`, in 0.5.1), and its tests' NIO warm-up
+  (`8d20dcc`, in 0.5.1).
 - **Where a change is made first** (the owner, 2026-10-25): a feature or fix both apps need (the player, remote keys,
   menus, the guide's screens) is made in MyTVPlayer first, then cherry-picked here, so the shared code stays the same
   and ports apply cleanly. Plex-only work (sign-in, servers, play state, Live TV, DVR) is made here only.
@@ -143,6 +144,9 @@ See also:
     each test ends. A test sets only what differs from the defaults (in its `setUp`).
   - **A panel is its own window:** `SidePanel` dialogs are separate windows. Send keys to the right root (`onAllNodes(isRoot())`).
   - **Thread dumps on timeout:** `otherThreads()` in UiWait.kt dumps the other threads when a wait times out.
+  - **Images on two threads at once abort the test JVM** (exit 134, "JniConstants … Class not found: java/nio/…"):
+    Robolectric's native graphics set themselves up unsafely. `TestApp` and `PlainApp` call `lookUpNioClasses()`
+    (testutil/NativeGraphics.kt) first, so a new test application class must call it too.
 - **Detekt limits:**
   - `AppUiTest` is near `LargeClass` (600 lines), so put new UI tests in their own class.
   - Composables near the complexity limit: `CategoryColumn`, `GuideGrid`, `AppRoot`.
