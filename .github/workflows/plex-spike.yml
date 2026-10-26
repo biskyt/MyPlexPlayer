@@ -41,6 +41,9 @@ jobs:
         run: |
           cat "$RUNNER_TEMP"/spike-out/report-*.md >> "$GITHUB_STEP_SUMMARY"
           ! grep -q FAIL "$RUNNER_TEMP"/spike-out/report-*.md
+      - name: Intro and credits markers (S8; runs only, as this server has none)
+        if: ${{ !cancelled() }}
+        run: python3 -I spikes/plex_spike.py markers --server http://127.0.0.1:32400 --out "$RUNNER_TEMP/spike-out"
       - name: The app's Plex client (PlexServerTest)
         if: ${{ !cancelled() }} # also when a spike check failed, to see whether the client fails too
         run: ./gradlew :core:plexServerTest

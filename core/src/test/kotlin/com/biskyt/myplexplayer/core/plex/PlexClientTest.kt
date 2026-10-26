@@ -78,7 +78,7 @@ class PlexClientTest {
         val channels = client.channels(live)
         assertEquals(listOf("5fc705db-ch1", "5fc705db-ch2"), channels.map { it.tuneKey })
         assertEquals(listOf("1", "101"), channels.map { it.number }) // a string, or a number
-        assertEquals(listOf("BBC One", "ITV"), channels.map { it.name }) // no title: its call sign
+        assertEquals(listOf("Channel One", "CH2"), channels.map { it.name }) // no title: its call sign
         server.takeRequest()
 
         val guide = client.guide(live, fromS = 1_792_950_000, toS = 1_792_970_000)
@@ -110,11 +110,11 @@ class PlexClientTest {
     }
 
     @Test
-    fun `the owner's server's guide reads in full`() = runTest {
-        // Trimmed from the owner's guide reply (spikes/plex_spike.py livetv, sanitised): every field as the server sends it.
+    fun `a guide with every field a real server sends reads in full`() = runTest {
+        // Shaped like a real server's guide reply (every field it sends), with made-up titles, channels and ids.
         responses["tv.plex.providers.epg.cloud:12/grid"] =
-            MockResponse().setBody(javaClass.getResource("/plex/grid-owner.json")!!.readText())
-        val guide = client.guide(client.liveTv()!!, fromS = 1_792_910_000, toS = 1_792_930_000)
+            MockResponse().setBody(javaClass.getResource("/plex/grid-full.json")!!.readText())
+        val guide = client.guide(client.liveTv()!!, fromS = 1_792_300_000, toS = 1_792_340_000)
         assertEquals(listOf("episode", "movie"), guide.map { it.type })
         val airings = guide.flatMap { it.airings }
         assertEquals(guide.size, airings.size)

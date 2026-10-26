@@ -11,8 +11,8 @@ android {
         applicationId = "com.biskyt.myplexplayer.spike"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1"
+        versionCode = 2
+        versionName = "2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") } // phones, and the emulator
     }
