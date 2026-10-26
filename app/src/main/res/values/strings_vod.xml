@@ -33,7 +33,6 @@
     <string name="vod_delete_no">Keep it</string>
     <string name="vod_not_deleted">Couldn’t delete it</string>
     <string name="vod_auto_delete">Delete watched episodes</string>
-    <string name="vod_auto_delete_help">Once watched with the server’s own account. Saved to Plex.</string>
     <string name="vod_auto_delete_not_saved">Couldn’t change when watched episodes are deleted</string>
     <string name="vod_auto_delete_never">Never</string>
     <string name="vod_auto_delete_day">After a day</string>
@@ -88,4 +87,5 @@
     <string name="vod_pick_sort">Sort</string>
     <string name="vod_none_shown">Nothing here with these choices.</string>
     <string name="vod_no_cast">No cast listed.</string>
+    <string name="vod_description">Description</string>
 </resources>

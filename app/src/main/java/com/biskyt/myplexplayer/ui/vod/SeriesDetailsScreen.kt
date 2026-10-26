@@ -62,6 +62,7 @@ import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.Poster
 import com.biskyt.myplexplayer.ui.common.ProgressLine
+import com.biskyt.myplexplayer.ui.common.TextPanel
 import com.biskyt.myplexplayer.ui.common.TvCard
 import com.biskyt.myplexplayer.ui.common.formatDuration
 import com.biskyt.myplexplayer.ui.common.formatRuntime
@@ -146,6 +147,9 @@ class SeriesDetailsViewModel(
     /** The show's cast is open. */
     var castOpen by mutableStateOf(false)
 
+    /** The episode whose description is open. */
+    var describing by mutableStateOf<EpisodeInfo?>(null)
+
     /** Whether the remote is in the episode list. */
     var listFocused by mutableStateOf(false)
 
@@ -208,7 +212,6 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
                 Text(show.title, style = MaterialTheme.typography.headlineMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Muted(showLine(seasonInfo, d), maxLines = 2)
                 d?.info?.plot?.let { Text(it, style = MaterialTheme.typography.bodyLarge, maxLines = 5, overflow = TextOverflow.Ellipsis) }
-                Muted(stringResource(R.string.vod_options_hint), maxLines = 2)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 when {
@@ -228,6 +231,7 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
     }
     vm.optionsFor?.let { e -> EpisodeOptions(vm, show.title, d, e, progress[e.id], screen) }
     if (vm.castOpen) CastPanel(show.title, d?.info?.cast.orEmpty()) { vm.castOpen = false }
+    vm.describing?.let { e -> e.plot?.let { TextPanel(show.title, episodeName(e), it) { vm.describing = null } } }
 }
 
 /** "Series 2 · 2023 · 3 series · 15 · Crime": the season shown, its year, how many there are, rating and genres. */
@@ -310,6 +314,12 @@ private fun EpisodeOptions(
     // One partly watched can be counted as watched, or started again (its progress forgotten).
     val episode = listOfNotNull(
         ItemAction.Heading(appString(R.string.vod_this_episode)),
+        e.plot?.let {
+            ItemAction.Run(appString(R.string.vod_description)) {
+                close()
+                vm.describing = e
+            }
+        },
         resumable?.let { ItemAction.Run(appString(R.string.vod_resume_from, formatDuration(it.positionMs))) { play(false) } },
         resumable?.let { ItemAction.Run(appString(R.string.common_from_start)) { play(true) } },
         if (saved?.finished != true) markWatched(false, set) else null,

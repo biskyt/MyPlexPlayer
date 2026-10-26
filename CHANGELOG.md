@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.10.1
+- **An episode's description** is in its options (hold OK, or Menu), when Plex has one.
+- Tidier options: "Delete watched episodes" loses its explanation, the Links row lines up with the options above it,
+  and the episodes page no longer carries the hint about the options.
+
 ## 0.10.0
 - **Delete what you've watched:** a film's or an episode's options have Delete…, asked once more before the file goes
   from your Plex server. It shows only where the server allows deleting (Plex's "Allow media deletion").

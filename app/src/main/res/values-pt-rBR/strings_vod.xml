@@ -26,7 +26,6 @@
     <string name="vod_delete_no">Manter</string>
     <string name="vod_not_deleted">Não foi possível excluir</string>
     <string name="vod_auto_delete">Excluir episódios assistidos</string>
-    <string name="vod_auto_delete_help">Depois de assistidos com a conta do próprio servidor. Salvo no Plex.</string>
     <string name="vod_auto_delete_not_saved">Não foi possível mudar quando os episódios assistidos são excluídos</string>
     <string name="vod_auto_delete_never">Nunca</string>
     <string name="vod_auto_delete_day">Depois de um dia</string>
@@ -81,4 +80,5 @@
     <string name="vod_pick_sort">Ordem</string>
     <string name="vod_none_shown">Nada com estas opções.</string>
     <string name="vod_no_cast">Nenhum elenco informado.</string>
+    <string name="vod_description">Descrição</string>
 </resources>

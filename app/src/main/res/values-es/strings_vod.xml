@@ -26,7 +26,6 @@
     <string name="vod_delete_no">Conservar</string>
     <string name="vod_not_deleted">No se pudo eliminar</string>
     <string name="vod_auto_delete">Eliminar episodios vistos</string>
-    <string name="vod_auto_delete_help">Cuando se ven con la cuenta propia del servidor. Se guarda en Plex.</string>
     <string name="vod_auto_delete_not_saved">No se pudo cambiar cuándo se eliminan los episodios vistos</string>
     <string name="vod_auto_delete_never">Nunca</string>
     <string name="vod_auto_delete_day">Al cabo de un día</string>
@@ -81,4 +80,5 @@
     <string name="vod_pick_sort">Orden</string>
     <string name="vod_none_shown">No hay nada con estas opciones.</string>
     <string name="vod_no_cast">No hay reparto.</string>
+    <string name="vod_description">Descripción</string>
 </resources>

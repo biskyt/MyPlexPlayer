@@ -26,7 +26,6 @@
     <string name="vod_delete_no">Garder</string>
     <string name="vod_not_deleted">Impossible de le supprimer</string>
     <string name="vod_auto_delete">Supprimer les épisodes vus</string>
-    <string name="vod_auto_delete_help">Une fois vus avec le compte du serveur. Enregistré dans Plex.</string>
     <string name="vod_auto_delete_not_saved">Impossible de changer quand les épisodes vus sont supprimés</string>
     <string name="vod_auto_delete_never">Jamais</string>
     <string name="vod_auto_delete_day">Après un jour</string>
@@ -81,4 +80,5 @@
     <string name="vod_pick_sort">Tri</string>
     <string name="vod_none_shown">Rien avec ces choix.</string>
     <string name="vod_no_cast">Aucune distribution indiquée.</string>
+    <string name="vod_description">Description</string>
 </resources>

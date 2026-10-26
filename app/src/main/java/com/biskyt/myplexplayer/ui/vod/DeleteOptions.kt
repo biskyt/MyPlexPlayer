@@ -65,7 +65,7 @@ class AutoDeleteChoice(
 
     /** Its row in a menu, once read. */
     fun action(): ItemAction? = value?.let {
-        ItemAction.Cycle(appString(R.string.vod_auto_delete), appString(R.string.vod_auto_delete_help), autoDeleteName(it), ::step)
+        ItemAction.Cycle(appString(R.string.vod_auto_delete), autoDeleteName(it), ::step)
     }
 
     private companion object {

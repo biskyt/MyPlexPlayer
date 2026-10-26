@@ -40,7 +40,9 @@ sealed interface ItemAction {
     class Run(override val label: String, override val help: String? = null, val run: () -> Unit) : ItemAction
 
     /** A choice changed where it is: left and right step through it ([step] gets -1 or 1), shown as "◀ [value] ▶". */
-    class Cycle(override val label: String, override val help: String?, val value: String, val step: (Int) -> Unit) : ItemAction
+    class Cycle(override val label: String, val value: String, val step: (Int) -> Unit) : ItemAction {
+        override val help: String? = null
+    }
 
     /** A heading over the options after it ("This episode", "The show"); not an option itself. */
     class Heading(override val label: String) : ItemAction {
@@ -151,8 +153,8 @@ fun ItemActionsPanel(title: String, actions: List<ItemAction>, onDismiss: () -> 
                 val focus = if (i == first) rememberFirstFocus() else Modifier
                 when (a) {
                     is ItemAction.Heading -> SectionLabel(a.label)
-                    is ItemAction.Links -> LinksRow(a.label, a.links, focus)
-                    is ItemAction.Cycle -> CycleSettingRow(a.label, a.help, a.value, a.step, focus)
+                    is ItemAction.Links -> LinksRow(a.label, a.links, focus, inset = MENU_OPTION_INSET)
+                    is ItemAction.Cycle -> CycleSettingRow(a.label, null, a.value, a.step, focus)
                     is ItemAction.Confirmed -> MenuOption(a.label, a.help, focus) { asking = a }
                     else -> MenuOption(a.label, a.help, focus) { a.perform(nav, onDismiss) }
                 }
