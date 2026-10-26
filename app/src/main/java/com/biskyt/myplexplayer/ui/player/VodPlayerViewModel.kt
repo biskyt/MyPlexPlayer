@@ -12,7 +12,7 @@ import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.player.OverlayState
 import com.biskyt.myplexplayer.core.plex.PlexException
-import com.biskyt.myplexplayer.core.xtream.EpisodeInfo
+import com.biskyt.myplexplayer.core.vod.EpisodeInfo
 import com.biskyt.myplexplayer.data.VodStream
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
@@ -143,7 +143,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         subtitle = episodeLabel(e)
         nextEpisode = episodes.getOrNull(index + 1)
         // Saved for Carry on watching: the provider's words only, never the app's (they'd stay in today's language).
-        val stream = c.vod.episodeStream(p, e.id, e.extension)
+        val stream = c.vod.episodeStream(p, e.id)
         play(p, Playing(VOD_EPISODE, e.id, show?.title ?: e.title, show?.coverUrl ?: e.imageUrl, stream, e), fromStart)
     }
 

@@ -27,10 +27,6 @@
     <string name="common_time_left">Quedan %1$s</string>
     <string name="common_no_guide">Sin información de guía</string>
 
-    <string name="common_guide_sources">Fuentes de la guía de TV</string>
-    <string name="common_guide_matching">Asignación de la guía de TV</string>
-    <string name="common_guide_update_failed">No se pudo actualizar la guía de TV</string>
-    <string name="common_match_failed">No se pudieron asignar los canales</string>
     <string name="common_updated_at">actualizado %1$s</string>
 
     <string name="common_today_at">Hoy %1$s</string>
@@ -47,8 +43,6 @@
     <!-- Options of a film, series or episode from Plex: changes whether it's watched, on the server too -->
     <string name="common_mark_watched">Marcar como visto</string>
     <string name="common_mark_unwatched">Marcar como no visto</string>
-    <string name="common_change_guide_source">Cambiar fuente de la guía…</string>
-    <string name="common_change_guide_source_help">Elige qué datos de guía usa este canal</string>
 
     <string name="common_hide_category">Ocultar categoría</string>
     <string name="common_hide_category_help">Vuelve a mostrarla en Configuración › Idiomas y categorías</string>
@@ -70,7 +64,6 @@
 
     <string name="common_sync_channels_start">Actualizando canales…</string>
     <string name="common_sync_vod_start">Actualizando películas y series…</string>
-    <string name="common_sync_guide">Actualizando la guía…</string>
     <string name="common_sync_channels_loaded">%1$s: %2$s cargados</string>
     <string name="common_sync_vod_loaded">%1$s: %2$s cargadas</string>
     <string name="common_filter_categories">Filtrar categorías</string>

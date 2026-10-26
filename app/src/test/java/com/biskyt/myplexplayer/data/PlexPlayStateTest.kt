@@ -10,7 +10,6 @@ import com.biskyt.myplexplayer.data.db.VOD_EPISODE
 import com.biskyt.myplexplayer.data.db.VOD_MOVIE
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import com.biskyt.myplexplayer.testutil.FakePlex
-import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -53,10 +52,10 @@ class PlexPlayStateTest {
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
         val http = OkHttpClient()
         val settings = SettingsRepository(context)
-        val categoryStore = CategoryStore(db) { Locale.UK }
-        val epg = EpgRepository(db, http, context.cacheDir.resolve("test-epg"), scope)
+        val categoryStore = CategoryStore(db)
+        val epg = EpgRepository(db)
         plex = PlexSources(db, http, settings).apply { plexTv = fake.url }
-        val playlists = PlaylistRepository(db, http, settings, epg, categoryStore, plex)
+        val playlists = PlaylistRepository(db, settings, epg, categoryStore, plex)
         vod = VodRepository(db, playlists, categoryStore, plex)
         sync = SyncManager(scope, playlists, vod, epg)
         plex.signIn(FakePlex.ACCOUNT_TOKEN)
@@ -133,7 +132,7 @@ class PlexPlayStateTest {
         vod.forgetProgress(progress(VOD_EPISODE, 211)!!)
         assertEquals(emptyList<Any>(), carryOn())
 
-        val stream = vod.episodeStream(source, 212, "mkv")
+        val stream = vod.episodeStream(source, 212)
         val played = row(VOD_EPISODE, 212, updatedAt = System.currentTimeMillis()).copy(seriesId = 21)
         vod.saveProgress(played, stream, playing = true, stopped = false)
         assertEquals("at once, from playing here", listOf(VOD_EPISODE to 212L), carryOn())

@@ -9,9 +9,8 @@
     <string name="settings_storage_help">Storage is managed automatically: old programs are removed every day, logos are capped, and the database is compacted when needed.</string>
     <!-- %1$s: a license's name, e.g. "Apache 2.0"; %2$s: its web address. -->
     <string name="settings_licence_link">License: %1$s, %2$s</string>
-    <!-- "Settings › Playlists" names the settings pages common_settings and settings_playlists_title (not overridden). -->
-    <string name="settings_welcome_intro">Sign in to Plex to watch the movies and series on your Plex servers. You can also add a TV service you subscribe to (an Xtream Codes login) at any time in Settings › Playlists.</string>
-    <string name="settings_backup_intro">Saves your playlists (with their logins), channel and category choices, favorites, TV guide sources and settings to a file. Copy it with a file manager app to keep it somewhere else. The file isn\'t encrypted, so keep it private.</string>
+    <string name="settings_welcome_intro">Sign in to Plex to watch the movies, series and Live TV on your Plex servers.</string>
+    <string name="settings_backup_intro">Saves your Plex servers (with their access tokens), channel and category choices, favorites and settings to a file. Copy it with a file manager app to keep it somewhere else. The file isn\'t encrypted, so keep it private.</string>
     <string name="settings_categories_intro">Only the categories you check are downloaded, so lists load faster and use less storage.</string>
     <string name="settings_playlist_updated_detail">Its channels, TV guide, movies and series are up to date.</string>
 </resources>

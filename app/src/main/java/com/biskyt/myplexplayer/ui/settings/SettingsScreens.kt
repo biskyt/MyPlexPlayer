@@ -41,7 +41,6 @@ import com.biskyt.myplexplayer.core.player.SubtitleMode
 import com.biskyt.myplexplayer.core.ui.AccentPalette
 import com.biskyt.myplexplayer.data.BufferSize
 import com.biskyt.myplexplayer.data.Settings
-import com.biskyt.myplexplayer.data.StreamFormat
 import com.biskyt.myplexplayer.data.accentName
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
@@ -64,8 +63,6 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     val settings = c.settings.settings.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     fun update(transform: (Settings) -> Settings) = viewModelScope.launch { c.settings.update(transform) }
-
-    fun setStreamFormat(format: StreamFormat) = viewModelScope.launch { c.settings.setStreamFormat(format) }
 }
 
 /** Title + scrollable column used by every settings page. */
@@ -99,16 +96,6 @@ fun SettingsScreen() {
         item {
             SettingRow(stringResource(R.string.settings_categories_title), stringResource(R.string.settings_categories_help), {
                 nav.push(Screen.Categories(pid))
-            })
-        }
-        item {
-            SettingRow(stringResource(R.string.common_guide_sources), stringResource(R.string.settings_guide_sources_help), {
-                nav.push(Screen.GuideSources)
-            })
-        }
-        item {
-            SettingRow(stringResource(R.string.common_guide_matching), stringResource(R.string.settings_guide_matching_help), {
-                nav.push(Screen.GuideMatching(pid))
             })
         }
         item {
@@ -197,14 +184,6 @@ fun PlaybackSettingsScreen() {
             )
         }
         item {
-            CycleSettingRow(
-                stringResource(R.string.settings_stream_format),
-                stringResource(R.string.settings_stream_format_help),
-                if (s.streamFormat == StreamFormat.TS) "MPEG-TS" else "HLS",
-                { d -> vm.setStreamFormat(StreamFormat.entries.cycle(s.streamFormat, d)) }
-            )
-        }
-        item {
             SettingRow(stringResource(R.string.settings_start_last), stringResource(R.string.settings_start_last_help), {
                 vm.update { it.copy(startOnLastChannel = !it.startOnLastChannel) }
             }) {
@@ -288,11 +267,7 @@ fun AboutScreen() {
     val context = LocalContext.current
     val storage = remember {
         fun size(f: java.io.File?): Long = f?.walkTopDown()?.sumOf { it.length() } ?: 0
-        Triple(
-            size(context.getDatabasePath("myplexplayer.db").parentFile),
-            size(context.filesDir.resolve("epg")),
-            size(context.cacheDir.resolve("logos"))
-        )
+        size(context.getDatabasePath("myplexplayer.db").parentFile) to size(context.cacheDir.resolve("logos"))
     }
     fun mb(bytes: Long) = android.text.format.Formatter.formatShortFileSize(context, bytes)
     val nav = LocalNavigator.current
@@ -315,8 +290,7 @@ fun AboutScreen() {
                     modifier = Modifier.padding(top = 16.dp)
                 )
                 Muted(stringResource(R.string.settings_storage_database, mb(storage.first)))
-                Muted(stringResource(R.string.settings_storage_guides, mb(storage.second)))
-                Muted(stringResource(R.string.settings_storage_logos, mb(storage.third)))
+                Muted(stringResource(R.string.settings_storage_logos, mb(storage.second)))
                 Muted(stringResource(R.string.settings_storage_help), maxLines = 3)
             }
         }

@@ -12,12 +12,10 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onFirst
-import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
-import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.pressKey
@@ -26,14 +24,11 @@ import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.container
 import com.biskyt.myplexplayer.data.ChannelFilter
-import com.biskyt.myplexplayer.data.db.CAT_LIVE
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.testutil.FakePlex
-import com.biskyt.myplexplayer.testutil.FakeProvider
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
-import com.biskyt.myplexplayer.testutil.addHomeTv
 import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.focusedText
@@ -43,8 +38,6 @@ import com.biskyt.myplexplayer.testutil.settle
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
 import com.biskyt.myplexplayer.ui.common.formatTime
-import com.biskyt.myplexplayer.ui.guide.GuideMatchingScreen
-import com.biskyt.myplexplayer.ui.guide.GuideSourcesScreen
 import com.biskyt.myplexplayer.ui.home.HomeScreen
 import com.biskyt.myplexplayer.ui.live.LiveScreen
 import com.biskyt.myplexplayer.ui.search.SearchScreen
@@ -73,8 +66,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * Drives real screens against a fake Plex server (or, for what only an Xtream provider and XMLTV guides have, a fake
- * provider). Also records screenshots (a 1280×720 TV) into app/screenshots;
+ * Drives real screens against a fake Plex server. Also records screenshots (a 1280×720 TV) into app/screenshots;
  * `./gradlew verifyRoborazziDebug` fails if a screen changes unexpectedly.
  */
 @OptIn(ExperimentalTestApi::class)
@@ -88,7 +80,6 @@ class AppUiTest {
     val navigators = Navigators()
 
     private val plex = FakePlex()
-    private val provider = FakeProvider()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
     private var playlistId = 0L
     private lateinit var navigator: Navigator
@@ -99,14 +90,8 @@ class AppUiTest {
         playlistId = app.container.addSyncedHomePlex(plex)
     }
 
-    /** Adds the fake provider ("Home TV"), with its guide, movies and series: for its categories and guides. */
-    private fun homeTv() = runBlocking { playlistId = app.container.addHomeTv(provider, vod = true, guide = true) }
-
     @After
-    fun tearDown() {
-        plex.close()
-        provider.close()
-    }
+    fun tearDown() = plex.close()
 
     private var backDispatcher: androidx.activity.OnBackPressedDispatcher? = null
 
@@ -130,13 +115,11 @@ class AppUiTest {
             Screen.Home -> HomeScreen()
             Screen.Settings -> SettingsScreen()
             is Screen.Live -> LiveScreen(screen.filter, screen.guide)
-            is Screen.GuideMatching -> GuideMatchingScreen(screen.playlistId, screen.streamId)
             Screen.PlaybackSettings -> PlaybackSettingsScreen()
             Screen.Appearance -> AppearanceScreen()
             Screen.Backup -> BackupScreen()
             Screen.Welcome -> WelcomeScreen()
             is Screen.Categories -> CategoriesScreen(screen.playlistId, screen.firstRun)
-            Screen.GuideSources -> GuideSourcesScreen()
             Screen.Playlists -> PlaylistsScreen()
             is Screen.Search -> SearchScreen(screen.query)
             is Screen.Movies -> VodBrowseScreen(CAT_MOVIE, screen.filter)
@@ -155,11 +138,6 @@ class AppUiTest {
     private fun press(key: Key) {
         compose.onRoot().performKeyInput { pressKey(key) }
         compose.waitForIdle()
-    }
-
-    /** Picks [label] in the options panel open (the top bar may have a tab of the same name). */
-    private fun clickOption(label: String) {
-        compose.onAllNodes(hasText(label) and hasClickAction()).onLast().performSemanticsAction(SemanticsActions.OnClick)
     }
 
     /** Android 9 (Fire OS 7) is the oldest the app runs on; the rest of the suite runs on a current Android. */
@@ -189,24 +167,6 @@ class AppUiTest {
         compose.onRoot().performKeyInput { pressKey(Key.DirectionCenter) }
         compose.waitForIdle()
         assertEquals(Screen.Player(playlistId, plexChannel("2"), ChannelFilter.All), navigator.current.screen)
-    }
-
-    @Test
-    fun `long press opens channel options and leads to guide matching`() {
-        homeTv()
-        show(Screen.Live())
-        waitFor("UK: CHANNEL ONE HD")
-        // To the screen's own window: the options open in a window of their own while OK is still held.
-        compose.onAllNodes(isRoot())[0].performKeyInput {
-            keyDown(Key.DirectionCenter)
-            advanceEventTime(1_500)
-            keyUp(Key.DirectionCenter)
-        }
-        waitFor("Change guide source")
-        // TV surfaces react to the remote, not touch: trigger the item's click action directly.
-        compose.onNode(hasText("Change guide source…")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitForIdle()
-        assertEquals(Screen.GuideMatching(playlistId, 101), navigator.current.screen)
     }
 
     @Test
@@ -298,7 +258,7 @@ class AppUiTest {
     }
 
     @Test
-    fun `a search result's options add it to favourites and open its guide source`() {
+    fun `a search result's options add it to favourites`() {
         homePlex()
         show(Screen.Search("one"))
         waitFor("One")
@@ -309,9 +269,6 @@ class AppUiTest {
         compose.onNode(hasText("Add to favourites")).performSemanticsAction(SemanticsActions.OnClick)
         waitFor("Remove from favourites")
         runBlocking { assertTrue(plexChannel("1") in app.container.channels.observeFavouriteIds(playlistId).first()) }
-        clickOption("Change guide source…")
-        compose.waitForIdle()
-        assertEquals(Screen.GuideMatching(playlistId, plexChannel("1")), navigator.current.screen)
     }
 
     @Test
@@ -348,62 +305,6 @@ class AppUiTest {
     }
 
     @Test
-    fun `the guide stays on the category it was opened from`() {
-        homeTv()
-        show(Screen.Live(ChannelFilter.Category("2")))
-        compose.waitAdvancingClock { compose.focusedText().contains("UK: ARENA SPRTS 1 FHD") }
-        press(Key.Guide)
-        compose.settle()
-        compose.waitAdvancingClock { compose.focusedText().contains("No guide information") }
-        compose.settle()
-        assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
-        // Back to the list and to the guide again: still the same category.
-        press(Key.Guide)
-        compose.settle()
-        press(Key.Guide)
-        compose.settle()
-        assertTrue(compose.onAllNodes(hasText("UK: ARENA SPRTS 1 FHD")).fetchSemanticsNodes().isNotEmpty())
-        assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
-
-        // Focus thrown at another category (as when the row with focus goes away) goes to the selected one instead…
-        compose.onNode(hasText("All channels") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
-        // The column moves focus a frame later: let (simulated) time pass while waiting.
-        compose.waitAdvancingClock(100) { compose.focusedText().contains("SPORT", ignoreCase = true) }
-        assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
-        // …and moving through the categories switches the list.
-        press(Key.DirectionUp)
-        compose.settle()
-        waitFor("UK: KITE KIDZ")
-    }
-
-    @Test
-    fun `left into the categories works when the list shown isn't among them`() {
-        homeTv()
-        show(Screen.Live(ChannelFilter.Category("2")))
-        compose.waitAdvancingClock { compose.focusedText().contains("UK: ARENA SPRTS 1 FHD") }
-        // The category shown goes from the column (e.g. unticked elsewhere) while its list is still up.
-        runBlocking { app.container.db.categories().setIncluded(playlistId, com.biskyt.myplexplayer.data.db.CAT_LIVE, listOf("2"), false) }
-        compose.waitAdvancingClock {
-            compose.onAllNodes(hasText("SPORT", substring = true) and hasClickAction()).fetchSemanticsNodes().isEmpty()
-        }
-        val before = compose.focusedText()
-        press(Key.DirectionLeft)
-        compose.settle()
-        assertTrue("before: '$before'", compose.focusedText().isNotBlank())
-    }
-
-    @Test
-    fun `left from the channel list goes to the selected category`() {
-        homeTv()
-        show(Screen.Live(ChannelFilter.Category("2")))
-        compose.waitAdvancingClock { compose.focusedText().contains("UK: ARENA SPRTS 1 FHD") }
-        press(Key.DirectionLeft)
-        // The column scrolls to the selected category first when it's out of view, so focus can take a moment.
-        // The column moves focus a frame later: let (simulated) time pass while waiting.
-        compose.waitAdvancingClock(100) { compose.focusedText().contains("SPORT", ignoreCase = true) }
-    }
-
-    @Test
     fun `back in the channel list goes to the filter`() {
         homePlex()
         show(Screen.Live())
@@ -411,27 +312,6 @@ class AppUiTest {
         pressBack()
         assertTrue(compose.focusedText(), compose.focusedText().contains("Filter by name"))
         assertEquals(Screen.Live(), navigator.current.screen)
-    }
-
-    @Test
-    fun `holding OK on a category offers to hide it`() {
-        homeTv()
-        show(Screen.Live())
-        waitFor("UK: KITE KIDZ")
-        compose.onNode(
-            hasText("Sport", substring = true, ignoreCase = true) and hasClickAction()
-        ).performSemanticsAction(SemanticsActions.OnLongClick)
-        waitFor("Show it again in Settings")
-        compose.onNode(hasText("Hide category")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitAdvancingClock {
-            compose.onAllNodes(hasText("Sport", substring = true, ignoreCase = true) and hasClickAction()).fetchSemanticsNodes().isEmpty()
-        }
-        val included = runBlocking { app.container.db.categories().included(playlistId, com.biskyt.myplexplayer.data.db.CAT_LIVE) }
-        assertTrue(included.none { it.categoryId == "2" })
-        // Its channels go at once, and focus stays in the column.
-        assertTrue(compose.onAllNodes(hasText("UK: ARENA SPRTS 1 FHD")).fetchSemanticsNodes().isEmpty())
-        compose.settle()
-        assertTrue(compose.focusedText(), compose.focusedText().isNotBlank())
     }
 
     @Test
@@ -468,40 +348,13 @@ class AppUiTest {
         compose.scrollToHomeRow(R.string.common_recent, loaded = R.string.home_recently_added_movies)
         compose.onNode(hasText("Two", substring = true) and hasClickAction())
             .performSemanticsAction(SemanticsActions.OnLongClick)
-        waitFor("Change guide source")
+        waitFor("Remove from Recently watched")
         compose.onNode(hasText("Remove from Recently watched")).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitAdvancingClock { compose.onAllNodes(hasText("Recently watched")).fetchSemanticsNodes().isEmpty() }
     }
 
-    /** Lets delayed work (e.g. a category switch after focus rests) happen. */
-
     @Test
-    fun `guide sources can match channels without a guide, showing the result`() {
-        homeTv()
-        show(Screen.GuideSources)
-        waitFor("Match channels without a guide")
-        compose.onNode(hasText("Match channels without a guide")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(10_000) {
-            org.robolectric.shadows.ShadowLooper.idleMainLooper()
-            compose.onAllNodes(hasText("No new matches found") or hasText("Found a guide for", substring = true))
-                .fetchSemanticsNodes().isNotEmpty()
-        }
-        // The outcome says how many channels have a guide, not only what this run found.
-        waitFor("channel has a guide")
-    }
-
-    @Test
-    fun `guides are added from a panel offering free country guides`() {
-        homeTv()
-        show(Screen.GuideSources)
-        waitFor("Your guides")
-        compose.onNode(hasText("Add a guide")).performSemanticsAction(SemanticsActions.OnClick)
-        waitFor("Free guides by country")
-        waitFor("Your own XMLTV address")
-    }
-
-    @Test
-    fun `the live player's More menu adds to favourites and opens the guide source`() {
+    fun `the live player's More menu adds to favourites`() {
         homePlex()
         val vm = com.biskyt.myplexplayer.ui.player.PlayerViewModel(
             app.container,
@@ -510,11 +363,7 @@ class AppUiTest {
         )
         compose.waitAdvancingClock { vm.menuActions().isNotEmpty() }
         val labels = vm.menuActions().map { it.label }
-        assertEquals(listOf("Add to favourites", "Change guide source…"), labels)
-        assertEquals(
-            Screen.GuideMatching(playlistId, plexChannel("1")),
-            (vm.menuActions().last() as com.biskyt.myplexplayer.ui.common.ItemAction.Open).screen
-        )
+        assertEquals(listOf("Add to favourites"), labels)
         (vm.menuActions().first() as com.biskyt.myplexplayer.ui.common.ItemAction.Run).run()
         compose.waitAdvancingClock { vm.menuActions().first().label == "Remove from favourites" }
         vm.engine?.release()
@@ -525,58 +374,10 @@ class AppUiTest {
         homePlex()
         show(Screen.Welcome)
         waitFor("Sign in to Plex")
-        waitFor("Add my TV provider")
         waitFor("Restore a backup")
         compose.mainClock.advanceTimeBy(2_000)
         compose.waitForIdle()
         runBlocking { assertEquals(listOf(playlistId), app.container.playlists.allIds()) }
-    }
-
-    @Test
-    fun `languages and categories can be filtered`() {
-        homeTv()
-        show(Screen.Categories(playlistId))
-        waitFor("UK | ENTERTAINMENT")
-        // The box opens for typing when pressed (OK on the remote).
-        compose.onNode(hasText("Filter countries and categories")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitAdvancingClock { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNode(hasSetTextAction()).performTextInput("cine")
-        waitFor("FR: CINEMA")
-        compose.waitAdvancingClock { compose.onAllNodes(hasText("UK | ENTERTAINMENT")).fetchSemanticsNodes().isEmpty() }
-    }
-
-    @Test
-    fun `each list has its own select all and none, the languages' while filtering only the matching ones`() {
-        homeTv()
-        val dao = app.container.db.categories()
-        fun included() = runBlocking { dao.included(playlistId, CAT_LIVE) }
-        show(Screen.Categories(playlistId))
-        waitFor("UK | ENTERTAINMENT")
-        // The languages' None (the first): nothing at all.
-        compose.onAllNodes(hasText("None") and hasClickAction())[0].performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitAdvancingClock { included().isEmpty() }
-
-        // The categories' All: every category in the language shown, and no other language.
-        waitFor("All in ")
-        compose.onNode(hasText("All in ", substring = true) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitAdvancingClock { included().isNotEmpty() }
-        val langs = included().map { it.lang }.toSet()
-        assertEquals(1, langs.size)
-        assertEquals(runBlocking { dao.all(playlistId, CAT_LIVE) }.count { it.lang in langs }, included().size)
-
-        compose.onAllNodes(hasText("None") and hasClickAction())[0].performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitAdvancingClock { included().isEmpty() }
-        compose.onNode(hasText("Filter countries and categories")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitAdvancingClock { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNode(hasSetTextAction()).performTextInput("UK")
-        waitFor("All matching")
-        compose.onNode(hasText("All matching")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitAdvancingClock { included().map { it.name }.toSet() == setOf("UK | ENTERTAINMENT", "UK | SPORT") }
-
-        compose.onNode(hasSetTextAction()).performTextClearance()
-        waitFor("All")
-        compose.onNode(hasText("All") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitAdvancingClock { included().size == 4 }
     }
 
     @Test
@@ -604,15 +405,5 @@ class AppUiTest {
         compose.runOnUiThread { navigator.reset(Screen.Appearance) }
         waitFor("Accent colour")
         compose.onRoot().captureRoboImage("screenshots/settings-appearance.png")
-    }
-
-    @Test
-    fun `guide matching opened for one channel lists only that channel`() {
-        homeTv()
-        show(Screen.GuideMatching(playlistId, 102))
-        waitFor("Arena Sports 1 HD")
-        waitFor("UK: ARENA SPRTS 1 FHD")
-        assertTrue(compose.onAllNodes(hasText("UK: KITE KIDZ")).fetchSemanticsNodes().isEmpty())
-        compose.onRoot().captureRoboImage("screenshots/guide-matching.png")
     }
 }

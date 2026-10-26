@@ -23,7 +23,8 @@ Each step is its own pull request.
      still there.
    - Done (0.2.2): M3U playlists and the free playlist removed; the emulator smoke test signs in to Plex.
    - Done (0.4.2): Catch-up removed.
-   - Next: added guides and matching, then Xtream; then the website and store listing.
+   - Done (0.6.0): Xtream, added guides and guide matching removed; every test runs against a fake Plex server.
+   - Next: the website and store listing.
 4. **Home, menu and search:** Continue watching, recently added series and movies, favourite series and movies, then
    favourite Live TV channels. Live TV goes last in the menu, on Home and in search results. Empty rows are hidden.
    - Done (0.5.0): Home's rows in that order (recently added series by their newest episode, the server's
@@ -39,7 +40,7 @@ Each step is its own pull request.
 6. **Live TV and the TV guide from Plex.**
    - Done (0.4.0): the tuner's channels and the Plex guide (two days ahead, kept as the server's own guide source),
      tuning with "Tuning…" and the tuner let go on changing channel or leaving.
-   - Next: remove the added guides and matching, then Xtream (step 3), moving their tests to FakePlex.
+   - Done (0.6.0): the server's guide is the only one; why it last failed shows with the server.
 7. **DVR** in place of Catch-up: recordings, what's scheduled, and Record from the TV guide.
 
 ## Near future (owner's priorities, 2026-10-25)

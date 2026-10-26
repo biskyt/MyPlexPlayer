@@ -72,6 +72,8 @@ class PlaylistsScreenTest {
     fun `update now says when the playlist updated but its guide didn't`() {
         plex.guideFails = true
         updateNow()
-        waitFor("Home Plex updated, but some guides couldn't be loaded")
+        waitFor("Home Plex updated, but its TV guide couldn't be loaded")
+        // And on the server's row, till its guide loads.
+        waitFor("TV guide not loaded: Server returned error 500")
     }
 }

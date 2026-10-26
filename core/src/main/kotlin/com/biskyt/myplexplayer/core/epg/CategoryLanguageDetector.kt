@@ -1,5 +1,6 @@
 package com.biskyt.myplexplayer.core.epg
 
+import java.text.Normalizer
 import java.util.Locale
 
 /**
@@ -28,16 +29,19 @@ object CategoryLanguageDetector {
     private val leading = Regex("""^\W*([A-Za-z]{2,6})\s*[|:\-\]/)]""")
 
     private val nonLetters = Regex("[^\\p{L}]+")
+    private val marks = Regex("\\p{M}+")
+
+    /** "Curaçao" → "Curacao". */
+    private fun stripAccents(text: String): String = marks.replace(Normalizer.normalize(text, Normalizer.Form.NFKD), "")
 
     /**
      * " WORD WORD ": upper-case letters only, without accents, "&" as "and", single spaces, padded so whole words can
      * be found with contains(). So "Curaçao" and "Bosnia & Herzegovina" match iptv-org's "Curacao" and "... and ...".
      */
-    private fun padded(text: String) =
-        " " + ChannelNames.stripAccents(text).replace("&", " and ").uppercase().replace(nonLetters, " ").trim() + " "
+    private fun padded(text: String) = " " + stripAccents(text).replace("&", " and ").uppercase().replace(nonLetters, " ").trim() + " "
 
     /** The group for an ISO country code: "UK" for Great Britain, as providers write it. */
-    fun groupForCountry(iso: String): String = iso.uppercase().let { if (it == "GB") "UK" else it }
+    private fun groupForCountry(iso: String): String = iso.uppercase().let { if (it == "GB") "UK" else it }
 
     // Whole words anywhere in the name: every country's English name (iptv-org groups channels by country), a few
     // alternative names, and language adjectives. Longest first, so the most specific name wins.
@@ -70,13 +74,4 @@ object CategoryLanguageDetector {
         val name = padded(categoryName)
         return words.firstOrNull { name.contains(it.first) }?.second
     }
-
-    /** Category groups that share a language, the first being where it's mostly watched (for defaults, and below). */
-    val languageGroups: Map<String, List<String>> = mapOf(
-        "en" to listOf("UK", "US", "CA", "AU", "IE"), "fr" to listOf("FR", "BE"), "de" to listOf("DE"),
-        "es" to listOf("ES", "MX", "LAT"), "it" to listOf("IT"), "pt" to listOf("PT", "BR"), "nl" to listOf("NL", "BE"),
-        "pl" to listOf("PL"), "tr" to listOf("TR"), "ar" to listOf("AR"), "el" to listOf("GR"), "ro" to listOf("RO"),
-        "sv" to listOf("SE"), "nb" to listOf("NO"), "no" to listOf("NO"), "da" to listOf("DK"), "fi" to listOf("FI"),
-        "ru" to listOf("RU"), "hi" to listOf("IN"), "sq" to listOf("AL"), "zh" to listOf("CN"), "ko" to listOf("KR"), "ja" to listOf("JP"),
-    )
 }
