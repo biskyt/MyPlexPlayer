@@ -82,7 +82,9 @@ data class MovieEntity(
     val extension: String,
     /** Provider order. */
     val position: Int,
-    val syncStamp: Long
+    val syncStamp: Long,
+    /** Running time, for its card (null until the first sync that brings it). */
+    @ColumnInfo(defaultValue = "NULL") val durationSec: Int? = null
 )
 
 @Entity(
@@ -109,7 +111,9 @@ data class SeriesEntity(
     /** Plex: how many of its episodes haven't been watched, for the badge on its poster (null: not known). */
     @ColumnInfo(defaultValue = "NULL") val unwatched: Int? = null,
     /** Plex: its place among the series with the newest episodes (0 first), for Home; null when not among them. */
-    @ColumnInfo(defaultValue = "NULL") val newest: Int? = null
+    @ColumnInfo(defaultValue = "NULL") val newest: Int? = null,
+    /** How many episodes it has, for its card (null until known). */
+    @ColumnInfo(defaultValue = "NULL") val episodes: Int? = null
 )
 
 const val VOD_MOVIE = "movie"
@@ -149,13 +153,16 @@ data class WatchProgressEntity(
     /** Plex: played here, and not yet reported to the server (sent again at the next sync; the server can't overwrite it). */
     @ColumnInfo(defaultValue = "0") val pending: Boolean = false
 ) {
-    val finished: Boolean get() = durationMs > 0 && positionMs >= durationMs * FINISHED_FRACTION
+    val finished: Boolean get() = isFinished(positionMs, durationMs)
     val fraction: Float get() = if (durationMs > 0) positionMs.toFloat() / durationMs else 0f
     val remainingMs: Long get() = (durationMs - positionMs).coerceAtLeast(0)
 
     companion object {
         /** Past this share of the running time (the credits), something counts as watched. */
         const val FINISHED_FRACTION = 0.92
+
+        /** Whether [positionMs] into [durationMs] counts as watched. */
+        fun isFinished(positionMs: Long, durationMs: Long) = durationMs > 0 && positionMs >= durationMs * FINISHED_FRACTION
     }
 }
 

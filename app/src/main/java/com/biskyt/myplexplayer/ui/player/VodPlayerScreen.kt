@@ -27,6 +27,7 @@ import com.biskyt.myplexplayer.core.plex.PlexMarker
 import com.biskyt.myplexplayer.core.plex.SkipPill
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
+import com.biskyt.myplexplayer.ui.common.CastPanel
 import com.biskyt.myplexplayer.ui.common.LocalTouch
 import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.PillButton
@@ -47,6 +48,8 @@ fun VodPlayerScreen(screen: Screen.VodPlayer) {
         // Over the player's own Back (which stops playback): while the pill counts down on its own, Back cancels the skip.
         BackHandler(enabled = vm.autoSkipping && vm.overlay == OverlayState.NONE, onBack = vm::cancelAutoSkip)
     }
+    // The cast, from More: over the picture, which plays on.
+    vm.cast?.let { (title, cast) -> CastPanel(title, cast) { vm.cast = null } }
 }
 
 /**

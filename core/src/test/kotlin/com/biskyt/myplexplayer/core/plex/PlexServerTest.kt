@@ -48,6 +48,19 @@ class PlexServerTest {
     }
 
     @Test
+    fun `deletion allowed, and a show's delete episodes after playing`() = runBlocking {
+        assertTrue(client.allowsDeletion()) // a new server allows it
+        val show = client.recentlyAdded(section("show"), PlexType.SHOW, 1).single().ratingKey
+        assertEquals(PlexAutoDelete.NEVER, client.autoDeleteWatched(show))
+        try {
+            client.setAutoDeleteWatched(show, PlexAutoDelete.AFTER_A_MONTH)
+            assertEquals(PlexAutoDelete.AFTER_A_MONTH, client.autoDeleteWatched(show))
+        } finally {
+            client.setAutoDeleteWatched(show, PlexAutoDelete.NEVER)
+        }
+    }
+
+    @Test
     fun `progress, watched by the server, and unwatched`() = runBlocking {
         val episode = client.episodes(client.recentlyAdded(section("show"), PlexType.SHOW, 1).single().ratingKey).last()
         val duration = episode.duration!!

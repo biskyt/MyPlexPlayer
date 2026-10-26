@@ -28,7 +28,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** Live TV, Movies and Series open on Favourites, and on the list picked earlier while the app is open. */
+/** Live TV opens on Favourites and Movies on everything, each on the list picked earlier while the app is open. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestApp::class, qualifiers = "+w960dp-h540dp-tvdpi")
 class StartListUiTest {
@@ -110,19 +110,21 @@ class StartListUiTest {
     }
 
     @Test
-    fun `Movies open on Favourites, and on the list picked while the app is open`() {
+    fun `Movies open on everything, and on the view picked while the app is open`() {
         runBlocking { app.container.vod.setFavourite(playlistId, CAT_MOVIE, 12, true) }
         open(Screen.Movies())
         waitFor("Sintel")
-        waitGone("Big Buck Bunny")
-        pick("All movies")
         waitFor("Big Buck Bunny")
+        pick("Filter: All")
+        waitFor("✓ All")
+        pick("Favourites")
+        waitGone("Big Buck Bunny")
         go(Screen.Home)
         go(Screen.Movies())
-        waitFor("Big Buck Bunny")
-
-        open(Screen.Movies())
         waitFor("Sintel")
         waitGone("Big Buck Bunny")
+
+        open(Screen.Movies())
+        waitFor("Big Buck Bunny")
     }
 }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -14,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -40,14 +42,20 @@ import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
+import com.biskyt.myplexplayer.ui.common.BadgeRow
+import com.biskyt.myplexplayer.ui.common.CastPanel
+import com.biskyt.myplexplayer.ui.common.CastRow
+import com.biskyt.myplexplayer.ui.common.ItemActionsPanel
 import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.Poster
 import com.biskyt.myplexplayer.ui.common.ProgressLine
-import com.biskyt.myplexplayer.ui.common.favouriteLabel
 import com.biskyt.myplexplayer.ui.common.formatDuration
 import com.biskyt.myplexplayer.ui.common.formatRuntime
+import com.biskyt.myplexplayer.ui.common.markWatched
+import com.biskyt.myplexplayer.ui.common.onOptionsKey
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
+import com.biskyt.myplexplayer.ui.common.titleActions
 import com.biskyt.myplexplayer.ui.theme.Palette
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -62,6 +70,13 @@ class MovieDetailsViewModel(private val c: AppContainer, private val playlistId:
     val progress = c.vod.observeMovieProgress(playlistId, streamId).stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val favourite = c.vod.observeFavourite(playlistId, CAT_MOVIE, streamId).stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
+    /** Its options are open (holding OK, or Menu), or its cast. */
+    var optionsOpen by mutableStateOf(false)
+    var castOpen by mutableStateOf(false)
+
+    /** Whether the server lets it be deleted (asked once, then known for the source). */
+    suspend fun canDelete() = c.vod.canDelete(playlistId)
+
     init {
         viewModelScope.launch {
             movie = c.vod.movie(playlistId, streamId)
@@ -71,7 +86,16 @@ class MovieDetailsViewModel(private val c: AppContainer, private val playlistId:
         }
     }
 
+    fun openOptions() {
+        optionsOpen = true
+    }
+
     fun toggleFavourite() = viewModelScope.launch { c.vod.setFavourite(playlistId, CAT_MOVIE, streamId, !favourite.value) }
+
+    fun setWatched(watched: Boolean) = viewModelScope.launch { c.vod.setWatched(playlistId, streamId, series = null, watched) }
+
+    /** Deletes it on the server, then [gone] (refused or out of reach, a notice says so and the page stays). */
+    fun delete(gone: () -> Unit) = viewModelScope.launch { if (c.vod.deleteMovie(playlistId, streamId)) gone() }
 }
 
 @Composable
@@ -81,13 +105,17 @@ fun MovieDetailsScreen(screen: Screen.MovieDetails) {
     val movie = vm.movie ?: return
     val d = vm.details
     val progress by vm.progress.collectAsState()
-    val favourite by vm.favourite.collectAsState()
-    DetailsLayout(backdropUrl = d?.backdropUrl, posterUrl = movie.posterUrl ?: d?.posterUrl, title = movie.title) {
+    DetailsLayout(
+        backdropUrl = d?.backdropUrl,
+        posterUrl = movie.posterUrl ?: d?.posterUrl,
+        title = movie.title,
+        onOptions = vm::openOptions
+    ) {
         Text(movie.title, style = MaterialTheme.typography.displaySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Muted(metaLine(movie.year ?: d?.year, d?.durationSec, d?.genre, movie.rating ?: d?.rating))
-        d?.plot?.let { Text(it, style = MaterialTheme.typography.bodyLarge, maxLines = 6, overflow = TextOverflow.Ellipsis) }
-        d?.director?.let { Muted(stringResource(R.string.vod_director, it)) }
-        d?.cast?.let { Muted(stringResource(R.string.vod_cast, it), maxLines = 2) }
+        Muted(metaLine(movie.year ?: d?.year, d?.durationSec, d?.contentRating, d?.genres.orEmpty(), movie.rating ?: d?.rating))
+        BadgeRow(d?.media?.badges.orEmpty())
+        d?.plot?.let { Text(it, style = MaterialTheme.typography.bodyLarge, maxLines = 4, overflow = TextOverflow.Ellipsis) }
+        People(d)
         ResumeBar(progress)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
             val resumable = progress?.takeUnless { it.finished }
@@ -96,23 +124,61 @@ fun MovieDetailsScreen(screen: Screen.MovieDetails) {
                     ?: stringResource(R.string.common_play),
                 { nav.push(Screen.VodPlayer(screen.playlistId, movie.streamId)) },
                 rememberFirstFocus(),
-                primary = true
+                primary = true,
+                onLongClick = vm::openOptions
             )
             if (resumable != null) {
                 PillButton(stringResource(R.string.common_from_start), {
                     nav.push(Screen.VodPlayer(screen.playlistId, movie.streamId, fromStart = true))
-                })
+                }, onLongClick = vm::openOptions)
             }
-            PillButton(favouriteLabel(favourite), { vm.toggleFavourite() })
+            PillButton(
+                stringResource(R.string.vod_more_info),
+                { nav.push(Screen.MoreInfo(screen.playlistId, CAT_MOVIE, movie.streamId)) },
+                onLongClick = vm::openOptions
+            )
         }
+        Muted(stringResource(R.string.vod_options_hint))
+        Spacer(Modifier.weight(1f))
+        CastRow(d?.cast.orEmpty())
     }
+    if (vm.optionsOpen) {
+        val favourite by vm.favourite.collectAsState()
+        val canDelete by produceState(false) { value = vm.canDelete() }
+        val close = { vm.optionsOpen = false }
+        val actions = titleActions(
+            screen.playlistId,
+            CAT_MOVIE,
+            movie.streamId,
+            d,
+            favourite,
+            showCast = {
+                close()
+                vm.castOpen = true
+            },
+            setFavourite = { vm.toggleFavourite() }
+        ).let { shared ->
+            listOf(markWatched(progress?.finished == true) { vm.setWatched(it) }) + shared +
+                listOfNotNull(if (canDelete) deleteAction(movie.title) { vm.delete { nav.pop() } } else null)
+        }
+        ItemActionsPanel(movie.title, actions, close)
+    }
+    if (vm.castOpen) CastPanel(movie.title, d?.cast.orEmpty()) { vm.castOpen = false }
 }
 
-/** "2021 · 2 h 35 min · Drama · ★ 8.1", skipping whatever is unknown. */
-fun metaLine(year: Int?, durationSec: Int?, genre: String?, rating: Double?): String = listOfNotNull(
+/** "Directed by …" and "Written by …", where known. */
+@Composable
+internal fun People(d: VodDetails?) {
+    d?.directors?.takeIf { it.isNotEmpty() }?.let { Muted(stringResource(R.string.vod_directed_by, it.joinToString(", "))) }
+    d?.writers?.takeIf { it.isNotEmpty() }?.let { Muted(stringResource(R.string.vod_written_by, it.joinToString(", "))) }
+}
+
+/** "2021 · 2 h 35 min · 12A · Drama, Mystery · ★ 8.1", skipping whatever is unknown (two genres at most). */
+fun metaLine(year: Int?, durationSec: Int?, contentRating: String?, genres: List<String>, rating: Double?): String = listOfNotNull(
     year?.toString(),
     durationSec?.takeIf { it > 0 }?.let(::formatRuntime),
-    genre,
+    contentRating,
+    genres.take(2).takeIf { it.isNotEmpty() }?.joinToString(", "),
     rating?.let { "★ %.1f".format(AppText.locale, it) }
 ).joinToString(" · ")
 
@@ -125,28 +191,43 @@ internal fun ResumeBar(progress: WatchProgressEntity?) {
     }
 }
 
-/** Backdrop faded behind, poster on the left, [content] on the right. Shared by movies and series. */
+/**
+ * Backdrop faded behind (once the details are in: the page shows first), poster on the left, [content] on the right.
+ * The remote's options button opens [onOptions] from anywhere on it.
+ */
 @Composable
-internal fun DetailsLayout(backdropUrl: String?, posterUrl: String?, title: String, content: @Composable ColumnScope.() -> Unit) {
-    Box(Modifier.fillMaxSize().background(Palette.background)) {
-        if (backdropUrl != null) {
-            // Faded behind a gradient, so a third of the screen's resolution is plenty (and a ninth of the memory).
-            val context = LocalContext.current
-            val request = remember(backdropUrl) {
-                ImageRequest.Builder(context).data(backdropUrl).size(BACKDROP_WIDTH, BACKDROP_WIDTH * 9 / 16).allowRgb565(true).build()
-            }
-            AsyncImage(request, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.35f)
-            Box(
-                Modifier.fillMaxSize()
-                    .background(Brush.horizontalGradient(listOf(Palette.background, Palette.background.copy(alpha = 0.6f))))
-            )
-        }
+internal fun DetailsLayout(
+    backdropUrl: String?,
+    posterUrl: String?,
+    title: String,
+    onOptions: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Box(Modifier.fillMaxSize().background(Palette.background).onOptionsKey(onOptions)) {
+        Backdrop(backdropUrl)
         Row(Modifier.padding(horizontal = 72.dp, vertical = 56.dp), horizontalArrangement = Arrangement.spacedBy(40.dp)) {
             Poster(posterUrl, title, 240.dp)
             Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.widthIn(max = 760.dp).fillMaxHeight()) {
                 content()
             }
         }
+    }
+}
+
+/** The title's art, faded behind a page. */
+@Composable
+internal fun Backdrop(backdropUrl: String?) {
+    if (backdropUrl != null) {
+        // Faded behind a gradient, so a third of the screen's resolution is plenty (and a ninth of the memory).
+        val context = LocalContext.current
+        val request = remember(backdropUrl) {
+            ImageRequest.Builder(context).data(backdropUrl).size(BACKDROP_WIDTH, BACKDROP_WIDTH * 9 / 16).allowRgb565(true).build()
+        }
+        AsyncImage(request, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.35f)
+        Box(
+            Modifier.fillMaxSize()
+                .background(Brush.horizontalGradient(listOf(Palette.background, Palette.background.copy(alpha = 0.6f))))
+        )
     }
 }
 

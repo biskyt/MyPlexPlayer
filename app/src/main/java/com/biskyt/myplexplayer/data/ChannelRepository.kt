@@ -5,13 +5,11 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.room.withTransaction
 import com.biskyt.myplexplayer.R
-import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.data.db.AppDatabase
 import com.biskyt.myplexplayer.data.db.CAT_LIVE
 import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.data.db.FavouriteEntity
 import com.biskyt.myplexplayer.data.db.RecentEntity
-import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 
 /** Which channels a list shows. Zapping in the player follows the same list. */
@@ -71,7 +69,12 @@ class ChannelRepository(private val db: AppDatabase, private val plex: PlexSourc
         val p = db.playlists().get(playlistId) ?: return false
         val ch = channels.get(playlistId, streamId)?.takeIf { it.providerEpgId != null } ?: return false
         return plex.withFavourites {
-            if (!savedInPlex { plex.setFavouriteChannel(p, ch, favourite) }) return@withFavourites false
+            if (!notices.inPlex(R.string.common_favourites_not_saved) {
+                    plex.setFavouriteChannel(p, ch, favourite)
+                }
+            ) {
+                return@withFavourites false
+            }
             if (favourite) {
                 db.withTransaction {
                     favourites.add(
@@ -100,15 +103,9 @@ class ChannelRepository(private val db: AppDatabase, private val plex: PlexSourc
     suspend fun saveFavouriteOrder(playlistId: Long, ids: List<Long>): Boolean {
         val p = db.playlists().get(playlistId) ?: return false
         val keyOf = channels.getAll(playlistId, ids).associate { it.streamId to it.providerEpgId }
-        return plex.withFavourites { savedInPlex { plex.orderFavouriteChannels(p, ids.mapNotNull { keyOf[it] }) } }
-    }
-
-    private suspend fun savedInPlex(save: suspend () -> Unit): Boolean = try {
-        save()
-        true
-    } catch (e: IOException) {
-        notices.post(Notice(appString(R.string.common_favourites_not_saved), userMessage(e)))
-        false
+        return plex.withFavourites {
+            notices.inPlex(R.string.common_favourites_not_saved) { plex.orderFavouriteChannels(p, ids.mapNotNull { keyOf[it] }) }
+        }
     }
 
     suspend fun markWatched(playlistId: Long, streamId: Long) {

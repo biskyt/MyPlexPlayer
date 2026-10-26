@@ -115,7 +115,7 @@ fun TvCard(
 /** Whether the [TvCard] around this content has focus (e.g. for [OneLine]); only readers redraw when it changes. */
 val LocalCardFocused = compositionLocalOf { false }
 
-/** Pill-shaped button. [primary] fills it with the accent colour. */
+/** Pill-shaped button. [primary] fills it with the accent colour. [onLongClick] as for [TvCard]. */
 @Composable
 fun PillButton(
     text: String,
@@ -123,6 +123,7 @@ fun PillButton(
     modifier: Modifier = Modifier,
     primary: Boolean = false,
     selected: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
     leading: (@Composable () -> Unit)? = null
 ) {
     val accent = LocalAccent.current
@@ -138,7 +139,8 @@ fun PillButton(
     }
     Surface(
         onClick = onClick,
-        modifier = modifier.onTap(onClick = onClick),
+        onLongClick = onLongClick,
+        modifier = (if (onLongClick != null) modifier.onOptionsKey(onLongClick) else modifier).onTap(onLongClick, onClick),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = ClickableSurfaceDefaults.colors(
@@ -232,6 +234,12 @@ fun StateFlow<Set<Long>?>.collectIds(): Set<Long> = collectAsState().value.orEmp
 fun Poster(url: String?, title: String, width: Dp, modifier: Modifier = Modifier) = ImageWithInitials(
     url, title, width, width * 3 / 2, RoundedCornerShape(10.dp), ContentScale.Crop, 0.dp, MaterialTheme.typography.titleMedium, modifier,
     opaque = true
+)
+
+/** A person's photo in a circle, with their initials until (or unless) it loads. */
+@Composable
+fun CirclePhoto(url: String?, name: String, size: Dp) = ImageWithInitials(
+    url, name, size, size, CircleShape, ContentScale.Crop, 0.dp, MaterialTheme.typography.labelLarge, opaque = true
 )
 
 /** Poster width in grids and rows of movies and series. */

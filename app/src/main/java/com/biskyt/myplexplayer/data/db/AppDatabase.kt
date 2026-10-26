@@ -11,7 +11,7 @@ import androidx.room.migration.AutoMigrationSpec
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    version = 14,
+    version = 15,
     exportSchema = true,
     // 2: M3U playlists (playlist.kind; channel.streamUrl/userAgent/referrer).
     // 3: movies and series (category.type; movie, series, watch_progress, vod_favourite).
@@ -40,7 +40,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AutoMigration(from = 10, to = 11),
         AutoMigration(from = 11, to = 12, spec = AppDatabase.PlexOnly::class),
         AutoMigration(from = 12, to = 13),
-        AutoMigration(from = 13, to = 14, spec = AppDatabase.PlexFavourites::class)
+        AutoMigration(from = 13, to = 14, spec = AppDatabase.PlexFavourites::class),
+        AutoMigration(from = 14, to = 15)
     ],
     entities = [
         PlaylistEntity::class, CategoryEntity::class, ChannelEntity::class, FavouriteEntity::class, RecentEntity::class,

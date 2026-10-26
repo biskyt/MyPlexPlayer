@@ -3,4 +3,11 @@
 <resources>
     <!-- "Add to favorites" is the button common_favourite_add: keep it the same as there. -->
     <string name="vod_no_favourites">No favorites yet. Open a title and choose “Add to favorites”.</string>
+    <string name="vod_season">Season %1$d</string>
+    <string name="vod_about_film">About the movie</string>
+    <string name="vod_this_film">This movie</string>
+    <plurals name="vod_season_count">
+        <item quantity="one">%1$d season</item>
+        <item quantity="other">%1$d seasons</item>
+    </plurals>
 </resources>

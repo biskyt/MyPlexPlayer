@@ -15,7 +15,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.container
 import com.biskyt.myplexplayer.data.ChannelFilter
-import com.biskyt.myplexplayer.data.VodFilter
+import com.biskyt.myplexplayer.data.VodView
 
 /** Every screen in the app. Tab roots are [Home], [Live], [Movies], [Series]. */
 sealed interface Screen {
@@ -25,8 +25,8 @@ sealed interface Screen {
 
     /** [filter] null: the list shown last. */
     data class Live(val filter: ChannelFilter? = null, val guide: Boolean = false) : Screen
-    data class Movies(val filter: VodFilter? = null) : Screen
-    data class Series(val filter: VodFilter? = null) : Screen
+    data class Movies(val view: VodView? = null) : Screen
+    data class Series(val view: VodView? = null) : Screen
 
     /** [query]: already typed (e.g. a TV programme's title). */
     data class Search(val query: String = "") : Screen
@@ -44,6 +44,9 @@ sealed interface Screen {
         val continueSeries: Boolean = false
     ) : Screen
     data class MovieDetails(val playlistId: Long, val streamId: Long) : Screen
+
+    /** A film's or series' ([type] CAT_MOVIE or CAT_SERIES) details beyond its page: who made it, its file, links. */
+    data class MoreInfo(val playlistId: Long, val type: String, val id: Long) : Screen
 
     /** [season] and [episode] (from 1): open on that episode (found from the TV guide). */
     data class SeriesDetails(val playlistId: Long, val seriesId: Long, val season: Int? = null, val episode: Int? = null) : Screen
@@ -71,7 +74,7 @@ class NavEntry(val screen: Screen, val id: Int) : ViewModelStoreOwner {
  */
 class PickedLists {
     var live: ChannelFilter? = null
-    val vod = HashMap<String, VodFilter>()
+    val vod = HashMap<String, VodView>()
 }
 
 /** A tiny back stack: enough for a TV app and much lighter than a navigation library. */

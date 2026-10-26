@@ -63,7 +63,7 @@ class RepositoriesTest {
         }
         playlists = PlaylistRepository(db, settings, epg, categoryStore, plex)
         channels = ChannelRepository(db, plex, Notices())
-        vod = VodRepository(db, playlists, categoryStore, plex)
+        vod = VodRepository(db, playlists, categoryStore, plex, Notices())
     }
 
     @After

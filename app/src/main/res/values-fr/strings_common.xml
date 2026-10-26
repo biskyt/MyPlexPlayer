@@ -14,7 +14,7 @@
     <string name="common_continue">Continuer</string>
     <string name="common_watch">Regarder</string>
     <string name="common_play">Lire</string>
-    <string name="common_from_start">Depuis le début</string>
+    <string name="common_from_start">Recommencer</string>
     <string name="common_skip_back">Reculer</string>
     <string name="common_skip_forward">Avancer</string>
     <string name="common_subtitles_off">Désactivés</string>

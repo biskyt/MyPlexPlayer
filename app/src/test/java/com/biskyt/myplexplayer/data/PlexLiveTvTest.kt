@@ -57,7 +57,7 @@ class PlexLiveTvTest {
             plexGuide = fake.url
         }
         val playlists = PlaylistRepository(db, settings, epg, categoryStore, plex)
-        val vod = VodRepository(db, playlists, categoryStore, plex)
+        val vod = VodRepository(db, playlists, categoryStore, plex, Notices())
         sync = SyncManager(scope, playlists, vod, epg)
         channelRepo = ChannelRepository(db, plex, notices)
         favourites = Favourites(scope, settings, channelRepo, vod)

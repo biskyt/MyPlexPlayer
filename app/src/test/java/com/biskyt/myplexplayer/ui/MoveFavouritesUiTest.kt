@@ -15,7 +15,8 @@ import androidx.compose.ui.test.pressKey
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.data.ChannelFilter
-import com.biskyt.myplexplayer.data.VodFilter
+import com.biskyt.myplexplayer.data.VodShow
+import com.biskyt.myplexplayer.data.VodView
 import com.biskyt.myplexplayer.data.db.CAT_LIVE
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.plexChannelId
@@ -165,7 +166,7 @@ class MoveFavouritesUiTest {
 
     @Test
     fun `in Movies' Favourites, a poster moves along the grid`() {
-        show(Screen.Movies(VodFilter.Favourites))
+        show(Screen.Movies(VodView(show = VodShow.FAVOURITES)))
         waitFor("Sintel")
         move("Sintel")
         press(Key.DirectionLeft)
@@ -176,7 +177,7 @@ class MoveFavouritesUiTest {
 
     @Test
     fun `in Movies' Favourites, taking one off closes its options and focus moves on`() {
-        show(Screen.Movies(VodFilter.Favourites))
+        show(Screen.Movies(VodView(show = VodShow.FAVOURITES)))
         waitFor("Sintel")
         compose.onAllNodes(hasText("Sintel", substring = true) and hasClickAction())[0]
             .performSemanticsAction(SemanticsActions.OnLongClick)

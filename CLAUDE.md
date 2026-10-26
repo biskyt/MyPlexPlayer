@@ -190,6 +190,10 @@ See also:
   asked for by playback only). When a pill shows and when a skip is due is core's `skipPill` (ROADMAP's rules); an
   automatic skip happens only when playback played on into it, so seeking into an intro offers the pill instead.
   OK skips through `skipKeys` in VodPlayerScreen, kept out of the player code shared with MyTVPlayer.
+- **Deleting** (0.10.0, docs/plex-api.md row 19): whether a server allows it is one server setting
+  (`allowMediaDeletion` in `/`), asked once per source and again after each sync; a show's "Delete episodes after
+  playing" is read with `includePreferences=1` (its `/prefs` lists nothing) and saved with a PUT to `/prefs`, once the
+  remote rests on a choice (`AutoDeleteChoice`). Delete always asks first (`ItemAction.Confirmed`).
 - **Changing a setting's default:** `SettingsRepository.update` (and a backup) saves every setting, so a default
   already released is saved as if chosen. A new default needs a new preference key and `@SerialName`, as credits'
   automatic skip got in 0.8.1.
@@ -239,6 +243,12 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
   setting to turn it off.
 - **Subtitles** default to forced subtitles only, in the system language. Settings choose the default language or
   turn subtitles off.
+- **Movies and TV Shows grids** (0.10.0): Category, Filter and Sort pills above the grid (no category column). The
+  remote's routes off the top row are the owner's rule, tested in `GridRoutesUiTest`: up goes to the pills only from a
+  poster under them, otherwise to the menu; right off the row's end goes to the pills only from a short row.
+- **Details pages** (0.10.0): picture size, HDR and sound show only for what has focus; More info holds the rest; the
+  options menu (hold OK, or Menu) is shared by a title's page and the player (`titleActions`); the cast loads its
+  photos only where shown.
 - **Back stops playback.** There's no picture-in-picture.
 - **Text fields are built for a TV remote:**
   - Server addresses get no autocorrect or capitals.

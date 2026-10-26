@@ -48,6 +48,7 @@ import com.biskyt.myplexplayer.ui.settings.SettingsScreen
 import com.biskyt.myplexplayer.ui.settings.WelcomeScreen
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import com.biskyt.myplexplayer.ui.theme.Palette
+import com.biskyt.myplexplayer.ui.vod.MoreInfoScreen
 import com.biskyt.myplexplayer.ui.vod.MovieDetailsScreen
 import com.biskyt.myplexplayer.ui.vod.SeriesDetailsScreen
 import com.biskyt.myplexplayer.ui.vod.VodBrowseScreen
@@ -157,9 +158,10 @@ internal fun ScreenContent(screen: Screen) {
         Screen.Welcome -> WelcomeScreen()
         Screen.Home -> HomeScreen()
         is Screen.Live -> LiveScreen(screen.filter, screen.guide)
-        is Screen.Movies -> VodBrowseScreen(CAT_MOVIE, screen.filter)
-        is Screen.Series -> VodBrowseScreen(CAT_SERIES, screen.filter)
+        is Screen.Movies -> VodBrowseScreen(CAT_MOVIE, screen.view)
+        is Screen.Series -> VodBrowseScreen(CAT_SERIES, screen.view)
         is Screen.MovieDetails -> MovieDetailsScreen(screen)
+        is Screen.MoreInfo -> MoreInfoScreen(screen)
         is Screen.SeriesDetails -> SeriesDetailsScreen(screen)
         is Screen.VodPlayer -> VodPlayerScreen(screen)
         is Screen.Search -> SearchScreen(screen.query)

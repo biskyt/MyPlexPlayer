@@ -55,10 +55,17 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
     suspend fun recentlyAdded(section: String, type: PlexType, count: Int): List<PlexItem> =
         page(section, type, 0, count, if (type == PlexType.SHOW) "episode.addedAt:desc" else "addedAt:desc").items
 
-    /** One item; with [markers], its intro and credits too (they come only when asked for: playback asks). */
-    suspend fun item(ratingKey: String, markers: Boolean = false): PlexItem =
-        container(url("library/metadata/$ratingKey") { if (markers) addQueryParameter("includeMarkers", "1") }).items.firstOrNull()
-            ?: throw PlexException("No item $ratingKey", reason = Reason.UNEXPECTED_RESPONSE)
+    /**
+     * One item; with [markers], its intro and credits too, and with [guids] its ids elsewhere (each comes only when
+     * asked for: playback asks for markers, a details page for ids).
+     */
+    suspend fun item(ratingKey: String, markers: Boolean = false, guids: Boolean = false): PlexItem = container(
+        url("library/metadata/$ratingKey") {
+            if (markers) addQueryParameter("includeMarkers", "1")
+            if (guids) addQueryParameter("includeGuids", "1")
+        }
+    ).items.firstOrNull()
+        ?: throw PlexException("No item $ratingKey", reason = Reason.UNEXPECTED_RESPONSE)
 
     /** Several items in one call (for their play state); any the server no longer has are left out. */
     suspend fun items(ratingKeys: List<String>): List<PlexItem> =
@@ -145,6 +152,27 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
      */
     suspend fun removeFromContinueWatching(ratingKey: String) =
         send("PUT", url("actions/removeFromContinueWatching") { addQueryParameter("ratingKey", ratingKey) })
+
+    /** Whether the server lets its media be deleted ("Allow media deletion", one setting for the whole server). */
+    suspend fun allowsDeletion(): Boolean = http.fetch<PlexRootResponse>("GET", url(""), headers(null)).container.allowMediaDeletion
+
+    /**
+     * Deletes a film, episode, season or show, its files included. The server refuses (403) when it doesn't allow
+     * deletion ([allowsDeletion]) or the account may not.
+     */
+    suspend fun delete(ratingKey: String) = send("DELETE", url("library/metadata/$ratingKey"))
+
+    /** A show's "Delete episodes after playing"; null if the server doesn't say, or says something unknown. */
+    suspend fun autoDeleteWatched(showRatingKey: String): PlexAutoDelete? =
+        container(url("library/metadata/$showRatingKey") { addQueryParameter("includePreferences", "1") })
+            .items.firstOrNull()?.preferences?.settings
+            ?.firstOrNull { it.id == AUTO_DELETE_WATCHED }?.value?.toIntOrNull()
+            .let(PlexAutoDelete::of)
+
+    suspend fun setAutoDeleteWatched(showRatingKey: String, policy: PlexAutoDelete) = send(
+        "PUT",
+        url("library/metadata/$showRatingKey/prefs") { addQueryParameter(AUTO_DELETE_WATCHED, policy.value.toString()) }
+    )
 
     /** The file as it is: the first choice for every film and episode. */
     fun directPlay(part: PlexPart): PlexStream = PlexStream(url(part.key.trimStart('/')).toString(), headers(null))
@@ -314,6 +342,7 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
         const val VIDEO = 1
         const val AUDIO = 2
         val SEARCHED = setOf("movie", "show", "episode")
+        const val AUTO_DELETE_WATCHED = "autoDeletionItemPolicyWatchedLibrary"
     }
 }
 

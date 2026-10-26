@@ -72,7 +72,7 @@ class AppContainer(context: Context) {
     /** Something that didn't work, said in the corner of the screen. */
     val notices = Notices()
     val channels = ChannelRepository(db, plex, notices)
-    val vod = VodRepository(db, playlists, categoryStore, plex)
+    val vod = VodRepository(db, playlists, categoryStore, plex, notices)
     val favourites = Favourites(appScope, settings, channels, vod)
     val search = SearchRepository(db)
     val sync = SyncManager(appScope, playlists, vod, epg)

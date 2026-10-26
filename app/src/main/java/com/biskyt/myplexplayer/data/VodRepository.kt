@@ -5,11 +5,15 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.room.withTransaction
+import androidx.sqlite.db.SimpleSQLiteQuery
+import com.biskyt.myplexplayer.R
+import com.biskyt.myplexplayer.core.plex.PlexAutoDelete
 import com.biskyt.myplexplayer.core.plex.PlexClient
 import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.plex.PlexItem
 import com.biskyt.myplexplayer.core.plex.PlexPlayState
 import com.biskyt.myplexplayer.core.plex.PlexType
+import com.biskyt.myplexplayer.core.vod.CastMember
 import com.biskyt.myplexplayer.core.vod.SeriesDetails
 import com.biskyt.myplexplayer.core.vod.VodDetails
 import com.biskyt.myplexplayer.core.vod.VodTitles
@@ -25,15 +29,13 @@ import com.biskyt.myplexplayer.data.db.VodFavouriteEntity
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import kotlinx.coroutines.flow.Flow
 
-/** Which movies or series a grid shows. */
-sealed interface VodFilter {
-    data object All : VodFilter
-    data object Favourites : VodFilter
+/** What a grid of movies or series shows: one [category] (null: all), which of them ([show]), in what order ([sort]). */
+data class VodView(val category: String? = null, val show: VodShow = VodShow.ALL, val sort: VodSort = VodSort.NEWEST)
 
-    /** Movies by date added, series by date last updated. */
-    data object Newest : VodFilter
-    data class Category(val id: String) : VodFilter
-}
+enum class VodShow { ALL, UNWATCHED, FAVOURITES }
+
+/** [NEWEST]: films by date added, series by their newest episode. Favourites keep the user's own order. */
+enum class VodSort { NEWEST, TITLE, YEAR }
 
 /**
  * Movies and series, from a Plex server. The light lists are stored for fast paging and
@@ -45,6 +47,7 @@ class VodRepository(
     private val playlists: PlaylistRepository,
     private val categoryStore: CategoryStore,
     private val plex: PlexSources,
+    private val notices: Notices,
 ) {
     private val vod = db.vod()
     private val categories = db.categories()
@@ -52,25 +55,12 @@ class VodRepository(
     // maxSize drops pages scrolled far away, so browsing tens of thousands of titles doesn't keep them all.
     private val paging = PagingConfig(pageSize = 48, prefetchDistance = 24, initialLoadSize = 72, enablePlaceholders = true, maxSize = 300)
 
-    fun pageCards(type: String, playlistId: Long, filter: VodFilter, query: String): Flow<PagingData<VodCard>> {
-        val q = likeArg(query)
-        val movies = type == CAT_MOVIE
-        return Pager(paging) {
-            when (filter) {
-                VodFilter.All -> if (movies) vod.pageMovies(playlistId, q) else vod.pageSeries(playlistId, q)
-                VodFilter.Favourites -> if (movies) vod.pageMovieFavourites(playlistId, q) else vod.pageSeriesFavourites(playlistId, q)
-                VodFilter.Newest -> if (movies) vod.pageMoviesByAdded(playlistId, q) else vod.pageSeriesByUpdated(playlistId, q)
-                is VodFilter.Category ->
-                    if (movies) vod.pageMovieCategory(playlistId, filter.id, q) else vod.pageSeriesCategory(playlistId, filter.id, q)
-            }
-        }.flow
-    }
+    fun pageCards(type: String, playlistId: Long, view: VodView): Flow<PagingData<VodCard>> = Pager(paging) {
+        gridQuery(type, playlistId, view).let { if (type == CAT_MOVIE) vod.pageMovieGrid(it) else vod.pageSeriesGrid(it) }
+    }.flow
 
     /** Whether the playlist has any movies or series loaded. */
     suspend fun hasTitles(playlistId: Long) = vod.titleCount(playlistId) > 0
-
-    fun observeCount(type: String, playlistId: Long) =
-        if (type == CAT_MOVIE) vod.observeMovieCount(playlistId) else vod.observeSeriesCount(playlistId)
 
     fun observeCategories(playlistId: Long, type: String) = categories.observeIncluded(playlistId, type)
 
@@ -198,6 +188,61 @@ class VodRepository(
         return true
     }
 
+    // --- deleting ---
+
+    /** Whether a film or episode of source [playlistId] can be deleted: the server allows it. */
+    suspend fun canDelete(playlistId: Long): Boolean = playlists.get(playlistId)?.let { plex.allowsDeletion(it) } ?: false
+
+    /**
+     * Deletes film [id] on its server, its file included, then here: its row, progress and favourite. False, with a
+     * notice, if the server couldn't be reached or refused (then nothing changed).
+     */
+    suspend fun deleteMovie(playlistId: Long, id: Long): Boolean {
+        deleteOnServer(playlistId, id) ?: return false
+        db.withTransaction {
+            vod.deleteMovie(playlistId, id)
+            vod.removeFavourite(playlistId, CAT_MOVIE, id)
+            vod.deleteProgress(playlistId, VOD_MOVIE, listOf(id))
+        }
+        movieDetails.remove("$playlistId:$id")
+        return true
+    }
+
+    /** Deletes episode [id] of [seriesId] on its server, as [deleteMovie]; its page, fetched again, brings the badge. */
+    suspend fun deleteEpisode(playlistId: Long, seriesId: Long, id: Long): Boolean {
+        deleteOnServer(playlistId, id) ?: return false
+        vod.deleteProgress(playlistId, VOD_EPISODE, listOf(id))
+        seriesDetails.remove("$playlistId:$seriesId")
+        return true
+    }
+
+    /** Deletes [id] on its source's server: the source, or null (with a notice) when it couldn't. */
+    private suspend fun deleteOnServer(playlistId: Long, id: Long): PlaylistEntity? {
+        val source = playlists.get(playlistId) ?: return null
+        return source.takeIf { notices.inPlex(R.string.vod_not_deleted) { plex.delete(source, id) } }
+    }
+
+    /** Each series' "Delete episodes after playing" as last read or set, so a menu opened again asks for nothing. */
+    private val autoDelete = LruCache<String, PlexAutoDelete>(DETAILS_CACHE)
+
+    /** A series' "Delete episodes after playing" on its server; null when it can't be read. */
+    suspend fun autoDeleteWatched(playlistId: Long, seriesId: Long): PlexAutoDelete? {
+        autoDelete.get("$playlistId:$seriesId")?.let { return it }
+        val read = playlists.get(playlistId)?.let { offlineOk { plex.autoDeleteWatched(it, seriesId) } } ?: return null
+        return read.also { autoDelete.put("$playlistId:$seriesId", it) }
+    }
+
+    /** A title's cast, read from the server (a series' for an episode with none of its own); empty when unknown. */
+    suspend fun cast(playlistId: Long, id: Long): List<CastMember> =
+        playlists.get(playlistId)?.let { offlineOk { plex.cast(it, id) } }.orEmpty()
+
+    /** Sets it; false, with a notice, if the server couldn't be reached or refused. */
+    suspend fun setAutoDeleteWatched(playlistId: Long, seriesId: Long, policy: PlexAutoDelete): Boolean {
+        val source = playlists.get(playlistId) ?: return false
+        return notices.inPlex(R.string.vod_auto_delete_not_saved) { plex.setAutoDeleteWatched(source, seriesId, policy) }
+            .also { if (it) autoDelete.put("$playlistId:$seriesId", policy) }
+    }
+
     // --- details (fetched when opened) ---
 
     private val movieDetails = LruCache<String, VodDetails>(DETAILS_CACHE)
@@ -250,6 +295,7 @@ class VodRepository(
      */
     suspend fun sync(p: PlaylistEntity, onProgress: (Int) -> Unit = {}) {
         try {
+            plex.forgetDeletion(p.id)
             syncPlexAt(p, onProgress)
         } catch (e: PlexException) {
             val moved = e.reason == PlexException.Reason.UNREACHABLE
@@ -354,3 +400,54 @@ private const val NEWEST_SERIES = 20
 
 /** TV libraries a server has, at most, for their places on Home's recently added row to take turns. */
 private const val MAX_TV_LIBRARIES = 1_000
+
+/**
+ * The query behind a grid of [type] (CAT_MOVIE or CAT_SERIES): every choice of [VodView] in one, its values bound as
+ * arguments. A film carries how far it was played; a series, how many episodes are unwatched.
+ */
+internal fun gridQuery(type: String, playlistId: Long, view: VodView): SimpleSQLiteQuery {
+    val movies = type == CAT_MOVIE
+    val t = if (movies) "m" else "s"
+    val args = mutableListOf<Any>()
+    val sql = StringBuilder(
+        if (movies) {
+            "SELECT m.streamId AS id, m.title, m.year, m.posterUrl AS imageUrl, NULL AS unwatched, m.durationSec, NULL AS episodes, " +
+                "p.positionMs, p.durationMs AS playedOfMs FROM movie m LEFT JOIN watch_progress p ON p.playlistId = m.playlistId " +
+                "AND p.kind = '$VOD_MOVIE' AND p.itemId = m.streamId"
+        } else {
+            "SELECT s.seriesId AS id, s.title, s.year, s.coverUrl AS imageUrl, s.unwatched, NULL AS durationSec, s.episodes, " +
+                "NULL AS positionMs, NULL AS playedOfMs FROM series s"
+        }
+    )
+    if (view.show == VodShow.FAVOURITES) {
+        sql.append(
+            " JOIN vod_favourite f ON f.playlistId = $t.playlistId AND f.kind = ? AND f.itemId = $t.${if (movies) "streamId" else "seriesId"}"
+        )
+        args += type
+    }
+    sql.append(" WHERE $t.playlistId = ?")
+    args += playlistId
+    view.category?.let {
+        sql.append(" AND $t.categoryId = ?")
+        args += it
+    }
+    if (view.show == VodShow.UNWATCHED) {
+        sql.append(
+            if (movies) {
+                " AND (p.durationMs IS NULL OR NOT (p.durationMs > 0 AND p.positionMs >= p.durationMs * ${WatchProgressEntity.FINISHED_FRACTION}))"
+            } else {
+                " AND (s.unwatched IS NULL OR s.unwatched > 0)"
+            }
+        )
+    }
+    sql.append(
+        when {
+            view.show == VodShow.FAVOURITES -> " ORDER BY f.position, f.addedAt DESC"
+            view.sort == VodSort.TITLE -> " ORDER BY $t.title COLLATE NOCASE, $t.position"
+            view.sort == VodSort.YEAR -> " ORDER BY $t.year IS NULL, $t.year DESC, $t.position"
+            movies -> " ORDER BY m.added DESC"
+            else -> " ORDER BY s.lastModified DESC"
+        }
+    )
+    return SimpleSQLiteQuery(sql.toString(), args.toTypedArray())
+}
