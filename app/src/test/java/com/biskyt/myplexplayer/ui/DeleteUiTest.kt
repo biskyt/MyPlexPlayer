@@ -123,4 +123,20 @@ class DeleteUiTest {
         compose.waitAdvancingClock(stepMs = 50) { "Sintel" in compose.focusedText() }
         assertEquals(listOf("11"), plex.deleted)
     }
+
+    @Test
+    fun `an episode's description is in its options`() {
+        show(Screen.SeriesDetails(source, 21))
+        options("Second", "Description")
+        click("Description")
+        compose.waitForText("Colour bars, one more time.", stepMs = 50)
+    }
+
+    @Test
+    fun `an episode without one has no entry for it, and the page no hint about the options`() {
+        show(Screen.SeriesDetails(source, 21))
+        options("Pilot", "Mark as watched")
+        assertEquals(0, compose.onAllNodes(hasText("Description")).fetchSemanticsNodes().size)
+        assertEquals(0, compose.onAllNodes(hasText("hold OK", substring = true)).fetchSemanticsNodes().size)
+    }
 }

@@ -293,12 +293,15 @@ fun OneLine(
 @Composable
 fun MenuOption(label: String, help: String? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
     TvCard(onClick = onClick, modifier = modifier.fillMaxWidth(), color = Palette.surface) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Column(Modifier.padding(horizontal = MENU_OPTION_INSET, vertical = 12.dp)) {
             Text(label, style = MaterialTheme.typography.titleMedium)
             if (help != null) Muted(help)
         }
     }
 }
+
+/** How far a menu option's text sits in from its card's edge; other rows in the menu line up with it. */
+val MENU_OPTION_INSET = 16.dp
 
 /** An image downsampled to its size on screen, with the name's initials until (or unless) it loads. */
 @Composable

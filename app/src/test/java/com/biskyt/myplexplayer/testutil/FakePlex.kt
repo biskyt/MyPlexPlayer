@@ -737,10 +737,12 @@ class FakePlex : AutoCloseable {
             index: Int,
             title: String,
             duration: Long = 600_000,
-            markers: List<Marker> = emptyList()
+            markers: List<Marker> = emptyList(),
+            summary: String? = null
         ) = obj {
             put("ratingKey", key)
             put("type", "episode")
+            summary?.let { put("summary", it) }
             put("title", title)
             put("parentIndex", season)
             put("index", index)
@@ -778,7 +780,23 @@ class FakePlex : AutoCloseable {
 
         private val SHOWS = listOf(show("21", "Test Show", 2020, summary = "Two episodes of colour bars."))
 
-        private val EPISODES = listOf(1, 2).map { n -> episode("21", "Test Show", "21$n", 1, n, if (n == 1) "Pilot" else "Second") }
+        private val EPISODES = listOf(1, 2).map { n ->
+            episode(
+                "21",
+                "Test Show",
+                "21$n",
+                1,
+                n,
+                if (n ==
+                    1
+                ) {
+                    "Pilot"
+                } else {
+                    "Second"
+                },
+                summary = if (n == 2) "Colour bars, one more time." else null
+            )
+        }
     }
 }
 

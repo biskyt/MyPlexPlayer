@@ -1,6 +1,7 @@
 package com.biskyt.myplexplayer.ui.common
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,7 +12,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,13 +48,17 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) {
 
 /**
  * [links] side by side after [label]: each opens its page here, or, where this device can't (no browser), shows it as a
- * QR code to open on a phone. [modifier] (e.g. first focus) goes on the first.
+ * QR code to open on a phone. [modifier] (e.g. first focus) goes on the first; [inset] lines the row up with menu options.
  */
 @Composable
-fun LinksRow(label: String?, links: List<TitleLink>, modifier: Modifier = Modifier) {
+fun LinksRow(label: String?, links: List<TitleLink>, modifier: Modifier = Modifier, inset: Dp = 0.dp) {
     val context = LocalContext.current
     var shown by remember { mutableStateOf<TitleLink?>(null) }
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.padding(horizontal = inset),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         label?.let { Text(it, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f)) }
         links.forEachIndexed { i, link ->
             PillButton(link.name, { if (openLink(context, link.url) != null) shown = link }, if (i == 0) modifier else Modifier)
@@ -99,6 +106,20 @@ fun CastRow(cast: List<CastMember>, modifier: Modifier = Modifier) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(cast) { person ->
                 TvCard(onClick = {}, color = Palette.background) { CastPerson(person, 56.dp, Modifier.padding(8.dp)) }
+            }
+        }
+    }
+}
+
+/** A title's text (an episode's description) in a side panel; focusable, so the remote's keys (Back) reach it. */
+@Composable
+fun TextPanel(heading: String, title: String, text: String, onDismiss: () -> Unit) {
+    SidePanel(onDismiss, dim = false) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Muted(heading)
+            Text(title, style = MaterialTheme.typography.titleLarge)
+            Column(rememberFirstFocus().focusable().verticalScroll(rememberScrollState())) {
+                Text(text, style = MaterialTheme.typography.bodyLarge)
             }
         }
     }
