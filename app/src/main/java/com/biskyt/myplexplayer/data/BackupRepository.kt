@@ -11,6 +11,7 @@ import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.data.db.FavouriteEntity
 import com.biskyt.myplexplayer.data.db.KIND_PLEX
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
+import com.biskyt.myplexplayer.data.db.PlexFavouriteSeenEntity
 import com.biskyt.myplexplayer.data.db.VodFavouriteEntity
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import java.io.ByteArrayOutputStream
@@ -46,7 +47,9 @@ class Backup(
     val channels: List<ChannelEntity>,
     val favourites: List<FavouriteEntity>,
     val vodFavourites: List<VodFavouriteEntity>,
-    val progress: List<WatchProgressEntity>
+    val progress: List<WatchProgressEntity>,
+    /** Which channels were Plex favourites at the last sync, so a restore doesn't bring back ones removed here. */
+    val plexFavouritesSeen: List<PlexFavouriteSeenEntity> = emptyList()
 ) {
     companion object {
         const val APP = "MyPlexPlayer"
@@ -85,7 +88,8 @@ class BackupRepository(
                 channels = dao.channelChoices(),
                 favourites = dao.favourites(),
                 vodFavourites = dao.vodFavourites(),
-                progress = dao.progress()
+                progress = dao.progress(),
+                plexFavouritesSeen = dao.plexSeen()
             )
         }
         return ByteArrayOutputStream().also { json.encodeToStream(backup, it) }.toByteArray()
@@ -144,7 +148,8 @@ class BackupRepository(
                 backup.channels.filter { it.playlistId in ids },
                 backup.favourites.filter { it.playlistId in ids },
                 backup.vodFavourites.filter { it.playlistId in ids },
-                backup.progress.filter { it.playlistId in ids }
+                backup.progress.filter { it.playlistId in ids },
+                backup.plexFavouritesSeen.filter { it.playlistId in ids }
             )
         }
         val active = backup.settings.activePlaylistId.takeIf { it in ids } ?: playlists.firstOrNull()?.id ?: 0

@@ -44,6 +44,9 @@ interface PlaylistDao {
     @Query("DELETE FROM favourite WHERE playlistId = :pid")
     suspend fun deleteFavourites(pid: Long)
 
+    @Query("DELETE FROM plex_favourite_seen WHERE playlistId = :pid")
+    suspend fun deletePlexSeen(pid: Long)
+
     @Query("DELETE FROM recent WHERE playlistId = :pid")
     suspend fun deleteRecents(pid: Long)
 
@@ -225,6 +228,15 @@ interface FavouriteDao {
 
     @Query("UPDATE favourite SET position = :position WHERE playlistId = :pid AND streamId = :id")
     suspend fun setPosition(pid: Long, id: Long, position: Long)
+
+    @Query("SELECT channelKey FROM plex_favourite_seen WHERE playlistId = :pid")
+    suspend fun plexSeen(pid: Long): List<String>
+
+    @Query("DELETE FROM plex_favourite_seen WHERE playlistId = :pid")
+    suspend fun clearPlexSeen(pid: Long)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun addPlexSeen(rows: List<PlexFavouriteSeenEntity>)
 
     @Upsert
     suspend fun touchRecent(r: RecentEntity)
@@ -552,6 +564,9 @@ interface BackupDao {
     @Query("SELECT * FROM watch_progress")
     suspend fun progress(): List<WatchProgressEntity>
 
+    @Query("SELECT * FROM plex_favourite_seen")
+    suspend fun plexSeen(): List<PlexFavouriteSeenEntity>
+
     @Insert
     @Suppress("LongParameterList") // one per table
     suspend fun insert(
@@ -560,6 +575,7 @@ interface BackupDao {
         channels: List<ChannelEntity>,
         favourites: List<FavouriteEntity>,
         vodFavourites: List<VodFavouriteEntity>,
-        progress: List<WatchProgressEntity>
+        progress: List<WatchProgressEntity>,
+        plexSeen: List<PlexFavouriteSeenEntity>
     )
 }

@@ -35,6 +35,7 @@ class PlexLiveTvTest {
     private lateinit var epg: EpgRepository
     private lateinit var sync: SyncManager
     private lateinit var source: PlaylistEntity
+    private lateinit var backup: BackupRepository
 
     @Before
     fun setUp() = runBlocking {
@@ -43,9 +44,13 @@ class PlexLiveTvTest {
         val settings = SettingsRepository(context)
         val categoryStore = CategoryStore(db)
         epg = EpgRepository(db)
-        val plex = PlexSources(db, http, settings).apply { plexTv = fake.url }
+        val plex = PlexSources(db, http, settings).apply {
+            plexTv = fake.url
+            plexGuide = fake.url
+        }
         val playlists = PlaylistRepository(db, settings, epg, categoryStore, plex)
         sync = SyncManager(scope, playlists, VodRepository(db, playlists, categoryStore, plex), epg)
+        backup = BackupRepository(db, settings, sync, epg)
         plex.signIn(FakePlex.ACCOUNT_TOKEN)
         source = db.playlists().all().single { it.machineId == FakePlex.MACHINE_ID }
     }
@@ -85,6 +90,73 @@ class PlexLiveTvTest {
         sync.refreshNow(source.id).getOrThrow()
 
         assertEquals(listOf(plexChannelId("ch-2")), channels.observeFavouriteIds(source.id).first())
+    }
+
+    @Test
+    fun `the account's favourite channels in Plex become favourites here, in Plex's order`() = runBlocking {
+        fake.channels = listOf(FakePlex.Channel("1", "One"), FakePlex.Channel("2", "Two"), FakePlex.Channel("3", "Three"))
+        fake.favouriteChannels = listOf("ch-3", "ch-1", "ch-9") // ch-9 isn't one of this server's channels
+
+        sync.refreshNow(source.id).getOrThrow()
+
+        // Not the other server's ch-1 twice, nor a channel this server doesn't have.
+        assertEquals(listOf(plexChannelId("ch-3"), plexChannelId("ch-1")), ChannelRepository(db).favouriteOrder(source.id))
+    }
+
+    @Test
+    fun `a change in Plex comes here, and a choice made here stays until that channel changes in Plex`() = runBlocking {
+        fake.channels = (1..4).map { FakePlex.Channel("$it", "Channel $it") }
+        fake.favouriteChannels = listOf("ch-1", "ch-2")
+        sync.refreshNow(source.id).getOrThrow()
+        val channels = ChannelRepository(db)
+        channels.setFavourite(source.id, plexChannelId("ch-2"), false) // taken off here only
+        channels.setFavourite(source.id, plexChannelId("ch-4"), true) // made one here only
+
+        fake.favouriteChannels = listOf("ch-2", "ch-3") // in Plex: ch-1 taken off, ch-3 made one
+        sync.refreshNow(source.id).getOrThrow()
+
+        // ch-1 goes and ch-3 comes (changed in Plex); ch-2 stays off and ch-4 on (unchanged in Plex).
+        assertEquals(listOf(plexChannelId("ch-4"), plexChannelId("ch-3")), channels.favouriteOrder(source.id))
+    }
+
+    @Test
+    fun `a channel missing from one sync keeps its favourite and its place`() = runBlocking {
+        fake.channels = (1..3).map { FakePlex.Channel("$it", "Channel $it") }
+        fake.favouriteChannels = listOf("ch-2", "ch-1")
+        sync.refreshNow(source.id).getOrThrow()
+        val all = fake.channels
+
+        fake.channels = all - all[1] // ch-2 left out of one lineup
+        sync.refreshNow(source.id).getOrThrow()
+        fake.channels = all
+        sync.refreshNow(source.id).getOrThrow()
+
+        assertEquals(listOf(plexChannelId("ch-2"), plexChannelId("ch-1")), ChannelRepository(db).favouriteOrder(source.id))
+    }
+
+    @Test
+    fun `a backup keeps what was seen in Plex, so a channel taken off here stays off after a restore`() = runBlocking {
+        fake.favouriteChannels = listOf("ch-1", "ch-2")
+        sync.refreshNow(source.id).getOrThrow()
+        ChannelRepository(db).setFavourite(source.id, plexChannelId("ch-1"), false)
+
+        backup.apply(backup.read(backup.export().inputStream()))
+        val restored = db.playlists().all().single().id
+        sync.refreshNow(restored).getOrThrow()
+
+        assertEquals(listOf(plexChannelId("ch-2")), ChannelRepository(db).favouriteOrder(restored))
+    }
+
+    @Test
+    fun `favourites that can't be read change nothing, and the sync still works`() = runBlocking {
+        fake.favouriteChannels = listOf("ch-1")
+        sync.refreshNow(source.id).getOrThrow()
+        fake.favouritesFail = true
+        fake.favouriteChannels = emptyList()
+
+        sync.refreshNow(source.id).getOrThrow()
+
+        assertEquals(listOf(plexChannelId("ch-1")), ChannelRepository(db).favouriteOrder(source.id))
     }
 
     @Test

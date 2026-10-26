@@ -9,6 +9,7 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.onTimeout
 import kotlinx.coroutines.selects.select
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import okhttp3.Dispatcher
 import okhttp3.HttpUrl
@@ -40,13 +41,42 @@ data class PlexResource(
 data class PlexConnection(val uri: String, val local: Boolean = false, val relay: Boolean = false)
 
 /**
+ * One of the account's favourite Live TV channels: [id] is the channel's id in its server's lineup (as
+ * [PlexChannel.tuneKey]), and [source] says which server and guide (`server://{machine id}/{provider}`).
+ */
+@Serializable
+data class PlexFavouriteChannel(val id: String, val source: String = "") {
+    /** The machine identifier of the server the channel is on, or null if [source] doesn't name one. */
+    val machineId: String?
+        get() = source.removePrefix(SERVER).takeIf { it != source }?.substringBefore('/')?.ifEmpty { null }
+
+    private companion object {
+        const val SERVER = "server://"
+    }
+}
+
+@Serializable
+internal class PlexFavouritesResponse(@SerialName("MediaContainer") val container: PlexFavourites = PlexFavourites())
+
+@Serializable
+internal class PlexFavourites(
+    @SerialName("FavoriteChannel") @Serializable(with = SkippingList::class) val channels: List<PlexFavouriteChannel> = emptyList(),
+)
+
+/**
  * The account side of Plex, on plex.tv: sign-in with a short code entered at plex.tv/link, then the account's
  * servers and the best address for each. Proven on the owner's account (`spikes/plex_spike.py`; see
  * docs/plex-api.md).
  */
-class PlexAccount(private val http: OkHttpClient, private val device: PlexDevice, baseUrl: String = PLEX_TV) {
+class PlexAccount(
+    private val http: OkHttpClient,
+    private val device: PlexDevice,
+    baseUrl: String = PLEX_TV,
+    guideUrl: String = EPG_PROVIDER,
+) {
 
     private val base: HttpUrl = plexBase(baseUrl)
+    private val guide: HttpUrl = plexBase(guideUrl)
 
     /** A new short code for plex.tv/link ("strong" codes are longer, for a link the app opens itself). */
     suspend fun createPin(): PlexPin = call("POST", url("api/v2/pins"), token = null)
@@ -101,6 +131,13 @@ class PlexAccount(private val http: OkHttpClient, private val device: PlexDevice
         best?.let { PlexServer(it.uri, server.accessToken) }
     }
 
+    /**
+     * The account's ([token]) favourite Live TV channels, kept by Plex's guide service rather than a server (as
+     * Plezy reads them): each names its server ([PlexFavouriteChannel.machineId]) and channel.
+     */
+    suspend fun favouriteChannels(token: String): List<PlexFavouriteChannel> =
+        call<PlexFavouritesResponse>("GET", guide.at("settings/favoriteChannels"), token, PROVIDER_VERSION to "5.1").container.channels
+
     private fun rank(connection: PlexConnection): Int = when {
         connection.relay -> 2
         connection.local -> 0
@@ -120,11 +157,15 @@ class PlexAccount(private val http: OkHttpClient, private val device: PlexDevice
 
     private fun url(path: String, query: HttpUrl.Builder.() -> Unit = {}): HttpUrl = base.at(path, query)
 
-    private suspend inline fun <reified T> call(method: String, url: HttpUrl, token: String?): T =
-        http.fetch(method, url, plexHeaders(device, token))
+    private suspend inline fun <reified T> call(method: String, url: HttpUrl, token: String?, vararg extra: Pair<String, String>): T =
+        http.fetch(method, url, plexHeaders(device, token) + extra)
 
     companion object {
         const val PLEX_TV = "https://plex.tv/"
+
+        /** Plex's guide service, which keeps the account's favourite channels. */
+        const val EPG_PROVIDER = "https://epg.provider.plex.tv/"
+        private const val PROVIDER_VERSION = "X-Plex-Provider-Version"
         const val CONNECT_TIMEOUT_MS = 6_000L
 
         /** After an outside address answers, how long a home one still has. */

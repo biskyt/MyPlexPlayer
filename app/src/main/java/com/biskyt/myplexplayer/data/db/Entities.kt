@@ -212,6 +212,14 @@ data class FavouriteEntity(
     @ColumnInfo(defaultValue = "0") val position: Long = 0
 )
 
+/**
+ * A channel that was a favourite in Plex at its source's last sync ([channelKey]: the channel's key), so the next sync
+ * knows what changed there since (see PlaylistRepository.syncFavourites).
+ */
+@Entity(tableName = "plex_favourite_seen", primaryKeys = ["playlistId", "channelKey"])
+@Serializable
+data class PlexFavouriteSeenEntity(val playlistId: Long, val channelKey: String)
+
 @Entity(tableName = "recent", primaryKeys = ["playlistId", "streamId"], indices = [Index("playlistId", "watchedAt")])
 data class RecentEntity(val playlistId: Long, val streamId: Long, val watchedAt: Long)
 

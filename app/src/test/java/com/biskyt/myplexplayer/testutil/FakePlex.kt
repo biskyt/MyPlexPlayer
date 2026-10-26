@@ -133,6 +133,12 @@ class FakePlex : AutoCloseable {
     /** The guide sent in a shape the app can't read (each showing's times as words). */
     @Volatile var guideUnreadable = false
 
+    /** The account's favourite Live TV channels in Plex, by channel key, on this server (Plex's guide service keeps them). */
+    @Volatile var favouriteChannels: List<String> = emptyList()
+
+    /** The guide service failing (500), so favourites can't be read. */
+    @Volatile var favouritesFail = false
+
     /** The guide out of reach (the connection dropped), the rest answering. */
     @Volatile var guideUnreachable = false
 
@@ -183,6 +189,7 @@ class FakePlex : AutoCloseable {
             path == "/api/v2/pins/$PIN_ID" -> json(pin())
             path == "/api/v2/resources" && token == ACCOUNT_TOKEN && tokenAccepted -> json(resources())
             path == "/api/v2/resources" -> MockResponse().setResponseCode(401)
+            path == "/settings/favoriteChannels" -> favourites(token)
             // Friend's Plex: not reachable from here.
             path.startsWith("/friend/") -> MockResponse().setResponseCode(404)
             token != SERVER_TOKEN -> MockResponse().setResponseCode(401)
@@ -550,6 +557,23 @@ class FakePlex : AutoCloseable {
             put("totalSize", items.size)
             put("Metadata", JsonArray(slice))
         }
+    }
+
+    /** Plex's guide service: the account's favourite channels. */
+    private fun favourites(token: String?) = when {
+        favouritesFail -> MockResponse().setResponseCode(500)
+        token != ACCOUNT_TOKEN -> MockResponse().setResponseCode(401)
+        else -> container {
+            putJsonArray("FavoriteChannel") {
+                favouriteChannels.forEach { key -> add(favourite(key, MACHINE_ID)) }
+                add(favourite("ch-1", "friend-plex")) // one on another server, which isn't this source's
+            }
+        }
+    }
+
+    private fun favourite(key: String, server: String) = obj {
+        put("id", key)
+        put("source", "server://$server/$EPG")
     }
 
     private fun container(body: JsonObjectBuilder.() -> Unit) = json(buildJsonObject { putJsonObject("MediaContainer", body) })
