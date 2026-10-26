@@ -24,6 +24,7 @@ on:
       - ".github/scripts/play-notes.py"
       - ".github/scripts/robolectric-cache-key.sh"
       - ".github/scripts/start-plex.sh"
+      - ".github/scripts/install-ffmpeg.sh"
       - ".github/workflows/plex-spike.yml"
       - ".github/workflows/spike-app.yml"
       - ".github/workflows/dv-diagnostics.yml"

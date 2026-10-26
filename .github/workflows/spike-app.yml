@@ -9,6 +9,7 @@ on:
       - "spikes/**"
       - "!spikes/dv-diagnostics/**" # its own workflow: dv-diagnostics.yml
       - ".github/scripts/start-plex.sh"
+      - ".github/scripts/install-ffmpeg.sh"
       - ".github/scripts/start-emulator.sh"
       - ".github/workflows/spike-app.yml"
   workflow_dispatch:
@@ -38,7 +39,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - run: sudo apt-get update -q && sudo apt-get install -yq --no-install-recommends ffmpeg
+      - run: .github/scripts/install-ffmpeg.sh
       - run: .github/scripts/start-plex.sh "$RUNNER_TEMP/plex"
 
       - name: Build the spike app and its test
