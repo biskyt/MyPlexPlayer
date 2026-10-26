@@ -39,7 +39,8 @@ object SpikeRun {
     /** The screen showing the run, told on the main thread of each change. */
     var screen: MainActivity? = null
 
-    fun start(files: File) {
+    /** Runs the spike's [step]: "all", or "save-favourites". */
+    fun start(files: File, step: String = "all") {
         if (running) return
         running = true
         printed.clear()
@@ -47,7 +48,7 @@ object SpikeRun {
         zip = null
         worker.execute {
             val result = try {
-                Python.getInstance().getModule("runner").callAttr("run", files.absolutePath, Printer()).toString()
+                Python.getInstance().getModule("runner").callAttr("run", files.absolutePath, Printer(), step).toString()
             } catch (e: Throwable) { // shown, rather than closing the app
                 main.post { add("\nStopped with an error: $e\n") }
                 ""
@@ -91,6 +92,7 @@ class MainActivity : Activity() {
     private lateinit var log: TextView
     private lateinit var scroll: ScrollView
     private lateinit var run: Button
+    private lateinit var saveFavourites: Button
     private lateinit var codePanel: LinearLayout
     private lateinit var code: TextView
     private lateinit var share: Button
@@ -118,6 +120,15 @@ class MainActivity : Activity() {
         )
         run = button("Run the tests") { SpikeRun.start(filesDir) }
         column.addView(run)
+        column.addView(
+            text(
+                "Test saving favourite channels: saves your Plex favourite channels back unchanged (a backup " +
+                    "first, put back at once if anything differs), then reads them again (about a minute).",
+                15f
+            )
+        )
+        saveFavourites = button("Test saving favourite channels") { SpikeRun.start(filesDir, "save-favourites") }
+        column.addView(saveFavourites)
 
         code = text("", 40f, bold = true).apply { typeface = Typeface.MONOSPACE }
         codePanel = LinearLayout(this).apply {
@@ -152,6 +163,7 @@ class MainActivity : Activity() {
     fun update() {
         val running = SpikeRun.running
         run.isEnabled = !running
+        saveFavourites.isEnabled = !running
         run.text = if (SpikeRun.printed.isEmpty() || running) "Run the tests" else "Run the tests again"
         val shownCode = SpikeRun.code.takeIf { running }
         codePanel.visibility = if (shownCode != null) View.VISIBLE else View.GONE

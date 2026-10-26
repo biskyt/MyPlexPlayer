@@ -14,6 +14,7 @@ addresses, account names, emails and file paths replaced, for test fixtures. rep
     python3 spikes/plex_spike.py livetv    [--server URL] [--tune]    # S5: Live TV channels, guide grid, tuning
     python3 spikes/plex_spike.py dvr       [--server URL] [--record]  # S6: recording options, schedule and cancel
     python3 spikes/plex_spike.py favourites [--server URL] [--write-back] # S7: favourite channels (on plex.tv)
+    python3 spikes/plex_spike.py save-favourites         # S7 with --write-back, then spike-results.zip
     python3 spikes/plex_spike.py markers   [--server URL] # S8: intro and credits markers, for skip intro
 
 Without --server the first server from `servers` is used. --tune briefly uses a tuner; --record schedules a recording
@@ -846,14 +847,23 @@ def favourites(args, state):
     backup = args.out / f"favourites-backup-{time.strftime('%Y%m%d-%H%M%S')}.json"  # never overwritten
     backup.parent.mkdir(parents=True, exist_ok=True)
     backup.write_text(json.dumps(favs, indent=1))
-    status, _, put = cloud.request("PUT", "/settings/favoriteChannels", PROVIDER_VERSION, json_body=favs)
+    # As Plezy sends them (and the app will): a JSON array of each one's source, id, title and vcn.
+    sent = [{k: str(f.get(k, "")) for k in ("source", "id", "title", "vcn")} for f in favs]
+    status, _, put = cloud.request("PUT", "/settings/favoriteChannels", PROVIDER_VERSION, json_body=sent)
     rec.save("favourite-channels-put", put)
-    rec.check("PUT the same list (a JSON array, as Plezy sends it) is accepted", 200 <= status < 300, f"HTTP {status}")
+    rec.check("PUT the same list (a JSON array of source, id, title, vcn, as Plezy sends it) is accepted",
+              200 <= status < 300, f"HTTP {status}")
     _, _, after = read()
-    kept = same(after, favs)
-    rec.check("read again, the favourites are exactly as they were", kept,
-              f"{len(after)} favourite(s) after, {len(favs)} before" +
-              ("" if kept else f"; put them back with: favourites --restore {backup}"))
+    channels = lambda fs: sorted((source(f), str(f.get("id"))) for f in fs)  # noqa: E731
+    kept = channels(after) == channels(favs)
+    rec.check("read again, the same channels are favourites, in full", kept and same(after, favs),
+              f"{len(after)} favourite(s) after, {len(favs)} before; same channels: {kept}; same order: "
+              f"{[(source(f), f.get('id')) for f in after] == [(source(f), f.get('id')) for f in favs]}")
+    if not kept:  # put straight back as they were, from the backup (as read)
+        status, _, _ = cloud.request("PUT", "/settings/favoriteChannels", PROVIDER_VERSION, json_body=favs)
+        _, _, restored = read()
+        rec.check("the favourites were put back from the backup", same(restored, favs),
+                  f"HTTP {status}, {len(restored)} favourite(s) now; if not, run: favourites --restore {backup}")
     rec.finish()
 
 
@@ -946,6 +956,23 @@ def run_all(args, state):
             rec = Recorder(args.out, f"{step.__name__}-error")
             rec.check(f"{step.__name__} ran to the end", False, traceback.format_exc(limit=3).replace("\n", " | "))
             rec.finish()
+    share_results(args)
+
+
+def save_favourites(args, state):
+    """The spike app's "Test saving favourite channels": favourites with --write-back (signing in first if needed),
+    then the results zipped as `all` does."""
+    if not state.get("token"):
+        signin(args, state)
+    if not state.get("servers") and not args.server:
+        servers(args, state)
+    args.write_back = True
+    favourites(args, state)
+    share_results(args)
+
+
+def share_results(args):
+    """The shareable results (reports and sanitised responses) zipped into spike-results.zip."""
     zipped = Path("spike-results.zip").resolve()
     with zipfile.ZipFile(zipped, "w", zipfile.ZIP_DEFLATED) as z:
         for f in sorted(args.out.glob("report-*.md")) + sorted((args.out / "sanitised").rglob("*")):
@@ -959,7 +986,7 @@ def run_all(args, state):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("step", choices=["all", "signin", "servers", "library", "playback", "livetv", "dvr",
-                                             "favourites", "markers"])
+                                             "favourites", "save-favourites", "markers"])
     parser.add_argument("--server", help="server URL, e.g. http://192.168.1.20:32400 (default: from `servers`)")
     parser.add_argument("--token", help="token for --server (not needed for a local unclaimed test server)")
     parser.add_argument("--out", type=Path, default=Path("spike-out"))
@@ -974,7 +1001,8 @@ def main():
     hide_known(state)
     if args.server and not args.token and state.get("servers"):
         args.token = next((s["token"] for s in state["servers"] if s["uri"] == args.server), None)
-    (run_all if args.step == "all" else globals()[args.step])(args, state)
+    steps = {"all": run_all, "save-favourites": save_favourites}
+    (steps.get(args.step) or globals()[args.step])(args, state)
 
 
 if __name__ == "__main__":
