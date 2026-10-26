@@ -13,10 +13,10 @@ import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.ChannelFilter
-import com.biskyt.myplexplayer.testutil.FakeProvider
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
-import com.biskyt.myplexplayer.testutil.addHomeTv
+import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.focusedText
 import com.biskyt.myplexplayer.testutil.settle
@@ -44,26 +44,28 @@ class GuideFocusUiTest {
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
 
-    private val provider = FakeProvider()
+    private val plex = FakePlex()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
 
     @Before
     fun setUp() = runBlocking {
-        val c = app.container
-        c.addHomeTv(provider)
+        // One channel, with no guide.
+        plex.channels = listOf(FakePlex.Channel("1", "One"))
+        plex.programme = { _, _ -> null }
+        app.container.addSyncedHomePlex(plex)
         Unit
     }
 
     @After
-    fun tearDown() = provider.close()
+    fun tearDown() = plex.close()
 
-    // Live TV on UK | SPORT, with one channel (no guide for it).
+    // Live TV with one channel (no guide for it).
     @Test
     fun `a guide row's programmes arriving late don't take focus back from where the user moved`() {
         compose.setContent {
-            MyPlexTheme { NavHost(remember { navigators.new(Screen.Live(ChannelFilter.Category("2"))) }) { ScreenContent(it) } }
+            MyPlexTheme { NavHost(remember { navigators.new(Screen.Live(ChannelFilter.All)) }) { ScreenContent(it) } }
         }
-        compose.waitAdvancingClock { compose.focusedText().contains("UK: ARENA SPRTS 1 FHD") }
+        compose.waitAdvancingClock { compose.focusedText().contains("One") }
         // Database answers wait until let through, so the guide row's programmes are still on their way…
         val held = LinkedBlockingQueue<Runnable>()
         ArchTaskExecutor.getInstance().setDelegate(

@@ -18,10 +18,11 @@ import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.VodFilter
 import com.biskyt.myplexplayer.data.db.CAT_LIVE
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
-import com.biskyt.myplexplayer.testutil.FakeProvider
+import com.biskyt.myplexplayer.data.plexChannelId
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
-import com.biskyt.myplexplayer.testutil.addHomeTv
+import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.scrollToHomeRow
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
@@ -46,20 +47,21 @@ class MoveFavouritesUiTest {
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
 
-    private val provider = FakeProvider()
+    private val plex = FakePlex()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
     private var playlistId = 0L
 
     @Before
     fun setUp() = runBlocking {
-        playlistId = app.container.addHomeTv(provider, vod = true)
-        // Channel One, Arena, Kite Kidz; Dune then Paddington 2.
-        listOf(101L, 102L, 103L).forEach { app.container.channels.setFavourite(playlistId, it, true) }
-        listOf(501L, 502L).forEach { app.container.vod.setFavourite(playlistId, CAT_MOVIE, it, true) }
+        plex.channels = listOf(FakePlex.Channel("1", "One"), FakePlex.Channel("2", "Two"), FakePlex.Channel("3", "Three"))
+        playlistId = app.container.addSyncedHomePlex(plex)
+        // One, Two, Three; Big Buck Bunny then Sintel.
+        listOf(ONE, TWO, THREE).forEach { app.container.channels.setFavourite(playlistId, it, true) }
+        listOf(11L, 12L).forEach { app.container.vod.setFavourite(playlistId, CAT_MOVIE, it, true) }
     }
 
     @After
-    fun tearDown() = provider.close()
+    fun tearDown() = plex.close()
 
     private var backDispatcher: androidx.activity.OnBackPressedDispatcher? = null
 
@@ -111,51 +113,51 @@ class MoveFavouritesUiTest {
     @Test
     fun `on Home, a favourite channel moves along its row and stays there with OK`() {
         showHomeChannels()
-        waitFor("UK: KITE KIDZ")
-        move("UK: CHANNEL ONE HD")
+        waitFor("Three")
+        move("One")
         press(Key.DirectionRight)
-        waitForOrder(CAT_LIVE, listOf(102L, 101L, 103L))
+        waitForOrder(CAT_LIVE, listOf(TWO, ONE, THREE))
         press(Key.DirectionRight)
-        waitForOrder(CAT_LIVE, listOf(102L, 103L, 101L))
+        waitForOrder(CAT_LIVE, listOf(TWO, THREE, ONE))
         press(Key.DirectionCenter)
         compose.waitAdvancingClock(stepMs = 50) {
             compose.onAllNodes(hasText("Back to cancel", substring = true)).fetchSemanticsNodes().isEmpty()
         }
         // Focus stays on the channel just placed.
-        compose.waitAdvancingClock(stepMs = 50) { focused("UK: CHANNEL ONE HD") }
+        compose.waitAdvancingClock(stepMs = 50) { focused("One") }
         // Moving is over: the arrows move focus again, not the channel.
         press(Key.DirectionLeft)
         compose.waitAdvancingClock(stepMs = 50) { true }
-        waitForOrder(CAT_LIVE, listOf(102L, 103L, 101L))
+        waitForOrder(CAT_LIVE, listOf(TWO, THREE, ONE))
     }
 
     @Test
     fun `on Home, Back puts the row back as it was`() {
         showHomeChannels()
-        waitFor("UK: KITE KIDZ")
-        move("UK: KITE KIDZ")
+        waitFor("Three")
+        move("Three")
         press(Key.DirectionLeft)
-        waitForOrder(CAT_LIVE, listOf(101L, 103L, 102L))
+        waitForOrder(CAT_LIVE, listOf(ONE, THREE, TWO))
         back()
-        waitForOrder(CAT_LIVE, listOf(101L, 102L, 103L))
+        waitForOrder(CAT_LIVE, listOf(ONE, TWO, THREE))
     }
 
     @Test
     fun `in Live TV's Favourites, a channel moves up and down`() {
         show(Screen.Live(ChannelFilter.Favourites))
-        waitFor("UK: KITE KIDZ")
-        move("UK: CHANNEL ONE HD")
+        waitFor("Three")
+        move("One")
         press(Key.DirectionDown)
-        waitForOrder(CAT_LIVE, listOf(102L, 101L, 103L))
+        waitForOrder(CAT_LIVE, listOf(TWO, ONE, THREE))
         press(Key.DirectionCenter)
-        waitForOrder(CAT_LIVE, listOf(102L, 101L, 103L))
+        waitForOrder(CAT_LIVE, listOf(TWO, ONE, THREE))
     }
 
     @Test
     fun `outside Favourites, channels can't be moved`() {
         show(Screen.Live(ChannelFilter.All))
-        waitFor("UK: KITE KIDZ")
-        compose.onAllNodes(hasText("UK: KITE KIDZ", substring = true) and hasClickAction())[0]
+        waitFor("Three")
+        compose.onAllNodes(hasText("Three", substring = true) and hasClickAction())[0]
             .performSemanticsAction(SemanticsActions.OnLongClick)
         waitFor("Hide channel")
         assertTrue(compose.onAllNodes(hasText("Move", substring = true)).fetchSemanticsNodes().isEmpty())
@@ -164,23 +166,29 @@ class MoveFavouritesUiTest {
     @Test
     fun `in Movies' Favourites, a poster moves along the grid`() {
         show(Screen.Movies(VodFilter.Favourites))
-        waitFor("Paddington 2")
-        move("Paddington 2")
+        waitFor("Sintel")
+        move("Sintel")
         press(Key.DirectionLeft)
-        waitForOrder(CAT_MOVIE, listOf(502L, 501L))
+        waitForOrder(CAT_MOVIE, listOf(12L, 11L))
         press(Key.DirectionCenter)
-        waitForOrder(CAT_MOVIE, listOf(502L, 501L))
+        waitForOrder(CAT_MOVIE, listOf(12L, 11L))
     }
 
     @Test
     fun `in Movies' Favourites, taking one off closes its options and focus moves on`() {
         show(Screen.Movies(VodFilter.Favourites))
-        waitFor("Paddington 2")
-        compose.onAllNodes(hasText("Paddington 2", substring = true) and hasClickAction())[0]
+        waitFor("Sintel")
+        compose.onAllNodes(hasText("Sintel", substring = true) and hasClickAction())[0]
             .performSemanticsAction(SemanticsActions.OnLongClick)
         waitFor("Remove from favourites")
         compose.onNode(hasText("Remove from favourites")).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitAdvancingClock(stepMs = 50) { compose.onAllNodes(hasText("Paddington 2")).fetchSemanticsNodes().isEmpty() }
-        compose.waitAdvancingClock(stepMs = 50) { focused("Dune") }
+        compose.waitAdvancingClock(stepMs = 50) { compose.onAllNodes(hasText("Sintel")).fetchSemanticsNodes().isEmpty() }
+        compose.waitAdvancingClock(stepMs = 50) { focused("Big Buck Bunny") }
+    }
+
+    private companion object {
+        val ONE = plexChannelId("ch-1")
+        val TWO = plexChannelId("ch-2")
+        val THREE = plexChannelId("ch-3")
     }
 }

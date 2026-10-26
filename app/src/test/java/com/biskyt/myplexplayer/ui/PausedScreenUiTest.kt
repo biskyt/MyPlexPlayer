@@ -9,10 +9,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.core.player.OverlayState
 import com.biskyt.myplexplayer.data.ChannelFilter
-import com.biskyt.myplexplayer.testutil.FakeProvider
+import com.biskyt.myplexplayer.data.plexChannelId
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
-import com.biskyt.myplexplayer.testutil.addHomeTv
+import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.idleFrames
 import com.biskyt.myplexplayer.testutil.topRoot
@@ -44,25 +45,25 @@ class PausedScreenUiTest {
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
 
-    private val provider = FakeProvider()
+    private val plex = FakePlex()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
-    private var playlistId = 0L
+    private var source = 0L
     private lateinit var vm: PlayerViewModel
 
     @Before
     fun setUp() = runBlocking {
-        provider.streamsTrickle = true // never fails, so no retry plays it again
-        playlistId = app.container.addHomeTv(provider)
+        plex.liveTrickles = true // never fails, so no retry plays it again
+        source = app.container.addSyncedHomePlex(plex)
     }
 
     @After
-    fun tearDown() = provider.close()
+    fun tearDown() = plex.close()
 
     private val playWhenReady get(): Boolean = compose.runOnIdle { vm.engine!!.player.playWhenReady }
 
     /** The live player, paused. */
     private fun paused() {
-        val navigator = navigators.new(Screen.Player(playlistId, 101, ChannelFilter.All))
+        val navigator = navigators.new(Screen.Player(source, plexChannelId("ch-1"), ChannelFilter.All))
         compose.setContent { MyPlexTheme { NavHost(remember { navigator }) { ScreenContent(it) } } }
         vm = ViewModelProvider(navigator.current)[PlayerViewModel::class.java]
         compose.waitAdvancingClock { vm.channel != null && vm.engine?.player?.currentMediaItem != null }

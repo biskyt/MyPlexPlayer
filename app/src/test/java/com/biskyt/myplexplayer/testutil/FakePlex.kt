@@ -1,6 +1,9 @@
 package com.biskyt.myplexplayer.testutil
 
 import com.biskyt.myplexplayer.AppContainer
+import com.biskyt.myplexplayer.data.PlexSources
+import com.biskyt.myplexplayer.data.db.AppDatabase
+import com.biskyt.myplexplayer.data.plexChannelId
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonArrayBuilder
 import kotlinx.serialization.json.JsonObject
@@ -36,8 +39,27 @@ class FakePlex : AutoCloseable {
     /** Whether Home Plex's libraries answer (false: it fails with error 500). */
     @Volatile var libraryUp = true
 
-    /** The film library's name; null when it has been deleted. */
-    @Volatile var filmLibrary: String? = "Films"
+    /** A library: its key, type (movie or show) and name. */
+    data class Library(val key: String, val type: String, val title: String)
+
+    /** The server's libraries. */
+    @Volatile var libraries = listOf(Library("1", "movie", "Films"), Library("2", "show", "TV Programmes"))
+
+    /** The films, shows and episodes (built with [film], [show] and [episode]), as the server lists them. */
+    @Volatile var movies: List<JsonObject> = MOVIES
+
+    @Volatile var shows: List<JsonObject> = SHOWS
+
+    @Volatile var episodes: List<JsonObject> = EPISODES
+
+    /** Images by their path on the server (a thumb's), served through the image service; none: an empty reply. */
+    @Volatile var images: (String) -> ByteArray? = { null }
+
+    /**
+     * [path] (one of [images]) at a full address through the image service, with the server's token: for a channel's
+     * logo ([Channel.thumb]), which the app takes only as a full address, as a guide's logos come.
+     */
+    fun imageAddress(path: String): String = "$url/photo/:/transcode?url=$path&X-Plex-Token=$SERVER_TOKEN"
 
     /** How many more times checking the code fails (plex.tv not answering) before it answers again. */
     @Volatile var codeCheckFailures = 0
@@ -65,7 +87,32 @@ class FakePlex : AutoCloseable {
 
     val url: String get() = server.url("/").toString().trimEnd('/')
 
-    /** Whether it has Live TV (a DVR and its guide), with [CHANNELS]. */
+    /** A tuner channel: its number, name and logo (a full address: see [imageAddress]); its key is ch-<number>. */
+    data class Channel(val number: String, val title: String, val thumb: String? = null) {
+        val key: String get() = "ch-$number"
+    }
+
+    /** The tuner's channels. */
+    @Volatile var channels = listOf(Channel("1", "One"), Channel("2", "Two"))
+
+    /** A showing in the guide: an episode of [show] when it has one, else a film. */
+    data class Programme(
+        val title: String,
+        val show: String? = null,
+        val season: Int? = null,
+        val episode: Int? = null,
+        val summary: String = "About it."
+    )
+
+    /** What channel [i] (of [channels]) shows from half an hour ago ([n] 0) and for the hour after (1); null: nothing. */
+    @Volatile var programme: (i: Int, n: Int) -> Programme? = { i, n ->
+        if (n == 0) Programme("Episode $i", show = "Show $i") else Programme("Film $i")
+    }
+
+    /** Minutes each channel's guide is moved by, by channel key (else all start at the same times). */
+    @Volatile var guideShiftMin: Map<String, Int> = emptyMap()
+
+    /** Whether it has Live TV (a DVR and its guide), with [channels]. */
     @Volatile var liveTv = true
 
     /** How long a title's details take to come (a slow server). */
@@ -89,6 +136,16 @@ class FakePlex : AutoCloseable {
     /** Tuning answers 500 ("Tuning failed"). */
     @Volatile var tuneFails = false
 
+    /**
+     * A live session's stream answering, but with next to nothing (a few bytes a second of a playlist that never
+     * ends), never enough to play: it never fails on the read timeout (in real time), so no retry plays it again
+     * mid-test. Otherwise it doesn't answer at all, as a tuner still locking.
+     */
+    @Volatile var liveTrickles = false
+
+    /** The live sessions (their paths) whose stream was asked for, each time it was. */
+    val liveStreamed: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+
     /** The channels tuned (asked for, failed or not), in order, and the live sessions stopped (their paths): each tune takes a tuner till then. */
     val tuned: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
     val liveStopped: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
@@ -110,7 +167,7 @@ class FakePlex : AutoCloseable {
         if (newestFails && request.requestUrl!!.queryParameter("sort") == "episode.addedAt:desc") {
             MockResponse().setResponseCode(500)
         } else {
-            page(request, SHOWS.filter { viewedSince(request, it) }.map(::withState))
+            page(request, inLibrary(shows, request).filter { viewedSince(request, it) }.map(::withState))
         }
 
     private fun answer(request: RecordedRequest): MockResponse {
@@ -128,20 +185,7 @@ class FakePlex : AutoCloseable {
             token != SERVER_TOKEN -> MockResponse().setResponseCode(401)
             !libraryUp && path.startsWith("/library/") -> MockResponse().setResponseCode(500)
             path == "/identity" -> container { put("machineIdentifier", MACHINE_ID) }
-            path == "/library/sections" -> container {
-                putJsonArray("Directory") {
-                    filmLibrary?.let { add(section("1", "movie", it)) }
-                    add(section("2", "show", "TV Programmes"))
-                }
-            }
-            path == "/library/sections/1/all" -> page(request, MOVIES.filter { viewedSince(request, it) }.map(::withState))
-            path == "/library/sections/2/all" -> shows(request)
-            path == "/library/metadata/21/allLeaves" -> container { put("Metadata", JsonArray(EPISODES.map(::withState))) }
-            // One item, or several ("11,12"): those it has.
-            path.startsWith("/library/metadata/") -> path.substringAfterLast('/').split(',').mapNotNull(::byKey)
-                .takeIf { it.isNotEmpty() }?.let { items -> container { put("Metadata", JsonArray(items.map(::withState))) } }
-                ?.setBodyDelay(metadataDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-                ?: MockResponse().setResponseCode(404)
+            path.startsWith("/library/sections") || path.startsWith("/library/metadata/") -> libraryAnswer(path, request)
             path == "/hubs/continueWatching" -> {
                 val items = continueWatching.map { withState(byKey(it)!!) }
                 container { putJsonArray("Hub") { add(obj { put("Metadata", JsonArray(items)) }) } }
@@ -152,14 +196,15 @@ class FakePlex : AutoCloseable {
                 continueWatching = continueWatching - request.requestUrl!!.queryParameter("ratingKey").orEmpty()
                 MockResponse()
             }
-            path == "/photo/:/transcode" -> MockResponse().setBody("")
+            path == "/photo/:/transcode" ->
+                MockResponse().setBody(okio.Buffer().write(request.requestUrl!!.queryParameter("url")?.let(images) ?: ByteArray(0)))
             path.startsWith("/library/parts/") && unreadableFiles -> MockResponse().setBody("not a container anyone reads")
             path == "/video/:/transcode/universal/decision" -> decision()
             // Reached only with the server's token (above), in a header now rather than the address.
             // A live session's stream: a tuner still locking, it doesn't answer yet.
             path == "/video/:/transcode/universal/start.m3u8" &&
                 request.requestUrl!!.queryParameter("path").orEmpty().startsWith("/livetv/sessions/") ->
-                MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.NO_RESPONSE)
+                liveStream(request.requestUrl!!.queryParameter("path")!!)
             path == "/video/:/transcode/universal/start.m3u8" -> {
                 streamed += request.requestUrl!!.queryParameter("session").orEmpty()
                 MockResponse().setResponseCode(404)
@@ -170,6 +215,38 @@ class FakePlex : AutoCloseable {
             }
             else -> MockResponse().setResponseCode(404)
         }
+    }
+
+    /** The libraries, what's in them, and each title's details. */
+    private fun libraryAnswer(path: String, request: RecordedRequest): MockResponse = when {
+        path == "/library/sections" -> container {
+            putJsonArray("Directory") { libraries.forEach { add(section(it.key, it.type, it.title)) } }
+        }
+        path.startsWith("/library/sections/") && path.endsWith("/all") -> when (library(path)?.type) {
+            "movie" -> page(request, inLibrary(movies, request).filter { viewedSince(request, it) }.map(::withState))
+            "show" -> shows(request)
+            else -> MockResponse().setResponseCode(404)
+        }
+        path.startsWith("/library/metadata/") && path.endsWith("/allLeaves") ->
+            container { put("Metadata", JsonArray(episodesOf(path.split('/')[3]).map(::withState))) }
+        // One item, or several ("11,12"): those it has.
+        path.startsWith("/library/metadata/") -> path.substringAfterLast('/').split(',').mapNotNull(::byKey)
+            .takeIf { it.isNotEmpty() }?.let { items -> container { put("Metadata", JsonArray(items.map(::withState))) } }
+            ?.setBodyDelay(metadataDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+            ?: MockResponse().setResponseCode(404)
+        else -> MockResponse().setResponseCode(404)
+    }
+
+    /**
+     * The stream of the live session at [path]: none (a tuner still locking), or with [liveTrickles] a playlist's start,
+     * then blank lines a byte at a time.
+     */
+    private fun liveStream(path: String): MockResponse {
+        liveStreamed += path
+        if (!liveTrickles) return MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.NO_RESPONSE)
+        return MockResponse().setHeader("Content-Type", "application/vnd.apple.mpegurl")
+            .setBody(okio.Buffer().writeUtf8("#EXTM3U\n" + "\n".repeat(10_000)))
+            .throttleBody(1, 200, java.util.concurrent.TimeUnit.MILLISECONDS)
     }
 
     /** Live TV: the DVR, its guide's channels and grid, tuning, and live sessions' reports; null for anything else. */
@@ -197,7 +274,7 @@ class FakePlex : AutoCloseable {
                 }
             }
         }
-        path == "/$EPG/lineups/dvr/channels" -> container { put("Channel", JsonArray(CHANNELS)) }
+        path == "/$EPG/lineups/dvr/channels" -> container { put("Channel", JsonArray(channels.map(::lineupChannel))) }
         path == "/$EPG/grid" && guideFails -> MockResponse().setResponseCode(500)
         path == "/$EPG/grid" && guideUnreadable -> container {
             put("size", 1)
@@ -257,26 +334,29 @@ class FakePlex : AutoCloseable {
         val url = request.requestUrl!!
         val from = url.queryParameter("endsAt>")?.toLong() ?: 0
         val to = url.queryParameter("beginsAt<")?.toLong() ?: Long.MAX_VALUE
-        val hour = guideStart
-        return CHANNELS.mapIndexed { i, ch -> ch.string("id")!! to i }.flatMap { (id, i) ->
-            listOf(0, 1).filter { n -> hour + (n + 1) * 3600 >= from && hour + n * 3600 <= to }.map { n ->
+        return channels.withIndex().flatMap { (i, ch) ->
+            val hour = guideStart + (guideShiftMin[ch.key] ?: 0) * 60
+            listOf(0, 1).filter { n -> hour + (n + 1) * 3600 >= from && hour + n * 3600 <= to }.mapNotNull { n ->
+                val p = programme(i, n) ?: return@mapNotNull null
                 obj {
-                    put("ratingKey", "plex://programme/$id-$n")
-                    put("type", if (n == 0) "episode" else "movie")
-                    put("title", if (n == 0) "Episode $i" else "Film $i")
-                    if (n == 0) put("grandparentTitle", "Show $i")
-                    put("summary", "About it.")
+                    put("ratingKey", "plex://programme/${ch.key}-$n")
+                    put("type", if (p.show != null) "episode" else "movie")
+                    put("title", p.title)
+                    p.show?.let { put("grandparentTitle", it) }
+                    p.season?.let { put("parentIndex", it) }
+                    p.episode?.let { put("index", it) }
+                    put("summary", p.summary)
                     putJsonArray("Media") {
                         add(
                             obj {
                                 put("beginsAt", hour + n * 3600)
                                 put("endsAt", hour + (n + 1) * 3600)
-                                put("channelIdentifier", id)
+                                put("channelIdentifier", ch.key)
                                 // The rest as the owner's server sends them (numbers among them).
                                 put("id", 100 + i * 2 + n)
                                 put("channelID", i + 1)
                                 put("channelVcn", "00$i")
-                                put("gridKey", id.substringAfter('-'))
+                                put("gridKey", ch.number)
                             }
                         )
                     }
@@ -323,7 +403,7 @@ class FakePlex : AutoCloseable {
      * resume point goes, and a watched one leaves Continue Watching.
      */
     fun mark(key: String, watched: Boolean): MockResponse {
-        val keys = if (byKey(key)?.string("type") == "show") EPISODES.map { it.string("ratingKey")!! } else listOf(key)
+        val keys = leaves(key)
         keys.forEach { k ->
             viewOffset -= k
             // As the server does: watched counts as played now; unwatched, it was never played.
@@ -342,12 +422,34 @@ class FakePlex : AutoCloseable {
         val url = request.requestUrl!!
         val seconds = (url.queryParameter("lastViewedAt>>") ?: url.queryParameter("episode.lastViewedAt>>"))
             ?.removePrefix("-")?.toLong() ?: return true
-        val keys = if (item.string("type") == "show") EPISODES.map { it.string("ratingKey")!! } else listOf(item.string("ratingKey")!!)
+        val keys = leaves(item.string("ratingKey")!!)
         val after = System.currentTimeMillis() / 1000 - seconds
         return keys.any { (lastViewedAt[it] ?: return@any false) >= after }
     }
 
-    private fun byKey(key: String) = (MOVIES + SHOWS + EPISODES).firstOrNull { it.string("ratingKey") == key }
+    private fun byKey(key: String) = (movies + shows + episodes).firstOrNull { it.string("ratingKey") == key }
+
+    private fun episodesOf(show: String) = episodes.filter { it.string("grandparentRatingKey") == show }
+
+    /** What [key] stands for when played or marked: a show's episodes, or the title itself. */
+    private fun leaves(key: String) =
+        if (byKey(key)?.string("type") == "show") episodesOf(key).map { it.string("ratingKey")!! } else listOf(key)
+
+    /** The library a /library/sections/<key>/... path is in. */
+    private fun library(path: String) = libraries.firstOrNull { it.key == path.split('/')[3] }
+
+    /** Those of [items] in the library the request's path names. */
+    private fun inLibrary(items: List<JsonObject>, request: RecordedRequest): List<JsonObject> {
+        val key = request.requestUrl!!.encodedPath.split('/')[3]
+        return items.filter { it.string("librarySectionID") == key }
+    }
+
+    private fun lineupChannel(ch: Channel) = obj {
+        put("id", ch.key)
+        put("vcn", ch.number)
+        put("title", ch.title)
+        ch.thumb?.let { put("thumb", it) }
+    }
 
     /** [item] with its play state, as the server lists it (a show: its episodes, and how many are watched). */
     private fun withState(item: JsonObject): JsonObject {
@@ -358,8 +460,9 @@ class FakePlex : AutoCloseable {
                 lastViewedAt[key]?.let { put("lastViewedAt", JsonPrimitive(it)) }
                 if (key in watched) put("viewCount", JsonPrimitive(1))
                 if (item.string("type") == "show") {
-                    put("leafCount", JsonPrimitive(EPISODES.size))
-                    put("viewedLeafCount", JsonPrimitive(EPISODES.count { it.string("ratingKey") in watched }))
+                    val leaves = episodesOf(key)
+                    put("leafCount", JsonPrimitive(leaves.size))
+                    put("viewedLeafCount", JsonPrimitive(leaves.count { it.string("ratingKey") in watched }))
                 }
             }
         )
@@ -456,15 +559,6 @@ class FakePlex : AutoCloseable {
         private const val DVR = "7"
         private const val EPG = "tv.plex.providers.epg.cloud:12"
 
-        /** The tuner's channels, by their key on the server. */
-        val CHANNELS = listOf("One" to "1", "Two" to "2").map { (name, number) ->
-            obj {
-                put("id", "ch-$number")
-                put("vcn", number)
-                put("title", name)
-            }
-        }
-
         private fun obj(body: JsonObjectBuilder.() -> Unit) = buildJsonObject(body)
 
         private fun JsonObject.string(key: String) = (this[key] as? JsonPrimitive)?.content
@@ -488,54 +582,86 @@ class FakePlex : AutoCloseable {
             )
         }
 
-        private val MOVIES = listOf(
-            obj {
-                put("ratingKey", "11")
-                put("type", "movie")
-                put("title", "Big Buck Bunny")
-                put("year", 2008)
-                put("summary", "A giant rabbit takes on three bullies.")
-                put("thumb", "/library/metadata/11/thumb/1")
-                put("art", "/library/metadata/11/art/1")
-                put("duration", 596_000)
-                put("addedAt", 1_700_000_000)
-                put("Media", media(111, "mp4"))
-            },
-            obj {
-                put("ratingKey", "12")
-                put("type", "movie")
-                put("title", "Sintel")
-                put("year", 2010)
-                put("duration", 888_000)
-                put("addedAt", 1_700_000_100)
-                put("Media", media(121, "mkv"))
-            },
-        )
-
-        private val SHOWS = listOf(
-            obj {
-                put("ratingKey", "21")
-                put("type", "show")
-                put("title", "Test Show")
-                put("year", 2020)
-                put("summary", "Two episodes of colour bars.")
-                put("addedAt", 1_700_000_200)
-            },
-        )
-
-        private val EPISODES = listOf(1, 2).map { n ->
-            obj {
-                put("ratingKey", "21$n")
-                put("type", "episode")
-                put("title", if (n == 1) "Pilot" else "Second")
-                put("parentIndex", 1)
-                put("index", n)
-                put("grandparentRatingKey", "21")
-                put("grandparentTitle", "Test Show")
-                put("duration", 600_000)
-                put("Media", media(2100 + n, "mkv"))
-            }
+        /**
+         * A film in [library], as the server lists it: [addedAt] in seconds, [container] its file's, [thumb] and [art]
+         * paths on the server.
+         */
+        @Suppress("LongParameterList") // a film's fields, as the server lists them
+        fun film(
+            key: String,
+            title: String,
+            year: Int? = null,
+            library: String = "1",
+            addedAt: Long = 1_700_000_000,
+            duration: Long = 596_000,
+            container: String = "mp4",
+            summary: String? = null,
+            thumb: String? = null,
+            art: String? = null
+        ) = obj {
+            put("ratingKey", key)
+            put("type", "movie")
+            put("title", title)
+            put("librarySectionID", library.toInt())
+            year?.let { put("year", it) }
+            summary?.let { put("summary", it) }
+            thumb?.let { put("thumb", it) }
+            art?.let { put("art", it) }
+            put("duration", duration)
+            put("addedAt", addedAt)
+            put("Media", media(key.toInt() * 10 + 1, container))
         }
+
+        /** A show in [library]. */
+        @Suppress("LongParameterList") // a show's fields, as the server lists them
+        fun show(
+            key: String,
+            title: String,
+            year: Int? = null,
+            library: String = "2",
+            addedAt: Long = 1_700_000_200,
+            summary: String? = null,
+            thumb: String? = null
+        ) = obj {
+            put("ratingKey", key)
+            put("type", "show")
+            put("title", title)
+            put("librarySectionID", library.toInt())
+            year?.let { put("year", it) }
+            summary?.let { put("summary", it) }
+            thumb?.let { put("thumb", it) }
+            put("addedAt", addedAt)
+        }
+
+        /** Episode [index] of [season] of [show] (its key and title), its key [key]. */
+        @Suppress("LongParameterList") // an episode's fields, as the server lists them
+        fun episode(show: String, showTitle: String, key: String, season: Int, index: Int, title: String, duration: Long = 600_000) = obj {
+            put("ratingKey", key)
+            put("type", "episode")
+            put("title", title)
+            put("parentIndex", season)
+            put("index", index)
+            put("grandparentRatingKey", show)
+            put("grandparentTitle", showTitle)
+            put("duration", duration)
+            put("Media", media(show.toInt() * 100 + (season - 1) * 50 + index, "mkv")) // series 1: 2101, 2102 for show 21
+        }
+
+        private val MOVIES = listOf(
+            film(
+                "11",
+                "Big Buck Bunny",
+                2008,
+                summary = "A giant rabbit takes on three bullies.",
+                thumb = "/library/metadata/11/thumb/1",
+                art = "/library/metadata/11/art/1"
+            ),
+            film("12", "Sintel", 2010, addedAt = 1_700_000_100, duration = 888_000, container = "mkv"),
+        )
+
+        private val SHOWS = listOf(show("21", "Test Show", 2020, summary = "Two episodes of colour bars."))
+
+        private val EPISODES = listOf(1, 2).map { n -> episode("21", "Test Show", "21$n", 1, n, if (n == 1) "Pilot" else "Second") }
     }
 }
 
@@ -543,6 +669,17 @@ class FakePlex : AutoCloseable {
 suspend fun AppContainer.addHomePlex(plex: FakePlex): Long {
     this.plex.plexTv = plex.url
     plex.claimed = true
-    this.plex.signIn(FakePlex.ACCOUNT_TOKEN)
-    return db.playlists().all().first { it.machineId == FakePlex.MACHINE_ID }.id
+    return this.plex.signInHome(db)
 }
+
+/** Signs in with FakePlex's account (its plex.tv already set) and adds its servers: the id of Home Plex's source. */
+suspend fun PlexSources.signInHome(db: AppDatabase): Long {
+    signIn(FakePlex.ACCOUNT_TOKEN)
+    return db.playlists().all().single { it.machineId == FakePlex.MACHINE_ID }.id
+}
+
+/** A Home Plex channel's id in the app, by its number on the server ("1" is ch-1's). */
+fun plexChannel(number: String): Long = plexChannelId("ch-$number")
+
+/** As [addHomePlex], then syncs Home Plex (its channels and guide, films and series): the start of most UI tests. */
+suspend fun AppContainer.addSyncedHomePlex(plex: FakePlex): Long = addHomePlex(plex).also { sync.refreshNow(it).getOrThrow() }
