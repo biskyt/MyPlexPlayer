@@ -1,39 +1,51 @@
 package com.biskyt.myplexplayer.ui.vod
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.vod.EpisodeInfo
+import com.biskyt.myplexplayer.core.vod.SeasonInfo
 import com.biskyt.myplexplayer.core.vod.SeriesDetails
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.data.db.SeriesEntity
@@ -41,17 +53,23 @@ import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
+import com.biskyt.myplexplayer.ui.common.BadgeRow
+import com.biskyt.myplexplayer.ui.common.CastPanel
+import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.ItemActionsPanel
+import com.biskyt.myplexplayer.ui.common.LocalCardFocused
 import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.PillButton
+import com.biskyt.myplexplayer.ui.common.Poster
 import com.biskyt.myplexplayer.ui.common.ProgressLine
 import com.biskyt.myplexplayer.ui.common.TvCard
-import com.biskyt.myplexplayer.ui.common.favouriteLabel
+import com.biskyt.myplexplayer.ui.common.formatDuration
 import com.biskyt.myplexplayer.ui.common.formatRuntime
 import com.biskyt.myplexplayer.ui.common.markWatched
+import com.biskyt.myplexplayer.ui.common.onOptionsKey
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.restoreFocusIf
-import com.biskyt.myplexplayer.ui.common.shortEpisodeLabel
+import com.biskyt.myplexplayer.ui.common.titleActions
 import com.biskyt.myplexplayer.ui.player.episodeName
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
 import com.biskyt.myplexplayer.ui.theme.Palette
@@ -79,8 +97,8 @@ class SeriesDetailsViewModel(
     /** An episode whose options are open (holding OK on it). */
     var optionsFor by mutableStateOf<EpisodeInfo?>(null)
 
-    /** An episode to focus when the page opens (from the TV guide), until it has had focus. */
-    var focusEpisodePending = true
+    /** An episode to give the remote to (the one to carry on with, or one asked for from the TV guide), until it has. */
+    var focusEpisodePending by mutableStateOf(true)
 
     /** Progress per episode id. */
     val progress = c.vod.observeSeriesProgress(playlistId, seriesId).map { list -> list.associateBy { it.itemId } }
@@ -105,15 +123,52 @@ class SeriesDetailsViewModel(
 
     /** Marks [e] watched or unwatched on the server, and its row follows (out of reach, nothing changes). */
     fun setWatched(e: EpisodeInfo, watched: Boolean) {
-        // The list stays on this season (it otherwise follows the episode to carry on with, which this may move on).
+        // The list stays on this season (it otherwise follows the episode to carry on with, which this may move on),
+        // and the remote stays on [e].
         if (season == null) season = e.season
+        changedInList = true
         viewModelScope.launch { c.vod.setWatched(playlistId, e.id, seriesId, watched) }
     }
 
-    /** Whether the remote is in the episode list: changes made there (marking one watched) leave it there. */
+    /** A change made in the list (marking, deleting): the next change of the episode to carry on with keeps the remote put. */
+    private var changedInList = false
+
+    /** An episode is played: back from it, the next change of the one to carry on with gets the remote again. */
+    fun played() {
+        changedInList = false
+    }
+
+    /** The episode to carry on with changed (or the page opened): it gets the remote, unless the list changed it. */
+    fun nextChanged() {
+        if (changedInList) changedInList = false else focusEpisodePending = true
+    }
+
+    /** The show's cast is open. */
+    var castOpen by mutableStateOf(false)
+
+    /** Whether the remote is in the episode list. */
     var listFocused by mutableStateOf(false)
 
     fun toggleFavourite() = viewModelScope.launch { c.vod.setFavourite(playlistId, CAT_SERIES, seriesId, !favourite.value) }
+
+    /** Whether the server lets episodes be deleted (asked once, then known for the source). */
+    suspend fun canDelete() = c.vod.canDelete(playlistId)
+
+    /** The series' "Delete watched episodes", read when an episode's options first open. */
+    var autoDelete: AutoDeleteChoice? = null
+        private set
+
+    fun openOptions(e: EpisodeInfo) {
+        optionsFor = e
+        if (autoDelete == null) autoDelete = AutoDeleteChoice(viewModelScope, c.vod, playlistId, seriesId)
+    }
+
+    /** Deletes [e] on the server; the list follows (refused or out of reach, a notice says so). */
+    fun delete(e: EpisodeInfo) {
+        if (season == null) season = e.season
+        changedInList = true
+        viewModelScope.launch { if (c.vod.deleteEpisode(playlistId, seriesId, e.id)) load() }
+    }
 }
 
 /**
@@ -130,62 +185,75 @@ fun continueEpisode(episodes: List<EpisodeInfo>, progress: Map<Long, WatchProgre
 @Composable
 fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
     val vm = appViewModel { SeriesDetailsViewModel(it, screen.playlistId, screen.seriesId, screen.season) }
-    val nav = LocalNavigator.current
     val show = vm.series ?: return
     val d = vm.details
     val progress by vm.progress.collectAsState()
-    val favourite by vm.favourite.collectAsState()
-    val play = { e: EpisodeInfo -> nav.push(Screen.VodPlayer(screen.playlistId, e.id, screen.seriesId)) }
+    val next = remember(d, progress) { d?.let { continueEpisode(it.episodes, progress) } }
+    // Opened for one episode (from the TV guide): it has the remote rather than the one to carry on with.
+    val asked = remember(d) { d?.episodes?.firstOrNull { it.season == screen.season && it.number == screen.episode } }
+    // The one to carry on with has the remote whenever it changes (back from playing), unless a change made in the list
+    // moved it (marking one watched), which leaves the remote where it was.
+    LaunchedEffect(next?.id) { vm.nextChanged() }
+    val target = asked ?: next
+    // A season the server doesn't have (the guide may number them differently) shows the usual one.
+    val season =
+        vm.season?.takeIf { s -> d?.episodes?.any { it.season == s } == true } ?: target?.season ?: d?.seasons?.firstOrNull()?.number
+    val seasonInfo = d?.seasons?.firstOrNull { it.number == season }
 
-    DetailsLayout(backdropUrl = d?.info?.backdropUrl, posterUrl = show.coverUrl ?: d?.info?.posterUrl, title = show.title) {
-        Text(show.title, style = MaterialTheme.typography.displaySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Muted(metaLine(show.year ?: d?.info?.year, null, d?.info?.genre, show.rating ?: d?.info?.rating))
-        d?.info?.plot?.let { Text(it, style = MaterialTheme.typography.bodyLarge, maxLines = 3, overflow = TextOverflow.Ellipsis) }
-        val next = d?.let { continueEpisode(it.episodes, progress) }
-        // Opened for one episode (from the TV guide): focus goes to it rather than to Play.
-        val target = d?.episodes?.firstOrNull { it.season == screen.season && it.number == screen.episode }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (next != null) {
-                val started = progress.isNotEmpty()
-                PillButton(
-                    stringResource(
-                        if (started) R.string.vod_continue_episode else R.string.vod_play_episode,
-                        shortEpisodeLabel(next.season, next.number)
-                    ),
-                    { play(next) },
-                    if (target == null || !vm.focusEpisodePending) playFocus(vm, next.id) else Modifier,
-                    primary = true
-                )
+    Box(Modifier.fillMaxSize().background(Palette.background).onOptionsKey { target?.let(vm::openOptions) }) {
+        Backdrop(d?.info?.backdropUrl)
+        Row(Modifier.padding(horizontal = 64.dp, vertical = 48.dp), horizontalArrangement = Arrangement.spacedBy(40.dp)) {
+            Column(Modifier.width(380.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Poster(seasonInfo?.posterUrl ?: show.coverUrl ?: d?.info?.posterUrl, show.title, 180.dp)
+                Text(show.title, style = MaterialTheme.typography.headlineMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Muted(showLine(seasonInfo, d), maxLines = 2)
+                d?.info?.plot?.let { Text(it, style = MaterialTheme.typography.bodyLarge, maxLines = 5, overflow = TextOverflow.Ellipsis) }
+                Muted(stringResource(R.string.vod_options_hint), maxLines = 2)
             }
-            PillButton(favouriteLabel(favourite), { vm.toggleFavourite() })
-        }
-        when {
-            vm.error != null -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Muted(vm.error.orEmpty())
-                PillButton(stringResource(R.string.common_retry), { vm.load() }, if (next == null) rememberFirstFocus() else Modifier)
-            }
-            d == null -> Muted(stringResource(R.string.vod_loading_episodes))
-            d.episodes.isEmpty() -> Muted(stringResource(R.string.vod_no_episodes))
-            else -> {
-                // A season the provider doesn't have (the guide may number them differently) shows the usual one.
-                val asked = vm.season?.takeIf { s -> d.episodes.any { it.season == s } }
-                Episodes(vm, d, asked ?: next?.season ?: d.seasons.firstOrNull()?.number, progress, target, play)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                when {
+                    vm.error != null -> Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Muted(vm.error.orEmpty())
+                        PillButton(stringResource(R.string.common_retry), { vm.load() }, rememberFirstFocus())
+                    }
+                    d == null -> Muted(stringResource(R.string.vod_loading_episodes))
+                    d.episodes.isEmpty() -> Muted(stringResource(R.string.vod_no_episodes))
+                    else -> Episodes(vm, d, season, progress, target, next, screen)
+                }
             }
         }
     }
+    vm.optionsFor?.let { e -> EpisodeOptions(vm, show.title, d, e, progress[e.id], screen) }
+    if (vm.castOpen) CastPanel(show.title, d?.info?.cast.orEmpty()) { vm.castOpen = false }
 }
 
+/** "Series 2 · 2023 · 3 series · 15 · Crime": the season shown, its year, how many there are, rating and genres. */
 @Composable
+private fun showLine(season: SeasonInfo?, d: SeriesDetails?): String = listOfNotNull(
+    season?.let { it.name ?: stringResource(R.string.vod_season, it.number) },
+    season?.year?.toString(),
+    d?.seasons?.size?.takeIf { it > 1 }?.let { pluralStringResource(R.plurals.vod_season_count, it, it) },
+    d?.info?.contentRating,
+    d?.info?.genres?.take(2)?.takeIf { it.isNotEmpty() }?.joinToString(", ")
+).joinToString(" · ")
+
+@Composable
+@Suppress("LongParameterList") // the page's state, passed down rather than read again
 private fun Episodes(
     vm: SeriesDetailsViewModel,
     d: SeriesDetails,
     season: Int?,
     progress: Map<Long, WatchProgressEntity>,
     target: EpisodeInfo?,
-    play: (EpisodeInfo) -> Unit
+    next: EpisodeInfo?,
+    screen: Screen.SeriesDetails
 ) {
+    val nav = LocalNavigator.current
     if (d.seasons.size > 1) {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
             items(d.seasons, key = { it.number }) { s ->
                 PillButton(s.name ?: stringResource(R.string.vod_season, s.number), { vm.season = s.number }, selected = s.number == season)
             }
@@ -194,7 +262,7 @@ private fun Episodes(
     val shown = remember(d, season) { d.episodes.filter { season == null || it.season == season } }
     val list = rememberLazyListState()
     // Scrolled into view first, so the row exists to take focus.
-    LaunchedEffect(target, shown) {
+    LaunchedEffect(target, shown, vm.focusEpisodePending) {
         val i = shown.indexOf(target)
         if (vm.focusEpisodePending && i >= 0) list.scrollToItem(i)
     }
@@ -206,60 +274,133 @@ private fun Episodes(
     ) {
         items(shown, key = { it.id }) { e ->
             val focus = Modifier.restoreFocusIf(vm.focusEpisodePending && e == target) { vm.focusEpisodePending = false }
-            EpisodeRow(e, progress[e.id], focus, onLongClick = { vm.optionsFor = e }) { play(e) }
+            EpisodeRow(e, progress[e.id], upNext = e == next, focus, onLongClick = { vm.openOptions(e) }) {
+                vm.played()
+                nav.push(Screen.VodPlayer(screen.playlistId, e.id, screen.seriesId))
+            }
         }
-    }
-    vm.optionsFor?.let { e ->
-        val close = { vm.optionsFor = null }
-        val saved = progress[e.id]
-        val set = { watched: Boolean ->
-            close()
-            vm.setWatched(e, watched)
-        }
-        // One partly watched can be counted as watched, or started again (its progress forgotten).
-        val actions = listOfNotNull(
-            if (saved?.finished != true) markWatched(false, set) else null,
-            if (saved != null) markWatched(true, set) else null
-        )
-        ItemActionsPanel(episodeName(e), actions, close)
     }
 }
 
-/** Focus for Play as the page opens and whenever where to carry on changes, unless the remote is in the episode list. */
+/** An episode's options: this episode's, then the show's (shared with the player's). */
 @Composable
-private fun playFocus(vm: SeriesDetailsViewModel, key: Any): Modifier {
-    val r = remember { FocusRequester() }
-    LaunchedEffect(key) { if (!vm.listFocused) runCatching { r.requestFocus() } }
-    return Modifier.focusRequester(r)
+@Suppress("LongParameterList") // the page's state, passed down rather than read again
+private fun EpisodeOptions(
+    vm: SeriesDetailsViewModel,
+    title: String,
+    d: SeriesDetails?,
+    e: EpisodeInfo,
+    saved: WatchProgressEntity?,
+    screen: Screen.SeriesDetails
+) {
+    val nav = LocalNavigator.current
+    val favourite by vm.favourite.collectAsState()
+    val canDelete by produceState(false) { value = vm.canDelete() }
+    val close = { vm.optionsFor = null }
+    val set = { watched: Boolean ->
+        close()
+        vm.setWatched(e, watched)
+    }
+    val resumable = saved?.takeUnless { it.finished || it.positionMs <= 0 }
+    val play = { fromStart: Boolean ->
+        close()
+        vm.played()
+        nav.push(Screen.VodPlayer(screen.playlistId, e.id, screen.seriesId, fromStart = fromStart))
+    }
+    // One partly watched can be counted as watched, or started again (its progress forgotten).
+    val episode = listOfNotNull(
+        ItemAction.Heading(appString(R.string.vod_this_episode)),
+        resumable?.let { ItemAction.Run(appString(R.string.vod_resume_from, formatDuration(it.positionMs))) { play(false) } },
+        resumable?.let { ItemAction.Run(appString(R.string.common_from_start)) { play(true) } },
+        if (saved?.finished != true) markWatched(false, set) else null,
+        if (saved != null) markWatched(true, set) else null,
+        if (canDelete) deleteAction(episodeName(e)) { vm.delete(e) } else null,
+    )
+    val showActions = listOf(ItemAction.Heading(appString(R.string.vod_the_show))) +
+        titleActions(
+            screen.playlistId,
+            CAT_SERIES,
+            screen.seriesId,
+            d?.info,
+            favourite,
+            showCast = {
+                close()
+                vm.castOpen = true
+            },
+            setFavourite = { vm.toggleFavourite() }
+        ) + listOfNotNull(vm.autoDelete?.action())
+    ItemActionsPanel("$title · ${episodeName(e)}", episode + showActions, close)
 }
 
 @Composable
 private fun EpisodeRow(
     e: EpisodeInfo,
     progress: WatchProgressEntity?,
+    upNext: Boolean,
     modifier: Modifier,
     onLongClick: (() -> Unit)?,
     onClick: () -> Unit
 ) {
-    TvCard(onClick = onClick, onLongClick = onLongClick, color = Palette.surfaceLow, modifier = modifier.fillMaxWidth()) {
-        Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("${e.number}", style = MaterialTheme.typography.titleSmall, color = Palette.textDim, modifier = Modifier.width(36.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(episodeName(e), style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                e.plot?.let { Muted(it) }
-                if (progress != null && !progress.finished && progress.durationMs > 0) {
-                    ProgressLine(progress.fraction, Modifier.width(220.dp).padding(top = 4.dp))
+    TvCard(onClick = onClick, onLongClick = onLongClick, color = Palette.background, modifier = modifier.fillMaxWidth()) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "${e.number}",
+                style = MaterialTheme.typography.headlineSmall,
+                color = Palette.textDim,
+                textAlign = TextAlign.End,
+                modifier = Modifier.width(40.dp)
+            )
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(episodeName(e), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (progress?.finished == true) WatchedPill()
+                    if (upNext) UpNextPill()
                 }
-            }
-            val duration = e.durationSec
-            when {
-                progress?.finished == true -> Text(
-                    stringResource(R.string.vod_watched),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = LocalAccent.current.color
-                )
-                duration != null -> Muted(formatRuntime(duration))
+                Muted(episodeLine(e, progress))
+                if (progress != null && !progress.finished && progress.durationMs > 0) {
+                    ProgressLine(progress.fraction, Modifier.widthIn(max = 420.dp).fillMaxWidth())
+                }
+                if (LocalCardFocused.current) BadgeRow(e.badges)
             }
         }
     }
+}
+
+/** "54 min · 21 min left". */
+@Composable
+private fun episodeLine(e: EpisodeInfo, progress: WatchProgressEntity?): String = listOfNotNull(
+    e.durationSec?.takeIf { it > 0 }?.let(::formatRuntime),
+    progress?.takeIf { !it.finished && it.durationMs > 0 && it.positionMs > 0 }?.let {
+        stringResource(R.string.common_time_left, formatDuration(it.remainingMs))
+    }
+).joinToString(" · ")
+
+@Composable
+private fun WatchedPill() {
+    val accent = LocalAccent.current
+    Row(
+        Modifier.clip(
+            RoundedCornerShape(50)
+        ).background(accent.color.copy(alpha = 0.16f)).padding(start = 6.dp, end = 10.dp, top = 2.dp, bottom = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Rounded.Check, null, tint = accent.color, modifier = Modifier.size(14.dp))
+        Text(stringResource(R.string.vod_watched), style = MaterialTheme.typography.labelMedium, color = accent.color)
+    }
+}
+
+@Composable
+private fun UpNextPill() {
+    val accent = LocalAccent.current
+    Text(
+        stringResource(R.string.vod_up_next),
+        style = MaterialTheme.typography.labelMedium,
+        color = accent.onAccent,
+        modifier = Modifier.clip(RoundedCornerShape(50)).background(accent.color).padding(horizontal = 10.dp, vertical = 2.dp)
+    )
 }

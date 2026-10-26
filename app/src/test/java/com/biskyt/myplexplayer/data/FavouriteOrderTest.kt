@@ -56,7 +56,7 @@ class FavouriteOrderTest {
         }
         playlists = PlaylistRepository(db, settings, epg, categoryStore, sources)
         channels = ChannelRepository(db, sources, Notices())
-        vod = VodRepository(db, playlists, categoryStore, sources)
+        vod = VodRepository(db, playlists, categoryStore, sources, Notices())
         favourites = Favourites(scope, settings, channels, vod)
         plex.channels = listOf(FakePlex.Channel("1", "One"), FakePlex.Channel("2", "Two"), FakePlex.Channel("3", "Three"))
         plex.movies = listOf(FakePlex.film("11", "Big Buck Bunny"), FakePlex.film("12", "Sintel"), FakePlex.film("13", "Cosmos"))

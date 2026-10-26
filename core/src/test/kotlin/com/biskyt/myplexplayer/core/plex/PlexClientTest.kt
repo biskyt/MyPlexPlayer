@@ -295,6 +295,43 @@ class PlexClientTest {
     }
 
     @Test
+    fun `deleting a title, where the server allows it`() = runTest {
+        responses[""] = MockResponse().setBody("""{"MediaContainer":{"allowMediaDeletion":true}}""")
+        assertTrue(client.allowsDeletion())
+        assertEquals("/", server.takeRequest().requestUrl!!.encodedPath)
+        responses[""] = MockResponse().setBody("""{"MediaContainer":{"size":0}}""")
+        assertFalse(client.allowsDeletion())
+        server.takeRequest()
+
+        client.delete("4")
+        val request = server.takeRequest()
+        assertEquals("DELETE", request.method)
+        assertEquals("/library/metadata/4", request.requestUrl!!.encodedPath)
+        otherwise = MockResponse().setResponseCode(403)
+        val refused = runCatching { client.delete("4") }.exceptionOrNull() as PlexException
+        assertEquals(403, refused.code)
+    }
+
+    @Test
+    fun `a show's delete episodes after playing`() = runTest {
+        responses["library/metadata/2"] = MockResponse().setBody(
+            """{"MediaContainer":{"Metadata":[{"ratingKey":"2","type":"show","Preferences":{"Setting":[""" +
+                """{"id":"episodeSort","value":"-1"},{"id":"autoDeletionItemPolicyWatchedLibrary","value":"7"}]}}]}}"""
+        )
+        assertEquals(PlexAutoDelete.AFTER_A_WEEK, client.autoDeleteWatched("2"))
+        assertEquals("1", server.takeRequest().requestUrl!!.queryParameter("includePreferences"))
+
+        client.setAutoDeleteWatched("2", PlexAutoDelete.ON_NEXT_REFRESH)
+        val request = server.takeRequest()
+        assertEquals("PUT", request.method)
+        assertEquals("/library/metadata/2/prefs", request.requestUrl!!.encodedPath)
+        assertEquals("100", request.requestUrl!!.queryParameter("autoDeletionItemPolicyWatchedLibrary"))
+        // Without the setting (or with a value the app doesn't know) there's nothing to show.
+        responses["library/metadata/2"] = MockResponse().setBody("""{"MediaContainer":{"Metadata":[{"ratingKey":"2"}]}}""")
+        assertNull(client.autoDeleteWatched("2"))
+    }
+
+    @Test
     fun `direct play opens the file, with the token in headers, not in the address`() {
         val stream = client.directPlay(PlexPart(key = "/library/parts/1/1792875002/file.mp4"))
         val url = stream.url.toHttpUrl()

@@ -75,6 +75,16 @@ class FakePlex : AutoCloseable {
     /** Continue Watching, newest first. */
     @Volatile var continueWatching: List<String> = emptyList()
 
+    /** The server's "Allow media deletion"; and what was deleted (ratingKeys). */
+    @Volatile var allowsDeletion = true
+
+    /** How often the server was asked whether it allows deletion. */
+    @Volatile var deletionAsked = 0
+    val deleted: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+
+    /** Each show's "Delete episodes after playing" (by ratingKey; 0, never, when not set). */
+    val autoDelete: MutableMap<String, Int> = java.util.concurrent.ConcurrentHashMap()
+
     /** Whether the films' files are in a container no player reads (so they're streamed by the server instead). */
     @Volatile var unreadableFiles = false
 
@@ -210,6 +220,7 @@ class FakePlex : AutoCloseable {
             token != SERVER_TOKEN -> MockResponse().setResponseCode(401)
             !libraryUp && path.startsWith("/library/") -> MockResponse().setResponseCode(500)
             path == "/identity" -> container { put("machineIdentifier", MACHINE_ID) }
+            path == "/" -> container { put("allowMediaDeletion", allowsDeletion) }.also { deletionAsked++ }
             path.startsWith("/library/sections") || path.startsWith("/library/metadata/") -> libraryAnswer(path, request)
             path == "/hubs/continueWatching" -> {
                 val items = continueWatching.map { withState(byKey(it)!!) }
@@ -247,6 +258,12 @@ class FakePlex : AutoCloseable {
 
     /** The libraries, what's in them, and each title's details. */
     private fun libraryAnswer(path: String, request: RecordedRequest): MockResponse = when {
+        path.startsWith("/library/metadata/") && request.method == "DELETE" -> delete(path.substringAfterLast('/'))
+        path.startsWith("/library/metadata/") && path.endsWith("/prefs") && request.method == "PUT" -> {
+            val key = path.split('/')[3]
+            autoDelete[key] = request.requestUrl!!.queryParameter("autoDeletionItemPolicyWatchedLibrary")!!.toInt()
+            MockResponse()
+        }
         path == "/library/sections" -> container {
             putJsonArray("Directory") { libraries.forEach { add(section(it.key, it.type, it.title)) } }
         }
@@ -459,7 +476,28 @@ class FakePlex : AutoCloseable {
     }
 
     private fun details(items: List<JsonObject>, request: RecordedRequest) =
-        container { put("Metadata", JsonArray(items.map { withMarkers(withState(it), request) })) }
+        container { put("Metadata", JsonArray(items.map { withPreferences(withMarkers(withState(it), request), request) })) }
+
+    /** A show's own settings, only when asked for, as from a real server. */
+    private fun withPreferences(item: JsonObject, request: RecordedRequest): JsonObject {
+        if (request.requestUrl?.queryParameter("includePreferences") != "1" || item.string("type") != "show") return item
+        val policy = autoDelete[item.string("ratingKey")] ?: 0
+        val setting = obj {
+            put("id", "autoDeletionItemPolicyWatchedLibrary")
+            put("value", policy.toString())
+        }
+        return JsonObject(item + ("Preferences" to obj { putJsonArray("Setting") { add(setting) } }))
+    }
+
+    /** Deletes a film or episode, where the server allows it. */
+    private fun delete(key: String): MockResponse {
+        if (!allowsDeletion) return MockResponse().setResponseCode(403)
+        if (byKey(key) == null) return MockResponse().setResponseCode(404)
+        deleted += key
+        movies = movies.filter { it.string("ratingKey") != key }
+        episodes = episodes.filter { it.string("ratingKey") != key }
+        return MockResponse()
+    }
 
     /** Markers come only when asked for, as from a real server. */
     private fun withMarkers(item: JsonObject, request: RecordedRequest) =

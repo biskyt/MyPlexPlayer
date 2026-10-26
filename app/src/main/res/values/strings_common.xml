@@ -17,14 +17,14 @@
     <string name="common_tab_home">Home</string>
     <string name="common_tab_live">Live TV</string>
     <string name="common_tab_movies">Movies</string>
-    <string name="common_tab_series">Series</string>
+    <string name="common_tab_series">TV Shows</string>
 
     <!-- Buttons and menu entries used on several screens. Keep short -->
     <string name="common_continue">Continue</string>
     <string name="common_watch">Watch</string>
     <string name="common_play">Play</string>
     <!-- Play a film, episode or programme from its beginning -->
-    <string name="common_from_start">From the start</string>
+    <string name="common_from_start">Restart</string>
     <!-- Player buttons, and the Playback settings that set how far they skip -->
     <string name="common_skip_back">Skip back</string>
     <string name="common_skip_forward">Skip forward</string>

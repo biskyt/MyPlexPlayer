@@ -5,7 +5,9 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.RawQuery
 import androidx.room.Upsert
+import androidx.sqlite.db.SupportSQLiteQuery
 import kotlinx.coroutines.flow.Flow
 
 /** The most `IN (…)` arguments passed in one query (Android before 12 allows 999): longer lists go in chunks. */
@@ -353,7 +355,30 @@ const val MAX_PROGRAMME_MS = 26 * 3_600_000L
  * A poster in a movie or series grid: only what the grid shows, so paging holds as little as possible. [unwatched]:
  * a series' episodes not yet watched, for its badge.
  */
-data class VodCard(val id: Long, val title: String, val year: Int?, val imageUrl: String?, val unwatched: Int? = null)
+data class VodCard(
+    val id: Long,
+    val title: String,
+    val year: Int?,
+    val imageUrl: String?,
+    val unwatched: Int? = null,
+    /** A film's running time; a series' episodes. */
+    val durationSec: Int? = null,
+    val episodes: Int? = null,
+    /** How far into a film, of how long, when it has been played. */
+    val positionMs: Long? = null,
+    val playedOfMs: Long? = null,
+) {
+    /** A film watched to the end, or a series with every episode watched. */
+    val watched: Boolean
+        get() = unwatched == 0 || playedOfMs != null && WatchProgressEntity.isFinished(positionMs ?: 0, playedOfMs)
+
+    /** How far into a film part-watched (0 to 1), else null. */
+    val partWatched: Float?
+        get() {
+            val played = positionMs ?: 0
+            return if (watched || playedOfMs == null || playedOfMs <= 0 || played <= 0) null else played.toFloat() / playedOfMs
+        }
+}
 
 private const val MOVIE_CARD = "SELECT streamId AS id, title, year, posterUrl AS imageUrl, NULL AS unwatched"
 private const val SERIES_CARD = "SELECT seriesId AS id, title, year, coverUrl AS imageUrl, unwatched"
@@ -368,41 +393,20 @@ private const val FAVOURITE_ORDER = "ORDER BY f.position, f.addedAt DESC"
 /** Movies, series, favourites among them, and how far the user has watched. */
 @Dao
 interface VodDao {
-    // Lists filter by title as the user types; provider order unless sorted by date.
+    // The grids' own pages come from gridQuery (VodRepository).
 
-    @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid AND (:q = '' OR title $LIKE_Q) ORDER BY position, title")
-    fun pageMovies(pid: Long, q: String): PagingSource<Int, VodCard>
+    /** A grid's page, built by [gridQuery]: each watches only the tables it reads. */
+    @RawQuery(observedEntities = [MovieEntity::class, VodFavouriteEntity::class, WatchProgressEntity::class])
+    fun pageMovieGrid(query: SupportSQLiteQuery): PagingSource<Int, VodCard>
 
-    @Query(
-        "$MOVIE_CARD FROM movie WHERE playlistId = :pid AND categoryId = :cat AND (:q = '' OR title $LIKE_Q) ORDER BY position, title"
-    )
-    fun pageMovieCategory(pid: Long, cat: String, q: String): PagingSource<Int, VodCard>
-
-    @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid AND (:q = '' OR title $LIKE_Q) ORDER BY added DESC")
-    fun pageMoviesByAdded(pid: Long, q: String): PagingSource<Int, VodCard>
-
-    @Query("$MOVIE_CARD $MOVIE_FAVOURITES AND (:q = '' OR m.title $LIKE_Q) $FAVOURITE_ORDER")
-    fun pageMovieFavourites(pid: Long, q: String): PagingSource<Int, VodCard>
+    @RawQuery(observedEntities = [SeriesEntity::class, VodFavouriteEntity::class])
+    fun pageSeriesGrid(query: SupportSQLiteQuery): PagingSource<Int, VodCard>
 
     @Query("$MOVIE_CARD $MOVIE_FAVOURITES $FAVOURITE_ORDER LIMIT :limit")
     fun observeMovieFavourites(pid: Long, limit: Int): Flow<List<VodCard>>
 
     @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid ORDER BY added DESC LIMIT :limit")
     fun observeNewestMovies(pid: Long, limit: Int): Flow<List<VodCard>>
-
-    @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND (:q = '' OR title $LIKE_Q) ORDER BY position, title")
-    fun pageSeries(pid: Long, q: String): PagingSource<Int, VodCard>
-
-    @Query(
-        "$SERIES_CARD FROM series WHERE playlistId = :pid AND categoryId = :cat AND (:q = '' OR title $LIKE_Q) ORDER BY position, title"
-    )
-    fun pageSeriesCategory(pid: Long, cat: String, q: String): PagingSource<Int, VodCard>
-
-    @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND (:q = '' OR title $LIKE_Q) ORDER BY lastModified DESC")
-    fun pageSeriesByUpdated(pid: Long, q: String): PagingSource<Int, VodCard>
-
-    @Query("$SERIES_CARD $SERIES_FAVOURITES AND (:q = '' OR s.title $LIKE_Q) $FAVOURITE_ORDER")
-    fun pageSeriesFavourites(pid: Long, q: String): PagingSource<Int, VodCard>
 
     @Query("$SERIES_CARD $SERIES_FAVOURITES $FAVOURITE_ORDER LIMIT :limit")
     fun observeSeriesFavourites(pid: Long, limit: Int): Flow<List<VodCard>>
@@ -426,9 +430,6 @@ interface VodDao {
 
     @Query("SELECT COUNT(*) FROM movie WHERE playlistId = :pid")
     fun observeMovieCount(pid: Long): Flow<Int>
-
-    @Query("SELECT COUNT(*) FROM series WHERE playlistId = :pid")
-    fun observeSeriesCount(pid: Long): Flow<Int>
 
     @Query("SELECT (SELECT COUNT(*) FROM movie WHERE playlistId = :pid) + (SELECT COUNT(*) FROM series WHERE playlistId = :pid)")
     suspend fun titleCount(pid: Long): Int
@@ -465,6 +466,9 @@ interface VodDao {
 
     @Query("DELETE FROM series WHERE playlistId = :pid AND categoryId = :cat")
     suspend fun deleteSeriesCategory(pid: Long, cat: String)
+
+    @Query("DELETE FROM movie WHERE playlistId = :pid AND streamId = :id")
+    suspend fun deleteMovie(pid: Long, id: Long)
 
     @Query("DELETE FROM movie WHERE playlistId = :pid AND syncStamp != :stamp")
     suspend fun deleteStaleMovies(pid: Long, stamp: Long)
@@ -540,9 +544,12 @@ interface VodDao {
     @Query("UPDATE watch_progress SET carryOnAt = NULL WHERE playlistId = :pid AND kind = 'episode' AND seriesId = :seriesId")
     suspend fun leaveSeriesCarryOn(pid: Long, seriesId: Long)
 
-    /** Only when it changed: an update wakes every list of series, even to the same value. */
-    @Query("UPDATE series SET unwatched = :unwatched WHERE playlistId = :pid AND seriesId = :seriesId AND unwatched IS NOT :unwatched")
-    suspend fun setUnwatched(pid: Long, seriesId: Long, unwatched: Int?)
+    /** A series' unwatched and all episodes, only when they changed: an update wakes every list of series, even to the same values. */
+    @Query(
+        """UPDATE series SET unwatched = :unwatched, episodes = :episodes WHERE playlistId = :pid AND seriesId = :seriesId
+           AND (unwatched IS NOT :unwatched OR episodes IS NOT :episodes)"""
+    )
+    suspend fun setEpisodeCounts(pid: Long, seriesId: Long, unwatched: Int?, episodes: Int?)
 }
 
 /** Everything a backup holds (see BackupRepository), read and replaced as a whole. */

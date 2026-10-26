@@ -1,22 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="vod_recently_added">Adicionados recentemente</string>
-    <string name="vod_recently_updated">Atualizados recentemente</string>
-    <string name="vod_all_movies">Todos os filmes</string>
-    <string name="vod_all_series">Todas as séries</string>
-    <string name="vod_filter_hint">Filtrar por título</string>
     <string name="vod_no_favourites">Nenhum favorito ainda. Abra um título e escolha “Adicionar aos favoritos”.</string>
     <string name="vod_nothing_here">Nada aqui ainda. Carregue agora ou escolha quais categorias carregar.</string>
     <string name="vod_load_now">Carregar agora</string>
     <string name="vod_choose_categories">Escolher categorias</string>
 
-    <string name="vod_director">Direção: %1$s</string>
-    <string name="vod_cast">Elenco: %1$s</string>
     <string name="vod_resume_from">Retomar de %1$s</string>
 
     <string name="vod_episodes_failed">Não foi possível carregar os episódios</string>
-    <string name="vod_continue_episode">Continuar: %1$s</string>
-    <string name="vod_play_episode">Assistir %1$s</string>
     <string name="vod_loading_episodes">Carregando episódios…</string>
     <string name="vod_no_episodes">Nenhum episódio disponível para esta série.</string>
     <string name="vod_watched">Assistido</string>
@@ -28,4 +20,65 @@
         <item quantity="many">%1$d episódios não assistidos</item>
         <item quantity="other">%1$d episódios não assistidos</item>
     </plurals>
+    <string name="vod_delete">Excluir…</string>
+    <string name="vod_delete_confirm">Excluir “%1$s” do servidor Plex? O arquivo também é excluído, para todos que usam o servidor.</string>
+    <string name="vod_delete_yes">Excluir</string>
+    <string name="vod_delete_no">Manter</string>
+    <string name="vod_not_deleted">Não foi possível excluir</string>
+    <string name="vod_auto_delete">Excluir episódios assistidos</string>
+    <string name="vod_auto_delete_help">Depois de assistidos com a conta do próprio servidor. Salvo no Plex.</string>
+    <string name="vod_auto_delete_not_saved">Não foi possível mudar quando os episódios assistidos são excluídos</string>
+    <string name="vod_auto_delete_never">Nunca</string>
+    <string name="vod_auto_delete_day">Depois de um dia</string>
+    <string name="vod_auto_delete_week">Depois de uma semana</string>
+    <string name="vod_auto_delete_month">Depois de um mês</string>
+    <string name="vod_auto_delete_refresh">Na próxima atualização</string>
+    <string name="vod_more_info">Mais informações</string>
+    <string name="vod_about_film">Sobre o filme</string>
+    <string name="vod_about_show">Sobre a série</string>
+    <string name="vod_file_info">Arquivo</string>
+    <string name="vod_links">Links</string>
+    <string name="vod_original_title">Título original</string>
+    <string name="vod_released">Lançamento</string>
+    <string name="vod_studio">Estúdio</string>
+    <string name="vod_countries">País</string>
+    <string name="vod_producers">Produtores</string>
+    <string name="vod_collections">Coleção</string>
+    <string name="vod_added">Adicionado</string>
+    <string name="vod_picture">Imagem</string>
+    <string name="vod_sound">Som</string>
+    <string name="vod_subtitles">Legendas</string>
+    <string name="vod_size">Tamanho</string>
+    <string name="vod_container">Contêiner</string>
+    <string name="vod_forced">%1$s (forçadas)</string>
+    <string name="vod_more_soundtracks">%1$s (+ %2$d outras)</string>
+    <string name="vod_cast_title">Elenco</string>
+    <string name="vod_directed_by">Dirigido por %1$s</string>
+    <string name="vod_written_by">Escrito por %1$s</string>
+    <string name="vod_options_hint">Opções (segure OK ou Menu): elenco, mais informações e links</string>
+    <string name="vod_this_film">Este filme</string>
+    <string name="vod_this_episode">Este episódio</string>
+    <string name="vod_the_show">A série</string>
+    <string name="vod_up_next">A seguir</string>
+    <plurals name="vod_season_count">
+        <item quantity="one">%1$d temporada</item>
+        <item quantity="other">%1$d temporadas</item>
+    </plurals>
+    <plurals name="vod_episode_count">
+        <item quantity="one">%1$d episódio</item>
+        <item quantity="other">%1$d episódios</item>
+    </plurals>
+    <string name="vod_pill_category">Categoria: %1$s</string>
+    <string name="vod_pill_filter">Filtro: %1$s</string>
+    <string name="vod_pill_sort">Ordem: %1$s</string>
+    <string name="vod_all">Tudo</string>
+    <string name="vod_unwatched">Não assistidos</string>
+    <string name="vod_newest_episode">Episódio mais recente</string>
+    <string name="vod_sort_title">Título</string>
+    <string name="vod_sort_year">Ano</string>
+    <string name="vod_pick_category">Categoria</string>
+    <string name="vod_pick_filter">Filtro</string>
+    <string name="vod_pick_sort">Ordem</string>
+    <string name="vod_none_shown">Nada com estas opções.</string>
+    <string name="vod_no_cast">Nenhum elenco informado.</string>
 </resources>

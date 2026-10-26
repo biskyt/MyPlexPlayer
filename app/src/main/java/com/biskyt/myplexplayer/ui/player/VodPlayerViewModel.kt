@@ -15,6 +15,7 @@ import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.plex.PlexMarker
 import com.biskyt.myplexplayer.core.plex.SkipPill
 import com.biskyt.myplexplayer.core.plex.skipPill
+import com.biskyt.myplexplayer.core.vod.CastMember
 import com.biskyt.myplexplayer.core.vod.EpisodeInfo
 import com.biskyt.myplexplayer.data.Settings
 import com.biskyt.myplexplayer.data.VodStream
@@ -97,6 +98,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     private var favourite by mutableStateOf(false)
 
     override fun menuActions(): List<ItemAction> = listOf(
+        ItemAction.Run(appString(R.string.vod_cast_title)) { showCast() },
         ItemAction.Run(favouriteLabel(favourite)) {
             val add = !favourite
             viewModelScope.launch {
@@ -116,6 +118,19 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
             )
         }
     )
+
+    /** The cast shown over the player (opened from More), and whose, once read; null while it's closed. */
+    var cast by mutableStateOf<Pair<String, List<CastMember>>?>(null)
+
+    /** The film's cast; for an episode its own, else its series' (read from the server only now). */
+    private fun showCast() {
+        sheet = null
+        viewModelScope.launch {
+            val playing = current ?: return@launch
+            val own = playing.stream.plex?.cast.orEmpty()
+            cast = playing.title to own.ifEmpty { series?.let { c.vod.cast(screen.playlistId, it) }.orEmpty() }
+        }
+    }
 
     override val playsHow: String?
         get() = current?.stream?.plex?.let {

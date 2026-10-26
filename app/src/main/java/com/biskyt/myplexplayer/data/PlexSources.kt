@@ -5,6 +5,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.room.withTransaction
 import com.biskyt.myplexplayer.BuildConfig
 import com.biskyt.myplexplayer.core.plex.PlexAccount
+import com.biskyt.myplexplayer.core.plex.PlexAutoDelete
 import com.biskyt.myplexplayer.core.plex.PlexClient
 import com.biskyt.myplexplayer.core.plex.PlexDevice
 import com.biskyt.myplexplayer.core.plex.PlexException
@@ -12,12 +13,16 @@ import com.biskyt.myplexplayer.core.plex.PlexFavouriteChannel
 import com.biskyt.myplexplayer.core.plex.PlexItem
 import com.biskyt.myplexplayer.core.plex.PlexLiveTv
 import com.biskyt.myplexplayer.core.plex.PlexMarker
+import com.biskyt.myplexplayer.core.plex.PlexMediaInfo
 import com.biskyt.myplexplayer.core.plex.PlexPin
 import com.biskyt.myplexplayer.core.plex.PlexPlayState
 import com.biskyt.myplexplayer.core.plex.PlexProgramme
 import com.biskyt.myplexplayer.core.plex.PlexServer
 import com.biskyt.myplexplayer.core.plex.PlexStream
+import com.biskyt.myplexplayer.core.plex.PlexTag
 import com.biskyt.myplexplayer.core.plex.PlexType
+import com.biskyt.myplexplayer.core.plex.titleLinks
+import com.biskyt.myplexplayer.core.vod.CastMember
 import com.biskyt.myplexplayer.core.vod.EpisodeInfo
 import com.biskyt.myplexplayer.core.vod.SeasonInfo
 import com.biskyt.myplexplayer.core.vod.SeriesDetails
@@ -32,6 +37,7 @@ import com.biskyt.myplexplayer.data.db.VOD_MOVIE
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import java.io.IOException
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -170,6 +176,7 @@ class PlexSources(
             extension = m.extension,
             position = position,
             syncStamp = stamp,
+            durationSec = m.durationSec,
         )
     }
 
@@ -201,6 +208,7 @@ class PlexSources(
             syncStamp = stamp,
             unwatched = unwatched(s),
             newest = newest[id],
+            episodes = s.leafCount,
         )
     }
 
@@ -211,7 +219,7 @@ class PlexSources(
     /** A film's page, bringing its play state from the server into its progress row. */
     suspend fun movieDetails(p: PlaylistEntity, ratingKey: Long): VodDetails {
         val client = client(p)
-        val item = client.item(ratingKey.toString())
+        val item = client.item(ratingKey.toString(), guids = true)
         progress.positions(p.id, VOD_MOVIE, listOf(item), rowFor(client, p.id))
         return details(client, item)
     }
@@ -224,7 +232,7 @@ class PlexSources(
 
     /** A series' page, bringing its episodes' play state and its unwatched count from the server. */
     suspend fun seriesDetails(p: PlaylistEntity, ratingKey: Long): SeriesDetails {
-        val (client, show, leaves) = seriesState(p, ratingKey)
+        val (client, show, leaves) = seriesState(p, ratingKey, guids = true)
         val episodes = leaves.mapNotNull { e ->
             EpisodeInfo(
                 id = e.ratingKey.toLongOrNull() ?: return@mapNotNull null,
@@ -235,36 +243,59 @@ class PlexSources(
                 plot = e.summary.ifBlank { null },
                 durationSec = e.durationSec,
                 imageUrl = image(client, e.thumb, STILL_WIDTH, STILL_HEIGHT),
+                badges = PlexMediaInfo.of(e)?.badges.orEmpty(),
             )
         }
-        return SeriesDetails(details(client, show), episodes.map { it.season }.distinct().map { SeasonInfo(it, null) }, episodes)
+        // Each season's year and poster come with its episodes: no call of its own.
+        val seasons = leaves.groupBy { it.parentIndex ?: 0 }.map { (number, its) ->
+            SeasonInfo(number, null, its.mapNotNull { it.year }.minOrNull(), image(client, its.firstNotNullOfOrNull { it.parentThumb }))
+        }
+        return SeriesDetails(details(client, show), seasons, episodes)
     }
 
     /** A series' episodes' play state and unwatched count again (its page already known), with what was fetched. */
-    suspend fun seriesState(p: PlaylistEntity, ratingKey: Long, listed: PlexItem? = null): Triple<PlexClient, PlexItem, List<PlexItem>> {
+    suspend fun seriesState(
+        p: PlaylistEntity,
+        ratingKey: Long,
+        listed: PlexItem? = null,
+        guids: Boolean = false
+    ): Triple<PlexClient, PlexItem, List<PlexItem>> {
         val client = client(p)
         val (show, leaves) = coroutineScope {
-            val show = async { listed ?: client.item(ratingKey.toString()) }
+            val show = async { listed ?: client.item(ratingKey.toString(), guids = guids) }
             val leaves = async { client.episodes(ratingKey.toString()) }
             show.await() to leaves.await()
         }
         val last = leaves.lastOrNull()?.ratingKey
         progress.positions(p.id, VOD_EPISODE, leaves, rowFor(client, p.id, show = show) { it.ratingKey != last })
-        db.vod().setUnwatched(p.id, ratingKey, unwatched(show))
+        db.vod().setEpisodeCounts(p.id, ratingKey, unwatched(show), show.leafCount)
         return Triple(client, show, leaves)
     }
 
     private fun details(client: PlexClient, item: PlexItem) = VodDetails(
         plot = item.summary.ifBlank { null },
-        cast = null,
-        director = null,
-        genre = null,
         year = item.year,
         durationSec = item.durationSec,
         backdropUrl = image(client, item.art, BACKDROP_WIDTH, BACKDROP_HEIGHT),
         posterUrl = image(client, item.thumb),
-        rating = null,
+        rating = item.audienceRating ?: item.rating,
+        contentRating = item.contentRating,
+        genres = item.genres.tags(),
+        directors = item.directors.tags(),
+        writers = item.writers.tags(),
+        producers = item.producers.tags(),
+        countries = item.countries.tags(),
+        collections = item.collections.tags(),
+        cast = castOf(client, item),
+        studio = item.studio,
+        originalTitle = item.originalTitle?.takeIf { it.isNotBlank() && it != item.title },
+        released = item.originallyAvailableAt,
+        addedAt = item.addedAt,
+        links = titleLinks(item),
+        media = PlexMediaInfo.of(item),
     )
+
+    private fun List<PlexTag>.tags() = map { it.tag }.filter { it.isNotBlank() }
 
     /**
      * A film or episode from the server: where it plays from (its file as it is: never re-encoded), and its play state
@@ -513,10 +544,33 @@ class PlexSources(
 
     suspend fun removeFromContinueWatching(p: PlaylistEntity, ratingKey: Long) = client(p).removeFromContinueWatching(ratingKey.toString())
 
+    /** Whether each server lets its media be deleted: asked once (one tiny call), again after each sync. */
+    private val deletion = ConcurrentHashMap<Long, Boolean>()
+
+    /** Whether server [p] lets its media be deleted; false while it can't be asked (asked again next time). */
+    suspend fun allowsDeletion(p: PlaylistEntity): Boolean =
+        deletion[p.id] ?: offlineOk { client(p).allowsDeletion() }?.also { deletion[p.id] = it } ?: false
+
+    /** Asks again next time: the server's setting may have changed. */
+    fun forgetDeletion(playlistId: Long) {
+        deletion.remove(playlistId)
+    }
+
+    /** Deletes a film or an episode on the server, its file included. */
+    suspend fun delete(p: PlaylistEntity, ratingKey: Long) = client(p).delete(ratingKey.toString())
+
+    /** A title's cast, from its details on the server. */
+    suspend fun cast(p: PlaylistEntity, ratingKey: Long): List<CastMember> = client(p).let { castOf(it, it.item(ratingKey.toString())) }
+
+    suspend fun autoDeleteWatched(p: PlaylistEntity, show: Long): PlexAutoDelete? = client(p).autoDeleteWatched(show.toString())
+
+    suspend fun setAutoDeleteWatched(p: PlaylistEntity, show: Long, policy: PlexAutoDelete) =
+        client(p).setAutoDeleteWatched(show.toString(), policy)
+
     /** A series' unwatched count, again from the server (after one of its episodes played): for its badge. */
     private suspend fun refreshUnwatched(p: PlaylistEntity, client: PlexClient, seriesId: Long) {
         val show = offlineOk { client.item(seriesId.toString()) } ?: return // not answered: the next sync updates it
-        db.vod().setUnwatched(p.id, seriesId, unwatched(show))
+        db.vod().setEpisodeCounts(p.id, seriesId, unwatched(show), show.leafCount)
     }
 
     /** A series' episodes not yet watched; null when the server doesn't say. */
@@ -572,6 +626,12 @@ fun PlexItem.playState() = PlexItem(
 /** When it was last played, in ms (the server gives seconds). */
 val PlexItem.lastViewedMs: Long? get() = lastViewedAt?.times(1000)
 
+/** [item]'s cast, as the server lists them, with photos made small (loaded only where shown). */
+fun castOf(client: PlexClient, item: PlexItem): List<CastMember> = item.roles.filter { it.tag.isNotBlank() }
+    .map { r -> CastMember(r.tag, r.role, r.thumb?.let { client.imageUrl(it, CAST_PHOTO, CAST_PHOTO) }) }
+
+private const val CAST_PHOTO = 120
+
 /** [block]'s result, or null when the server didn't answer it (out of reach, or a failure). */
 suspend fun <T> offlineOk(block: suspend () -> T): T? = try {
     block()
@@ -623,6 +683,9 @@ class PlexPlayback(
     // Starting and closing the server's stream, one at a time: a close waits for a start under way, so the session
     // it opens is the one closed.
     private val streamLock = Mutex()
+
+    /** Who's in it, as the server lists them (photos made small, loaded only where shown). */
+    val cast: List<CastMember> by lazy { castOf(client, item) }
 
     /** Whether the server has been asked to stream the file ([directStream]), until [close]. */
     @Volatile var streaming = false

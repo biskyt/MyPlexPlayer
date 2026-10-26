@@ -1,5 +1,8 @@
 package com.biskyt.myplexplayer.data
 
+import androidx.annotation.StringRes
+import com.biskyt.myplexplayer.appString
+import java.io.IOException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,4 +23,13 @@ class Notices {
     fun dismiss(notice: Notice) {
         shown.compareAndSet(notice, null)
     }
+}
+
+/** Does [change] on Plex: false, with a notice ([failed] and why), when it can't be reached or refuses. */
+suspend fun Notices.inPlex(@StringRes failed: Int, change: suspend () -> Unit): Boolean = try {
+    change()
+    true
+} catch (e: IOException) {
+    post(Notice(appString(failed), userMessage(e)))
+    false
 }

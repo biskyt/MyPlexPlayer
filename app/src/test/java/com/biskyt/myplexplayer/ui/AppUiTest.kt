@@ -122,8 +122,8 @@ class AppUiTest {
             is Screen.Categories -> CategoriesScreen(screen.playlistId, screen.firstRun)
             Screen.Playlists -> PlaylistsScreen()
             is Screen.Search -> SearchScreen(screen.query)
-            is Screen.Movies -> VodBrowseScreen(CAT_MOVIE, screen.filter)
-            is Screen.Series -> VodBrowseScreen(CAT_SERIES, screen.filter)
+            is Screen.Movies -> VodBrowseScreen(CAT_MOVIE, screen.view)
+            is Screen.Series -> VodBrowseScreen(CAT_SERIES, screen.view)
             is Screen.MovieDetails -> MovieDetailsScreen(screen)
             is Screen.SeriesDetails -> SeriesDetailsScreen(screen)
             is Screen.VodPlayer -> Text("VOD ${screen.itemId} ${screen.seriesId}")
@@ -231,10 +231,10 @@ class AppUiTest {
         assertEquals(Screen.VodPlayer(playlistId, 11), navigator.current.screen)
 
         compose.runOnUiThread { navigator.reset(Screen.SeriesDetails(playlistId, 21)) }
-        waitFor("Play S1 E1")
+        waitFor("Up next")
         waitFor("Second")
         compose.onRoot().captureRoboImage("screenshots/series-details.png")
-        compose.onNode(hasText("Season 2")).performSemanticsAction(SemanticsActions.OnClick)
+        compose.onNode(hasText("Series 2")).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
         compose.onNode(hasText("Return")).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()

@@ -2,6 +2,18 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.10.0
+- **Delete what you've watched:** a film's or an episode's options have Delete…, asked once more before the file goes
+  from your Plex server. It shows only where the server allows deleting (Plex's "Allow media deletion").
+- **Delete watched episodes, per show:** change it with left and right in a show's options (never, after a day, a week
+  or a month, or on the next refresh). It's saved to Plex, which deletes episodes once watched with the server's own account.
+- **New film and show pages:** the picture size, HDR and sound at a glance, the cast, who made it, and More info for
+  the rest (file details, release date, studio). A show's page opens on the episode to watch next, with watched ones ticked.
+- **Movies and TV Shows** have Category, Filter (all, unwatched, favourites) and Sort at the top, ticks on what you've
+  watched, progress on films part-watched, and the year and running time of the one picked.
+- **Options everywhere** (hold OK, or Menu): links to IMDb, TMDB and TVDB in one row, and the cast, also while watching.
+- "From the start" is now "Restart", the menu says TV Shows, and in UK English a season is a series.
+
 ## 0.9.0
 - **Favourite channels are your Plex favourites,** the same in every Plex app: one you add, take off or move here is
   saved to Plex straight away, and one changed in another Plex app changes here at the next update. If Plex can't be

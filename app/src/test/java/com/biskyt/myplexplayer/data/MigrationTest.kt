@@ -302,4 +302,29 @@ class MigrationTest {
             db.query("SELECT name FROM sqlite_master WHERE name = 'plex_favourite_seen'").use { assertEquals(0, it.count) }
         }
     }
+
+    @Test
+    fun `version 14 to 15 keeps films and series, running time and episodes unknown until a sync`() {
+        helper.createDatabase("migration-test-15", 14).use { db ->
+            db.execSQL(
+                "INSERT INTO movie (playlistId, streamId, title, year, categoryId, posterUrl, rating, added, extension, " +
+                    "position, syncStamp) " +
+                    "VALUES (3, 11, 'Film', 2008, '1', NULL, NULL, 0, 'mp4', 0, 1)"
+            )
+            db.execSQL(
+                "INSERT INTO series (playlistId, seriesId, title, year, categoryId, coverUrl, rating, lastModified, position, syncStamp) " +
+                    "VALUES (3, 21, 'Show', 2020, '2', NULL, NULL, 0, 0, 1)"
+            )
+        }
+        helper.runMigrationsAndValidate("migration-test-15", 15, true).use { db ->
+            db.query("SELECT durationSec FROM movie WHERE streamId = 11").use { c ->
+                c.moveToFirst()
+                assertTrue(c.isNull(0))
+            }
+            db.query("SELECT episodes FROM series WHERE seriesId = 21").use { c ->
+                c.moveToFirst()
+                assertTrue(c.isNull(0))
+            }
+        }
+    }
 }

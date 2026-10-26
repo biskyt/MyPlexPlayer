@@ -55,9 +55,9 @@ enum class Tab(@StringRes val label: Int) {
     LIVE(R.string.common_tab_live)
 }
 
-/** Top bar from the agreed design: logo, tabs, clock, search, settings and the playlist switcher. */
+/** Top bar from the agreed design: tabs, clock, search, settings and the server switcher. */
 @Composable
-fun TopBar(selected: Tab?) {
+fun TopBar(selected: Tab?, selectedFocus: FocusRequester? = null) {
     val nav = LocalNavigator.current
     val accent = LocalAccent.current
     val container = LocalContext.current.container
@@ -71,15 +71,11 @@ fun TopBar(selected: Tab?) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(Modifier.padding(end = 28.dp)) {
-            Text("My", style = MaterialTheme.typography.titleLarge)
-            Text("Plex", style = MaterialTheme.typography.titleLarge, color = accent.color)
-            Text("Player", style = MaterialTheme.typography.titleLarge)
-        }
         Tab.entries.forEach { tab ->
             PillButton(
                 text = stringResource(tab.label),
                 selected = tab == selected,
+                modifier = if (tab == selected && selectedFocus != null) Modifier.focusRequester(selectedFocus) else Modifier,
                 onClick = {
                     nav.reset(
                         when (tab) {
@@ -130,11 +126,11 @@ private fun Clock() {
     )
 }
 
-/** Screen with the top bar above [content]. */
+/** Screen with the top bar above [content]; [tabFocus], if given, is the selected tab's (for routes up to it). */
 @Composable
-fun TabScaffold(tab: Tab?, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun TabScaffold(tab: Tab?, modifier: Modifier = Modifier, tabFocus: FocusRequester? = null, content: @Composable ColumnScope.() -> Unit) {
     Column(modifier.fillMaxSize().background(Palette.background)) {
-        TopBar(tab)
+        TopBar(tab, tabFocus)
         Column(Modifier.padding(top = 20.dp).fillMaxSize(), content = content)
     }
 }

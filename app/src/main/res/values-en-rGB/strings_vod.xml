@@ -3,4 +3,11 @@
      device (a same-language match beats the unqualified values). Same text as values/. -->
 <resources>
     <string name="vod_no_favourites">No favourites yet. Open a title and choose “Add to favourites”.</string>
+    <string name="vod_season">Series %1$d</string>
+    <string name="vod_about_film">About the film</string>
+    <string name="vod_this_film">This film</string>
+    <plurals name="vod_season_count">
+        <item quantity="one">%1$d series</item>
+        <item quantity="other">%1$d series</item>
+    </plurals>
 </resources>

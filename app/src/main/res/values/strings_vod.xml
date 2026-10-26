@@ -2,11 +2,6 @@
 <resources>
     <!-- Movies and Series pages: the fixed entries at the top of the category list. -->
     <string name="vod_recently_added">Recently added</string>
-    <string name="vod_recently_updated">Recently updated</string>
-    <string name="vod_all_movies">All movies</string>
-    <string name="vod_all_series">All series</string>
-    <!-- Placeholder of the filter box above the posters. -->
-    <string name="vod_filter_hint">Filter by title</string>
     <!-- "Add to favourites" is the name of the button on a movie's or series' page: keep it the same as there. -->
     <string name="vod_no_favourites">No favourites yet. Open a title and choose “Add to favourites”.</string>
     <!-- When no movies or series have been loaded; the two buttons below it follow. Up to 2 lines. -->
@@ -14,24 +9,17 @@
     <string name="vod_load_now">Load now</string>
     <string name="vod_choose_categories">Choose categories</string>
 
-    <!-- Movie page. %1$s: names of people. -->
-    <string name="vod_director">Director: %1$s</string>
-    <string name="vod_cast">Cast: %1$s</string>
     <!-- Button. %1$s: how far into the movie, e.g. "1 h 5 min". -->
     <string name="vod_resume_from">Resume from %1$s</string>
 
     <!-- Series page. -->
     <string name="vod_episodes_failed">Couldn\'t load the episodes</string>
-    <!-- Button. %1$s: the episode, written short, e.g. "S1 E2". -->
-    <string name="vod_continue_episode">Continue: %1$s</string>
-    <!-- Button. %1$s: the episode, written short, e.g. "S1 E2". -->
-    <string name="vod_play_episode">Play %1$s</string>
     <string name="vod_loading_episodes">Loading episodes…</string>
     <string name="vod_no_episodes">No episodes are available for this series.</string>
     <!-- Next to an episode watched to the end. Short. -->
     <string name="vod_watched">Watched</string>
     <!-- A season's button, when the provider gives it no name. %1$d: the season's number. Short. -->
-    <string name="vod_season">Season %1$d</string>
+    <string name="vod_season">Series %1$d</string>
     <!-- An episode the provider gave no title. %1$d: its number. -->
     <string name="vod_episode">Episode %1$d</string>
     <!-- Read out for the number on a series' poster: its episodes not yet watched. -->
@@ -39,4 +27,65 @@
         <item quantity="one">%1$d episode not watched yet</item>
         <item quantity="other">%1$d episodes not watched yet</item>
     </plurals>
+    <string name="vod_delete">Delete…</string>
+    <string name="vod_delete_confirm">Delete “%1$s” from the Plex server? Its file is deleted too, for everyone using the server.</string>
+    <string name="vod_delete_yes">Delete</string>
+    <string name="vod_delete_no">Keep it</string>
+    <string name="vod_not_deleted">Couldn’t delete it</string>
+    <string name="vod_auto_delete">Delete watched episodes</string>
+    <string name="vod_auto_delete_help">Once watched with the server’s own account. Saved to Plex.</string>
+    <string name="vod_auto_delete_not_saved">Couldn’t change when watched episodes are deleted</string>
+    <string name="vod_auto_delete_never">Never</string>
+    <string name="vod_auto_delete_day">After a day</string>
+    <string name="vod_auto_delete_week">After a week</string>
+    <string name="vod_auto_delete_month">After a month</string>
+    <string name="vod_auto_delete_refresh">On next refresh</string>
+    <string name="vod_more_info">More info</string>
+    <string name="vod_about_film">About the film</string>
+    <string name="vod_about_show">About the show</string>
+    <string name="vod_file_info">File info</string>
+    <string name="vod_links">Links</string>
+    <string name="vod_original_title">Original title</string>
+    <string name="vod_released">Released</string>
+    <string name="vod_studio">Studio</string>
+    <string name="vod_countries">Country</string>
+    <string name="vod_producers">Producers</string>
+    <string name="vod_collections">Collection</string>
+    <string name="vod_added">Added</string>
+    <string name="vod_picture">Picture</string>
+    <string name="vod_sound">Sound</string>
+    <string name="vod_subtitles">Subtitles</string>
+    <string name="vod_size">Size</string>
+    <string name="vod_container">Container</string>
+    <string name="vod_forced">%1$s (forced)</string>
+    <string name="vod_more_soundtracks">%1$s (+ %2$d more)</string>
+    <string name="vod_cast_title">Cast</string>
+    <string name="vod_directed_by">Directed by %1$s</string>
+    <string name="vod_written_by">Written by %1$s</string>
+    <string name="vod_options_hint">Options (hold OK, or Menu): cast, more info and links</string>
+    <string name="vod_this_film">This film</string>
+    <string name="vod_this_episode">This episode</string>
+    <string name="vod_the_show">The show</string>
+    <string name="vod_up_next">Up next</string>
+    <plurals name="vod_season_count">
+        <item quantity="one">%1$d series</item>
+        <item quantity="other">%1$d series</item>
+    </plurals>
+    <plurals name="vod_episode_count">
+        <item quantity="one">%1$d episode</item>
+        <item quantity="other">%1$d episodes</item>
+    </plurals>
+    <string name="vod_pill_category">Category: %1$s</string>
+    <string name="vod_pill_filter">Filter: %1$s</string>
+    <string name="vod_pill_sort">Sort: %1$s</string>
+    <string name="vod_all">All</string>
+    <string name="vod_unwatched">Unwatched</string>
+    <string name="vod_newest_episode">Newest episode</string>
+    <string name="vod_sort_title">Title</string>
+    <string name="vod_sort_year">Year</string>
+    <string name="vod_pick_category">Category</string>
+    <string name="vod_pick_filter">Filter</string>
+    <string name="vod_pick_sort">Sort</string>
+    <string name="vod_none_shown">Nothing here with these choices.</string>
+    <string name="vod_no_cast">No cast listed.</string>
 </resources>

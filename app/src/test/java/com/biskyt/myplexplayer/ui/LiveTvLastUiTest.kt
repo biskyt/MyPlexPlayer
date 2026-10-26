@@ -77,7 +77,7 @@ class LiveTvLastUiTest {
     fun `the menu has Live TV last`() {
         show(Screen.Home)
         compose.waitForText("Live TV", stepMs = 50)
-        val tabs = listOf("Home", "Series", "Movies", "Live TV").map(::left)
+        val tabs = listOf("Home", "TV Shows", "Movies", "Live TV").map(::left)
         assertTrue(tabs.toString(), tabs.zipWithNext().all { (a, b) -> a < b })
     }
 

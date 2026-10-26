@@ -115,8 +115,8 @@ class FavouriteMarksUiTest {
     @Test
     fun `the top bar lists series before movies`() {
         show(Screen.Home)
-        waitFor("Series")
-        assertTrue(left("Series") < left("Movies"))
+        waitFor("TV Shows")
+        assertTrue(left("TV Shows") < left("Movies"))
     }
 
     @Test

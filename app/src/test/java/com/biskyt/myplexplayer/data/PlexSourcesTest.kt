@@ -3,6 +3,9 @@ package com.biskyt.myplexplayer.data
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.biskyt.myplexplayer.R
+import com.biskyt.myplexplayer.appString
+import com.biskyt.myplexplayer.core.plex.PlexAutoDelete
 import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.data.db.AppDatabase
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
@@ -21,6 +24,8 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -55,7 +60,7 @@ class PlexSourcesTest {
             plexGuide = fake.url
         }
         playlists = PlaylistRepository(db, settings, epg, categoryStore, plex)
-        vod = VodRepository(db, playlists, categoryStore, plex)
+        vod = VodRepository(db, playlists, categoryStore, plex, Notices())
     }
 
     @After
@@ -199,5 +204,45 @@ class PlexSourcesTest {
         assertEquals("the token goes in a header", FakePlex.SERVER_TOKEN, stream.plex!!.stream.headers["X-Plex-Token"])
         assertEquals("not in the address", null, url.queryParameter("X-Plex-Token"))
         assertEquals("/library/parts/2102/1/file.mkv", vod.episodeStream(source, 212).url.toHttpUrl().encodedPath)
+    }
+
+    @Test
+    fun `deleting a film or an episode, where the server allows it`() = runBlocking {
+        plex.signIn(FakePlex.ACCOUNT_TOKEN)
+        val source = homePlex()
+        vod.sync(source)
+        vod.setFavourite(source.id, CAT_MOVIE, 11, true)
+        val notices = Notices()
+        vod = VodRepository(db, playlists, CategoryStore(db), plex, notices)
+
+        fake.allowsDeletion = false
+        assertFalse(vod.canDelete(source.id))
+        assertFalse("refused: nothing changes", vod.deleteMovie(source.id, 11))
+        assertNotNull(db.vod().movie(source.id, 11))
+        assertEquals(appString(R.string.vod_not_deleted), notices.current.value?.title)
+
+        fake.allowsDeletion = true
+        assertFalse("still the answer from before: asked again after a sync", vod.canDelete(source.id))
+        vod.sync(source)
+        assertTrue(vod.canDelete(source.id))
+        assertTrue(vod.deleteMovie(source.id, 11))
+        assertEquals(listOf("11"), fake.deleted)
+        assertNull(db.vod().movie(source.id, 11))
+        assertEquals(emptyList<Long>(), vod.favouriteOrder(source.id, CAT_MOVIE))
+
+        vod.seriesDetails(source, 21)
+        assertTrue(vod.deleteEpisode(source.id, 21, 212))
+        assertEquals("the page is fetched again", listOf("Pilot"), vod.seriesDetails(source, 21).episodes.map { it.title })
+    }
+
+    @Test
+    fun `a series' delete watched episodes is read from and saved to its server`() = runBlocking {
+        plex.signIn(FakePlex.ACCOUNT_TOKEN)
+        val source = homePlex()
+        vod.sync(source)
+        assertEquals(PlexAutoDelete.NEVER, vod.autoDeleteWatched(source.id, 21))
+        assertTrue(vod.setAutoDeleteWatched(source.id, 21, PlexAutoDelete.AFTER_A_WEEK))
+        assertEquals(7, fake.autoDelete["21"])
+        assertEquals(PlexAutoDelete.AFTER_A_WEEK, vod.autoDeleteWatched(source.id, 21))
     }
 }

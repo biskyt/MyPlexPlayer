@@ -13,6 +13,7 @@ import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.focusedText
+import com.biskyt.myplexplayer.testutil.idleFrames
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
@@ -86,15 +87,14 @@ class PlexWatchedUiTest {
     fun `marking an episode leaves the remote on it`() {
         val navigator = navigators.new(Screen.SeriesDetails(source, 21))
         compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
-        compose.waitForText("Play S1 E1", stepMs = 50)
-        compose.onNode(hasText("Pilot") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
-        compose.waitAdvancingClock { "Pilot" in compose.focusedText() }
+        // The episode to watch next has the remote as the page opens.
+        compose.waitAdvancingClock(stepMs = 50) { "Pilot" in compose.focusedText() && "Up next" in compose.focusedText() }
 
         choose("Mark as watched", title = "Pilot")
-        // Where to carry on moves to the next episode; the remote stays on the one marked.
-        compose.waitForText("Continue: S1 E2", stepMs = 50)
+        // Up next moves to the next episode; the remote stays on the one marked.
         compose.waitAdvancingClock(stepMs = 50) { finished(VOD_EPISODE, 211) }
-        assertTrue(compose.focusedText(), "Pilot" in compose.focusedText())
+        compose.idleFrames()
+        assertTrue(compose.focusedText(), "Pilot" in compose.focusedText() && "Up next" !in compose.focusedText())
     }
 
     @Test
@@ -103,7 +103,7 @@ class PlexWatchedUiTest {
         runBlocking { app.container.vod.sync(app.container.db.playlists().get(source)!!) }
         val navigator = navigators.new(Screen.SeriesDetails(source, 21))
         compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
-        compose.waitForText("Continue: S1 E1", stepMs = 50)
+        compose.waitForText("left", stepMs = 50) // "… min left"
         choose("Mark as unwatched", title = "Pilot", alsoShown = "Mark as watched")
         // Unwatched on the server forgets the resume point too.
         compose.waitAdvancingClock(stepMs = 50) { "211" !in plex.viewOffset }
