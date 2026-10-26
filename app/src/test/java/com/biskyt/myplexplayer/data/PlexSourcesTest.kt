@@ -141,14 +141,15 @@ class PlexSourcesTest {
 
     @Test
     fun `every library is included whatever its name, and one deleted on the server goes`() = runBlocking {
-        fake.filmLibrary = "FR: Films" // on a UK device, a library named as French isn't left out
+        // On a UK device, a library named as French isn't left out.
+        fake.libraries = listOf(FakePlex.Library("1", "movie", "FR: Films"), FakePlex.Library("2", "show", "TV Programmes"))
         plex.signIn(FakePlex.ACCOUNT_TOKEN)
         val source = homePlex()
         vod.sync(source)
         assertEquals(listOf(true), db.categories().all(source.id, CAT_MOVIE).map { it.included })
         assertEquals(2, db.vod().moviesSnapshot(source.id).size)
 
-        fake.filmLibrary = null
+        fake.libraries = fake.libraries.filter { it.key != "1" }
         vod.sync(source)
         assertTrue(db.categories().all(source.id, CAT_MOVIE).isEmpty())
         assertTrue(db.vod().moviesSnapshot(source.id).isEmpty())

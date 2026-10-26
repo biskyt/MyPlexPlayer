@@ -141,6 +141,12 @@ class EpgRepository(
         db.withTransaction { epg.setSourceError(plexGuide(p), error) }
     }
 
+    /** Why a Plex server's guide (of source [playlistId]) didn't load at its last fetch, by its guide's id; none if it did. */
+    suspend fun plexGuideError(playlistId: Long): Map<Long, String> {
+        val guide = epg.providerSource(playlistId)?.takeIf { it.isPlexGuide } ?: return emptyMap()
+        return guide.lastError?.let { mapOf(guide.id to GuideError.text(it)) }.orEmpty()
+    }
+
     /** The id of [p]'s own guide source, added the first time. */
     private suspend fun plexGuide(p: PlaylistEntity): Long = epg.providerSource(p.id)?.id
         ?: epg.insertSource(EpgSourceEntity(name = p.name, url = "$PLEX_GUIDE${p.id}", playlistId = p.id))

@@ -11,10 +11,11 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.printToString
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.ChannelFilter
-import com.biskyt.myplexplayer.testutil.FakeProvider
+import com.biskyt.myplexplayer.data.plexChannelId
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
-import com.biskyt.myplexplayer.testutil.addHomeTv
+import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
@@ -38,19 +39,19 @@ class TouchUiTest {
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
 
-    private val provider = FakeProvider()
+    private val plex = FakePlex()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
-    private var playlistId = 0L
+    private var source = 0L
     private lateinit var navigator: Navigator
 
     @Before
     fun setUp() = runBlocking {
         shadowOf(app.packageManager).setSystemFeature(PackageManager.FEATURE_TOUCHSCREEN, true)
-        playlistId = app.container.addHomeTv(provider)
+        source = app.container.addSyncedHomePlex(plex)
     }
 
     @After
-    fun tearDown() = provider.close()
+    fun tearDown() = plex.close()
 
     private fun show(start: Screen) {
         navigator = navigators.new(start)
@@ -69,21 +70,21 @@ class TouchUiTest {
     @Test
     fun `a tap presses a button and a long press opens a channel's options`() {
         show(Screen.Welcome)
-        waitFor(hasText("Add my TV provider"), "Welcome")
-        compose.onNode(hasText("Add my TV provider")).performTouchInput { click() }
+        waitFor(hasText("Sign in to Plex"), "Welcome")
+        compose.onNode(hasText("Sign in to Plex")).performTouchInput { click() }
         compose.waitAdvancingClock { navigator.current.screen != Screen.Welcome }
-        assertEquals(Screen.PlaylistEdit(null, firstRun = true), navigator.current.screen)
+        assertEquals(Screen.PlexSignIn(firstRun = true), navigator.current.screen)
 
         compose.runOnUiThread { navigator.reset(Screen.Live()) }
-        waitFor(hasText("UK: CHANNEL ONE HD"), "the channel list")
-        compose.onNode(hasText("UK: CHANNEL ONE HD")).performTouchInput { longClick() }
+        waitFor(hasText("One"), "the channel list")
+        compose.onNode(hasText("One")).performTouchInput { longClick() }
         waitFor(hasText("Add to favourites"), "the channel's options")
     }
 
     @Test
     fun `on the player a tap shows or hides the controls, and Back at the top goes back to the list`() {
         show(Screen.Live())
-        compose.runOnUiThread { navigator.push(Screen.Player(playlistId, 101, ChannelFilter.All)) }
+        compose.runOnUiThread { navigator.push(Screen.Player(source, plexChannelId("ch-1"), ChannelFilter.All)) }
         // The controls are up as playback starts, with Back in the corner on a touch screen.
         waitFor(hasContentDescription("Back"), "Back")
         // The channel's own controls come once it's been looked up.

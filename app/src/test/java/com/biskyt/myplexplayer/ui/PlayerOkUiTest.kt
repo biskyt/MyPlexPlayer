@@ -9,10 +9,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.core.player.OverlayState
 import com.biskyt.myplexplayer.data.ChannelFilter
-import com.biskyt.myplexplayer.testutil.FakeProvider
+import com.biskyt.myplexplayer.data.plexChannelId
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
-import com.biskyt.myplexplayer.testutil.addHomeTv
+import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.focusedText
 import com.biskyt.myplexplayer.testutil.idleFrames
@@ -45,27 +46,27 @@ class PlayerOkUiTest {
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
 
-    private val provider = FakeProvider()
+    private val plex = FakePlex()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
-    private var playlistId = 0L
+    private var source = 0L
 
     @Before
     fun setUp() = runBlocking {
-        // A stream that never fails: a failed one is retried, or tried in the other format, which plays it again
-        // whenever the error comes in (in real time), undoing a pause.
-        provider.streamsTrickle = true
-        playlistId = app.container.addHomeTv(provider)
+        // A stream that never fails: a failed one is retried, and in the end shows an error, whenever the error
+        // comes in (in real time), in the middle of a test.
+        plex.liveTrickles = true
+        source = app.container.addSyncedHomePlex(plex)
     }
 
     @After
-    fun tearDown() = provider.close()
+    fun tearDown() = plex.close()
 
     private lateinit var vm: PlayerViewModel
     private val playWhenReady get(): Boolean = compose.runOnIdle { vm.engine!!.player.playWhenReady }
 
     /** The live player with its controls hidden and focus on the video, as after watching for a while. */
     private fun playerWithoutControls() {
-        val navigator = navigators.new(Screen.Player(playlistId, 101, ChannelFilter.All))
+        val navigator = navigators.new(Screen.Player(source, plexChannelId("ch-1"), ChannelFilter.All))
         compose.setContent { MyPlexTheme { NavHost(remember { navigator }) { ScreenContent(it) } } }
         vm = ViewModelProvider(navigator.current)[PlayerViewModel::class.java]
         // Tuning (which brings the controls up) has finished: the channel is known and its stream is loading.

@@ -6,10 +6,10 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
-import com.biskyt.myplexplayer.testutil.FakeProvider
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
-import com.biskyt.myplexplayer.testutil.addHomeTv
+import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
@@ -35,19 +35,17 @@ class PlaylistsScreenTest {
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
 
-    private val provider = FakeProvider()
+    private val plex = FakePlex()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
 
     @Before
     fun setUp() = runBlocking {
-        val c = app.container
-        val id = c.addHomeTv(provider)
-        c.playlists.get(id)?.let { c.epg.ensureProviderSource(it, c.playlists.client(it).xmltvUrl()) }
+        app.container.addSyncedHomePlex(plex)
         Unit
     }
 
     @After
-    fun tearDown() = provider.close()
+    fun tearDown() = plex.close()
 
     private fun updateNow() {
         compose.setContent { MyPlexTheme { NavHost(remember { navigators.new(Screen.Playlists) }) { ScreenContent(it) } } }
@@ -60,20 +58,20 @@ class PlaylistsScreenTest {
     @Test
     fun `update now says when the playlist is up to date`() {
         updateNow()
-        waitFor("Home TV updated")
+        waitFor("Home Plex updated")
     }
 
     @Test
     fun `update now says when the playlist couldn't be updated`() {
-        provider.close() // the provider is gone
+        plex.close() // the server is gone
         updateNow()
-        waitFor("Couldn't update Home TV")
+        waitFor("Couldn't update Home Plex")
     }
 
     @Test
     fun `update now says when the playlist updated but its guide didn't`() {
-        provider.guideFails = true
+        plex.guideFails = true
         updateNow()
-        waitFor("Home TV updated, but some guides couldn't be loaded")
+        waitFor("Home Plex updated, but some guides couldn't be loaded")
     }
 }

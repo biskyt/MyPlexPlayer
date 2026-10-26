@@ -10,10 +10,10 @@ import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
-import com.biskyt.myplexplayer.testutil.FakeProvider
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
-import com.biskyt.myplexplayer.testutil.addHomeTv
+import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.focusedText
 import com.biskyt.myplexplayer.testutil.scrollToHomeRow
@@ -42,21 +42,32 @@ class HomeFavouritesUiTest {
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
 
-    private val provider = FakeProvider()
+    private val plex = FakePlex()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
     private var playlistId = 0L
     private lateinit var navigator: Navigator
 
     @Before
     fun setUp() = runBlocking {
-        playlistId = app.container.addHomeTv(provider, vod = true)
+        plex.movies = listOf(
+            FakePlex.film("51", "Dune", 2021, addedAt = 1_700_000_051),
+            FakePlex.film("52", "Paddington 2", 2017, addedAt = 1_700_000_052),
+            FakePlex.film("53", "Heat", 1995, addedAt = 1_700_000_053),
+        )
+        // Lupin has the newest episode: first on Home's recently added series.
+        plex.shows = listOf(FakePlex.show("78", "Lupin"), FakePlex.show("77", "Line of Duty"))
+        plex.episodes = listOf(
+            FakePlex.episode("78", "Lupin", "781", 1, 1, "Episode 1"),
+            FakePlex.episode("77", "Line of Duty", "771", 1, 1, "Episode 1"),
+        )
+        playlistId = app.container.addSyncedHomePlex(plex)
         // Line of Duty; Paddington 2 and Heat.
         app.container.vod.setFavourite(playlistId, CAT_SERIES, 77, true)
-        listOf(502L, 701L).forEach { app.container.vod.setFavourite(playlistId, CAT_MOVIE, it, true) }
+        listOf(52L, 53L).forEach { app.container.vod.setFavourite(playlistId, CAT_MOVIE, it, true) }
     }
 
     @After
-    fun tearDown() = provider.close()
+    fun tearDown() = plex.close()
 
     private fun show() {
         navigator = navigators.new(Screen.Home)
@@ -65,7 +76,8 @@ class HomeFavouritesUiTest {
 
     private fun waitFor(text: String) = compose.waitForText(text, stepMs = 50)
 
-    private fun top(text: String) = compose.onNode(hasText(text)).fetchSemanticsNode().boundsInRoot.top
+    /** Where the last [text] is (a favourite is also among the recently added, above). */
+    private fun top(text: String) = compose.onAllNodes(hasText(text)).onLast().fetchSemanticsNode().boundsInRoot.top
 
     private fun shown(text: String) = compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()
 
@@ -81,7 +93,7 @@ class HomeFavouritesUiTest {
         // The favourites' card (it's also among the recently added, above).
         compose.onAllNodes(hasText("Paddington 2") and hasClickAction()).onLast().performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
-        assertEquals(Screen.MovieDetails(playlistId, 502), navigator.current.screen)
+        assertEquals(Screen.MovieDetails(playlistId, 52), navigator.current.screen)
     }
 
     @Test
@@ -89,15 +101,16 @@ class HomeFavouritesUiTest {
         show()
         compose.scrollToHomeRow(R.string.home_favourite_series)
         waitFor("Line of Duty")
-        val card = compose.onNode(hasText("Line of Duty") and hasClickAction())
+        // The favourites' card (it's also among the recently added, above).
+        val card = compose.onAllNodes(hasText("Line of Duty") and hasClickAction()).onLast()
         card.performSemanticsAction(SemanticsActions.RequestFocus)
         card.performSemanticsAction(SemanticsActions.OnLongClick)
         waitFor("Open series")
         waitFor("Remove from favourites")
         compose.onNode(hasText("Remove from favourites")).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitAdvancingClock(stepMs = 50) { !shown("Favourite series") }
-        // Focus doesn't go with the card: it goes back to the first one on Home (the newest movie's).
-        compose.waitAdvancingClock(stepMs = 50) { "Heat" in compose.focusedText() }
+        // Focus doesn't go with the card: it goes back to the first one on Home (the newest series').
+        compose.waitAdvancingClock(stepMs = 50) { "Lupin" in compose.focusedText() }
         runBlocking { assertFalse(77L in app.container.vod.observeFavouriteIds(playlistId, CAT_SERIES).first()) }
         assertTrue(shown("Favourite movies"))
     }

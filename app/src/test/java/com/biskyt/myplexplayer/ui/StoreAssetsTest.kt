@@ -50,22 +50,23 @@ import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.ui.AccentPalette
 import com.biskyt.myplexplayer.data.ChannelFilter
+import com.biskyt.myplexplayer.data.categoryLabel
 import com.biskyt.myplexplayer.data.db.CAT_LIVE
-import com.biskyt.myplexplayer.data.db.CAT_MOVIE
-import com.biskyt.myplexplayer.data.db.CAT_SERIES
-import com.biskyt.myplexplayer.data.db.VOD_EPISODE
-import com.biskyt.myplexplayer.data.db.VOD_MOVIE
-import com.biskyt.myplexplayer.data.db.WatchProgressEntity
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.FakeProvider
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
+import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
+import com.biskyt.myplexplayer.testutil.plexChannel
 import com.biskyt.myplexplayer.ui.common.initials
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import com.biskyt.myplexplayer.ui.theme.Palette
 import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.After
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -79,7 +80,8 @@ import org.robolectric.annotation.GraphicsMode
 /**
  * The Google Play and Amazon Appstore listings' graphics and screenshots, drawn from the app itself so they always match it. Only run when
  * asked: `./gradlew :app:recordRoborazziDebug --tests '*StoreAssetsTest*' -PstoreAssets`. Files go to store/ at the
- * repository root. Demo channels and programmes are invented: no real broadcaster or title appears.
+ * repository root. Demo channels and programmes are invented: no real broadcaster or title appears. They come from a
+ * fake Plex server, as a signed-in user's own would send them.
  *
  * xhdpi on a 960×540 dp screen gives the 1920×1080 pixels Play asks for in TV screenshots.
  *
@@ -96,86 +98,58 @@ class StoreAssetsTest {
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
 
-    private val provider = FakeProvider().apply {
-        categories = listOf("1" to "News", "2" to "Sport", "3" to "Kids", "4" to "Entertainment", "5" to "Documentaries")
-        streams = listOf(
-            FakeProvider.Stream(101, 1, "Riverside One HD", "4", "one"),
-            FakeProvider.Stream(102, 2, "Northbridge News", "1", "news"),
-            FakeProvider.Stream(103, 3, "Harbour Sport 1", "2", "sport1"),
-            FakeProvider.Stream(104, 4, "Harbour Sport 2", "2", "sport2"),
-            FakeProvider.Stream(105, 5, "Little Sky Kids", "3", "kids"),
-            FakeProvider.Stream(106, 6, "Lantern Drama", "4", "drama"),
-            FakeProvider.Stream(107, 7, "Atlas Documentary", "5", "docs"),
-            FakeProvider.Stream(108, 8, "Meadow Comedy", "4", "comedy"),
-        ).map { it.copy(logo = art("${it.epgId}.png")) }
-        guideChannels = listOf(
-            "one" to "Riverside One HD",
-            "news" to "Northbridge News",
-            "sport1" to "Harbour Sport 1",
-            "sport2" to "Harbour Sport 2",
-            "kids" to "Little Sky Kids",
-            "drama" to "Lantern Drama",
-            "docs" to "Atlas Documentary",
-            "comedy" to "Meadow Comedy"
-        )
-        fun now(title: String, desc: String) = "<title>$title</title><desc>$desc</desc><category>Series</category>"
-        nowProgramme = mapOf(
-            "one" to now("The Garden Planners", "Two neighbours turn a bare yard into a summer garden."),
-            "news" to now("Evening Bulletin", "The day's main stories, with weather and sport."),
-            "sport1" to now("Coastal Cup: Live", "The semi-final, live from the harbour stadium."),
-            "sport2" to now("Cycling Highlights", "The best of the mountain stage."),
-            "kids" to now("Paper Boats", "Mia and Leo build a fleet for the park pond."),
-            "drama" to now("The Lighthouse Keeper", "A storm cuts the island off for the night."),
-            "docs" to now("Wild Rivers", "Following salmon upstream through the autumn."),
-            "comedy" to now("Flat Share", "Nobody admits to finishing the milk.")
-        )
-        nextTitle = mapOf(
-            "one" to "Weekend Kitchen",
-            "news" to "World Tonight",
-            "sport1" to "Coastal Cup: Reaction",
-            "sport2" to "Track Day",
-            "kids" to "Star Painters",
-            "drama" to "Harbour Lights",
-            "docs" to "Night Skies",
-            "comedy" to "Open Mic"
-        )
-        // The Blender Foundation's open movies, with their posters (CC BY; see demo-art/CREDITS.md).
-        movieCategories = listOf("30" to "Animation", "31" to "Sci-fi")
+    private val plex = FakePlex().apply {
+        channels = CHANNELS.map { FakePlex.Channel(it.number, it.name, imageAddress("/logos/${it.logo}.png")) }
+        programme = { i, n -> if (n == 0) CHANNELS[i].now else FakePlex.Programme(CHANNELS[i].next) }
+        // The Blender Foundation's open movies, with their posters (CC BY; see demo-art/CREDITS.md), as the server
+        // lists them: by title.
         movies = listOf(
-            Triple(801L, "Charge (2022)", "30"),
-            Triple(802L, "Cosmos Laundromat (2015)", "30"),
-            Triple(803L, "Tears of Steel (2012)", "31"),
-            Triple(804L, "Sintel (2010)", "30"),
-            Triple(805L, "Big Buck Bunny (2008)", "30"),
-            Triple(806L, "Elephants Dream (2006)", "30"),
+            FakePlex.film(
+                "805",
+                "Big Buck Bunny",
+                2008,
+                addedAt = ADDED - 5,
+                duration = 596_000,
+                summary = BUNNY_PLOT,
+                thumb = "/art/big-buck-bunny.jpg",
+                art = "/art/big-buck-bunny-still.jpg"
+            ),
+            FakePlex.film("801", "Charge", 2022, addedAt = ADDED, duration = 240_000, thumb = "/art/charge.jpg"),
+            FakePlex.film("802", "Cosmos Laundromat", 2015, addedAt = ADDED - 2, duration = 730_000, thumb = "/art/cosmos-laundromat.jpg"),
+            FakePlex.film("806", "Elephants Dream", 2006, addedAt = ADDED - 6, duration = 654_000, thumb = "/art/elephants-dream.jpg"),
+            FakePlex.film("804", "Sintel", 2010, addedAt = ADDED - 4, duration = 888_000, thumb = "/art/sintel.jpg"),
+            FakePlex.film("803", "Tears of Steel", 2012, addedAt = ADDED - 3, duration = 734_000, thumb = "/art/tears-of-steel.jpg"),
         )
-        moviePoster = { id -> art(posterFile(movies.first { it.first == id }.second)) }
-        // Only Big Buck Bunny's details page is shown.
-        movieInfo = { id ->
-            """{"info":{"plot":"$BUNNY_PLOT","director":"Sacha Goedegebure",""" +
-                """"genre":"Animation, Comedy","releasedate":"2008-05-30","duration_secs":596,""" +
-                """"backdrop_path":["${art("big-buck-bunny-still.jpg")}"]},"movie_data":{"stream_id":$id,"container_extension":"mkv"}}"""
-        }
         // And their series: Caminandes, three shorts about Koro the llama.
-        seriesCategories = listOf("40" to "Animation")
-        series = listOf(Triple(901L, "Caminandes (2013)", "40"))
-        seriesCover = { art("caminandes.jpg") }
-        seriesReleaseDate = "2013-01-30"
-        seriesInfo = {
-            fun episode(n: Int, title: String, plot: String, secs: Int) =
-                """{"id":"910$n","episode_num":$n,"title":"$title","container_extension":"mp4","season":1,""" +
-                    """"info":{"plot":"$plot","duration_secs":$secs}}"""
-            """{"seasons":[{"season_number":1,"name":"Season 1"}],
-               "info":{"plot":"$LLAMA_PLOT","genre":"Animation, Comedy","backdrop_path":["${art("caminandes-still.jpg")}"]},
-               "episodes":{"1":[${episode(1, "Llama Drama", "Koro wants to cross the road. So does the traffic.", 90)},
-                                ${episode(2, "Gran Dillama", "The grass is greener beyond the electric fence.", 146)},
-                                ${episode(3, "Llamigos", "Winter, a berry bush, and a penguin called Oti.", 150)}]}}"""
+        shows = listOf(
+            with(
+                FakePlex.show("901", "Caminandes", 2013, addedAt = ADDED - 1, summary = LLAMA_PLOT, thumb = "/art/caminandes.jpg")
+            ) { JsonObject(this + ("art" to JsonPrimitive("/art/caminandes-still.jpg"))) }
+        )
+        episodes = listOf(
+            Triple("Llama Drama", "Koro wants to cross the road. So does the traffic.", 90_000L),
+            Triple("Gran Dillama", "The grass is greener beyond the electric fence.", 146_000L),
+            Triple("Llamigos", "Winter, a berry bush, and a penguin called Oti.", 150_000L),
+        ).mapIndexed { i, (title, plot, duration) ->
+            val episode = FakePlex.episode("901", "Caminandes", "901${i + 1}", 1, i + 1, title, duration)
+            // With their summary and their series' poster, as the server lists them.
+            JsonObject(episode + mapOf("summary" to JsonPrimitive(plot), "grandparentThumb" to JsonPrimitive("/art/caminandes.jpg")))
         }
+        images = { path -> javaClass.getResourceAsStream("/demo-art/${path.substringAfterLast('/')}")?.use { it.readBytes() } }
     }
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
     private var playlistId = 0L
     private val language = System.getProperty("storeLanguage").orEmpty()
     private val out = if (language.isEmpty()) OUT else "build/store-assets/$language"
+
+    /** For the guide matching screenshot only: an Xtream provider with an XMLTV guide, the same channels on both. */
+    private val provider = FakeProvider().apply {
+        categories = listOf("1" to "Entertainment")
+        streams =
+            CHANNELS.map { FakeProvider.Stream(100L + it.number.toLong(), it.number.toInt(), it.name, "1", it.logo, art("${it.logo}.png")) }
+        guideChannels = CHANNELS.map { it.logo to it.name }
+        images = { name -> javaClass.getResourceAsStream("/demo-art/$name")?.use { it.readBytes() } }
+    }
 
     @Before
     fun setUp() = runBlocking {
@@ -185,26 +159,18 @@ class StoreAssetsTest {
         val c = app.container
         // Robolectric's native graphics can only decode images on the main thread.
         SingletonImageLoader.setUnsafe(app.newImageLoader(app).newBuilder().decoderCoroutineContext(Dispatchers.Main.immediate).build())
-        provider.images = { name -> javaClass.getResourceAsStream("/demo-art/$name")?.use { it.readBytes() } }
-        playlistId = c.playlists.add("My TV provider", provider.url, "me", "secret")
-        // The demo categories have no country prefix, so none is picked by default: show them all.
-        c.db.categories().setIncluded(playlistId, CAT_LIVE, provider.categories.map { it.first }, true)
-        c.playlists.syncChannels(playlistId)
-        c.playlists.get(playlistId)?.let { c.epg.ensureProviderSource(it, c.playlists.client(it).xmltvUrl()) }
-        c.epg.importAll(listOf(playlistId))
-        listOf(101L, 103L, 105L, 107L).forEach { c.channels.setFavourite(playlistId, it, true) }
-        listOf(102L, 106L, 104L).forEach { c.channels.markWatched(playlistId, it) }
+        playlistId = c.addSyncedHomePlex(plex)
+        listOf("1", "3", "5", "7").forEach { c.channels.setFavourite(playlistId, plexChannel(it), true) }
+        listOf("2", "6", "4").forEach { c.channels.markWatched(playlistId, plexChannel(it)) }
     }
 
     @After
     fun tearDown() {
+        plex.close()
         provider.close()
         SingletonImageLoader.reset()
         AppText.setLanguage(app, "")
     }
-
-    /** A movie's poster file in demo-art/, from its title ("Big Buck Bunny (2008)" → big-buck-bunny.jpg). */
-    private fun posterFile(title: String) = title.substringBefore(" (").lowercase().replace(' ', '-') + ".jpg"
 
     /** Runs the main thread until [done]. */
     private fun idleUntil(timeoutMs: Long = 10_000, done: () -> Boolean) = compose.waitUntil(timeoutMs) {
@@ -217,10 +183,10 @@ class StoreAssetsTest {
     /** Initials shown in place of a logo or poster until it loads. */
     private val placeholders by lazy {
         (
-            provider.streams.map {
-                it.name
-            } + (provider.movies + provider.series).map { it.second.substringBefore(" (") }
-            ).map { initials(it) }.toSet()
+            CHANNELS.map { it.name } +
+                listOf("Big Buck Bunny", "Charge", "Cosmos Laundromat", "Elephants Dream", "Sintel", "Tears of Steel", "Caminandes")
+            )
+            .map { initials(it) }.toSet()
     }
     private val placeholder = SemanticsMatcher("logo or poster placeholder") { node ->
         node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text in placeholders }
@@ -241,56 +207,44 @@ class StoreAssetsTest {
         flatten("$out/screenshots/$name.png")
     }
 
-    // Part-way through a film and a series, as well as the channels.
+    // Part-way through a film and a series (played on the server), as well as the channels.
     @Test fun home() {
         runBlocking {
-            val now = System.currentTimeMillis()
-            app.container.vod.saveProgress(
-                WatchProgressEntity(playlistId, VOD_MOVIE, 804, 530_000, 888_000, now, "Sintel", provider.moviePoster(804))
-            )
-            app.container.vod.saveProgress(
-                WatchProgressEntity(
-                    playlistId, VOD_EPISODE, 9102, 50_000, 146_000, now - 3_600_000, "Caminandes", provider.seriesCover(901),
-                    seriesId = 901, season = 1, episode = 2, episodeTitle = "Gran Dillama", hasNext = true
-                )
-            )
+            plex.watched += "9011"
+            plex.viewOffset["804"] = 530_000
+            plex.viewOffset["9012"] = 50_000
+            plex.continueWatching = listOf("804", "9012")
+            app.container.sync.refreshNow(playlistId).getOrThrow()
         }
-        screenshot("1-home", Screen.Home, "The Garden Planners")
+        screenshot("1-home", Screen.Home, "Sintel")
     }
 
     @Test fun liveTv() = screenshot("2-live-tv", Screen.Live(ChannelFilter.All), "Evening Bulletin")
 
     @Test fun tvGuide() = screenshot("3-tv-guide", Screen.Live(ChannelFilter.All, guide = true), "World Tonight")
 
-    @Test fun movies() {
-        loadMoviesAndSeries()
-        screenshot("5-movies", Screen.Movies(), "Elephants Dream")
-    }
+    @Test fun movies() = screenshot("5-movies", Screen.Movies(), "Elephants Dream")
 
-    @Test fun movieDetails() {
-        loadMoviesAndSeries()
-        screenshot("7-movie-details", Screen.MovieDetails(playlistId, 805), "Sacha Goedegebure")
-    }
+    @Test fun movieDetails() = screenshot("7-movie-details", Screen.MovieDetails(playlistId, 805), "A giant, gentle rabbit")
 
-    @Test fun seriesDetails() {
-        loadMoviesAndSeries()
-        screenshot("8-series-details", Screen.SeriesDetails(playlistId, 901), "Llamigos")
-    }
+    @Test fun seriesDetails() = screenshot("8-series-details", Screen.SeriesDetails(playlistId, 901), "Llamigos")
 
-    private fun loadMoviesAndSeries() = runBlocking {
-        val c = app.container
-        c.db.categories().setIncluded(playlistId, CAT_MOVIE, provider.movieCategories.map { it.first }, true)
-        c.db.categories().setIncluded(playlistId, CAT_SERIES, provider.seriesCategories.map { it.first }, true)
-        c.vod.sync(c.playlists.get(playlistId)!!)
-    }
-
-    // One channel set by hand (an hour's shift), and another open on its suggestions.
+    // XMLTV guides only (not a Plex server's own): one channel set by hand (an hour's shift), and another open on its
+    // suggestions.
     @Test fun guideMatching() {
-        runBlocking {
-            val source = app.container.db.epg().enabledSources().first().id
-            app.container.epg.setManual(playlistId, 108, source, "comedy", offsetMinutes = 60)
+        val id = runBlocking {
+            val c = app.container
+            val id = c.playlists.add("My TV provider", provider.url, "me", "secret")
+            // The demo category has no country prefix, so it isn't picked by default: show it.
+            c.db.categories().setIncluded(id, CAT_LIVE, provider.categories.map { it.first }, true)
+            c.playlists.syncChannels(id)
+            c.playlists.get(id)?.let { c.epg.ensureProviderSource(it, c.playlists.client(it).xmltvUrl()) }
+            c.epg.importAll(listOf(id))
+            val source = c.db.epg().enabledSources().first { it.playlistId == id }.id
+            c.epg.setManual(id, 108, source, "comedy", offsetMinutes = 60)
+            id
         }
-        screenshot("6-guide-matching", Screen.GuideMatching(playlistId), "Meadow Comedy") {
+        screenshot("6-guide-matching", Screen.GuideMatching(id), "Meadow Comedy") {
             // As AppUiTest does: performClick() doesn't reach the TV card's onClick under Robolectric.
             compose.onAllNodes(hasText("Harbour Sport 2") and hasClickAction())[0].performSemanticsAction(SemanticsActions.OnClick)
             waitFor(appString(R.string.live_guide_time_shift, 0).substringBefore(':'))
@@ -303,9 +257,10 @@ class StoreAssetsTest {
     @Test fun playbackSettings() =
         translatedOnly { screenshot("10-playback-settings", Screen.PlaybackSettings, appString(R.string.settings_subtitle_language)) }
 
-    @Test fun playlists() = translatedOnly { screenshot("11-playlists", Screen.Playlists, "My TV provider") }
+    @Test fun playlists() = translatedOnly { screenshot("11-playlists", Screen.Playlists, "Home Plex") }
 
-    @Test fun categories() = translatedOnly { screenshot("12-categories", Screen.Categories(playlistId), "Documentaries") }
+    // A Plex server's channels are in one group, without a name of their own.
+    @Test fun categories() = translatedOnly { screenshot("12-categories", Screen.Categories(playlistId), categoryLabel("")) }
 
     private fun translatedOnly(shot: () -> Unit) {
         assumeTrue("Run with -PstoreLanguage", language.isNotEmpty())
@@ -439,6 +394,71 @@ class StoreAssetsTest {
         const val LLAMA_PLOT = "Koro the llama will go to any lengths for greener grass in the Patagonian hills. " +
             "Three short comedies from the Blender Foundation."
         const val OUT = "../store"
+
+        /** When the newest demo title was added (in seconds); the others a little before. */
+        const val ADDED = 1_760_000_000L
+
+        /** A demo channel: its number, name, logo (in demo-art/), what's on now and the title of what's on after. */
+        class DemoChannel(val number: String, val name: String, val logo: String, val now: FakePlex.Programme, val next: String)
+
+        val CHANNELS = listOf(
+            DemoChannel(
+                "1",
+                "Riverside One HD",
+                "one",
+                FakePlex.Programme("Spring Beds", "The Garden Planners", 3, 4, "Two neighbours turn a bare yard into a summer garden."),
+                "Weekend Kitchen"
+            ),
+            DemoChannel(
+                "2",
+                "Northbridge News",
+                "news",
+                FakePlex.Programme("Late Edition", "Evening Bulletin", summary = "The day's main stories, with weather and sport."),
+                "World Tonight"
+            ),
+            DemoChannel(
+                "3",
+                "Harbour Sport 1",
+                "sport1",
+                FakePlex.Programme("Semi-final", "Coastal Cup: Live", summary = "The semi-final, live from the harbour stadium."),
+                "Coastal Cup: Reaction"
+            ),
+            DemoChannel(
+                "4",
+                "Harbour Sport 2",
+                "sport2",
+                FakePlex.Programme("The Mountain Stage", "Cycling Highlights", summary = "The best of the mountain stage."),
+                "Track Day"
+            ),
+            DemoChannel(
+                "5",
+                "Little Sky Kids",
+                "kids",
+                FakePlex.Programme("The Park Pond", "Paper Boats", 1, 6, "Mia and Leo build a fleet for the park pond."),
+                "Star Painters"
+            ),
+            DemoChannel(
+                "6",
+                "Lantern Drama",
+                "drama",
+                FakePlex.Programme("Storm Night", "The Lighthouse Keeper", 2, 1, "A storm cuts the island off for the night."),
+                "Harbour Lights"
+            ),
+            DemoChannel(
+                "7",
+                "Atlas Documentary",
+                "docs",
+                FakePlex.Programme("Salmon Run", "Wild Rivers", 1, 3, "Following salmon upstream through the autumn."),
+                "Night Skies"
+            ),
+            DemoChannel(
+                "8",
+                "Meadow Comedy",
+                "comedy",
+                FakePlex.Programme("The Milk", "Flat Share", 4, 2, "Nobody admits to finishing the milk."),
+                "Open Mic"
+            ),
+        )
 
         /** The Fire TV background's guide: programme widths per row, in tenths. */
         val GuideRows = listOf(listOf(4, 6), listOf(7, 3), listOf(3, 3, 4), listOf(5, 5), listOf(6, 4), listOf(2, 5, 3))

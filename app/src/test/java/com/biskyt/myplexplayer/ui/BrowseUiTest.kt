@@ -9,18 +9,18 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
-import com.biskyt.myplexplayer.data.ChannelFilter
-import com.biskyt.myplexplayer.testutil.FakeProvider
+import com.biskyt.myplexplayer.data.VodFilter
+import com.biskyt.myplexplayer.data.db.CAT_MOVIE
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
-import com.biskyt.myplexplayer.testutil.addHomeTv
+import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
-import com.biskyt.myplexplayer.testutil.focusedText
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
-import com.biskyt.myplexplayer.ui.live.LiveScreen
 import com.biskyt.myplexplayer.ui.search.SearchScreen
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
+import com.biskyt.myplexplayer.ui.vod.VodBrowseScreen
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertTrue
@@ -40,18 +40,30 @@ class BrowseUiTest {
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
 
-    private val provider = FakeProvider()
+    private val plex = FakePlex()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
 
     @Before
     fun setUp() = runBlocking {
-        provider.nowProgramme = mapOf("one.uk" to "<title>Paddington Bear Live</title>")
-        app.container.addHomeTv(provider, vod = true, guide = true)
+        // Several film libraries (a Plex server's Live TV has one category), a film named like a programme.
+        plex.libraries = listOf(
+            FakePlex.Library("1", "movie", "Family Films"),
+            FakePlex.Library("3", "movie", "Sport Films"),
+            FakePlex.Library("2", "show", "TV Programmes"),
+        )
+        plex.movies = listOf(
+            FakePlex.film("11", "Big Buck Bunny", library = "1"),
+            FakePlex.film("12", "Paddington 2", library = "1"),
+            FakePlex.film("13", "Kick Off", library = "3"),
+        )
+        val programme = plex.programme
+        plex.programme = { i, n -> if (i == 0 && n == 0) FakePlex.Programme("Paddington Bear Live") else programme(i, n) }
+        app.container.addSyncedHomePlex(plex)
         Unit
     }
 
     @After
-    fun tearDown() = provider.close()
+    fun tearDown() = plex.close()
 
     private fun show(start: Screen) {
         val navigator = navigators.new(start)
@@ -59,7 +71,7 @@ class BrowseUiTest {
             MyPlexTheme {
                 NavHost(remember { navigator }) {
                     when (it) {
-                        is Screen.Live -> LiveScreen(it.filter, it.guide)
+                        is Screen.Movies -> VodBrowseScreen(CAT_MOVIE, it.filter)
                         is Screen.Search -> SearchScreen(it.query)
                         else -> Unit
                     }
@@ -84,34 +96,34 @@ class BrowseUiTest {
 
     @Test
     fun `the category filter narrows the categories to those named like it, keeping All and Favourites`() {
-        show(Screen.Live(ChannelFilter.All))
-        waitFor("UK | ENTERTAINMENT")
-        waitFor("UK | SPORT")
-        // Once the channel list has taken focus (as it does on opening), the filter box is picked.
-        compose.waitAdvancingClock { compose.focusedText().contains("CHANNEL ONE") }
+        show(Screen.Movies(VodFilter.All))
+        waitFor("Family Films")
+        waitFor("Sport Films")
+        // Once the list has loaded, the filter box is picked.
+        waitFor("Big Buck Bunny")
         filterCategories("sport")
-        compose.waitAdvancingClock { !shown("UK | ENTERTAINMENT") }
-        assertTrue(shown("UK | SPORT"))
+        compose.waitAdvancingClock { !shown("Family Films") }
+        assertTrue(shown("Sport Films"))
         // The lists that aren't categories stay, so there's always a way back to them.
-        assertTrue(shown("All channels") && shown("Favourites"))
+        assertTrue(shown("All movies") && shown("Favourites"))
     }
 
     @Test
     fun `the category being watched stays in the column whatever the filter says`() {
-        show(Screen.Live(ChannelFilter.Category("1"))) // UK | ENTERTAINMENT
-        waitFor("UK | SPORT")
-        compose.waitAdvancingClock { compose.focusedText().contains("CHANNEL") }
+        show(Screen.Movies(VodFilter.Category("1"))) // Family Films
+        waitFor("Sport Films")
+        waitFor("Big Buck Bunny")
         filterCategories("sport")
-        compose.waitAdvancingClock { inColumn("UK | SPORT") }
+        compose.waitAdvancingClock { inColumn("Sport Films") }
         // Focus coming back into the column has the chosen one to go to, also once another is chosen.
-        assertTrue(inColumn("UK | ENTERTAINMENT"))
-        compose.onNode(hasText("UK | SPORT") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitAdvancingClock(50) { shown("ARENA SPRTS") && !shown("KITE KIDZ") } // the list is SPORT's
-        assertTrue(inColumn("UK | ENTERTAINMENT"))
+        assertTrue(inColumn("Family Films"))
+        compose.onNode(hasText("Sport Films") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitAdvancingClock(50) { shown("Kick Off") && !shown("Big Buck Bunny") } // the list is Sport Films'
+        assertTrue(inColumn("Family Films"))
         // Typing on: the one chosen while filtering stays too.
         compose.onNode(hasSetTextAction()).performTextReplacement("nothing like it")
         compose.waitAdvancingClock { shown("nothing like it") }
-        assertTrue(inColumn("UK | SPORT") && inColumn("UK | ENTERTAINMENT"))
+        assertTrue(inColumn("Sport Films") && inColumn("Family Films"))
     }
 
     @Test
