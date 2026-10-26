@@ -2,7 +2,7 @@ name: Plex spike
 
 # Proves the Plex calls the app relies on against a real (throwaway, unclaimed) Plex Media Server: libraries, hubs,
 # search, play progress, direct play and the transcoder, first with the spike, then with the app's own client
-# (PlexServerTest). Sign-in, Live TV and DVR need a real account and tuner, so the owner runs those parts of
+# (PlexServerTest), then deleting (S9). Sign-in, Live TV and DVR need a real account and tuner, so the owner runs those parts of
 # spikes/plex_spike.py at home. Runs on PRs that touch the spike, the client or this setup.
 on:
   pull_request:
@@ -48,6 +48,12 @@ jobs:
       - name: The app's Plex client (PlexServerTest)
         if: ${{ !cancelled() }} # also when a spike check failed, to see whether the client fails too
         run: ./gradlew :core:plexServerTest
+      - name: Deleting, and a show's automatic deletion (S9; last, as it deletes an episode)
+        if: ${{ !cancelled() }}
+        run: |
+          python3 -I spikes/plex_spike.py deletion --delete --server http://127.0.0.1:32400 --out "$RUNNER_TEMP/spike-out"
+          cat "$RUNNER_TEMP"/spike-out/report-s9-deletion.md >> "$GITHUB_STEP_SUMMARY"
+          ! grep -q FAIL "$RUNNER_TEMP"/spike-out/report-s9-deletion.md
       - uses: actions/upload-artifact@v6
         if: always()
         with:

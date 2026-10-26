@@ -16,6 +16,7 @@ addresses, account names, emails and file paths replaced, for test fixtures. rep
     python3 spikes/plex_spike.py favourites [--server URL] [--write-back] # S7: favourite channels (on plex.tv)
     python3 spikes/plex_spike.py save-favourites         # S7 with --write-back, then spike-results.zip
     python3 spikes/plex_spike.py markers   [--server URL] # S8: intro and credits markers, for skip intro
+    python3 spikes/plex_spike.py deletion  [--server URL] [--delete] # S9: deleting, and a show's automatic deletion
 
 Without --server the first server from `servers` is used. --tune briefly uses a tuner; --record schedules a recording
 of a programme starting in over an hour and cancels it straight away. --write-back (never part of `all`) saves the
@@ -943,11 +944,91 @@ def markers(args, state):
     rec.finish()
 
 
+# ---------------------------------------------------------------- S9: deleting, and a show's automatic deletion
+AUTO_DELETE = "autoDeletionItemPolicyWatchedLibrary"  # 0 never, 1 after a day, 7 after a week, 100 on next refresh
+
+
+def deletion(args, state):
+    """Deleting media, for the options menu's Delete, and a show's "delete watched episodes" setting, for Delete
+    after. Reads where the server allows deletion (the server's setting, and anything a library or item says), and a
+    show's prefs; sets the show's setting to a week and back. With --delete (a throwaway server only: it deletes a
+    file), turns deletion off and checks a delete is refused, then on, deletes an episode and checks it's gone, then
+    puts the setting back."""
+    rec = Recorder(args.out, "s9-deletion")
+    http = server_http(args, state)
+    note_server(rec, http)
+    _, _, root = http.get("/")
+    rec.save("root", root)
+    allowed = mc(root).get("allowMediaDeletion")
+    rec.check("GET / says whether the server allows deleting media (allowMediaDeletion)", allowed is not None,
+              f"allowMediaDeletion={allowed}")
+    _, _, prefs = http.get("/:/prefs")
+    setting = next((x for x in mc(prefs).get("Setting", []) if x.get("id") == "allowMediaDeletion"), None)
+    rec.check("GET /:/prefs has the setting (allowMediaDeletion)", setting is not None,
+              f"{setting and pref_value(setting)} ({setting and setting.get('label')})")
+    _, _, sections = http.get("/library/sections")
+    dirs = mc(sections).get("Directory", [])
+    per_library = sorted({k for d in dirs for k in d if "delet" in k.lower()})
+    rec.check("a library's own say on deleting (any field naming it; none expected)", True,
+              f"fields: {per_library or 'none'}")
+    show_lib = next((d for d in dirs if d.get("type") == "show"), None)
+    if not show_lib:
+        rec.check("a TV library exists", False)
+        return rec.finish()
+    _, _, shows = http.get(f"/library/sections/{show_lib['key']}/all", type=2)
+    show = first(mc(shows), "Metadata")
+    _, _, episodes = http.get(f"/library/metadata/{show.get('ratingKey')}/allLeaves")
+    eps = mc(episodes).get("Metadata", [])
+    item_fields = sorted({k for e in eps for k in e if "delet" in k.lower()})
+    rec.check("an item's own say on deleting (any field naming it)", True, f"fields: {item_fields or 'none'}")
+
+    def show_pref():
+        # Read as python-plexapi does: the show with includePreferences=1 (GET .../prefs lists nothing)
+        _, _, body = http.get(f"/library/metadata/{show.get('ratingKey')}", includePreferences=1)
+        rec.save("show-prefs", body)
+        settings = (first(mc(body), "Metadata").get("Preferences") or {}).get("Setting", [])
+        found = next((x for x in settings if x.get("id") == AUTO_DELETE), None)
+        return found
+
+    found = show_pref()
+    rec.check(f"GET /library/metadata/{{show}}?includePreferences=1 has {AUTO_DELETE}", found is not None,
+              f"value {found and pref_value(found)}, choices {found and found.get('enumValues')}")
+    if found is not None:
+        before = pref_value(found)
+        status, _, _ = http.request("PUT", f"/library/metadata/{show.get('ratingKey')}/prefs", **{AUTO_DELETE: 7})
+        after = show_pref()
+        rec.check(f"PUT the show's prefs with {AUTO_DELETE}=7 (after a week) is kept", 200 <= status < 300 and
+                  str(pref_value(after)) == "7", f"HTTP {status}, now {after and pref_value(after)}")
+        http.request("PUT", f"/library/metadata/{show.get('ratingKey')}/prefs", **{AUTO_DELETE: before})
+        back = show_pref()
+        rec.check("and put back as it was", str(pref_value(back)) == str(before), f"{before} -> {back and pref_value(back)}")
+    if not args.delete:
+        return rec.finish()
+    if len(eps) < 2:
+        rec.check("an episode to delete", False)
+        return rec.finish()
+    victim = eps[-1]["ratingKey"]
+    was = setting and pref_value(setting)
+    http.request("PUT", "/:/prefs", allowMediaDeletion=0)
+    status, _, _ = http.request("DELETE", f"/library/metadata/{victim}")
+    rec.check("with deletion off, DELETE /library/metadata/{id} is refused", status >= 400, f"HTTP {status}")
+    http.request("PUT", "/:/prefs", allowMediaDeletion=1)
+    _, _, root = http.get("/")
+    rec.check("turned on, / says so", str(mc(root).get("allowMediaDeletion")).lower() in ("1", "true"),
+              f"allowMediaDeletion={mc(root).get('allowMediaDeletion')}")
+    status, _, _ = http.request("DELETE", f"/library/metadata/{victim}")
+    rec.check("with deletion on, DELETE /library/metadata/{id} deletes the episode", 200 <= status < 300, f"HTTP {status}")
+    status, _, _ = http.get(f"/library/metadata/{victim}")
+    rec.check("and it's gone from the library", status == 404, f"HTTP {status}")
+    http.request("PUT", "/:/prefs", allowMediaDeletion=1 if str(was).lower() in ("1", "true") else 0)
+    rec.finish()
+
+
 def run_all(args, state):
     """Every step in turn (signing in first if needed, tuning and recording included), carrying on past a step
     that fails, then the shareable results zipped into spike-results.zip."""
     args.tune = args.record = True
-    steps = ([] if state.get("token") else [signin]) + [servers, library, playback, livetv, dvr, favourites, markers]
+    steps = ([] if state.get("token") else [signin]) + [servers, library, playback, livetv, dvr, favourites, markers, deletion]
     for step in steps:
         print(f"\n=== {step.__name__} ===", flush=True)
         try:
@@ -986,7 +1067,7 @@ def share_results(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("step", choices=["all", "signin", "servers", "library", "playback", "livetv", "dvr",
-                                             "favourites", "save-favourites", "markers"])
+                                             "favourites", "save-favourites", "markers", "deletion"])
     parser.add_argument("--server", help="server URL, e.g. http://192.168.1.20:32400 (default: from `servers`)")
     parser.add_argument("--token", help="token for --server (not needed for a local unclaimed test server)")
     parser.add_argument("--out", type=Path, default=Path("spike-out"))
@@ -995,6 +1076,8 @@ def main():
     parser.add_argument("--write-back", action="store_true",
                         help="favourites: save the favourite channels back unchanged (a backup first), and read them again")
     parser.add_argument("--restore", type=Path, help="favourites: put back a backup saved by --write-back")
+    parser.add_argument("--delete", action="store_true",
+                        help="deletion: really delete an episode (a throwaway test server only; never part of `all`)")
     args = parser.parse_args()
     state = load_state()
     KNOWN_SECRETS.update(state.get("hidden", {}))
