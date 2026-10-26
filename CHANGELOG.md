@@ -2,6 +2,13 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.6.0
+- **MyPlexPlayer is now for Plex only.** TV services added with an Xtream Codes login, TV guides added by hand and
+  guide matching are gone: channels, films, series and the TV guide all come from your Plex servers. An Xtream
+  account set up in an earlier version is removed when the app updates, with its favourites and choices.
+- If a Plex server's TV guide couldn't be loaded, Settings › Playlists says why, on that server.
+- The live stream format setting is gone: it only applied to Xtream accounts.
+
 ## 0.5.2
 - **Update now** (Settings › Playlists, on a Plex server) says when the server updated but its TV guide couldn't
   be loaded, rather than that all went well.

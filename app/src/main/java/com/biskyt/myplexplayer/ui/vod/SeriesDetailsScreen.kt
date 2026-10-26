@@ -33,8 +33,8 @@ import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
-import com.biskyt.myplexplayer.core.xtream.EpisodeInfo
-import com.biskyt.myplexplayer.core.xtream.SeriesDetails
+import com.biskyt.myplexplayer.core.vod.EpisodeInfo
+import com.biskyt.myplexplayer.core.vod.SeriesDetails
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.data.db.SeriesEntity
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
@@ -79,10 +79,6 @@ class SeriesDetailsViewModel(
     /** An episode whose options are open (holding OK on it). */
     var optionsFor by mutableStateOf<EpisodeInfo?>(null)
 
-    /** Whether its episodes can be marked watched: on a Plex server. */
-    var canMark by mutableStateOf(false)
-        private set
-
     /** An episode to focus when the page opens (from the TV guide), until it has had focus. */
     var focusEpisodePending = true
 
@@ -99,7 +95,6 @@ class SeriesDetailsViewModel(
         error = null
         series = c.vod.series(playlistId, seriesId)
         val p = c.playlists.get(playlistId) ?: return@launch
-        canMark = p.isPlex
         try {
             val d = c.vod.seriesDetails(p, seriesId)
             details = d
@@ -211,7 +206,7 @@ private fun Episodes(
     ) {
         items(shown, key = { it.id }) { e ->
             val focus = Modifier.restoreFocusIf(vm.focusEpisodePending && e == target) { vm.focusEpisodePending = false }
-            EpisodeRow(e, progress[e.id], focus, onLongClick = { vm.optionsFor = e }.takeIf { vm.canMark }) { play(e) }
+            EpisodeRow(e, progress[e.id], focus, onLongClick = { vm.optionsFor = e }) { play(e) }
         }
     }
     vm.optionsFor?.let { e ->

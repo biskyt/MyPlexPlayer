@@ -2,7 +2,7 @@ package com.biskyt.myplexplayer.ui.player
 
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.AppText
-import com.biskyt.myplexplayer.core.xtream.EpisodeInfo
+import com.biskyt.myplexplayer.core.vod.EpisodeInfo
 import com.biskyt.myplexplayer.testutil.PlainApp
 import org.junit.After
 import org.junit.Assert.assertEquals

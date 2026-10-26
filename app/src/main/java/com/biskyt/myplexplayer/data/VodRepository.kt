@@ -10,18 +10,14 @@ import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.plex.PlexItem
 import com.biskyt.myplexplayer.core.plex.PlexPlayState
 import com.biskyt.myplexplayer.core.plex.PlexType
+import com.biskyt.myplexplayer.core.vod.SeriesDetails
+import com.biskyt.myplexplayer.core.vod.VodDetails
 import com.biskyt.myplexplayer.core.vod.VodTitles
-import com.biskyt.myplexplayer.core.xtream.SeriesDetails
-import com.biskyt.myplexplayer.core.xtream.VodDetails
-import com.biskyt.myplexplayer.core.xtream.XtreamCategory
-import com.biskyt.myplexplayer.core.xtream.XtreamMovie
-import com.biskyt.myplexplayer.core.xtream.XtreamSeries
 import com.biskyt.myplexplayer.data.db.AppDatabase
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.data.db.MovieEntity
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
-import com.biskyt.myplexplayer.data.db.SeriesEntity
 import com.biskyt.myplexplayer.data.db.VOD_EPISODE
 import com.biskyt.myplexplayer.data.db.VOD_MOVIE
 import com.biskyt.myplexplayer.data.db.VodCard
@@ -40,7 +36,7 @@ sealed interface VodFilter {
 }
 
 /**
- * Movies and series, from a Plex server or an Xtream account. The light lists are stored for fast paging and
+ * Movies and series, from a Plex server. The light lists are stored for fast paging and
  * filtering; details and episodes are fetched when a title is opened and kept briefly in memory. [type] arguments are
  * CAT_MOVIE or CAT_SERIES, which double as the favourite kinds.
  */
@@ -174,10 +170,10 @@ class VodRepository(
 
     /**
      * Whether [card] (a film, or a series: [type]) has been watched, for "Mark as watched / unwatched"; null where
-     * that isn't offered (not a Plex server, or a series whose count isn't known).
+     * that isn't offered (a series whose count isn't known, or a source gone).
      */
     suspend fun watched(playlistId: Long, type: String, card: VodCard): Boolean? {
-        if (playlists.get(playlistId)?.isPlex != true) return null
+        if (playlists.get(playlistId) == null) return null
         return if (type == CAT_MOVIE) vod.progress(playlistId, VOD_MOVIE, card.id)?.finished == true else card.unwatched?.let { it == 0 }
     }
 
@@ -186,26 +182,19 @@ class VodRepository(
      * unwatched on its Plex server; false if it couldn't be told.
      */
     suspend fun setWatched(playlistId: Long, id: Long, series: Long?, watched: Boolean): Boolean {
-        val source = playlists.get(playlistId)?.takeIf { it.isPlex } ?: return false
+        val source = playlists.get(playlistId) ?: return false
         return send { plex.setWatched(source, id, series, watched) } == Sent.SENT
     }
 
     /**
-     * Takes a movie, or a whole series, off "Carry on watching": forgets how far it got (for a series, every episode).
-     * From Plex, it keeps how far it got (the server does), and comes off the server's Continue Watching first:
-     * out of reach, it stays on (false), as it would come back with the next sync.
+     * Takes a movie, or a whole series, off "Carry on watching", keeping how far it got (the server does). It comes off
+     * the server's Continue Watching first: out of reach, it stays on (false), as it would come back with the next sync.
      */
     suspend fun forgetProgress(p: WatchProgressEntity): Boolean {
         val series = p.seriesId
-        val source = playlists.get(p.playlistId)
-        if (source?.isPlex == true) {
-            if (send { plex.removeFromContinueWatching(source, p.itemId) } == Sent.NOT_YET) return false
-            if (series == null) vod.leaveMovieCarryOn(p.playlistId, p.itemId) else vod.leaveSeriesCarryOn(p.playlistId, series)
-        } else if (series == null) {
-            vod.deleteMovieProgress(p.playlistId, p.itemId)
-        } else {
-            vod.deleteSeriesProgress(p.playlistId, series)
-        }
+        val source = playlists.get(p.playlistId) ?: return false
+        if (send { plex.removeFromContinueWatching(source, p.itemId) } == Sent.NOT_YET) return false
+        if (series == null) vod.leaveMovieCarryOn(p.playlistId, p.itemId) else vod.leaveSeriesCarryOn(p.playlistId, series)
         return true
     }
 
@@ -215,101 +204,36 @@ class VodRepository(
     private val seriesDetails = LruCache<String, SeriesDetails>(DETAILS_CACHE)
 
     /**
-     * A movie's page (kept, once fetched). From Plex, it brings the film's play state too, again each time when
-     * [withState] (a page opening), even when the page is kept.
+     * A movie's page (kept, once fetched), with the film's play state: brought again each time when [withState] (a
+     * page opening), even when the page is kept.
      */
     suspend fun movieDetails(p: PlaylistEntity, streamId: Long, withState: Boolean = true): VodDetails {
         val key = "${p.id}:$streamId"
         movieDetails.get(key)?.let { kept ->
-            if (withState && p.isPlex) offlineOk { plex.movieState(p, streamId) }
+            if (withState) offlineOk { plex.movieState(p, streamId) }
             return kept
         }
-        val fetched = if (p.isPlex) {
-            withUserPlexErrors { plex.movieDetails(p, streamId) }
-        } else {
-            withUserXtreamErrors { playlists.client(p).movieDetails(streamId) }
-        }
-        return fetched.also { movieDetails.put(key, it) }
+        return withUserPlexErrors { plex.movieDetails(p, streamId) }.also { movieDetails.put(key, it) }
     }
 
-    /** A series' page and episodes (kept, once fetched); from Plex, with their play state, as [movieDetails]. */
+    /** A series' page and episodes (kept, once fetched), with their play state, as [movieDetails]. */
     suspend fun seriesDetails(p: PlaylistEntity, seriesId: Long, withState: Boolean = true): SeriesDetails {
         val key = "${p.id}:$seriesId"
         seriesDetails.get(key)?.let { kept ->
-            if (withState && p.isPlex) offlineOk { plex.seriesState(p, seriesId) }
+            if (withState) offlineOk { plex.seriesState(p, seriesId) }
             return kept
         }
-        val fetched = if (p.isPlex) {
-            withUserPlexErrors { plex.seriesDetails(p, seriesId) }
-        } else {
-            withUserXtreamErrors { playlists.client(p).seriesDetails(seriesId) }
-        }
-        return fetched.also { seriesDetails.put(key, it) }
+        return withUserPlexErrors { plex.seriesDetails(p, seriesId) }.also { seriesDetails.put(key, it) }
     }
 
-    suspend fun movieStream(p: PlaylistEntity, m: MovieEntity): VodStream =
-        if (p.isPlex) plexStream(p, m.streamId, VOD_MOVIE) else VodStream(playlists.client(p).movieUrl(m.streamId, m.extension))
+    suspend fun movieStream(p: PlaylistEntity, m: MovieEntity): VodStream = plexStream(p, m.streamId, VOD_MOVIE)
 
-    suspend fun episodeStream(p: PlaylistEntity, episodeId: Long, extension: String): VodStream =
-        if (p.isPlex) plexStream(p, episodeId, VOD_EPISODE) else VodStream(playlists.client(p).episodeUrl(episodeId, extension))
+    suspend fun episodeStream(p: PlaylistEntity, episodeId: Long): VodStream = plexStream(p, episodeId, VOD_EPISODE)
 
     private suspend fun plexStream(p: PlaylistEntity, id: Long, kind: String) =
         withUserPlexErrors { plex.playback(p, id, kind).let { VodStream(it.stream.url, it) } }
 
     // --- sync ---
-
-    /**
-     * Downloads the movie and series lists, only for included categories (by default those of the TV's
-     * language/country, like live TV; every library of a Plex server).
-     */
-    suspend fun sync(p: PlaylistEntity, onProgress: (Int) -> Unit = {}) {
-        if (p.isPlex) return syncPlex(p, onProgress)
-        val client = playlists.client(p)
-        var failure: java.io.IOException? = null
-
-        // Each list on its own: a broken movie list shouldn't stop series loading (the failure is reported after).
-        suspend fun guarded(block: suspend () -> Int): Int = try {
-            block()
-        } catch (e: java.io.IOException) {
-            failure = failure ?: e
-            0
-        }
-        val movies = guarded {
-            syncKind(
-                p.id,
-                CAT_MOVIE,
-                client::movieCategories,
-                { cat, emit -> client.movies(cat, emit) },
-                XtreamMovie::categoryId,
-                vod::insertMovies,
-                vod::deleteStaleMovies,
-                onProgress
-            ) { m, stamp ->
-                val clean = VodTitles.clean(m.name)
-                MovieEntity(
-                    p.id, m.streamId, clean.title, clean.year, m.categoryId, m.posterUrl, m.rating, m.added, m.extension, m.number, stamp
-                )
-            }
-        }
-        guarded {
-            syncKind(
-                p.id,
-                CAT_SERIES,
-                client::seriesCategories,
-                { cat, emit -> client.series(cat, emit) },
-                XtreamSeries::categoryId,
-                vod::insertSeries,
-                vod::deleteStaleSeries,
-                { onProgress(movies + it) }
-            ) { s, stamp ->
-                val clean = VodTitles.clean(s.name)
-                SeriesEntity(
-                    p.id, s.seriesId, clean.title, s.year ?: clean.year, s.categoryId, s.coverUrl, s.rating, s.lastModified, s.number, stamp
-                )
-            }
-        }
-        failure?.let { throw it }
-    }
 
     /** A Plex source's play state, brought up to date since [sinceMs] (see [PlexSources.refreshPlayState]). */
     suspend fun refreshPlayState(p: PlaylistEntity, sinceMs: Long) =
@@ -320,10 +244,11 @@ class VodRepository(
         categories.included(playlistId, category).map { it.categoryId }
 
     /**
-     * A Plex server's films and series: each library is a category (all of them included to start with). A server
-     * that can't be reached at its address is looked for again (its address may have changed), once.
+     * Downloads a Plex server's films and series, only for included libraries: each library is a category (all of them
+     * included to start with). A server that can't be reached at its address is looked for again (its address may
+     * have changed), once.
      */
-    private suspend fun syncPlex(p: PlaylistEntity, onProgress: (Int) -> Unit) {
+    suspend fun sync(p: PlaylistEntity, onProgress: (Int) -> Unit = {}) {
         try {
             syncPlexAt(p, onProgress)
         } catch (e: PlexException) {
@@ -337,7 +262,7 @@ class VodRepository(
     private suspend fun syncPlexAt(p: PlaylistEntity, onProgress: (Int) -> Unit) {
         val client = plex.client(p)
         plex.sendPending(p, client)
-        // Fetched here, not by syncKind, which reads a failure as "no films": a server that can't be reached says so.
+        // A server that can't be reached says so here (nothing is written).
         val libraries = plex.libraries(client)
         var position = 0 // the server's order (by title), across libraries
         val films = mutableListOf<PlexItem>() // for their play state, after
@@ -356,24 +281,22 @@ class VodRepository(
         val movies = syncKind(
             p.id,
             CAT_MOVIE,
-            { libraries.getValue(PlexType.MOVIE) },
+            libraries.getValue(PlexType.MOVIE),
             titles(PlexType.MOVIE, CAT_MOVIE),
             { it.first },
             vod::insertMovies,
             vod::deleteStaleMovies,
-            onProgress,
-            libraries = true
+            onProgress
         ) { title, stamp -> plex.movie(client, p.id, title, position++, stamp)?.also { films += title.second.playState() } }
         syncKind(
             p.id,
             CAT_SERIES,
-            { libraries.getValue(PlexType.SHOW) },
+            libraries.getValue(PlexType.SHOW),
             titles(PlexType.SHOW, CAT_SERIES),
             { it.first },
             vod::insertSeries,
             vod::deleteStaleSeries,
-            { onProgress(movies + it) },
-            libraries = true
+            { onProgress(movies + it) }
         ) { title, stamp -> plex.series(client, p.id, title, position++, stamp, newest) }
         plex.syncPlayState(p, client, films)
     }
@@ -388,26 +311,21 @@ class VodRepository(
         shows.forEachIndexed { i, show -> show.ratingKey.toLongOrNull()?.let { ranks[it] = i * MAX_TV_LIBRARIES + index } }
     }
 
-    /** One list (movies or series): categories, then the included items in batches, then what the provider dropped. */
+    /** One list (movies or series): libraries, then the included items in batches, then what the server dropped. */
     @Suppress("LongParameterList") // the two kinds differ only in these
     private suspend fun <T, E> syncKind(
         playlistId: Long,
         type: String,
-        fetchCategories: suspend () -> List<XtreamCategory>,
+        remote: List<RemoteCategory>,
         fetch: suspend (categoryId: String?, emit: suspend (T) -> Unit) -> Unit,
         categoryOf: (T) -> String,
         insert: suspend (List<E>) -> Unit,
         deleteStale: suspend (playlistId: Long, stamp: Long) -> Unit,
         onProgress: (Int) -> Unit,
-        /** A Plex server's libraries (see CategoryStore.store): every one included, and none means none. */
-        libraries: Boolean = false,
         /** Null for an item to leave out. */
         toEntity: (T, stamp: Long) -> E?
     ): Int {
-        // Live-only accounts have no movie or series section (the request fails or returns nothing): nothing to do.
-        val remote = runCatching { fetchCategories() }.getOrDefault(emptyList())
-        if (remote.isEmpty() && !libraries) return 0
-        categoryStore.store(playlistId, type, remote, libraries = libraries)
+        categoryStore.store(playlistId, type, remote)
         val stamp = System.currentTimeMillis()
         // Large batches: an open grid reloads after each one.
         val batch = Batch(BATCH, insert, onProgress)

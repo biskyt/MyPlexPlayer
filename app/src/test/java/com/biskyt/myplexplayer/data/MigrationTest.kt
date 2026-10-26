@@ -212,4 +212,58 @@ class MigrationTest {
             }
         }
     }
+
+    @Test
+    fun `version 11 to 12 removes Xtream accounts and added guides with all they had, and keeps Plex servers'`() {
+        helper.createDatabase("migration-test-12", 11).use { db ->
+            listOf(1 to "xtream", 3 to "plex").forEach { (id, kind) ->
+                db.execSQL(
+                    "INSERT INTO playlist (id, name, kind, server, username, password, lastSyncAt, machineId) " +
+                        "VALUES ($id, 'P$id', '$kind', 'x', 'u', 't', 5, 'm$id')"
+                )
+                db.execSQL(
+                    "INSERT INTO channel (playlistId, streamId, number, name, categoryId, archiveDays, hidden, position, syncStamp) " +
+                        "VALUES ($id, 101, 1, 'One', '1', 0, 0, 1, 0)"
+                )
+                db.execSQL("INSERT INTO favourite (playlistId, streamId, addedAt, position) VALUES ($id, 101, 0, 0)")
+                // Each source's own guide, its programme and the channel's mapping to it.
+                db.execSQL(
+                    "INSERT INTO epg_source (id, name, url, enabled, playlistId, lastImportAt, channelCount) VALUES ($id, 'G', 'u$id', 1, $id, 0, 0)"
+                )
+                db.execSQL(
+                    "INSERT INTO programme (sourceId, xmlId, startMs, stopMs, title, stamp, kind) VALUES ($id, 'one', 0, 1, 'News', 0, 0)"
+                )
+                // Shifted an hour by hand.
+                db.execSQL(
+                    "INSERT INTO channel_epg_mapping (playlistId, streamId, sourceId, xmlId, manual, score, offsetMinutes) " +
+                        "VALUES ($id, 101, $id, 'one', 1, 1.0, 60)"
+                )
+            }
+            // A guide added by hand, matched to the Plex channel (in another's place, as a second mapping can't be).
+            db.execSQL(
+                "INSERT INTO epg_source (id, name, url, enabled, lastImportAt, channelCount) VALUES (9, 'Added', 'http://g', 1, 0, 0)"
+            )
+            db.execSQL("INSERT INTO epg_channel (sourceId, xmlId, displayName, nameNorm) VALUES (9, 'two', 'Two', 'two')")
+            db.execSQL("INSERT INTO programme (sourceId, xmlId, startMs, stopMs, title, stamp, kind) VALUES (9, 'two', 0, 1, 'Film', 0, 0)")
+            db.execSQL(
+                "INSERT INTO channel_epg_mapping (playlistId, streamId, sourceId, xmlId, manual, score, offsetMinutes) " +
+                    "VALUES (3, 102, 9, 'two', 1, 1.0, 60)"
+            )
+        }
+        helper.runMigrationsAndValidate("migration-test-12", 12, true).use { db ->
+            fun ids(sql: String) = db.query(sql).use { c -> generateSequence { if (c.moveToNext()) c.getLong(0) else null }.toList() }
+            assertEquals(listOf(3L), ids("SELECT id FROM playlist"))
+            assertEquals(listOf(3L), ids("SELECT playlistId FROM channel"))
+            assertEquals(listOf(3L), ids("SELECT playlistId FROM favourite"))
+            assertEquals(listOf(3L), ids("SELECT id FROM epg_source"))
+            assertEquals(listOf(3L), ids("SELECT sourceId FROM programme"))
+            assertEquals(listOf(3L), ids("SELECT sourceId FROM channel_epg_mapping"))
+            // Nothing can shift a guide any more.
+            assertEquals(listOf(0L), ids("SELECT manual + offsetMinutes FROM channel_epg_mapping"))
+            db.query("SELECT name, server, password, lastSyncAt, machineId FROM playlist").use {
+                it.moveToFirst()
+                assertEquals(listOf("P3", "x", "t", "5", "m3"), (0..4).map(it::getString))
+            }
+        }
+    }
 }

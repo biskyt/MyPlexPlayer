@@ -46,7 +46,7 @@ class CrashScreenTest {
             waitFor("IllegalStateException: boom")
             compose.onNode(hasText("Continue without updating") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
             // No playlist yet: on to set-up.
-            waitFor("Add my TV provider")
+            waitFor("Sign in to Plex")
             assertFalse(file.exists())
         }
     }

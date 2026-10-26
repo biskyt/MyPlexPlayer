@@ -42,12 +42,6 @@
     <!-- In a channel row, a channel card or a TV guide cell when there's no programme data. Keep short: guide cells can be narrow -->
     <string name="common_no_guide">No guide information</string>
 
-    <!-- Settings pages, named in the Settings menu and as the pages' titles -->
-    <string name="common_guide_sources">TV guide sources</string>
-    <string name="common_guide_matching">TV guide matching</string>
-    <!-- Outcomes of TV guide updates -->
-    <string name="common_guide_update_failed">Couldn\'t update the TV guide</string>
-    <string name="common_match_failed">Couldn\'t match channels</string>
     <!-- Details of a playlist or a TV guide: when it was last loaded. %1$s is a date and time -->
     <string name="common_updated_at">updated %1$s</string>
 
@@ -73,9 +67,6 @@
     <!-- Options of a film, series or episode from Plex: changes whether it's watched, on the server too -->
     <string name="common_mark_watched">Mark as watched</string>
     <string name="common_mark_unwatched">Mark as unwatched</string>
-    <!-- Menu entry: opens the screen that picks a channel's TV guide data -->
-    <string name="common_change_guide_source">Change guide source…</string>
-    <string name="common_change_guide_source_help">Pick which guide data this channel uses</string>
 
     <!-- Category column -->
     <string name="common_hide_category">Hide category</string>
@@ -108,7 +99,6 @@
     <!-- Background update progress, the first line of a small box in the corner of the screen. Keep short -->
     <string name="common_sync_channels_start">Updating channels…</string>
     <string name="common_sync_vod_start">Updating movies and series…</string>
-    <string name="common_sync_guide">Updating the guide…</string>
     <!-- Its second line: %1$s is the playlist's name; %2$s how many channels (or movies and series) have loaded so far -->
     <string name="common_sync_channels_loaded">%1$s: %2$s loaded</string>
     <string name="common_sync_vod_loaded">%1$s: %2$s loaded</string>

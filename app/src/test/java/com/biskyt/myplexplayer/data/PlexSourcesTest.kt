@@ -9,7 +9,6 @@ import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.data.db.KIND_PLEX
 import com.biskyt.myplexplayer.testutil.FakePlex
-import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -49,10 +48,10 @@ class PlexSourcesTest {
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
         val http = OkHttpClient()
         settings = SettingsRepository(context)
-        val categoryStore = CategoryStore(db) { Locale.UK }
-        val epg = EpgRepository(db, http, context.cacheDir.resolve("test-epg"), scope)
+        val categoryStore = CategoryStore(db)
+        val epg = EpgRepository(db)
         plex = PlexSources(db, http, settings).apply { plexTv = fake.url }
-        playlists = PlaylistRepository(db, http, settings, epg, categoryStore, plex)
+        playlists = PlaylistRepository(db, settings, epg, categoryStore, plex)
         vod = VodRepository(db, playlists, categoryStore, plex)
     }
 
@@ -196,6 +195,6 @@ class PlexSourcesTest {
         assertEquals("the file as it is", "/library/parts/111/1/file.mp4", url.encodedPath)
         assertEquals("the token goes in a header", FakePlex.SERVER_TOKEN, stream.plex!!.stream.headers["X-Plex-Token"])
         assertEquals("not in the address", null, url.queryParameter("X-Plex-Token"))
-        assertEquals("/library/parts/2102/1/file.mkv", vod.episodeStream(source, 212, "mkv").url.toHttpUrl().encodedPath)
+        assertEquals("/library/parts/2102/1/file.mkv", vod.episodeStream(source, 212).url.toHttpUrl().encodedPath)
     }
 }

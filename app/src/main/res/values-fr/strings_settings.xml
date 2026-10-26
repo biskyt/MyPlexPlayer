@@ -6,8 +6,6 @@
     <string name="settings_playback_help">Sauts, passthrough audio, sous-titres, mémoire tampon</string>
     <string name="settings_categories_title">Langues et catégories</string>
     <string name="settings_categories_help">Choisir les chaînes chargées ; réafficher des chaînes</string>
-    <string name="settings_guide_sources_help">Le guide de votre fournisseur et des guides XMLTV supplémentaires</string>
-    <string name="settings_guide_matching_help">Choisir la chaîne du guide utilisée par chaque chaîne</string>
     <string name="settings_appearance_title">Apparence</string>
     <string name="settings_appearance_help">Couleur d\'accent et taille du texte</string>
     <string name="settings_backup_title">Sauvegarde et restauration</string>
@@ -32,8 +30,6 @@
     <string name="settings_buffer_small">Petite</string>
     <string name="settings_buffer_normal">Normale</string>
     <string name="settings_buffer_large">Grande</string>
-    <string name="settings_stream_format">Format du flux</string>
-    <string name="settings_stream_format_help">Essayé en premier ; si une chaîne ne démarre pas, l\'autre est essayé et conservé s\'il fonctionne</string>
     <string name="settings_start_last">Démarrer sur la dernière chaîne</string>
     <string name="settings_start_last_help">Ouvrir l\'appli directement sur la dernière chaîne regardée</string>
     <string name="settings_zap_up_down">Changer de chaîne avec haut et bas</string>
@@ -49,7 +45,6 @@
     <string name="settings_licences_help">Les bibliothèques et la police utilisées par l\'appli</string>
     <string name="settings_storage">Stockage</string>
     <string name="settings_storage_database">Base de données des chaînes et du guide : %1$s</string>
-    <string name="settings_storage_guides">Fichiers de guide téléchargés : %1$s</string>
     <string name="settings_storage_logos">Logos des chaînes : %1$s (limité à 30 Mo)</string>
     <string name="settings_storage_help">Le stockage est géré automatiquement : les anciens programmes sont supprimés chaque jour, les logos sont plafonnés et la base de données est compactée si nécessaire.</string>
 
@@ -78,8 +73,7 @@
     <string name="settings_lib_nunito">La police de l\'appli</string>
 
     <string name="settings_welcome_title">Bienvenue dans MyPlexPlayer</string>
-    <string name="settings_welcome_intro">Connectez-vous à Plex pour regarder les films et séries de vos serveurs Plex. Vous pouvez aussi ajouter un service TV auquel vous êtes abonné (identifiants Xtream Codes) à tout moment dans Paramètres › Playlists.</string>
-    <string name="settings_welcome_add_provider">Ajouter mon fournisseur TV</string>
+    <string name="settings_welcome_intro">Connectez-vous à Plex pour regarder les films, séries et chaînes TV en direct de vos serveurs Plex.</string>
     <string name="settings_welcome_restore">Restaurer une sauvegarde</string>
     <string name="settings_plex_sign_in">Se connecter à Plex</string>
     <string name="settings_plex_steps">Sur votre téléphone ou ordinateur, allez sur plex.tv/link, connecté à votre compte Plex, et saisissez ce code :</string>
@@ -102,7 +96,7 @@
     <string name="settings_backup_failed">Un problème est survenu : %1$s</string>
     <string name="settings_backup_choose_file">Choisir le fichier de sauvegarde</string>
     <string name="settings_backup_no_picker">Ce téléviseur ne permet pas de choisir un fichier. Ouvrez la sauvegarde avec MyPlexPlayer depuis un gestionnaire de fichiers comme X-plore (Ouvrir avec, ou Partager), ou installez-en un et réessayez.</string>
-    <string name="settings_backup_intro">Enregistre dans un fichier vos playlists (avec leurs identifiants), vos choix de chaînes et de catégories, vos favoris, vos sources de guide TV et vos paramètres. Copiez-le avec un gestionnaire de fichiers pour le conserver ailleurs. Le fichier n\'est pas chiffré : gardez-le en lieu sûr.</string>
+    <string name="settings_backup_intro">Enregistre dans un fichier vos serveurs Plex (avec leurs jetons d\'accès), vos choix de chaînes et de catégories, vos favoris et vos paramètres. Copiez-le avec un gestionnaire de fichiers pour le conserver ailleurs. Le fichier n\'est pas chiffré : gardez-le en lieu sûr.</string>
     <string name="settings_backup_last">Dernière sauvegarde : %1$s</string>
     <string name="settings_backup_none">Aucune sauvegarde sur ce téléviseur pour l\'instant.</string>
     <string name="settings_backup_confirm">Vos playlists et paramètres seront remplacés par ceux de la sauvegarde. Restaurer ?</string>
@@ -146,34 +140,10 @@
     <string name="settings_playlist_updating">Mise à jour de %1$s</string>
     <string name="settings_playlist_updated">%1$s mis à jour</string>
     <string name="settings_playlist_updated_detail">Ses chaînes, son guide TV, ses films et ses séries sont à jour.</string>
-    <string name="settings_playlist_updated_guides_failed">%1$s mis à jour, mais certains guides n\'ont pas pu être chargés</string>
+    <string name="settings_playlist_guide_failed">Guide TV non chargé : %1$s</string>
+    <string name="settings_playlist_updated_guides_failed">%1$s mis à jour, mais son guide TV n\'a pas pu être chargé</string>
     <string name="settings_playlist_update_failed">Impossible de mettre à jour %1$s</string>
     <string name="settings_playlist_in_use">ACTIVE</string>
     <string name="settings_playlist_update_now">Mettre à jour</string>
-    <string name="settings_playlist_edit">Modifier</string>
-    <string name="settings_playlist_add">+ Ajouter une playlist</string>
     <string name="settings_playlist_select_hint">Sélectionnez une playlist pour l\'utiliser.</string>
-    <string name="settings_playlist_expired">Expiré le %1$s</string>
-    <string name="settings_playlist_expires_today">Expire aujourd\'hui (%1$s)</string>
-    <plurals name="settings_playlist_expires_in">
-        <item quantity="one">Expire le %1$s, dans %2$d jour</item>
-        <item quantity="many">Expire le %1$s, dans %2$d jours</item>
-        <item quantity="other">Expire le %1$s, dans %2$d jours</item>
-    </plurals>
-    <string name="settings_playlist_expires">Expire le %1$s</string>
-
-    <string name="settings_playlist_add_title">Ajouter une playlist</string>
-    <string name="settings_playlist_edit_title">Modifier la playlist</string>
-    <string name="settings_playlist_first_run_hint">Saisissez les informations fournies par votre fournisseur TV.</string>
-    <string name="settings_playlist_name">Nom</string>
-    <string name="settings_playlist_name_hint">ex. : TV du salon</string>
-    <string name="settings_playlist_server">Adresse du serveur</string>
-    <string name="settings_playlist_username">Nom d\'utilisateur</string>
-    <string name="settings_playlist_password">Mot de passe</string>
-    <string name="settings_playlist_connected">Connecté ✓</string>
-    <string name="settings_playlist_checking">Vérification des identifiants…</string>
-    <string name="settings_playlist_wait">Veuillez patienter…</string>
-    <string name="settings_playlist_save">Enregistrer</string>
-    <string name="settings_playlist_test">Tester la connexion</string>
-    <string name="settings_playlist_delete">Supprimer la playlist</string>
 </resources>

@@ -3,13 +3,15 @@ package com.biskyt.myplexplayer.data.db
 import android.content.Context
 import androidx.room.AutoMigration
 import androidx.room.Database
+import androidx.room.DeleteColumn
+import androidx.room.DeleteTable
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.AutoMigrationSpec
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    version = 11,
+    version = 12,
     exportSchema = true,
     // 2: M3U playlists (playlist.kind; channel.streamUrl/userAgent/referrer).
     // 3: movies and series (category.type; movie, series, watch_progress, vod_favourite).
@@ -22,9 +24,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     // 9: no M3U playlists (0.2.2): any source of a kind the app no longer has is removed, with all it had.
     // 10: play state from Plex (series.unwatched, watch_progress.carryOnAt and pending).
     // 11: Home's recently added series (series.newest).
-    // Unused since M3U went (0.2.2), to drop with Xtream: playlist.moviesUrl/seriesUrl/vodFeedHash, movie.streamUrl,
-    // the episode table, channel.streamUrl/userAgent/referrer/catchupType/catchupSource.
-    // Unused since Catch-up went (DVR replaces it), also to drop with Xtream: channel.archiveDays and its index.
+    // 12: Plex only (0.6.0): Xtream accounts and added guides removed, with what only they, M3U or Catch-up used.
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
@@ -35,36 +35,50 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AutoMigration(from = 7, to = 8),
         AutoMigration(from = 8, to = 9, spec = AppDatabase.RetiredSources::class),
         AutoMigration(from = 9, to = 10, spec = AppDatabase.CarryOnOrder::class),
-        AutoMigration(from = 10, to = 11)
+        AutoMigration(from = 10, to = 11),
+        AutoMigration(from = 11, to = 12, spec = AppDatabase.PlexOnly::class)
     ],
     entities = [
         PlaylistEntity::class, CategoryEntity::class, ChannelEntity::class, FavouriteEntity::class, RecentEntity::class,
-        EpgSourceEntity::class, EpgChannelEntity::class, ProgrammeEntity::class, ChannelEpgMappingEntity::class,
-        MovieEntity::class, SeriesEntity::class, EpisodeEntity::class, WatchProgressEntity::class, VodFavouriteEntity::class
+        EpgSourceEntity::class, ProgrammeEntity::class, ChannelEpgMappingEntity::class, MovieEntity::class, SeriesEntity::class,
+        WatchProgressEntity::class, VodFavouriteEntity::class
     ]
 )
 abstract class AppDatabase : RoomDatabase() {
-    /**
-     * Removes sources of kinds the app no longer has (M3U playlists, offered until 0.2.1), with everything they had,
-     * once and before anything reads them. Their guide's file is left for the daily clean-up (EpgRepository's
-     * deleteOrphanFiles). A backup holding one leaves it out when restored (see BackupRepository).
-     */
+    /** Removes M3U playlists (offered until 0.2.1), with everything they had (see [removeRetired]). */
     class RetiredSources : AutoMigrationSpec {
-        override fun onPostMigrate(db: SupportSQLiteDatabase) {
-            val retired = "SELECT id FROM playlist WHERE kind NOT IN (${SOURCE_KINDS.joinToString { "'$it'" }})"
-            val guides = "SELECT id FROM epg_source WHERE playlistId IN ($retired)"
-            listOf("programme", "epg_channel").forEach { db.execSQL("DELETE FROM $it WHERE sourceId IN ($guides)") }
-            db.execSQL("DELETE FROM channel_epg_mapping WHERE sourceId IN ($guides)")
-            db.execSQL("DELETE FROM epg_source WHERE playlistId IN ($retired)")
-            PER_SOURCE.forEach { db.execSQL("DELETE FROM $it WHERE playlistId IN ($retired)") }
-            db.execSQL("DELETE FROM playlist WHERE id IN ($retired)")
-        }
+        override fun onPostMigrate(db: SupportSQLiteDatabase) = removeRetired(db, keep = listOf(KIND_PLEX, "xtream"), before12 = true)
+    }
 
-        private companion object {
-            val PER_SOURCE = listOf(
-                "category", "channel", "favourite", "recent", "channel_epg_mapping", "movie", "series", "episode",
-                "watch_progress", "vod_favourite"
-            )
+    /**
+     * Plex only (0.6.0): Xtream accounts go, with everything they had, and so do the guides added by hand (with their
+     * programmes and the channels matched to them). So do what only they, M3U playlists or Catch-up used: the list of
+     * each guide's channels, M3U episodes, and channels' and films' own addresses, headers and catch-up.
+     */
+    @DeleteTable.Entries(DeleteTable(tableName = "epg_channel"), DeleteTable(tableName = "episode"))
+    @DeleteColumn.Entries(
+        DeleteColumn(tableName = "playlist", columnName = "username"),
+        DeleteColumn(tableName = "playlist", columnName = "expiresAt"),
+        DeleteColumn(tableName = "playlist", columnName = "maxConnections"),
+        DeleteColumn(tableName = "playlist", columnName = "moviesUrl"),
+        DeleteColumn(tableName = "playlist", columnName = "seriesUrl"),
+        DeleteColumn(tableName = "playlist", columnName = "vodFeedHash"),
+        DeleteColumn(tableName = "channel", columnName = "archiveDays"),
+        DeleteColumn(tableName = "channel", columnName = "streamUrl"),
+        DeleteColumn(tableName = "channel", columnName = "userAgent"),
+        DeleteColumn(tableName = "channel", columnName = "referrer"),
+        DeleteColumn(tableName = "channel", columnName = "catchupType"),
+        DeleteColumn(tableName = "channel", columnName = "catchupSource"),
+        DeleteColumn(tableName = "movie", columnName = "streamUrl")
+    )
+    class PlexOnly : AutoMigrationSpec {
+        override fun onPostMigrate(db: SupportSQLiteDatabase) {
+            removeRetired(db, keep = listOf(KIND_PLEX), before12 = false)
+            val added = "SELECT id FROM epg_source WHERE playlistId IS NULL"
+            listOf("programme", "channel_epg_mapping").forEach { db.execSQL("DELETE FROM $it WHERE sourceId IN ($added)") }
+            db.execSQL("DELETE FROM epg_source WHERE playlistId IS NULL")
+            // A time shift on a channel set by hand: nothing sets one any more, and the next sync would clear it.
+            db.execSQL("UPDATE channel_epg_mapping SET manual = 0, offsetMinutes = 0")
         }
     }
 
@@ -116,4 +130,22 @@ abstract class AppDatabase : RoomDatabase() {
             .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
             .build()
     }
+}
+
+/**
+ * Removes sources of kinds the app no longer has (all but those to [keep]), with everything they had, once and before
+ * anything reads them. A backup holding one leaves it out when restored (see BackupRepository). [before12]: the guides'
+ * channel lists and M3U episodes still have tables of their own.
+ */
+private fun removeRetired(db: SupportSQLiteDatabase, keep: List<String>, before12: Boolean) {
+    val retired = "SELECT id FROM playlist WHERE kind NOT IN (${keep.joinToString { "'$it'" }})"
+    val guides = "SELECT id FROM epg_source WHERE playlistId IN ($retired)"
+    listOfNotNull("programme", "epg_channel".takeIf { before12 }).forEach { db.execSQL("DELETE FROM $it WHERE sourceId IN ($guides)") }
+    db.execSQL("DELETE FROM channel_epg_mapping WHERE sourceId IN ($guides)")
+    db.execSQL("DELETE FROM epg_source WHERE playlistId IN ($retired)")
+    val perSource = listOf(
+        "category", "channel", "favourite", "recent", "channel_epg_mapping", "movie", "series", "watch_progress", "vod_favourite"
+    )
+    (perSource + listOfNotNull("episode".takeIf { before12 })).forEach { db.execSQL("DELETE FROM $it WHERE playlistId IN ($retired)") }
+    db.execSQL("DELETE FROM playlist WHERE id IN ($retired)")
 }

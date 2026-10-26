@@ -5,17 +5,14 @@ import com.biskyt.myplexplayer.AppText
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.plex.PlexException
-import com.biskyt.myplexplayer.core.xtream.XtreamException
-import com.biskyt.myplexplayer.core.xtream.XtreamException.Reason
 import com.biskyt.myplexplayer.data.db.CategoryEntity
 import java.io.IOException
 import java.util.Locale
 
 // The app's words for what the core module reports as codes (core has no Android resources).
 
-/** What [e] says to the user: an Xtream or Plex failure in the app's language, anything else its own message. */
+/** What [e] says to the user: a Plex failure in the app's language, anything else its own message. */
 fun userMessage(e: Throwable): String? = when (e) {
-    is XtreamException -> e.userMessage()
     is PlexException -> e.userMessage()
     else -> e.message
 }
@@ -36,29 +33,6 @@ internal inline fun <T> withUserPlexErrors(block: () -> T): T = try {
     block()
 } catch (e: PlexException) {
     throw PlexException(e.userMessage(), e, e.reason, e.code)
-}
-
-/** This failure in the app's language ([XtreamException.message] is the English, for logs). */
-fun XtreamException.userMessage(): String = when (reason) {
-    Reason.LOGIN_FAILED -> appString(R.string.data_xtream_login_failed)
-    Reason.NO_MOVIE_DETAILS -> appString(R.string.data_xtream_no_movie_details)
-    Reason.NO_EPISODES -> appString(R.string.data_xtream_no_episodes)
-    Reason.UNREACHABLE -> appString(R.string.data_xtream_unreachable, cause?.message.toString())
-    Reason.SERVER_ERROR -> appString(R.string.data_server_error, code)
-    Reason.EMPTY_RESPONSE -> appString(R.string.data_xtream_empty)
-    Reason.UNEXPECTED_RESPONSE -> appString(R.string.data_xtream_unexpected)
-    Reason.INVALID_ADDRESS -> appString(R.string.data_xtream_invalid_address)
-    Reason.OTHER -> message.orEmpty()
-}
-
-/**
- * Runs [block] (a call to a provider's server), so that an Xtream failure's message is in the app's language for
- * whoever shows it; the English one stays with its cause.
- */
-internal inline fun <T> withUserXtreamErrors(block: () -> T): T = try {
-    block()
-} catch (e: XtreamException) {
-    throw XtreamException(e.userMessage(), e)
 }
 
 /** The heading for a language/country group (as CategoryLanguageDetector gives them, null for none). */
@@ -120,12 +94,14 @@ class GuideError private constructor(private val status: Int?) : IOException(wor
 
         fun server(status: Int) = GuideError(status)
 
-        fun notSaved() = GuideError(null)
-
         /** A guide sent but not understood: none of it could be read. */
         fun unreadable() = GuideError(UNREADABLE)
 
+        /** A guide that couldn't be asked for: the server was out of reach. */
+        fun unreachable() = GuideError(UNREACHABLE)
+
         private const val UNREADABLE = -1
+        private const val UNREACHABLE = -2
 
         /** What to keep as a guide's lastError for [e]. */
         fun saved(e: Throwable): String = if (e is GuideError) TAG + e.status?.toString().orEmpty() else describe(e)
@@ -136,6 +112,7 @@ class GuideError private constructor(private val status: Int?) : IOException(wor
         private fun words(status: Int?) = when (status) {
             null -> appString(R.string.data_guide_save_failed)
             UNREADABLE -> appString(R.string.data_guide_unreadable)
+            UNREACHABLE -> appString(R.string.data_plex_unreachable)
             else -> appString(R.string.data_server_error, status)
         }
     }

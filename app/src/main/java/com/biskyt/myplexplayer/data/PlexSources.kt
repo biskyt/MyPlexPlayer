@@ -16,13 +16,11 @@ import com.biskyt.myplexplayer.core.plex.PlexProgramme
 import com.biskyt.myplexplayer.core.plex.PlexServer
 import com.biskyt.myplexplayer.core.plex.PlexStream
 import com.biskyt.myplexplayer.core.plex.PlexType
-import com.biskyt.myplexplayer.core.xtream.EpisodeInfo
-import com.biskyt.myplexplayer.core.xtream.SeasonInfo
-import com.biskyt.myplexplayer.core.xtream.SeriesDetails
-import com.biskyt.myplexplayer.core.xtream.VodDetails
-import com.biskyt.myplexplayer.core.xtream.XtreamCategory
+import com.biskyt.myplexplayer.core.vod.EpisodeInfo
+import com.biskyt.myplexplayer.core.vod.SeasonInfo
+import com.biskyt.myplexplayer.core.vod.SeriesDetails
+import com.biskyt.myplexplayer.core.vod.VodDetails
 import com.biskyt.myplexplayer.data.db.AppDatabase
-import com.biskyt.myplexplayer.data.db.KIND_PLEX
 import com.biskyt.myplexplayer.data.db.MovieEntity
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
 import com.biskyt.myplexplayer.data.db.SeriesEntity
@@ -97,7 +95,7 @@ class PlexSources(
         val (reached, unreachable) = coroutineScope { found.map { async { it to account.connect(it) } }.awaitAll() }
             .partition { it.second != null }
         val ids = db.withTransaction {
-            val existing = playlists.all().filter { it.isPlex }.associateBy { it.machineId }
+            val existing = playlists.all().associateBy { it.machineId }
             reached.map { (resource, server) ->
                 val address = requireNotNull(server)
                 // The server's own token: it's what plays from it, so a backup keeps it, like a provider's login.
@@ -105,9 +103,7 @@ class PlexSources(
                 val updated = old?.copy(name = resource.name, server = address.baseUrl, password = address.token.orEmpty())
                     ?: PlaylistEntity(
                         name = resource.name,
-                        kind = KIND_PLEX,
                         server = address.baseUrl,
-                        username = "",
                         password = address.token.orEmpty(),
                         machineId = resource.clientIdentifier,
                     )
@@ -136,9 +132,9 @@ class PlexSources(
     // --- films and series ---
 
     /** The server's libraries of films and of TV, as categories (each fetched list is split by type). */
-    suspend fun libraries(client: PlexClient): Map<PlexType, List<XtreamCategory>> = client.sections().let { sections ->
+    suspend fun libraries(client: PlexClient): Map<PlexType, List<RemoteCategory>> = client.sections().let { sections ->
         listOf(PlexType.MOVIE, PlexType.SHOW).associateWith { type ->
-            sections.filter { it.type == type.section }.map { XtreamCategory(it.key, it.title) }
+            sections.filter { it.type == type.section }.map { RemoteCategory(it.key, it.title) }
         }
     }
 
