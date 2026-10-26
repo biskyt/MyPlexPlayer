@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.9.0
+- **Favourite channels are your Plex favourites,** the same in every Plex app: one you add, take off or move here is
+  saved to Plex straight away, and one changed in another Plex app changes here at the next update. If Plex can't be
+  reached, the change isn't made, and a message says so.
+
 ## 0.8.1
 - **Credits are no longer skipped by themselves** to start with: a Skip credits button shows while they play, for
   you to press. Settings › Playback can still skip them after a countdown. Intros are skipped as before.

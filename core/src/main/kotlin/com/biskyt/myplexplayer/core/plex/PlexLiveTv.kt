@@ -8,7 +8,10 @@ import kotlinx.serialization.json.JsonPrimitive
  * Where a server's Live TV is: its DVR ([dvrKey], for tuning) and its guide provider's channel list
  * ([channelsPath]) and programme grid ([gridPath]). As proven on the owner's server (docs/plex-api.md, 12-13).
  */
-data class PlexLiveTv(val dvrKey: String, val channelsPath: String, val gridPath: String)
+data class PlexLiveTv(val dvrKey: String, val channelsPath: String, val gridPath: String) {
+    /** The guide provider's identifier (`tv.plex.providers.epg.cloud:4`), which a favourite's source names. */
+    val provider: String get() = channelsPath.substringBefore("/lineups/")
+}
 
 /**
  * A Live TV channel of the guide provider's lineup. Its key ([tuneKey]) is the first of `key`, `ratingKey`,

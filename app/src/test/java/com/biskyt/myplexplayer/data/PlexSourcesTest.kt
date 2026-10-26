@@ -50,7 +50,10 @@ class PlexSourcesTest {
         settings = SettingsRepository(context)
         val categoryStore = CategoryStore(db)
         val epg = EpgRepository(db)
-        plex = PlexSources(db, http, settings).apply { plexTv = fake.url }
+        plex = PlexSources(db, http, settings).apply {
+            plexTv = fake.url
+            plexGuide = fake.url
+        }
         playlists = PlaylistRepository(db, settings, epg, categoryStore, plex)
         vod = VodRepository(db, playlists, categoryStore, plex)
     }

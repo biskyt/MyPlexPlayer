@@ -27,6 +27,7 @@ import com.biskyt.myplexplayer.data.ChannelRepository
 import com.biskyt.myplexplayer.data.CrashLog
 import com.biskyt.myplexplayer.data.EpgRepository
 import com.biskyt.myplexplayer.data.Favourites
+import com.biskyt.myplexplayer.data.Notices
 import com.biskyt.myplexplayer.data.PlaylistRepository
 import com.biskyt.myplexplayer.data.PlexSources
 import com.biskyt.myplexplayer.data.SearchRepository
@@ -67,7 +68,10 @@ class AppContainer(context: Context) {
     private val categoryStore = CategoryStore(db)
     val plex = PlexSources(db, http, settings)
     val playlists = PlaylistRepository(db, settings, epg, categoryStore, plex)
-    val channels = ChannelRepository(db)
+
+    /** Something that didn't work, said in the corner of the screen. */
+    val notices = Notices()
+    val channels = ChannelRepository(db, plex, notices)
     val vod = VodRepository(db, playlists, categoryStore, plex)
     val favourites = Favourites(appScope, settings, channels, vod)
     val search = SearchRepository(db)

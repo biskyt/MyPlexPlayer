@@ -4,18 +4,24 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.db.AppDatabase
+import com.biskyt.myplexplayer.data.db.CAT_LIVE
+import com.biskyt.myplexplayer.data.db.FavouriteEntity
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
 import com.biskyt.myplexplayer.data.db.ProgrammeEntity
 import com.biskyt.myplexplayer.testutil.FakePlex
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -35,7 +41,9 @@ class PlexLiveTvTest {
     private lateinit var epg: EpgRepository
     private lateinit var sync: SyncManager
     private lateinit var source: PlaylistEntity
-    private lateinit var backup: BackupRepository
+    private lateinit var channelRepo: ChannelRepository
+    private lateinit var favourites: Favourites
+    private val notices = Notices()
 
     @Before
     fun setUp() = runBlocking {
@@ -49,8 +57,10 @@ class PlexLiveTvTest {
             plexGuide = fake.url
         }
         val playlists = PlaylistRepository(db, settings, epg, categoryStore, plex)
-        sync = SyncManager(scope, playlists, VodRepository(db, playlists, categoryStore, plex), epg)
-        backup = BackupRepository(db, settings, sync, epg)
+        val vod = VodRepository(db, playlists, categoryStore, plex)
+        sync = SyncManager(scope, playlists, vod, epg)
+        channelRepo = ChannelRepository(db, plex, notices)
+        favourites = Favourites(scope, settings, channelRepo, vod)
         plex.signIn(FakePlex.ACCOUNT_TOKEN)
         source = db.playlists().all().single { it.machineId == FakePlex.MACHINE_ID }
     }
@@ -62,7 +72,7 @@ class PlexLiveTvTest {
         fake.close()
     }
 
-    private suspend fun channels() = ChannelRepository(db).ids(source.id, ChannelFilter.All).map { db.channels().get(source.id, it)!! }
+    private suspend fun channels() = channelRepo.ids(source.id, ChannelFilter.All).map { db.channels().get(source.id, it)!! }
 
     @Test
     fun `a sync brings in the tuner's channels, in number order, and what's on them`() = runBlocking {
@@ -84,43 +94,127 @@ class PlexLiveTvTest {
     @Test
     fun `channels keep their ids from sync to sync, so favourites stay`() = runBlocking {
         sync.refreshNow(source.id).getOrThrow()
-        val channels = ChannelRepository(db)
-        channels.setFavourite(source.id, plexChannelId("ch-2"), true)
+        channelRepo.setFavourite(source.id, plexChannelId("ch-2"), true)
 
         sync.refreshNow(source.id).getOrThrow()
 
-        assertEquals(listOf(plexChannelId("ch-2")), channels.observeFavouriteIds(source.id).first())
+        assertEquals(listOf(plexChannelId("ch-2")), channelRepo.observeFavouriteIds(source.id).first())
     }
 
     @Test
-    fun `the account's favourite channels in Plex become favourites here, in Plex's order`() = runBlocking {
+    fun `the account's favourite channels in Plex are the favourites here, in Plex's order`() = runBlocking {
         fake.channels = listOf(FakePlex.Channel("1", "One"), FakePlex.Channel("2", "Two"), FakePlex.Channel("3", "Three"))
         fake.favouriteChannels = listOf("ch-3", "ch-1", "ch-9") // ch-9 isn't one of this server's channels
 
         sync.refreshNow(source.id).getOrThrow()
 
         // Not the other server's ch-1 twice, nor a channel this server doesn't have.
-        assertEquals(listOf(plexChannelId("ch-3"), plexChannelId("ch-1")), ChannelRepository(db).favouriteOrder(source.id))
+        assertEquals(listOf(plexChannelId("ch-3"), plexChannelId("ch-1")), channelRepo.favouriteOrder(source.id))
     }
 
     @Test
-    fun `a change in Plex comes here, and a choice made here stays until that channel changes in Plex`() = runBlocking {
+    fun `a favourite made or taken off here is saved to Plex, the others kept as they were`() = runBlocking {
+        fake.channels = (1..3).map { FakePlex.Channel("$it", "Channel $it") }
+        fake.favouriteChannels = listOf("ch-1")
+        sync.refreshNow(source.id).getOrThrow()
+
+        assertTrue(channelRepo.setFavourite(source.id, plexChannelId("ch-3"), true))
+        assertTrue(channelRepo.setFavourite(source.id, plexChannelId("ch-1"), false))
+
+        assertEquals(listOf("ch-3"), fake.favouriteChannels)
+        val added = fake.accountFavourites.single { it["id"].toString() == "\"ch-3\"" }
+        // Named as other Plex apps name it: its server and guide, title and number.
+        assertEquals(FakePlex.favourite("ch-1", FakePlex.MACHINE_ID)["source"], added["source"])
+        assertEquals("\"Channel 3\"", added["title"].toString())
+        assertEquals("\"3\"", added["vcn"].toString())
+        assertEquals("the friend's server's favourite stays", 2, fake.accountFavourites.size)
+        assertEquals(listOf(plexChannelId("ch-3")), channelRepo.favouriteOrder(source.id))
+    }
+
+    @Test
+    fun `Plex wins, a change made in Plex replacing what's here at the next sync`() = runBlocking {
         fake.channels = (1..4).map { FakePlex.Channel("$it", "Channel $it") }
         fake.favouriteChannels = listOf("ch-1", "ch-2")
         sync.refreshNow(source.id).getOrThrow()
-        val channels = ChannelRepository(db)
-        channels.setFavourite(source.id, plexChannelId("ch-2"), false) // taken off here only
-        channels.setFavourite(source.id, plexChannelId("ch-4"), true) // made one here only
+        db.favourites().add(FavouriteEntity(source.id, plexChannelId("ch-4"), 1, 9)) // only here
 
-        fake.favouriteChannels = listOf("ch-2", "ch-3") // in Plex: ch-1 taken off, ch-3 made one
+        fake.favouriteChannels = listOf("ch-3", "ch-2")
         sync.refreshNow(source.id).getOrThrow()
 
-        // ch-1 goes and ch-3 comes (changed in Plex); ch-2 stays off and ch-4 on (unchanged in Plex).
-        assertEquals(listOf(plexChannelId("ch-4"), plexChannelId("ch-3")), channels.favouriteOrder(source.id))
+        assertEquals(listOf(plexChannelId("ch-3"), plexChannelId("ch-2")), channelRepo.favouriteOrder(source.id))
     }
 
     @Test
-    fun `a channel missing from one sync keeps its favourite and its place`() = runBlocking {
+    fun `favourites moved here are saved in that order to Plex, another server's keeping its place`() = runBlocking {
+        fake.channels = (1..3).map { FakePlex.Channel("$it", "Channel $it") }
+        fake.favouriteChannels = listOf("ch-1", "ch-2", "ch-3")
+        sync.refreshNow(source.id).getOrThrow()
+        val friends = fake.accountFavourites.last()
+
+        val original = channelRepo.favouriteOrder(source.id)
+        val order = listOf(plexChannelId("ch-3"), plexChannelId("ch-1"), plexChannelId("ch-2"))
+        favourites.setOrder(source.id, CAT_LIVE, order, before = original) // the move's steps: here only
+        assertEquals(listOf("ch-1", "ch-2", "ch-3"), fake.favouriteChannels)
+
+        favourites.moveEnded(source.id, CAT_LIVE, original, order)?.join()
+
+        assertEquals(listOf("ch-3", "ch-1", "ch-2"), fake.favouriteChannels)
+        assertEquals(friends, fake.accountFavourites.last())
+        assertEquals(order, channelRepo.favouriteOrder(source.id))
+    }
+
+    @Test
+    fun `two favourites made at once both reach Plex`() = runBlocking {
+        fake.channels = (1..3).map { FakePlex.Channel("$it", "Channel $it") }
+        sync.refreshNow(source.id).getOrThrow()
+
+        listOf("ch-1", "ch-2", "ch-3").map { async(Dispatchers.Default) { channelRepo.setFavourite(source.id, plexChannelId(it), true) } }
+            .awaitAll()
+
+        assertEquals(listOf("ch-1", "ch-2", "ch-3"), fake.favouriteChannels.sorted())
+    }
+
+    @Test
+    fun `a channel Plex lists twice is ordered without losing either`() = runBlocking {
+        fake.channels = (1..2).map { FakePlex.Channel("$it", "Channel $it") }
+        fake.favouriteChannels = listOf("ch-1", "ch-1", "ch-2")
+        sync.refreshNow(source.id).getOrThrow()
+
+        assertTrue(channelRepo.saveFavouriteOrder(source.id, listOf(plexChannelId("ch-2"), plexChannelId("ch-1"))))
+
+        assertEquals(listOf("ch-2", "ch-1", "ch-1"), fake.favouriteChannels)
+    }
+
+    @Test
+    fun `a move Plex doesn't take is put back as it was`() = runBlocking {
+        fake.channels = (1..2).map { FakePlex.Channel("$it", "Channel $it") }
+        fake.favouriteChannels = listOf("ch-1", "ch-2")
+        sync.refreshNow(source.id).getOrThrow()
+        val original = channelRepo.favouriteOrder(source.id)
+        val order = original.reversed()
+        favourites.setOrder(source.id, CAT_LIVE, order, before = original)
+        fake.favouritesFail = true
+
+        favourites.moveEnded(source.id, CAT_LIVE, original, order)?.join()
+
+        assertEquals(original, channelRepo.favouriteOrder(source.id))
+        assertNotNull(notices.current.value)
+    }
+
+    @Test
+    fun `with Plex out of reach a favourite isn't changed here either, and a notice says so`() = runBlocking {
+        fake.favouriteChannels = listOf("ch-1")
+        sync.refreshNow(source.id).getOrThrow()
+        fake.favouritesFail = true
+
+        assertFalse(channelRepo.setFavourite(source.id, plexChannelId("ch-2"), true))
+
+        assertEquals(listOf(plexChannelId("ch-1")), channelRepo.favouriteOrder(source.id))
+        assertNotNull(notices.current.value)
+    }
+
+    @Test
+    fun `a channel missing from one sync comes back to its place in Plex's order`() = runBlocking {
         fake.channels = (1..3).map { FakePlex.Channel("$it", "Channel $it") }
         fake.favouriteChannels = listOf("ch-2", "ch-1")
         sync.refreshNow(source.id).getOrThrow()
@@ -131,20 +225,7 @@ class PlexLiveTvTest {
         fake.channels = all
         sync.refreshNow(source.id).getOrThrow()
 
-        assertEquals(listOf(plexChannelId("ch-2"), plexChannelId("ch-1")), ChannelRepository(db).favouriteOrder(source.id))
-    }
-
-    @Test
-    fun `a backup keeps what was seen in Plex, so a channel taken off here stays off after a restore`() = runBlocking {
-        fake.favouriteChannels = listOf("ch-1", "ch-2")
-        sync.refreshNow(source.id).getOrThrow()
-        ChannelRepository(db).setFavourite(source.id, plexChannelId("ch-1"), false)
-
-        backup.apply(backup.read(backup.export().inputStream()))
-        val restored = db.playlists().all().single().id
-        sync.refreshNow(restored).getOrThrow()
-
-        assertEquals(listOf(plexChannelId("ch-2")), ChannelRepository(db).favouriteOrder(restored))
+        assertEquals(listOf(plexChannelId("ch-2"), plexChannelId("ch-1")), channelRepo.favouriteOrder(source.id))
     }
 
     @Test
@@ -156,14 +237,14 @@ class PlexLiveTvTest {
 
         sync.refreshNow(source.id).getOrThrow()
 
-        assertEquals(listOf(plexChannelId("ch-1")), ChannelRepository(db).favouriteOrder(source.id))
+        assertEquals(listOf(plexChannelId("ch-1")), channelRepo.favouriteOrder(source.id))
     }
 
     @Test
     fun `a server that won't share its live tv still brings its films`() = runBlocking {
         fake.liveTvRefused = true
         sync.refreshNow(source.id).getOrThrow()
-        assertEquals(emptyList<Long>(), ChannelRepository(db).ids(source.id, ChannelFilter.All))
+        assertEquals(emptyList<Long>(), channelRepo.ids(source.id, ChannelFilter.All))
         assertTrue(db.vod().observeMovieCount(source.id).first() > 0)
     }
 
@@ -216,7 +297,7 @@ class PlexLiveTvTest {
 
         sync.refreshNow(source.id)
 
-        assertEquals(2, ChannelRepository(db).ids(source.id, ChannelFilter.All).size)
+        assertEquals(2, channelRepo.ids(source.id, ChannelFilter.All).size)
     }
 
     @Test
@@ -226,7 +307,7 @@ class PlexLiveTvTest {
 
         sync.refreshNow(source.id).getOrThrow()
 
-        assertEquals(emptyList<Long>(), ChannelRepository(db).ids(source.id, ChannelFilter.All))
+        assertEquals(emptyList<Long>(), channelRepo.ids(source.id, ChannelFilter.All))
     }
 
     @Test

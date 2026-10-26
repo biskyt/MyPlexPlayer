@@ -57,9 +57,12 @@ class RepositoriesTest {
         settings = SettingsRepository(context)
         epg = EpgRepository(db)
         val categoryStore = CategoryStore(db)
-        plex = PlexSources(db, http, settings).apply { plexTv = fake.url }
+        plex = PlexSources(db, http, settings).apply {
+            plexTv = fake.url
+            plexGuide = fake.url
+        }
         playlists = PlaylistRepository(db, settings, epg, categoryStore, plex)
-        channels = ChannelRepository(db)
+        channels = ChannelRepository(db, plex, Notices())
         vod = VodRepository(db, playlists, categoryStore, plex)
     }
 

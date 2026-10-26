@@ -5,6 +5,9 @@ import java.net.ServerSocket
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
@@ -70,10 +73,26 @@ class PlexAccountTest {
     @Test
     fun `the account's favourite channels, each with its server`() = runBlocking {
         val favourites = account.favouriteChannels("account-token")
-        // One without an id is left out, not the whole list.
-        assertEquals(listOf("5fc705db-ch1", "5fc705db-ch9"), favourites.map { it.id })
-        assertEquals(listOf("MACHINEID0", "MACHINEID1"), favourites.map { it.machineId })
-        assertNull(PlexFavouriteChannel("x", source = "elsewhere").machineId)
+        // One without an id is kept (to be saved back as it was), with no id.
+        assertEquals(listOf("5fc705db-ch1", "5fc705db-ch9", null), favourites.map { it.id })
+        assertEquals(listOf("MACHINEID0", "MACHINEID1", "MACHINEID0"), favourites.map { it.machineId })
+        assertNull(PlexFavouriteChannel.of("x", "elsewhere", "X", "1", null).machineId)
+    }
+
+    @Test
+    fun `favourite channels are saved as Plex keeps them, every field read sent back`() = runBlocking {
+        val favourites = account.favouriteChannels("account-token")
+        plexTv.takeRequest()
+        account.saveFavouriteChannels("account-token", favourites.reversed())
+        val put = plexTv.takeRequest()
+        assertEquals("PUT", put.method)
+        assertEquals("5.1", put.getHeader("X-Plex-Provider-Version"))
+        assertTrue(put.getHeader("Content-Type")!!.startsWith("application/json"))
+        // A JSON array, as Plezy sends it, of each as Plex sent it: one this app can't use (no id) included.
+        val sent = Json.parseToJsonElement(put.body.readUtf8()).jsonArray
+        val read = Json.parseToJsonElement(fixture("favourite-channels")).jsonObject["MediaContainer"]!!.jsonObject["FavoriteChannel"]!!
+        assertEquals(read.jsonArray.reversed(), sent.toList())
+        assertEquals("server://M/p:1", PlexFavouriteChannel.source("M", "p:1"))
     }
 
     @Test

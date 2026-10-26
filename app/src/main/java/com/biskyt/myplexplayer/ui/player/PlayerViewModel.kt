@@ -81,8 +81,8 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
         val ch = channel ?: return emptyList()
         return channelActions(ch.streamId in favouriteIds) { favourite ->
             viewModelScope.launch {
-                c.channels.setFavourite(ch.playlistId, ch.streamId, favourite)
-                flash(favouriteFlash(favourite))
+                val saved = c.channels.setFavourite(ch.playlistId, ch.streamId, favourite)
+                flash(if (saved) favouriteFlash(favourite) else appString(R.string.common_favourites_not_saved))
             }
         }
     }

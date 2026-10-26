@@ -39,6 +39,7 @@ class PlexSignInUiTest {
     @Before
     fun setUp() {
         app.container.plex.plexTv = plex.url
+        app.container.plex.plexGuide = plex.url
     }
 
     @After

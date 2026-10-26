@@ -35,7 +35,10 @@ class SavedTextTest {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
     private val epg = EpgRepository(db)
-    private val plex = PlexSources(db, OkHttpClient(), SettingsRepository(context)).apply { plexTv = fake.url }
+    private val plex = PlexSources(db, OkHttpClient(), SettingsRepository(context)).apply {
+        plexTv = fake.url
+        plexGuide = fake.url
+    }
     private val playlists = PlaylistRepository(db, SettingsRepository(context), epg, CategoryStore(db), plex)
 
     @After

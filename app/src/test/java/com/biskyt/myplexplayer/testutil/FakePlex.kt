@@ -4,6 +4,7 @@ import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.data.PlexSources
 import com.biskyt.myplexplayer.data.db.AppDatabase
 import com.biskyt.myplexplayer.data.plexChannelId
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonArrayBuilder
 import kotlinx.serialization.json.JsonObject
@@ -11,6 +12,8 @@ import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
@@ -133,10 +136,22 @@ class FakePlex : AutoCloseable {
     /** The guide sent in a shape the app can't read (each showing's times as words). */
     @Volatile var guideUnreadable = false
 
-    /** The account's favourite Live TV channels in Plex, by channel key, on this server (Plex's guide service keeps them). */
-    @Volatile var favouriteChannels: List<String> = emptyList()
+    /**
+     * The account's favourite Live TV channels in Plex, all of them in Plex's order (Plex's guide service keeps them,
+     * and a save replaces them): to start with, one on a friend's server, which isn't this source's.
+     */
+    @Volatile var accountFavourites: List<JsonObject> = listOf(favourite("ch-1", "friend-plex"))
 
-    /** The guide service failing (500), so favourites can't be read. */
+    /** The account's favourites on this server, by channel key: set, they're put before the friend's one. */
+    var favouriteChannels: List<String>
+        get() = accountFavourites.filter { it.onThisServer() }.map { it.string("id")!! }
+        set(keys) {
+            accountFavourites = keys.map { favourite(it, MACHINE_ID) } + accountFavourites.filterNot { it.onThisServer() }
+        }
+
+    private fun JsonObject.onThisServer() = string("source")!!.contains("//$MACHINE_ID/")
+
+    /** The guide service failing (500), so favourites can't be read or saved. */
     @Volatile var favouritesFail = false
 
     /** The guide out of reach (the connection dropped), the rest answering. */
@@ -189,7 +204,7 @@ class FakePlex : AutoCloseable {
             path == "/api/v2/pins/$PIN_ID" -> json(pin())
             path == "/api/v2/resources" && token == ACCOUNT_TOKEN && tokenAccepted -> json(resources())
             path == "/api/v2/resources" -> MockResponse().setResponseCode(401)
-            path == "/settings/favoriteChannels" -> favourites(token)
+            path == "/settings/favoriteChannels" -> favourites(token, request)
             // Friend's Plex: not reachable from here.
             path.startsWith("/friend/") -> MockResponse().setResponseCode(404)
             token != SERVER_TOKEN -> MockResponse().setResponseCode(401)
@@ -569,21 +584,15 @@ class FakePlex : AutoCloseable {
         }
     }
 
-    /** Plex's guide service: the account's favourite channels. */
-    private fun favourites(token: String?) = when {
+    /** Plex's guide service: the account's favourite channels, read (GET) or saved whole (PUT, a JSON array). */
+    private fun favourites(token: String?, request: RecordedRequest) = when {
         favouritesFail -> MockResponse().setResponseCode(500)
-        token != ACCOUNT_TOKEN -> MockResponse().setResponseCode(401)
-        else -> container {
-            putJsonArray("FavoriteChannel") {
-                favouriteChannels.forEach { key -> add(favourite(key, MACHINE_ID)) }
-                add(favourite("ch-1", "friend-plex")) // one on another server, which isn't this source's
-            }
+        token != ACCOUNT_TOKEN || request.getHeader("X-Plex-Provider-Version") != "5.1" -> MockResponse().setResponseCode(401)
+        request.method == "PUT" -> {
+            accountFavourites = Json.parseToJsonElement(request.body.readUtf8()).jsonArray.map { it.jsonObject }
+            container { put("size", 0) }
         }
-    }
-
-    private fun favourite(key: String, server: String) = obj {
-        put("id", key)
-        put("source", "server://$server/$EPG")
+        else -> container { put("FavoriteChannel", JsonArray(accountFavourites)) }
     }
 
     private fun container(body: JsonObjectBuilder.() -> Unit) = json(buildJsonObject { putJsonObject("MediaContainer", body) })
@@ -600,6 +609,13 @@ class FakePlex : AutoCloseable {
         private const val EPG = "tv.plex.providers.epg.cloud:12"
 
         private fun obj(body: JsonObjectBuilder.() -> Unit) = buildJsonObject(body)
+
+        /** A favourite channel [key] of [server]'s guide, as Plex keeps it. */
+        fun favourite(key: String, server: String) = obj {
+            put("id", key)
+            put("source", "server://$server/$EPG")
+            put("title", "Channel $key")
+        }
 
         private fun JsonObject.string(key: String) = (this[key] as? JsonPrimitive)?.content
 
@@ -731,6 +747,7 @@ class FakePlex : AutoCloseable {
 /** Signs in to [plex] (as if code ABCD had been entered) and adds its servers: the id of Home Plex's source. */
 suspend fun AppContainer.addHomePlex(plex: FakePlex): Long {
     this.plex.plexTv = plex.url
+    this.plex.plexGuide = plex.url
     plex.claimed = true
     return this.plex.signInHome(db)
 }
