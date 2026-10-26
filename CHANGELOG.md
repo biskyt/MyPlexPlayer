@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.10.2
+- **The TV guide keeps the highlight in the guide.** Clicking TV guide no longer sends it to the Home tab while the
+  programmes load, and Right from the categories goes back into the guide (to the programme you left) instead of
+  to the buttons above it, which led on along the top bar.
+
 ## 0.10.1
 - **An episode's description** is in its options (hold OK, or Menu), when Plex has one.
 - Tidier options: "Delete watched episodes" loses its explanation, the Links row lines up with the options above it,
