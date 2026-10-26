@@ -21,7 +21,6 @@ import com.biskyt.myplexplayer.data.db.CAT_LIVE
 import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.data.programmeTitle
 import com.biskyt.myplexplayer.ui.LocalNavigator
-import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.common.ChannelLogo
 import com.biskyt.myplexplayer.ui.common.MenuOption
 import com.biskyt.myplexplayer.ui.common.Muted
@@ -94,10 +93,6 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                 ) {
                     close()
                     vm.showGuide(!vm.guideMode)
-                }
-                MenuOption(stringResource(R.string.common_change_guide_source), stringResource(R.string.common_change_guide_source_help)) {
-                    close()
-                    nav.push(Screen.GuideMatching(ch.playlistId, ch.streamId))
                 }
                 if (vm.canMoveFavourite) {
                     MenuOption(stringResource(R.string.common_move)) {

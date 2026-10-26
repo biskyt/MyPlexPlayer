@@ -11,7 +11,6 @@ import com.biskyt.myplexplayer.data.db.VodFavouriteEntity
 import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.PlainApp
 import com.biskyt.myplexplayer.testutil.signInHome
-import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -49,10 +48,10 @@ class FavouriteOrderTest {
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
         val http = OkHttpClient()
         settings = SettingsRepository(context)
-        epg = EpgRepository(db, http, context.cacheDir.resolve("test-epg"), scope)
-        val categoryStore = CategoryStore(db) { Locale.UK }
+        epg = EpgRepository(db)
+        val categoryStore = CategoryStore(db)
         val sources = PlexSources(db, http, settings).apply { plexTv = plex.url }
-        playlists = PlaylistRepository(db, http, settings, epg, categoryStore, sources)
+        playlists = PlaylistRepository(db, settings, epg, categoryStore, sources)
         channels = ChannelRepository(db)
         vod = VodRepository(db, playlists, categoryStore, sources)
         favourites = Favourites(scope, settings, channels, vod)
@@ -110,7 +109,7 @@ class FavouriteOrderTest {
 
     @Test
     fun `a backup keeps the order, and one from before the order restores in the old one`() = runBlocking {
-        val backup = BackupRepository(db, settings, epg, SyncManager(scope, playlists, vod, epg))
+        val backup = BackupRepository(db, settings, SyncManager(scope, playlists, vod, epg), epg)
         listOf(ONE, TWO, THREE).forEach { channels.setFavourite(pid, it, true) }
         favourites.setOrder(pid, CAT_LIVE, listOf(THREE, ONE, TWO))
         val file = backup.export().decodeToString()

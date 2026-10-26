@@ -28,7 +28,6 @@ import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.container
-import com.biskyt.myplexplayer.data.GuideStep
 import com.biskyt.myplexplayer.data.SyncState
 import com.biskyt.myplexplayer.ui.Navigator
 import com.biskyt.myplexplayer.ui.isPlayback
@@ -49,7 +48,6 @@ fun syncText(state: SyncState): SyncText? = when (state) {
         appString(R.string.common_sync_vod_start),
         loaded(state.playlist, state.loaded, R.string.common_sync_vod_loaded)
     )
-    is SyncState.Guide -> SyncText(appString(R.string.common_sync_guide), state.step.text(), state.step.fraction)
     is SyncState.Failed -> SyncText(appString(R.string.common_last_update_failed), state.message, failed = true)
 }
 
@@ -57,19 +55,6 @@ fun syncText(state: SyncState): SyncText? = when (state) {
 private fun loaded(playlist: String, count: Int, @StringRes counted: Int) = when {
     count > 0 -> appString(counted, playlist, formatCount(count))
     else -> playlist.ifBlank { null }
-}
-
-private fun GuideStep.text(): String = when (this) {
-    is GuideStep.Downloading -> appString(R.string.data_downloading, guide)
-    is GuideStep.Reading -> appString(R.string.data_reading, guide)
-    is GuideStep.Matching -> when (total) {
-        0 -> appString(R.string.data_matching)
-        else -> appString(R.string.data_matching_progress, formatCount(done), formatCount(total))
-    }
-    is GuideStep.Loading -> when (guide) {
-        null -> appString(R.string.data_loading_programmes_guide)
-        else -> appString(R.string.data_loading_programmes, guide)
-    }
 }
 
 /** How long a failed update stays in the corner. */

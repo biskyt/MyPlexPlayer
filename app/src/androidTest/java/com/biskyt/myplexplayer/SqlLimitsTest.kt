@@ -3,11 +3,10 @@ package com.biskyt.myplexplayer
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.biskyt.myplexplayer.core.xtream.XtreamCategory
 import com.biskyt.myplexplayer.data.CategoryStore
+import com.biskyt.myplexplayer.data.RemoteCategory
 import com.biskyt.myplexplayer.data.db.AppDatabase
 import com.biskyt.myplexplayer.data.db.CAT_LIVE
-import java.util.Locale
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -29,9 +28,9 @@ class SqlLimitsTest {
     fun tearDown() = db.close()
 
     @Test
-    fun a_provider_with_more_than_999_categories_syncs() = runBlocking {
-        val store = CategoryStore(db) { Locale.UK }
-        val many = (1..1_200).map { XtreamCategory("$it", "UK | Category $it") }
+    fun a_server_with_more_than_999_libraries_syncs() = runBlocking {
+        val store = CategoryStore(db)
+        val many = (1..1_200).map { RemoteCategory("$it", "UK | Library $it") }
         store.store(1, CAT_LIVE, many)
         // And again with some gone, as a later sync does.
         store.store(1, CAT_LIVE, many.drop(100))

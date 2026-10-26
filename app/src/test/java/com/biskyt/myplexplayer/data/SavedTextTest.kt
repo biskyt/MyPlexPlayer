@@ -6,14 +6,13 @@ import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.AppText
 import com.biskyt.myplexplayer.data.db.AppDatabase
 import com.biskyt.myplexplayer.testutil.FakePlex
-import com.biskyt.myplexplayer.testutil.FakeProvider
 import com.biskyt.myplexplayer.testutil.PlainApp
 import com.biskyt.myplexplayer.testutil.signInHome
-import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.junit.After
@@ -32,35 +31,32 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34], application = PlainApp::class)
 class SavedTextTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
-    private val provider = FakeProvider()
     private val fake = FakePlex()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
-    private val epg = EpgRepository(db, OkHttpClient(), context.cacheDir.resolve("test-epg"), scope)
+    private val epg = EpgRepository(db)
     private val plex = PlexSources(db, OkHttpClient(), SettingsRepository(context)).apply { plexTv = fake.url }
-    private val playlists = PlaylistRepository(db, OkHttpClient(), SettingsRepository(context), epg, CategoryStore(db) { Locale.UK }, plex)
+    private val playlists = PlaylistRepository(db, SettingsRepository(context), epg, CategoryStore(db), plex)
 
     @After
     fun tearDown() {
         AppText.setLanguage(context, "")
         scope.cancel()
         db.close()
-        provider.close()
         fake.close()
     }
 
-    private suspend fun names() = db.playlists().all().map { it.name } + db.epg().enabledSources().map { it.name }
+    private suspend fun names() = db.playlists().all().map { it.name } + db.epg().observeSources().first().map { it.name }
 
     @Test
-    fun `saved playlist and guide names stay as they are when the language changes`() = runBlocking {
-        val id = playlists.add("", provider.url, "me", "secret")
+    fun `saved source and guide names stay as they are when the language changes`() = runBlocking {
+        val id = plex.signInHome(db)
         playlists.syncChannels(id)
-        assertEquals(listOf("My TV", "My TV guide"), names())
+        assertEquals(listOf("Home Plex", "Home Plex"), names())
 
         AppText.setLanguage(context, "es")
         playlists.syncChannels(id)
-        epg.importAll(listOf(id))
-        assertEquals(listOf("My TV", "My TV guide"), names())
+        assertEquals(listOf("Home Plex", "Home Plex"), names())
     }
 
     @Test
@@ -68,7 +64,7 @@ class SavedTextTest {
         fake.guideFails = true
         val id = plex.signInHome(db)
         playlists.syncChannels(id)
-        val saved = db.epg().enabledSources().single().lastError!!
+        val saved = db.epg().observeSources().first().single().lastError!!
         assertFalse(saved.contains("error"))
         assertEquals("Server returned error 500", GuideError.text(saved))
         AppText.setLanguage(context, "es")

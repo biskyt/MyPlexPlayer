@@ -33,7 +33,7 @@ import coil3.request.allowRgb565
 import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.AppText
 import com.biskyt.myplexplayer.R
-import com.biskyt.myplexplayer.core.xtream.VodDetails
+import com.biskyt.myplexplayer.core.vod.VodDetails
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.MovieEntity
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity

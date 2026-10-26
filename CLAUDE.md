@@ -18,9 +18,10 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   and ports apply cleanly. Plex-only work (sign-in, servers, play state, Live TV, DVR) is made here only.
   - Home's rows, the menu's order and search results' order differ from MyTVPlayer on purpose (Live TV last, 0.5.0):
     a port touching HomeScreen, TopBar's `Tab` or SearchScreen's results expects conflicts there.
-- **The move to Plex is under way:** the plan, step by step, is in `ROADMAP.md`. Until those steps land, much of the
-  code (Xtream, XMLTV guides) is MyTVPlayer's and is due to be replaced. M3U and the free playlist went
-  in 0.2.2; Catch-up has gone too (DVR replaces it).
+- **The move to Plex is under way:** the plan, step by step, is in `ROADMAP.md`. M3U and the free playlist went in
+  0.2.2, Catch-up in 0.4.2 (DVR replaces it), and Xtream, added guides and guide matching in 0.6.0: every source is a
+  Plex server. The database still has a few things named for playlists and providers (`playlist`, `providerEpgId`,
+  `channel_epg_mapping`), kept to leave the schema and MyTVPlayer's shared code as they are.
 
 See also:
 - `RELEASING.md`: signing and how releases work.
@@ -172,10 +173,10 @@ See also:
     without a sync: titles played since the last look (`viewedSince`, relative seconds, so clocks needn't agree),
     those that left Continue Watching since (marked unwatched elsewhere, `lastViewedAt` is cleared, so no filter finds
     them: films by id, episodes with their series) and Continue Watching. Skipped when a sync is due.
-- **Plex Live TV** (0.4.0, `data/PlexLive.kt`): channels sync with the server (`PlaylistRepository.syncPlex`), each
+- **Plex Live TV** (0.4.0, `data/PlexLive.kt`): channels sync with the server (`PlaylistRepository.syncChannels`), each
   with a stable id from its key (`plexChannelId`, so favourites stay) and the key in `providerEpgId`. The guide is
-  saved as the server's own guide source (`EpgRepository.savePlexGuide`, url `plex:<id>`), which the XMLTV import
-  and matching skip. A channel is tuned once (`PlexLive`), its tuner let go before the next tune and on leaving; a
+  saved as the server's own guide source (`EpgRepository.savePlexGuide`, url `plex:<id>`), with why it last failed,
+  if it did, shown on the server's row in Settings › Playlists. A channel is tuned once (`PlexLive`), its tuner let go before the next tune and on leaving; a
   server that refuses Live TV (a friend's) just has no channels.
 - **Dolby Vision with HDR10+** (0.3.2): the owner's Philips shows HDR10, not Dolby Vision, while a Dolby Vision
   decoder also gets HDR10+ (found with `spikes/dv-diagnostics`, kept for other TVs). So a Dolby Vision decoder gets no

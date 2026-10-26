@@ -6,7 +6,7 @@ import org.junit.Test
 /** Core's regexes are ones Android can compile (see [RegexPortability]); the app checks its own the same way. */
 class RegexPortabilityTest {
     @Test
-    fun `every regex in core is one Android can compile`() = RegexPortability.assertPortable(atLeast = 15)
+    fun `every regex in core is one Android can compile`() = RegexPortability.assertPortable(atLeast = 8)
 
     @Test
     fun `the check spots a bare brace`() {

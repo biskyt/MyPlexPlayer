@@ -8,11 +8,9 @@ import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.data.db.AppDatabase
 import com.biskyt.myplexplayer.data.db.CategoryEntity
 import com.biskyt.myplexplayer.data.db.ChannelEntity
-import com.biskyt.myplexplayer.data.db.ChannelEpgMappingEntity
-import com.biskyt.myplexplayer.data.db.EpgSourceEntity
 import com.biskyt.myplexplayer.data.db.FavouriteEntity
+import com.biskyt.myplexplayer.data.db.KIND_PLEX
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
-import com.biskyt.myplexplayer.data.db.SOURCE_KINDS
 import com.biskyt.myplexplayer.data.db.VodFavouriteEntity
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import java.io.ByteArrayOutputStream
@@ -31,9 +29,9 @@ import kotlinx.serialization.json.jsonPrimitive
 class BackupException(message: String) : Exception(message)
 
 /**
- * The user's set-up as one JSON document: settings, playlists (with their logins), category and channel choices,
- * favourites, guide sources and manual guide choices, and how far into movies and episodes they got. Downloaded data
- * (channel, movie and series lists, guides) is left out: it is fetched again after a restore.
+ * The user's set-up as one JSON document: settings, sources (with their tokens), category and channel choices,
+ * favourites, and how far into movies and episodes they got. Downloaded data (channel, movie and series lists, guides)
+ * is left out: it is fetched again after a restore.
  */
 @Serializable
 @Suppress("LongParameterList") // a document: one field per part
@@ -48,8 +46,6 @@ class Backup(
     val channels: List<ChannelEntity>,
     val favourites: List<FavouriteEntity>,
     val vodFavourites: List<VodFavouriteEntity>,
-    val epgSources: List<EpgSourceEntity>,
-    val guideChoices: List<ChannelEpgMappingEntity>,
     val progress: List<WatchProgressEntity>
 ) {
     companion object {
@@ -66,8 +62,8 @@ class Backup(
 class BackupRepository(
     private val db: AppDatabase,
     private val settings: SettingsRepository,
-    private val epg: EpgRepository,
-    private val sync: SyncManager
+    private val sync: SyncManager,
+    private val epg: EpgRepository
 ) {
     private val dao = db.backup()
     private val json = Json {
@@ -89,8 +85,6 @@ class BackupRepository(
                 channels = dao.channelChoices(),
                 favourites = dao.favourites(),
                 vodFavourites = dao.vodFavourites(),
-                epgSources = dao.epgSources(),
-                guideChoices = dao.manualMappings(),
                 progress = dao.progress()
             )
         }
@@ -102,7 +96,6 @@ class BackupRepository(
         val backup = read(input)
         val hasPlaylists = sync.whileIdle {
             apply(backup).also {
-                epg.forgetDownloads()
                 // The old lists and guides are gone: give their space back before downloading again (optional, so
                 // a failure here mustn't fail the restore).
                 try {
@@ -136,10 +129,11 @@ class BackupRepository(
 
     /**
      * The database and settings part of [restore], in one transaction. Returns whether there are any playlists. A
-     * source of a kind the app no longer has (an M3U playlist from 0.2.1 or earlier) is left out, with all it had.
+     * source of a kind the app no longer has (an M3U playlist from 0.2.1 or earlier, an Xtream account from 0.5.2 or
+     * earlier) is left out, with all it had.
      */
     suspend fun apply(backup: Backup): Boolean {
-        val playlists = backup.playlists.filter { it.kind in SOURCE_KINDS }
+        val playlists = backup.playlists.filter { it.kind == KIND_PLEX }
         val ids = playlists.mapTo(HashSet()) { it.id }
         db.withTransaction {
             db.clearEveryTable()
@@ -150,14 +144,13 @@ class BackupRepository(
                 backup.channels.filter { it.playlistId in ids },
                 backup.favourites.filter { it.playlistId in ids },
                 backup.vodFavourites.filter { it.playlistId in ids },
-                backup.epgSources.filter { it.playlistId == null || it.playlistId in ids }
-                    .map { it.copy(lastImportAt = 0, channelCount = 0, lastError = null) },
-                backup.guideChoices.filter { it.playlistId in ids },
                 backup.progress.filter { it.playlistId in ids }
             )
         }
         val active = backup.settings.activePlaylistId.takeIf { it in ids } ?: playlists.firstOrNull()?.id ?: 0
         settings.update { backup.settings.copy(activePlaylistId = active) }
+        // The guide went with the rest: open guides read it again.
+        epg.reload()
         return ids.isNotEmpty()
     }
 

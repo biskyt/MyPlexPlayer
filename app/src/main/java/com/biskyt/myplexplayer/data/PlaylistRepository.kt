@@ -1,32 +1,19 @@
 package com.biskyt.myplexplayer.data
 
 import androidx.room.withTransaction
-import com.biskyt.myplexplayer.R
-import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.plex.PlexException
-import com.biskyt.myplexplayer.core.xtream.XtreamCategory
-import com.biskyt.myplexplayer.core.xtream.XtreamClient
-import com.biskyt.myplexplayer.core.xtream.XtreamCredentials
-import com.biskyt.myplexplayer.core.xtream.XtreamException
-import com.biskyt.myplexplayer.core.xtream.XtreamLiveStream
 import com.biskyt.myplexplayer.data.db.AppDatabase
 import com.biskyt.myplexplayer.data.db.CAT_LIVE
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
-import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.data.db.CategoryEntity
 import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.data.db.ChannelPrefs
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
 
-/** Sources (Plex servers and Xtream accounts) and downloading Xtream channel lists. */
+/** Sources (Plex servers) and their channels. */
 class PlaylistRepository(
     private val db: AppDatabase,
-    private val http: OkHttpClient,
     private val settings: SettingsRepository,
     private val epg: EpgRepository,
     private val categoryStore: CategoryStore,
@@ -41,72 +28,6 @@ class PlaylistRepository(
     suspend fun get(id: Long): PlaylistEntity? = playlists.get(id)
 
     suspend fun allIds(): List<Long> = playlists.all().map { it.id }
-
-    fun client(p: PlaylistEntity) = client(p.server, p.username, p.password)
-
-    private fun client(server: String, username: String, password: String) =
-        XtreamClient(http, XtreamCredentials(server, username, password))
-
-    /**
-     * Reads the Xtream account's expiry date and connection limit. Optional: if it fails, what was known is kept.
-     */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException") // any failure (network, odd answers) leaves it as it was
-    private suspend fun refreshAccount(p: PlaylistEntity) {
-        val account = try {
-            client(p).account()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            return
-        }
-        playlists.setAccount(p.id, account.expiresAtEpochSec, account.maxConnections)
-    }
-
-    /** Checks the login works; throws XtreamException with a readable message otherwise. */
-    suspend fun testLogin(server: String, username: String, password: String) {
-        val active = withUserXtreamErrors { client(server, username, password).account().active }
-        if (!active) throw XtreamException(appString(R.string.data_account_inactive))
-    }
-
-    /**
-     * Saves a new playlist and makes it the active one. Everything that can fail (login, category download) happens
-     * before anything is written, so a failed attempt leaves nothing behind.
-     */
-    suspend fun add(name: String, server: String, username: String, password: String): Long {
-        val c = client(server.trim(), username.trim(), password)
-        val active = withUserXtreamErrors { c.account().active }
-        if (!active) throw XtreamException(appString(R.string.data_account_inactive))
-        val remote = withUserXtreamErrors { c.liveCategories() }
-        val id =
-            insertAndActivate(PlaylistEntity(name = name, server = server.trim(), username = username.trim(), password = password), remote)
-        // Movie and series categories too, so they can be chosen before the first download. Providers without them
-        // (or with a broken list) get them on a later sync.
-        runCatching { categoryStore.store(id, CAT_MOVIE, c.movieCategories()) }
-        runCatching { categoryStore.store(id, CAT_SERIES, c.seriesCategories()) }
-        return id
-    }
-
-    private suspend fun insertAndActivate(p: PlaylistEntity, remote: List<XtreamCategory>): Long {
-        val id = db.withTransaction {
-            playlists.insert(
-                p.copy(
-                    name = p.name.ifBlank { appString(R.string.data_playlist_default_name) }
-                )
-            ).also { categoryStore.store(it, CAT_LIVE, remote) }
-        }
-        settings.update { it.copy(activePlaylistId = id) }
-        return id
-    }
-
-    suspend fun update(p: PlaylistEntity) {
-        val old = playlists.get(p.id)
-        if (old != null && (old.server != p.server || old.username != p.username || old.password != p.password)) {
-            testLogin(p.server, p.username, p.password)
-            // Perhaps another provider now: what the old one fell back to may not apply.
-            settings.forgetStreamFormat(p.id)
-        }
-        playlists.upsert(p)
-    }
 
     /**
      * Hides a category, as unticking it in Settings › Languages & categories does: its channels (or titles) go now,
@@ -134,67 +55,24 @@ class PlaylistRepository(
             playlists.deleteMappings(id)
             playlists.deleteMovies(id)
             playlists.deleteSeries(id)
-            playlists.deleteEpisodes(id)
             playlists.deleteProgress(id)
             playlists.deleteVodFavourites(id)
             playlists.delete(id)
         }
-        db.epg().providerSource(id)?.let { epg.removeSource(it.id) }
-        settings.forgetStreamFormat(id)
+        epg.removeGuide(id)
         val next = playlists.all().firstOrNull()?.id ?: 0
         if (settings.current().activePlaylistId == id) settings.update { it.copy(activePlaylistId = next) }
     }
 
     /**
-     * Downloads the category list. Existing choices are kept; new categories are included when their detected
-     * language group matches one the user already includes (or, the first time, the TV's own country/language).
-     */
-    suspend fun refreshCategories(playlistId: Long) {
-        val p = playlists.get(playlistId) ?: return
-        categoryStore.store(playlistId, CAT_LIVE, client(p).liveCategories())
-    }
-
-    /**
-     * Downloads the channels of included categories. Only a few categories → one request each;
-     * otherwise one full request, dropping excluded rows as they stream in. Returns the channel count.
+     * Downloads a Plex server's Live TV channels, in one list (Plex has no channel groups), then its guide for the next
+     * two days: the channel count. A guide that can't be fetched leaves the last one (and says why with the server); a
+     * server without Live TV (or that won't share it: a friend's, refusing), no channels and no guide. A
+     * server failing for now (starting up, say) leaves the channels as they were; out of reach, the sync fails, as it
+     * would for the films.
      */
     suspend fun syncChannels(playlistId: Long, onProgress: (Int) -> Unit = {}): Int {
         val p = playlists.get(playlistId) ?: return 0
-        if (p.isPlex) return syncPlex(p, onProgress)
-        // Alongside the download: a slow account answer mustn't hold up the channels.
-        return coroutineScope {
-            launch { refreshAccount(p) }
-            syncXtream(p, playlistId, onProgress)
-        }
-    }
-
-    private suspend fun syncXtream(p: PlaylistEntity, playlistId: Long, onProgress: (Int) -> Unit): Int {
-        val client = client(p)
-        refreshCategories(playlistId)
-        val out = ChannelWriter(playlistId, onProgress)
-        categoryStore.forIncluded(playlistId, CAT_LIVE, { s: XtreamLiveStream ->
-            s.categoryId
-        }, { cat, emit -> client.liveStreams(cat, emit) }) { s ->
-            out.add(
-                ChannelEntity(
-                    playlistId = playlistId, streamId = s.streamId, number = s.number, name = s.name, categoryId = s.categoryId,
-                    logoUrl = s.logoUrl, providerEpgId = s.epgChannelId, archiveDays = s.archiveDays,
-                    hidden = out.hidden(s.streamId), sortOrder = out.sortOrder(s.streamId), syncStamp = out.stamp
-                )
-            )
-        }
-        val count = out.finish()
-        epg.ensureProviderSource(p, client.xmltvUrl())
-        return count
-    }
-
-    /**
-     * A Plex server's Live TV channels, in one list (Plex has no channel groups), then its guide for the next two
-     * days. A guide that can't be fetched leaves the last one (and, unless out of reach, says why with the guides); a
-     * server without Live TV (or that won't share it: a friend's, refusing), no channels. A server failing for now
-     * (starting up, say) leaves the channels as they were; out of reach, the sync fails, as it would for the films.
-     */
-    private suspend fun syncPlex(p: PlaylistEntity, onProgress: (Int) -> Unit): Int {
         val lineup = try {
             plex.lineup(p)
         } catch (e: PlexException) {
@@ -203,7 +81,7 @@ class PlaylistRepository(
             if (!refused) return 0
             null
         }
-        categoryStore.store(p.id, CAT_LIVE, listOfNotNull(lineup?.let { XtreamCategory(PLEX_CHANNELS, "") }))
+        categoryStore.store(p.id, CAT_LIVE, listOfNotNull(lineup?.let { RemoteCategory(PLEX_CHANNELS, "") }))
         val out = ChannelWriter(p.id, onProgress)
         val keys = HashMap<Long, String>() // by stream id
         lineup?.channels.orEmpty().forEachIndexed { i, ch ->
@@ -214,19 +92,20 @@ class PlaylistRepository(
                 ChannelEntity(
                     playlistId = p.id, streamId = id, number = ch.number?.substringBefore('.')?.toIntOrNull() ?: (i + 1),
                     name = ch.name, categoryId = PLEX_CHANNELS, logoUrl = ch.thumb?.takeIf { it.startsWith("http") },
-                    providerEpgId = key, archiveDays = 0, hidden = out.hidden(id), sortOrder = out.sortOrder(id), syncStamp = out.stamp
+                    providerEpgId = key, hidden = out.hidden(id), sortOrder = out.sortOrder(id), syncStamp = out.stamp
                 )
             )
         }
         val count = out.finish()
-        if (lineup != null) {
+        if (lineup == null) {
+            epg.removeGuide(p.id)
+        } else {
             val now = System.currentTimeMillis()
             try {
                 val guide = plex.guide(p, lineup.live, now - GUIDE_BEFORE_MS, now + GUIDE_AHEAD_MS)
                 epg.savePlexGuide(p, keys, plexGuideRows(guide, lineup.channels))
             } catch (e: PlexException) {
-                // Out of reach, it's tried at the next sync; anything else is said with the guides.
-                if (e.reason != PlexException.Reason.UNREACHABLE) epg.plexGuideFailed(p, e)
+                epg.plexGuideFailed(p, e)
             }
         }
         return count
@@ -269,10 +148,7 @@ class PlaylistRepository(
         /** A Plex server's one channel list (its category id). */
         const val PLEX_CHANNELS = "plex-live"
 
-        /**
-         * The Plex guide is kept from an hour back (what's on now) for two days (four of PlexSources' requests): less
-         * than an XMLTV guide keeps (EpgRepository.KEEP_FUTURE_MS), as each request is built by the server (a Pi).
-         */
+        /** The Plex guide is kept from an hour back (what's on now) for two days (four of PlexSources' requests). */
         private const val GUIDE_BEFORE_MS = 3_600_000L
         private const val GUIDE_AHEAD_MS = 47 * 3_600_000L
     }

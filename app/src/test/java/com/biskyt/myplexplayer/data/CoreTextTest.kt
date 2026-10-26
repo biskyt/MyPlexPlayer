@@ -5,9 +5,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.epg.CategoryLanguageDetector
+import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.ui.AccentPalette
-import com.biskyt.myplexplayer.core.xtream.XtreamException
-import com.biskyt.myplexplayer.core.xtream.XtreamException.Reason
 import com.biskyt.myplexplayer.testutil.PlainApp
 import java.io.IOException
 import org.junit.Assert.assertEquals
@@ -47,17 +46,15 @@ class CoreTextTest {
     }
 
     @Test
-    fun `xtream failures are told in the app's words, keeping the English for logs`() {
-        val unreachable = XtreamException("Couldn't reach the server: timeout", IOException("timeout"), Reason.UNREACHABLE)
-        assertEquals("Couldn't reach the server: timeout", userMessage(unreachable))
-        val error = XtreamException("Server returned error 503", reason = Reason.SERVER_ERROR, code = 503)
+    fun `plex failures are told in the app's words, keeping the English for logs`() {
+        val unreachable = PlexException("Couldn't reach plex.example: timeout", IOException("timeout"), PlexException.Reason.UNREACHABLE)
+        assertEquals("Couldn't reach the Plex server", userMessage(unreachable))
+        val error = PlexException("HTTP 503", reason = PlexException.Reason.SERVER_ERROR, code = 503)
         assertEquals("Server returned error 503", userMessage(error))
-        val login = XtreamException("Login failed (log)", reason = Reason.LOGIN_FAILED)
-        assertEquals("Login failed: check the server address, username and password", userMessage(login))
-        assertEquals("Login failed (log)", login.message)
-        // Shown once wrapped, as before.
-        val wrapped = runCatching { withUserXtreamErrors { throw login } }.exceptionOrNull()
-        assertEquals("Login failed: check the server address, username and password", wrapped?.message)
-        assertEquals("Not an Xtream error", userMessage(IOException("Not an Xtream error")))
+        // Shown once wrapped, the English kept with its cause.
+        val wrapped = runCatching { withUserPlexErrors { throw unreachable } }.exceptionOrNull()
+        assertEquals("Couldn't reach the Plex server", wrapped?.message)
+        assertEquals("Couldn't reach plex.example: timeout", wrapped?.cause?.message)
+        assertEquals("Not a Plex error", userMessage(IOException("Not a Plex error")))
     }
 }

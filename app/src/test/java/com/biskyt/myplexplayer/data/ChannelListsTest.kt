@@ -7,15 +7,10 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.db.AppDatabase
 import com.biskyt.myplexplayer.data.db.ChannelEntity
-import com.biskyt.myplexplayer.data.db.EpgChannelEntity
-import com.biskyt.myplexplayer.data.db.EpgSourceEntity
 import com.biskyt.myplexplayer.data.db.FavouriteEntity
 import com.biskyt.myplexplayer.data.db.RecentEntity
 import com.biskyt.myplexplayer.testutil.PlainApp
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
-import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -33,7 +28,7 @@ class ChannelListsTest {
     @After
     fun tearDown() = db.close()
 
-    private fun channel(id: Long, number: Int, name: String) = ChannelEntity(1, id, number, name, "1", null, null, 0)
+    private fun channel(id: Long, number: Int, name: String) = ChannelEntity(1, id, number, name, "1", null, null)
 
     private suspend fun names(source: PagingSource<Int, ChannelEntity>) =
         (TestPager(PagingConfig(50), source).refresh() as PagingSource.LoadResult.Page).data.map { it.name }
@@ -53,17 +48,5 @@ class ChannelListsTest {
             assertEquals("recent, '$q'", all.toSet(), names(channels.pageRecent(1, likeArg(q))).toSet())
         }
         assertEquals(listOf("News 10"), names(channels.pageAll(1, likeArg("0")))) // by its name; no channel is number 0
-    }
-
-    @Test
-    fun `guide channel search takes what's typed literally`() = runBlocking {
-        val source = db.epg().insertSource(EpgSourceEntity(name = "Guide", url = "http://guide.example/epg.xml"))
-        db.epg().upsertChannels(
-            listOf(EpgChannelEntity(source, "bbc1.uk", "BBC_One", "bbc one"), EpgChannelEntity(source, "bbc2.uk", "BBC Two", "bbc two"))
-        )
-        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val epg = EpgRepository(db, OkHttpClient(), context.cacheDir.resolve("test-epg"), CoroutineScope(Dispatchers.Unconfined))
-        // "_" is a character to find, not "any one character".
-        assertEquals(listOf("BBC_One"), epg.searchGuideChannels("C_").map { it.displayName })
     }
 }

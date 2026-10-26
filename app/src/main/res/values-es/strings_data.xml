@@ -3,32 +3,15 @@
     <string name="data_refresh_failed">No se pudo actualizar</string>
     <string name="data_vod_failed">No se pudieron cargar las películas y series</string>
 
-    <string name="data_matching">Asignando canales…</string>
-    <string name="data_matching_progress">Asignando canales… %1$s de %2$s</string>
-    <string name="data_downloading">Descargando %1$s…</string>
-    <string name="data_reading">Leyendo %1$s…</string>
-    <string name="data_loading_programmes">Cargando programas de %1$s…</string>
-    <string name="data_loading_programmes_guide">Cargando programas de la guía…</string>
-
     <string name="data_server_error">El servidor devolvió el error %1$d</string>
     <string name="data_guide_save_failed">No se pudo guardar el archivo de la guía</string>
     <string name="data_guide_unreadable">No se pudo leer la guía</string>
 
-    <string name="data_xtream_login_failed">Error al iniciar sesión: revisa la dirección del servidor, el usuario y la contraseña</string>
-    <string name="data_xtream_no_movie_details">No hay detalles de esta película</string>
-    <string name="data_xtream_no_episodes">No se encontraron episodios de esta serie</string>
-    <string name="data_xtream_unreachable">No se pudo conectar con el servidor: %1$s</string>
-    <string name="data_xtream_empty">Respuesta vacía del servidor</string>
-    <string name="data_xtream_unexpected">Respuesta inesperada del servidor</string>
-    <string name="data_xtream_invalid_address">Dirección de servidor no válida</string>
     <string name="data_plex_signed_out">Plex no aceptó el inicio de sesión: vuelve a iniciar sesión en Plex</string>
     <string name="data_plex_unreachable">No se pudo conectar con el servidor Plex</string>
     <string name="data_plex_unexpected">Respuesta inesperada de Plex</string>
     <string name="data_plex_needs_converting">Este archivo solo se reproduce si el servidor lo convierte, y MyPlexPlayer nunca lo pide.</string>
     <string name="data_plex_cannot_stream">El servidor no puede transmitir este archivo.</string>
-    <string name="data_account_inactive">Esta cuenta no está activa</string>
-
-
 
     <string name="data_lang_uk">Inglés (Reino Unido)</string>
     <string name="data_lang_us">Inglés (EE. UU.)</string>
@@ -73,7 +56,5 @@
     <string name="data_accent_lime">Lima</string>
     <string name="data_accent_pink">Rosa</string>
     <string name="data_accent_silver">Plata</string>
-    <string name="data_playlist_default_name">Mi TV</string>
-    <string name="data_provider_guide_name">Guía de %1$s</string>
     <string name="data_ungrouped">Sin categoría</string>
 </resources>

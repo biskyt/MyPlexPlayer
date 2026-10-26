@@ -6,37 +6,24 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
-const val KIND_XTREAM = "xtream"
 const val KIND_PLEX = "plex"
 
-/** The kinds of source the app has; any other (M3U, before 0.2.2) is removed (see AppDatabase.RetiredSources). */
-val SOURCE_KINDS = setOf(KIND_PLEX, KIND_XTREAM)
-
 /**
- * A source. [kind] is [KIND_PLEX] (a Plex Media Server: [server] is the address chosen for it, [password] its access
- * token and [machineId] its identifier) or [KIND_XTREAM] (server + login).
+ * A source: a Plex Media Server. [server] is the address chosen for it, [password] its access token and [machineId] its
+ * identifier. Any other [kind] (M3U playlists until 0.2.1, Xtream accounts until 0.5.2) is removed (see AppDatabase).
  */
 @Entity(tableName = "playlist")
 @Serializable
 data class PlaylistEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
-    @ColumnInfo(defaultValue = KIND_XTREAM) val kind: String = KIND_XTREAM,
+    @ColumnInfo(defaultValue = KIND_PLEX) val kind: String = KIND_PLEX,
     val server: String,
-    val username: String,
     val password: String,
     val lastSyncAt: Long = 0,
-    val expiresAt: Long? = null,
-    val maxConnections: Int? = null,
-    /** Unused since M3U playlists went (0.2.2); see AppDatabase. */
-    val moviesUrl: String? = null,
-    val seriesUrl: String? = null,
-    val vodFeedHash: Long? = null,
-    /** Plex: the server's machine identifier, which stays the same when its address changes. */
+    /** The server's machine identifier, which stays the same when its address changes. */
     val machineId: String? = null
 ) {
-    val isPlex: Boolean get() = kind == KIND_PLEX
-    val isXtream: Boolean get() = kind == KIND_XTREAM
 
     /** Channels are refreshed in the background when the last download is older than this. */
     fun isStale(now: Long = System.currentTimeMillis()) = now - lastSyncAt > 12 * 3_600_000L
@@ -95,9 +82,7 @@ data class MovieEntity(
     val extension: String,
     /** Provider order. */
     val position: Int,
-    val syncStamp: Long,
-    /** Unused since 0.2.2 (M3U films); see AppDatabase. */
-    val streamUrl: String? = null
+    val syncStamp: Long
 )
 
 @Entity(
@@ -125,20 +110,6 @@ data class SeriesEntity(
     @ColumnInfo(defaultValue = "NULL") val unwatched: Int? = null,
     /** Plex: its place among the series with the newest episodes (0 first), for Home; null when not among them. */
     @ColumnInfo(defaultValue = "NULL") val newest: Int? = null
-)
-
-/** Unused since 0.2.2 (M3U episodes): see AppDatabase. */
-@Entity(tableName = "episode", primaryKeys = ["playlistId", "episodeId"], indices = [Index("playlistId", "seriesId", "season", "number")])
-data class EpisodeEntity(
-    val playlistId: Long,
-    val episodeId: Long,
-    val seriesId: Long,
-    val season: Int,
-    val number: Int,
-    /** The playlist's title; blank when it gave none (the app names it when shown, see episodeTitle). */
-    val title: String,
-    val streamUrl: String,
-    val syncStamp: Long
 )
 
 const val VOD_MOVIE = "movie"
@@ -213,9 +184,7 @@ data class VodFavouriteEntity(
     indices = [
         Index("playlistId", "hidden", "position", "name"),
         Index("playlistId", "categoryId", "hidden", "position", "name"),
-        Index("playlistId", "number"),
-        // Unused since Catch-up went (kept to leave the schema as it is); see AppDatabase.
-        Index("playlistId", "hidden", "archiveDays")
+        Index("playlistId", "number")
     ]
 )
 @Serializable
@@ -227,19 +196,10 @@ data class ChannelEntity(
     val categoryId: String,
     val logoUrl: String?,
     val providerEpgId: String?,
-    /** Catch-up days the provider offered (0: none). Unused since Catch-up went; see AppDatabase. */
-    val archiveDays: Int,
     val hidden: Boolean = false,
     val sortOrder: Int? = null,
     val position: Int = sortOrder ?: number,
-    @ColumnInfo(defaultValue = "0") val syncStamp: Long = 0,
-    /** Unused since 0.2.2 (M3U channels' own URL and headers); see AppDatabase. Xtream URLs are built from the login. */
-    val streamUrl: String? = null,
-    val userAgent: String? = null,
-    val referrer: String? = null,
-    /** Unused since 0.2.2 (M3U catch-up); see AppDatabase. */
-    val catchupType: String? = null,
-    val catchupSource: String? = null
+    @ColumnInfo(defaultValue = "0") val syncStamp: Long = 0
 )
 
 /** [position]: where the user put it (0, as for favourites from before 1.2.0, keeps channel-number order). */
@@ -255,7 +215,7 @@ data class FavouriteEntity(
 @Entity(tableName = "recent", primaryKeys = ["playlistId", "streamId"], indices = [Index("playlistId", "watchedAt")])
 data class RecentEntity(val playlistId: Long, val streamId: Long, val watchedAt: Long)
 
-/** An XMLTV guide source. Provider guides are added automatically with [playlistId] set. */
+/** A guide source: a Plex server's own guide, added with its first guide, with [playlistId] its source. */
 @Entity(tableName = "epg_source")
 @Serializable
 data class EpgSourceEntity(
@@ -267,14 +227,6 @@ data class EpgSourceEntity(
     val lastImportAt: Long = 0,
     val channelCount: Int = 0,
     val lastError: String? = null
-)
-
-@Entity(tableName = "epg_channel", primaryKeys = ["sourceId", "xmlId"])
-data class EpgChannelEntity(
-    val sourceId: Long,
-    val xmlId: String,
-    val displayName: String,
-    val nameNorm: String
 )
 
 @Entity(tableName = "programme", primaryKeys = ["sourceId", "xmlId", "startMs"], indices = [Index("stopMs")])

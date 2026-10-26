@@ -218,7 +218,7 @@ private fun ResultOptions(item: Picked, pid: Long, vm: SearchViewModel, onDismis
                 listOf(ItemAction.Open(stringResource(R.string.common_watch), Screen.Player(pid, item.streamId, ChannelFilter.All))) +
                 // Once both are read: a label saying "Add" for a favourite would undo it.
                 channel?.let { ch ->
-                    favourites?.let { f -> channelActions(ch, ch.streamId in f) { vm.setChannelFavourite(pid, ch.streamId, it) } }
+                    favourites?.let { f -> channelActions(ch.streamId in f) { vm.setChannelFavourite(pid, ch.streamId, it) } }
                 }.orEmpty()
         }
         is Picked.Vod -> {

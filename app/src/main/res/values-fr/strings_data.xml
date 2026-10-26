@@ -3,32 +3,15 @@
     <string name="data_refresh_failed">Échec de l\'actualisation</string>
     <string name="data_vod_failed">Impossible de charger les films et séries</string>
 
-    <string name="data_matching">Association des chaînes…</string>
-    <string name="data_matching_progress">Association des chaînes… %1$s sur %2$s</string>
-    <string name="data_downloading">Téléchargement de %1$s…</string>
-    <string name="data_reading">Lecture de %1$s…</string>
-    <string name="data_loading_programmes">Chargement des programmes de %1$s…</string>
-    <string name="data_loading_programmes_guide">Chargement des programmes du guide…</string>
-
     <string name="data_server_error">Le serveur a renvoyé l\'erreur %1$d</string>
     <string name="data_guide_save_failed">Impossible d\'enregistrer le fichier du guide</string>
     <string name="data_guide_unreadable">Impossible de lire le guide</string>
 
-    <string name="data_xtream_login_failed">Échec de la connexion : vérifiez l\'adresse du serveur, le nom d\'utilisateur et le mot de passe</string>
-    <string name="data_xtream_no_movie_details">Aucun détail pour ce film</string>
-    <string name="data_xtream_no_episodes">Aucun épisode trouvé pour cette série</string>
-    <string name="data_xtream_unreachable">Impossible de joindre le serveur : %1$s</string>
-    <string name="data_xtream_empty">Réponse vide du serveur</string>
-    <string name="data_xtream_unexpected">Réponse inattendue du serveur</string>
-    <string name="data_xtream_invalid_address">Adresse du serveur non valide</string>
     <string name="data_plex_signed_out">Plex n\'a pas accepté la connexion : reconnectez-vous à Plex</string>
     <string name="data_plex_unreachable">Impossible de joindre le serveur Plex</string>
     <string name="data_plex_unexpected">Réponse inattendue de Plex</string>
     <string name="data_plex_needs_converting">Ce fichier ne se lit que si le serveur le convertit, ce que MyPlexPlayer ne demande jamais.</string>
     <string name="data_plex_cannot_stream">Le serveur ne peut pas diffuser ce fichier.</string>
-    <string name="data_account_inactive">Ce compte n\'est pas actif</string>
-
-
 
     <string name="data_lang_uk">Anglais (Royaume-Uni)</string>
     <string name="data_lang_us">Anglais (États-Unis)</string>
@@ -73,7 +56,5 @@
     <string name="data_accent_lime">Citron vert</string>
     <string name="data_accent_pink">Rose</string>
     <string name="data_accent_silver">Argent</string>
-    <string name="data_playlist_default_name">Ma TV</string>
-    <string name="data_provider_guide_name">Guide de %1$s</string>
     <string name="data_ungrouped">Sans catégorie</string>
 </resources>
