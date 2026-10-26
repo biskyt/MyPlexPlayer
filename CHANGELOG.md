@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.6.1
+- Languages & categories: switching between Live TV, Movies and Series now always shows the first language's
+  categories (it could show none).
+
 ## 0.6.0
 - **MyPlexPlayer is now for Plex only.** TV services added with an Xtream Codes login, TV guides added by hand and
   guide matching are gone: channels, films, series and the TV guide all come from your Plex servers. An Xtream

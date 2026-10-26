@@ -55,11 +55,11 @@ class CategoriesUiTest {
         source = runBlocking { app.container.addSyncedHomePlex(plex) }
         val navigator = navigators.new(Screen.Categories(source))
         compose.setContent { MyPlexTheme { NavHost(remember { navigator }) { CategoriesScreen(source, firstRun = false) } } }
+        waitFor("No category") // the Live TV list (one, of no language), held just after switching
         click("Movies")
-        // The languages, in alphabetical order: focus on the first shows its categories. (Straight after switching, the
-        // categories shown can be the last list's first language's: a known issue, to fix in MyTVPlayer first.)
+        // The languages are in alphabetical order: the first one's categories show, not those of the Live TV list's
+        // language, which the movies don't have (MyTVPlayer 1.3.4).
         waitFor("Arabic")
-        compose.onNode(hasText("Arabic") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
         waitFor("|AR| NEWS")
     }
 
