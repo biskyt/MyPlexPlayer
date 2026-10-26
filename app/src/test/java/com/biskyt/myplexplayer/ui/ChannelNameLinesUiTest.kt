@@ -8,10 +8,11 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.ChannelFilter
-import com.biskyt.myplexplayer.testutil.FakeProvider
+import com.biskyt.myplexplayer.data.plexChannelId
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
-import com.biskyt.myplexplayer.testutil.addHomeTv
+import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.waitForText
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
@@ -35,19 +36,23 @@ class ChannelNameLinesUiTest {
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
 
-    private val provider = FakeProvider()
+    private val plex = FakePlex()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
 
     @Before
     fun setUp() = runBlocking {
-        provider.streams = provider.streams.map { if (it.id == 101L) it.copy(name = LONG) else it }
-        val playlistId = app.container.addHomeTv(provider)
-        // Beside a short name (UK: KITE KIDZ), for the cards' heights.
-        listOf(101L, 103L).forEach { app.container.channels.setFavourite(playlistId, it, true) }
+        plex.channels = listOf(FakePlex.Channel("1", LONG), FakePlex.Channel("2", "Two"))
+        // Channels alone, so Home's row of them is in view.
+        plex.movies = emptyList()
+        plex.shows = emptyList()
+        plex.episodes = emptyList()
+        val source = app.container.addSyncedHomePlex(plex)
+        // Beside a short name (Two), for the cards' heights.
+        listOf("ch-1", "ch-2").forEach { app.container.channels.setFavourite(source, plexChannelId(it), true) }
     }
 
     @After
-    fun tearDown() = provider.close()
+    fun tearDown() = plex.close()
 
     private fun show(screen: Screen) {
         val navigator = navigators.new(screen)
@@ -86,11 +91,11 @@ class ChannelNameLinesUiTest {
     @Test
     fun `on Home's cards, which keep one height`() {
         show(Screen.Home)
-        compose.waitForText("UK: KITE KIDZ", stepMs = 50)
+        compose.waitForText("Two", stepMs = 50)
         assertTwoFullLines()
         fun height(name: String) = compose.onAllNodes(hasText(name, substring = true) and hasClickAction()).fetchSemanticsNodes()
             .single().boundsInRoot.height
-        assertEquals(height(LONG), height("UK: KITE KIDZ"), 0.5f)
+        assertEquals(height(LONG), height("Two"), 0.5f)
     }
 
     @Test

@@ -14,10 +14,11 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.ChannelFilter
-import com.biskyt.myplexplayer.testutil.FakeProvider
+import com.biskyt.myplexplayer.data.plexChannelId
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
-import com.biskyt.myplexplayer.testutil.addHomeTv
+import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.topRoot
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
@@ -43,18 +44,27 @@ class PlayerKeysUiTest {
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
 
-    private val provider = FakeProvider()
+    private val plex = FakePlex()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
-    private var playlistId = 0L
+    private var source = 0L
     private lateinit var navigator: Navigator
+
+    /** Channel One, the first. */
+    private val one = plexChannelId("ch-1")
 
     @Before
     fun setUp() = runBlocking {
-        playlistId = app.container.addHomeTv(provider, guide = true)
+        // Three channels, the second with no guide.
+        plex.channels = listOf(FakePlex.Channel("1", "One"), FakePlex.Channel("2", "Two"), FakePlex.Channel("3", "Three"))
+        plex.programme = { i, n ->
+            if (i == 1) null else FakePlex.Programme((if (n == 0) "Now on " else "Next on ") + plex.channels[i].title)
+        }
+        plex.liveTrickles = true // never fails, so no retry plays it again
+        source = app.container.addSyncedHomePlex(plex)
     }
 
     @After
-    fun tearDown() = provider.close()
+    fun tearDown() = plex.close()
 
     private fun show(start: Screen) {
         navigator = navigators.new(start)
@@ -90,7 +100,7 @@ class PlayerKeysUiTest {
 
     @Test
     fun `the controls come up with focus on play-pause, and up goes back to the video`() {
-        show(Screen.Player(playlistId, 101, ChannelFilter.All))
+        show(Screen.Player(source, one, ChannelFilter.All))
         waitFor("Channel guide")
         compose.waitAdvancingClock { focused().contains("Pause") || focused().contains("Play") }
         press(Key.DirectionUp)
@@ -100,7 +110,7 @@ class PlayerKeysUiTest {
     @Test
     fun `the media buttons work with a panel open over the video`() {
         show(Screen.Live())
-        compose.runOnIdle { navigator.push(Screen.Player(playlistId, 101, ChannelFilter.All)) }
+        compose.runOnIdle { navigator.push(Screen.Player(source, one, ChannelFilter.All)) }
         waitFor("Channel guide")
         press(Key.Menu) // the More panel
         waitFor("Sleep timer")
@@ -117,27 +127,23 @@ class PlayerKeysUiTest {
     @Test
     fun `the channel guide previews channel after channel, whatever their programme times`() {
         // Its programmes start at other times than channel one's: the one focused there isn't in this list.
-        provider.guideShiftMin = mapOf("kite.uk" to 10)
-        runBlocking {
-            val epg = app.container.epg
-            epg.setManual(playlistId, 103, app.container.db.epg().enabledSources().first().id, "kite.uk", offsetMinutes = 0)
-            epg.importAll(listOf(playlistId))
-        }
-        show(Screen.Player(playlistId, 101, ChannelFilter.All))
+        plex.guideShiftMin = mapOf("ch-3" to 10)
+        runBlocking { app.container.sync.refreshNow(source).getOrThrow() }
+        show(Screen.Player(source, one, ChannelFilter.All))
         waitFor("Channel guide")
         press(Key.Guide)
-        waitForFocus("Now on one.uk")
-        press(Key.DirectionLeft) // round to the last channel, Kite Kids
-        waitFor("Now on kite.uk")
+        waitForFocus("Now on One")
+        press(Key.DirectionLeft) // round to the last channel, Three
+        waitFor("Now on Three")
         press(Key.DirectionLeft)
-        waitFor("UK: ARENA SPRTS 1 FHD") // which has no guide
+        waitFor("Two") // which has no guide
         press(Key.DirectionLeft)
-        waitFor("Now on one.uk")
+        waitFor("Now on One")
     }
 
     @Test
     fun `the guide button with a panel open over the video opens the channel guide`() {
-        show(Screen.Player(playlistId, 101, ChannelFilter.All))
+        show(Screen.Player(source, one, ChannelFilter.All))
         waitFor("Channel guide")
         press(Key.Menu) // the More panel
         waitFor("Sleep timer")
@@ -153,12 +159,12 @@ class PlayerKeysUiTest {
 
     @Test
     fun `the guide and menu buttons close the panels they open`() {
-        show(Screen.Player(playlistId, 101, ChannelFilter.All))
+        show(Screen.Player(source, one, ChannelFilter.All))
         waitFor("Channel guide")
         press(Key.Guide)
-        waitForFocus("Now on one.uk")
+        waitForFocus("Now on One")
         press(Key.Guide)
-        waitGone("Now on one.uk")
+        waitGone("Now on One")
         press(Key.Menu)
         waitFor("Sleep timer")
         press(Key.Menu)
@@ -168,7 +174,7 @@ class PlayerKeysUiTest {
 
     @Test
     fun `playback info takes focus from the More panel, and the menu button closes it`() {
-        show(Screen.Player(playlistId, 101, ChannelFilter.All))
+        show(Screen.Player(source, one, ChannelFilter.All))
         waitFor("Channel guide")
         press(Key.Menu)
         waitFor("Playback info")
@@ -188,19 +194,19 @@ class PlayerKeysUiTest {
 
     @Test
     fun `menu with the channel guide open opens the more menu in its place`() {
-        show(Screen.Player(playlistId, 101, ChannelFilter.All))
+        show(Screen.Player(source, one, ChannelFilter.All))
         waitFor("Channel guide")
         press(Key.Guide)
-        waitForFocus("Now on one.uk")
+        waitForFocus("Now on One")
         press(Key.Menu)
         waitFor("Sleep timer")
-        waitGone("Now on one.uk")
+        waitGone("Now on One")
     }
 
     @Test
     fun `the guide button works on the live screen with focus on the tabs`() {
         show(Screen.Live())
-        waitForFocus("CHANNEL ONE")
+        waitForFocus("One")
         press(Key.DirectionUp) // the filter box
         press(Key.DirectionUp) // the tabs
         assertTrue(focused(), listOf("Home", "Live TV", "Movies", "Series").any { focused().contains(it) })
@@ -211,10 +217,10 @@ class PlayerKeysUiTest {
     @Test
     fun `up from the guide's first row goes to the filter box`() {
         show(Screen.Live(guide = true))
-        waitForFocus("Now on one.uk")
+        waitForFocus("Now on One")
         press(Key.DirectionDown)
         press(Key.DirectionUp)
-        waitForFocus("on one.uk") // back on the first row
+        waitForFocus("on One") // back on the first row
         press(Key.DirectionUp)
         waitForFocus("Filter by name or number")
     }

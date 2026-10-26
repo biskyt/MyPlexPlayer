@@ -8,8 +8,9 @@ import com.biskyt.myplexplayer.data.db.CAT_LIVE
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.FavouriteEntity
 import com.biskyt.myplexplayer.data.db.VodFavouriteEntity
-import com.biskyt.myplexplayer.testutil.FakeProvider
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.PlainApp
+import com.biskyt.myplexplayer.testutil.signInHome
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +33,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34], application = PlainApp::class)
 class FavouriteOrderTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
-    private val provider = FakeProvider()
+    private val plex = FakePlex()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private lateinit var db: AppDatabase
     private lateinit var settings: SettingsRepository
@@ -50,11 +51,14 @@ class FavouriteOrderTest {
         settings = SettingsRepository(context)
         epg = EpgRepository(db, http, context.cacheDir.resolve("test-epg"), scope)
         val categoryStore = CategoryStore(db) { Locale.UK }
-        playlists = PlaylistRepository(db, http, settings, epg, categoryStore, PlexSources(db, http, settings))
+        val sources = PlexSources(db, http, settings).apply { plexTv = plex.url }
+        playlists = PlaylistRepository(db, http, settings, epg, categoryStore, sources)
         channels = ChannelRepository(db)
-        vod = VodRepository(db, playlists, categoryStore, PlexSources(db, http, settings))
+        vod = VodRepository(db, playlists, categoryStore, sources)
         favourites = Favourites(scope, settings, channels, vod)
-        pid = playlists.add("Home", provider.url, "me", "secret")
+        plex.channels = listOf(FakePlex.Channel("1", "One"), FakePlex.Channel("2", "Two"), FakePlex.Channel("3", "Three"))
+        plex.movies = listOf(FakePlex.film("11", "Big Buck Bunny"), FakePlex.film("12", "Sintel"), FakePlex.film("13", "Cosmos"))
+        pid = sources.signInHome(db)
         playlists.syncChannels(pid)
         vod.sync(playlists.get(pid)!!)
     }
@@ -63,41 +67,41 @@ class FavouriteOrderTest {
     fun tearDown() {
         scope.cancel()
         db.close()
-        provider.close()
+        plex.close()
     }
 
     @Test
     fun `channels saved before the order keep channel-number order, and new favourites go at the end`() = runBlocking {
         // As 1.1 saved them (position 0), added in the opposite order.
-        db.favourites().add(FavouriteEntity(pid, 103, addedAt = 1))
-        db.favourites().add(FavouriteEntity(pid, 101, addedAt = 2))
-        assertEquals(listOf(101L, 103L), favourites.order(pid, CAT_LIVE))
-        channels.setFavourite(pid, 102, true)
-        assertEquals(listOf(101L, 103L, 102L), favourites.order(pid, CAT_LIVE))
+        db.favourites().add(FavouriteEntity(pid, THREE, addedAt = 1))
+        db.favourites().add(FavouriteEntity(pid, ONE, addedAt = 2))
+        assertEquals(listOf(ONE, THREE), favourites.order(pid, CAT_LIVE))
+        channels.setFavourite(pid, TWO, true)
+        assertEquals(listOf(ONE, THREE, TWO), favourites.order(pid, CAT_LIVE))
         // Every list of favourite channels follows it: Home's row, the paged list and zapping.
-        assertEquals(listOf(101L, 103L, 102L), channels.observeFavourites(pid).first().map { it.streamId })
-        assertEquals(listOf(101L, 103L, 102L), channels.ids(pid, ChannelFilter.Favourites))
+        assertEquals(listOf(ONE, THREE, TWO), channels.observeFavourites(pid).first().map { it.streamId })
+        assertEquals(listOf(ONE, THREE, TWO), channels.ids(pid, ChannelFilter.Favourites))
     }
 
     @Test
     fun `movies saved before the order keep newest first, and new favourites go at the end`() = runBlocking {
-        db.vod().addFavourite(VodFavouriteEntity(pid, CAT_MOVIE, 501, addedAt = 1))
-        db.vod().addFavourite(VodFavouriteEntity(pid, CAT_MOVIE, 502, addedAt = 2))
-        assertEquals(listOf(502L, 501L), favourites.order(pid, CAT_MOVIE))
-        vod.setFavourite(pid, CAT_MOVIE, 701, true)
-        assertEquals(listOf(502L, 501L, 701L), favourites.order(pid, CAT_MOVIE))
-        assertEquals(listOf(502L, 501L, 701L), vod.observeFavouriteCards(pid, CAT_MOVIE, 10).first().map { it.id })
+        db.vod().addFavourite(VodFavouriteEntity(pid, CAT_MOVIE, 11, addedAt = 1))
+        db.vod().addFavourite(VodFavouriteEntity(pid, CAT_MOVIE, 12, addedAt = 2))
+        assertEquals(listOf(12L, 11L), favourites.order(pid, CAT_MOVIE))
+        vod.setFavourite(pid, CAT_MOVIE, 13, true)
+        assertEquals(listOf(12L, 11L, 13L), favourites.order(pid, CAT_MOVIE))
+        assertEquals(listOf(12L, 11L, 13L), vod.observeFavouriteCards(pid, CAT_MOVIE, 10).first().map { it.id })
     }
 
     @Test
     fun `moving one stores the order, as far as the ends`() = runBlocking {
-        listOf(101L, 102L, 103L).forEach { channels.setFavourite(pid, it, true) }
+        listOf(ONE, TWO, THREE).forEach { channels.setFavourite(pid, it, true) }
         val order = favourites.order(pid, CAT_LIVE)
-        favourites.setOrder(pid, CAT_LIVE, Favourites.moved(order, 103, -1))
-        assertEquals(listOf(101L, 103L, 102L), favourites.order(pid, CAT_LIVE))
-        favourites.setOrder(pid, CAT_LIVE, Favourites.moved(favourites.order(pid, CAT_LIVE), 101, 5))
-        assertEquals(listOf(103L, 102L, 101L), favourites.order(pid, CAT_LIVE))
-        assertEquals(listOf(103L, 102L, 101L), Favourites.moved(listOf(103L, 102L, 101L), 103, -1))
+        favourites.setOrder(pid, CAT_LIVE, Favourites.moved(order, THREE, -1))
+        assertEquals(listOf(ONE, THREE, TWO), favourites.order(pid, CAT_LIVE))
+        favourites.setOrder(pid, CAT_LIVE, Favourites.moved(favourites.order(pid, CAT_LIVE), ONE, 5))
+        assertEquals(listOf(THREE, TWO, ONE), favourites.order(pid, CAT_LIVE))
+        assertEquals(listOf(THREE, TWO, ONE), Favourites.moved(listOf(THREE, TWO, ONE), THREE, -1))
         assertEquals(listOf(1L, 2L), Favourites.moved(listOf(1L, 2L), 9, 1)) // not in the list: left as it is
         // Home shows the first few: one moved along its row stays in it.
         assertEquals(listOf(1L, 3L, 2L, 4L), Favourites.moved(listOf(1L, 2L, 3L, 4L), 2, 5, shown = 3))
@@ -107,14 +111,14 @@ class FavouriteOrderTest {
     @Test
     fun `a backup keeps the order, and one from before the order restores in the old one`() = runBlocking {
         val backup = BackupRepository(db, settings, epg, SyncManager(scope, playlists, vod, epg))
-        listOf(101L, 102L, 103L).forEach { channels.setFavourite(pid, it, true) }
-        favourites.setOrder(pid, CAT_LIVE, listOf(103L, 101L, 102L))
+        listOf(ONE, TWO, THREE).forEach { channels.setFavourite(pid, it, true) }
+        favourites.setOrder(pid, CAT_LIVE, listOf(THREE, ONE, TWO))
         val file = backup.export().decodeToString()
 
         playlists.delete(pid)
         assertTrue(backup.apply(backup.read(file.byteInputStream())))
         playlists.syncChannels(pid)
-        assertEquals(listOf(103L, 101L, 102L), favourites.order(pid, CAT_LIVE))
+        assertEquals(listOf(THREE, ONE, TWO), favourites.order(pid, CAT_LIVE))
 
         // A file from 1.1 has no positions: channel-number order.
         val old = Regex(""","position":\d+""").replace(file, "")
@@ -122,6 +126,12 @@ class FavouriteOrderTest {
         playlists.delete(pid)
         assertTrue(backup.apply(backup.read(old.byteInputStream())))
         playlists.syncChannels(pid)
-        assertEquals(listOf(101L, 102L, 103L), favourites.order(pid, CAT_LIVE))
+        assertEquals(listOf(ONE, TWO, THREE), favourites.order(pid, CAT_LIVE))
+    }
+
+    private companion object {
+        val ONE = plexChannelId("ch-1")
+        val TWO = plexChannelId("ch-2")
+        val THREE = plexChannelId("ch-3")
     }
 }

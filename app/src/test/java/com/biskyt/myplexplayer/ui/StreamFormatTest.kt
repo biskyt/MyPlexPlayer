@@ -3,9 +3,12 @@ package com.biskyt.myplexplayer.ui
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.StreamFormat
+import com.biskyt.myplexplayer.data.plexChannelId
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.FakeProvider
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addHomeTv
+import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import kotlinx.coroutines.runBlocking
@@ -19,7 +22,10 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** Provider channels that won't start in one stream format are tried in the other, which is then remembered. */
+/**
+ * Provider channels that won't start in one stream format are tried in the other, which is then remembered; a stream
+ * that never gets going ends in an error.
+ */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestApp::class)
 class StreamFormatTest {
@@ -49,15 +55,22 @@ class StreamFormatTest {
 
     @Test
     fun `a stream that trickles in, never enough to play, ends in an error rather than loading for ever`() {
-        provider.streamsTrickle = true
-        val vm = com.biskyt.myplexplayer.ui.player.PlayerViewModel(app.container, app, Screen.Player(playlistId, 101, ChannelFilter.All))
-        // The stall check and the retries run on (simulated) time; the trickling server's real time hardly passes.
-        compose.waitAdvancingClock(1_000) { vm.error != null }
-        // Each stall was handled like any failure: retried, then the other format tried (whose playlist, the same junk,
-        // fails as unreadable).
-        assertTrue(provider.requests.toString(), provider.requests.count { it.startsWith("/live/me/secret/101.ts") } > 1)
-        assertTrue(provider.requests.toString(), provider.requests.any { it.startsWith("/live/me/secret/101.m3u8") })
-        vm.engine?.release()
+        FakePlex().use { plex ->
+            plex.liveTrickles = true
+            val source = runBlocking { app.container.addSyncedHomePlex(plex) }
+            val vm = com.biskyt.myplexplayer.ui.player.PlayerViewModel(
+                app.container,
+                app,
+                Screen.Player(source, plexChannelId("ch-1"), ChannelFilter.All)
+            )
+            // The stall check and the retries run on (simulated) time; the trickling server's real time hardly passes.
+            compose.waitAdvancingClock(1_000) { vm.error != null }
+            // Each stall was handled like any failure: the stream retried, but the channel never tuned again (a second
+            // tune can take a second tuner).
+            assertTrue(plex.liveStreamed.toString(), plex.liveStreamed.size > 1)
+            assertEquals(listOf("ch-1"), plex.tuned.toList())
+            vm.engine?.release()
+        }
     }
 
     @Test

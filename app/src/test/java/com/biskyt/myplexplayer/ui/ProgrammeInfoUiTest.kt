@@ -7,10 +7,11 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.ChannelFilter
-import com.biskyt.myplexplayer.testutil.FakeProvider
+import com.biskyt.myplexplayer.data.plexChannelId
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
-import com.biskyt.myplexplayer.testutil.addHomeTv
+import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
@@ -34,22 +35,31 @@ class ProgrammeInfoUiTest {
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
 
-    private val provider = FakeProvider()
+    private val plex = FakePlex()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
-    private var playlistId = 0L
+    private var source = 0L
 
     @Before
     fun setUp() = runBlocking {
-        provider.nowProgramme = mapOf(
-            "one.uk" to "<title>The Garden Planners</title><sub-title>Spring Planting</sub-title>" +
-                "<desc>Two neighbours turn a bare yard into a summer garden.</desc>" +
-                "<episode-num system=\"onscreen\">S2E5</episode-num>"
-        )
-        playlistId = app.container.addHomeTv(provider, guide = true)
+        plex.channels = listOf(FakePlex.Channel("1", "Channel One"), FakePlex.Channel("2", "Two"))
+        plex.programme = { i, n ->
+            when {
+                i == 0 && n == 0 -> FakePlex.Programme(
+                    "Spring Planting",
+                    show = "The Garden Planners",
+                    season = 2,
+                    episode = 5,
+                    summary = "Two neighbours turn a bare yard into a summer garden."
+                )
+                n == 0 -> FakePlex.Programme("Now on ${plex.channels[i].title}")
+                else -> FakePlex.Programme("Next on ${plex.channels[i].title}")
+            }
+        }
+        source = app.container.addSyncedHomePlex(plex)
     }
 
     @After
-    fun tearDown() = provider.close()
+    fun tearDown() = plex.close()
 
     private fun show(start: Screen) {
         val navigator = navigators.new(start)
@@ -62,7 +72,7 @@ class ProgrammeInfoUiTest {
 
     @Test
     fun `while watching, the controls tell of the programme, and About tells all of it`() {
-        show(Screen.Player(playlistId, 101, ChannelFilter.All))
+        show(Screen.Player(source, plexChannelId("ch-1"), ChannelFilter.All))
         waitFor("Spring Planting · S2 E5")
         waitFor("Two neighbours turn a bare yard")
         compose.onAllNodes(hasText("About this programme") and hasClickAction())[0].performSemanticsAction(SemanticsActions.OnClick)
@@ -86,7 +96,7 @@ class ProgrammeInfoUiTest {
         waitFor("Two neighbours turn a bare yard")
         // A frame or two only: the next one's is read once focus has rested there a moment.
         compose.mainClock.autoAdvance = false
-        compose.onAllNodes(hasText("Next on one.uk") and hasClickAction())[0].performSemanticsAction(SemanticsActions.RequestFocus)
+        compose.onAllNodes(hasText("Next on Channel One") and hasClickAction())[0].performSemanticsAction(SemanticsActions.RequestFocus)
         repeat(3) { compose.mainClock.advanceTimeByFrame() }
         assertEquals(0, count("Two neighbours turn a bare yard"))
         compose.mainClock.autoAdvance = true
@@ -94,9 +104,9 @@ class ProgrammeInfoUiTest {
 
     @Test
     fun `channels found in search show what's on, as on Home`() {
-        show(Screen.Search("CHANNEL ONE"))
-        waitFor("UK: CHANNEL ONE HD")
+        show(Screen.Search("Channel One"))
+        waitFor("Channel One")
         waitFor("The Garden Planners")
-        waitFor("then Next on one.uk")
+        waitFor("then Next on Channel One")
     }
 }
