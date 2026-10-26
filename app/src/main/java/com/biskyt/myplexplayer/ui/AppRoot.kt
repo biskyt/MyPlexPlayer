@@ -28,6 +28,7 @@ import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.Settings
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
+import com.biskyt.myplexplayer.ui.common.NoticeToast
 import com.biskyt.myplexplayer.ui.common.SyncToast
 import com.biskyt.myplexplayer.ui.common.onGuideKey
 import com.biskyt.myplexplayer.ui.home.HomeScreen
@@ -105,6 +106,7 @@ fun AppRoot() {
         ) {
             NavHost(nav) { screen -> ScreenContent(screen) }
             SyncToast(nav, Modifier.align(Alignment.BottomEnd).padding(24.dp))
+            NoticeToast(nav, Modifier.align(Alignment.BottomStart).padding(24.dp))
         }
     }
 }

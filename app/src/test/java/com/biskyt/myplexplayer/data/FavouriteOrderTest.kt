@@ -50,9 +50,12 @@ class FavouriteOrderTest {
         settings = SettingsRepository(context)
         epg = EpgRepository(db)
         val categoryStore = CategoryStore(db)
-        val sources = PlexSources(db, http, settings).apply { plexTv = plex.url }
+        val sources = PlexSources(db, http, settings).apply {
+            plexTv = plex.url
+            plexGuide = plex.url
+        }
         playlists = PlaylistRepository(db, settings, epg, categoryStore, sources)
-        channels = ChannelRepository(db)
+        channels = ChannelRepository(db, sources, Notices())
         vod = VodRepository(db, playlists, categoryStore, sources)
         favourites = Favourites(scope, settings, channels, vod)
         plex.channels = listOf(FakePlex.Channel("1", "One"), FakePlex.Channel("2", "Two"), FakePlex.Channel("3", "Three"))
@@ -108,10 +111,12 @@ class FavouriteOrderTest {
     }
 
     @Test
-    fun `a backup keeps the order, and one from before the order restores in the old one`() = runBlocking {
+    fun `restored from a backup, channels come back in Plex's order, whatever order the backup had`() = runBlocking {
         val backup = BackupRepository(db, settings, SyncManager(scope, playlists, vod, epg), epg)
         listOf(ONE, TWO, THREE).forEach { channels.setFavourite(pid, it, true) }
+        // Moved, as a move ends: saved to Plex.
         favourites.setOrder(pid, CAT_LIVE, listOf(THREE, ONE, TWO))
+        favourites.moveEnded(pid, CAT_LIVE, listOf(ONE, TWO, THREE), listOf(THREE, ONE, TWO))?.join()
         val file = backup.export().decodeToString()
 
         playlists.delete(pid)
@@ -119,13 +124,13 @@ class FavouriteOrderTest {
         playlists.syncChannels(pid)
         assertEquals(listOf(THREE, ONE, TWO), favourites.order(pid, CAT_LIVE))
 
-        // A file from 1.1 has no positions: channel-number order.
+        // A file from 1.1 has no positions (channel-number order), but the order is Plex's, saved there when moved.
         val old = Regex(""","position":\d+""").replace(file, "")
         assertTrue(old != file)
         playlists.delete(pid)
         assertTrue(backup.apply(backup.read(old.byteInputStream())))
         playlists.syncChannels(pid)
-        assertEquals(listOf(ONE, TWO, THREE), favourites.order(pid, CAT_LIVE))
+        assertEquals(listOf(THREE, ONE, TWO), favourites.order(pid, CAT_LIVE))
     }
 
     private companion object {

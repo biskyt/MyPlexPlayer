@@ -50,7 +50,8 @@ enum class MoveLayout(val arrows: String) {
 
 /**
  * Moving a favourite within its list (Home's rows, Live TV's Favourites, the Movies and Series Favourites grids). Each
- * step is stored at once, so every list showing it follows; Back puts the order back as it was.
+ * step is stored at once, so every list showing it follows; Back puts the order back as it was. Channels' order is
+ * Plex's: saved there when the move ends ([Favourites.moveEnded]), not at each step.
  */
 class FavouriteMover(private val scope: CoroutineScope, private val favourites: Favourites, private val playlistId: () -> Long) {
     /**
@@ -88,7 +89,9 @@ class FavouriteMover(private val scope: CoroutineScope, private val favourites: 
     }
 
     fun save() {
+        val m = moving ?: return
         moving = null
+        favourites.moveEnded(playlistId(), m.type, m.original, order)
     }
 
     fun cancel() {

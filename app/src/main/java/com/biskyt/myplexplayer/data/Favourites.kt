@@ -5,19 +5,21 @@ import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * The active playlist's favourites, for marking them in lists and offering "Add" or "Remove": one source for every
  * screen, each read once while any screen shows them. Null until read (a label saying "Add" would then undo one).
  */
 class Favourites(
-    scope: CoroutineScope,
+    private val scope: CoroutineScope,
     settings: SettingsRepository,
     private val channelRepo: ChannelRepository,
     private val vod: VodRepository
@@ -43,6 +45,16 @@ class Favourites(
             CAT_LIVE -> channelRepo.setFavouritePositions(playlistId, positions)
             else -> vod.setFavouritePositions(playlistId, type, positions)
         }
+    }
+
+    /**
+     * A move of [type]'s favourites from [original] ended at [ids]. Channels' order is Plex's: it's saved there now,
+     * once, and put back here if Plex doesn't take it: the save, if one is made.
+     */
+    fun moveEnded(playlistId: Long, type: String, original: List<Long>, ids: List<Long>): Job? {
+        if (type != CAT_LIVE || ids == original) return null
+        // In the app's scope: leaving the screen as the move ends doesn't cut the save short.
+        return scope.launch { if (!channelRepo.saveFavouriteOrder(playlistId, ids)) setOrder(playlistId, type, original, before = ids) }
     }
 
     companion object {

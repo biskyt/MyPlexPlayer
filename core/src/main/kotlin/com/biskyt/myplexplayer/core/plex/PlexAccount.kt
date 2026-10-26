@@ -11,9 +11,17 @@ import kotlinx.coroutines.selects.onTimeout
 import kotlinx.coroutines.selects.select
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import okhttp3.Dispatcher
 import okhttp3.HttpUrl
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * A sign-in code: the user enters [code] at plex.tv/link; [authToken] is set once they have. It lasts [expiresIn]
@@ -41,27 +49,45 @@ data class PlexResource(
 data class PlexConnection(val uri: String, val local: Boolean = false, val relay: Boolean = false)
 
 /**
- * One of the account's favourite Live TV channels: [id] is the channel's id in its server's lineup (as
- * [PlexChannel.tuneKey]), and [source] says which server and guide (`server://{machine id}/{provider}`).
+ * One of the account's favourite Live TV channels, kept as Plex sent it ([json], every field), so a save sends it back
+ * unchanged: [id] is the channel's id in its server's lineup (as [PlexChannel.tuneKey]), and [source] says which
+ * server and guide (`server://{machine id}/{provider}`).
  */
-@Serializable
-data class PlexFavouriteChannel(val id: String, val source: String = "") {
+class PlexFavouriteChannel(val json: JsonObject) {
+    val id: String? get() = text("id")
+    val source: String get() = text("source").orEmpty()
+
     /** The machine identifier of the server the channel is on, or null if [source] doesn't name one. */
     val machineId: String?
         get() = source.removePrefix(SERVER).takeIf { it != source }?.substringBefore('/')?.ifEmpty { null }
 
-    private companion object {
-        const val SERVER = "server://"
+    private fun text(key: String) = (json[key] as? JsonPrimitive)?.takeIf { it !is JsonNull }?.content
+
+    override fun equals(other: Any?) = other is PlexFavouriteChannel && other.json == json
+
+    override fun hashCode() = json.hashCode()
+
+    companion object {
+        private const val SERVER = "server://"
+
+        /** The [source] of a channel of server [machineId]'s guide [provider]. */
+        fun source(machineId: String, provider: String) = "$SERVER$machineId/$provider"
+
+        /** A new favourite, named as Plex's apps name it: [id], [source], its [title], number ([vcn]) and logo ([thumb]). */
+        fun of(id: String, source: String, title: String, vcn: String, thumb: String?) = PlexFavouriteChannel(
+            buildJsonObject {
+                put("id", id)
+                put("source", source)
+                put("title", title)
+                put("vcn", vcn)
+                thumb?.let { put("thumb", it) }
+            }
+        )
     }
 }
 
 @Serializable
-internal class PlexFavouritesResponse(@SerialName("MediaContainer") val container: PlexFavourites = PlexFavourites())
-
-@Serializable
-internal class PlexFavourites(
-    @SerialName("FavoriteChannel") @Serializable(with = SkippingList::class) val channels: List<PlexFavouriteChannel> = emptyList(),
-)
+internal class PlexFavouritesResponse(@SerialName("MediaContainer") val container: JsonObject = JsonObject(emptyMap()))
 
 /**
  * The account side of Plex, on plex.tv: sign-in with a short code entered at plex.tv/link, then the account's
@@ -135,8 +161,32 @@ class PlexAccount(
      * The account's ([token]) favourite Live TV channels, kept by Plex's guide service rather than a server (as
      * Plezy reads them): each names its server ([PlexFavouriteChannel.machineId]) and channel.
      */
-    suspend fun favouriteChannels(token: String): List<PlexFavouriteChannel> =
-        call<PlexFavouritesResponse>("GET", guide.at("settings/favoriteChannels"), token, PROVIDER_VERSION to "5.1").container.channels
+    private val favouritesUrl get() = guide.at("settings/favoriteChannels")
+
+    suspend fun favouriteChannels(token: String): List<PlexFavouriteChannel> {
+        val list = call<PlexFavouritesResponse>("GET", favouritesUrl, token, PROVIDER_HEADER).container["FavoriteChannel"]
+        // A lone one may come as an object rather than a list.
+        return when (list) {
+            is JsonArray -> list.mapNotNull { it as? JsonObject }
+            is JsonObject -> listOf(list)
+            else -> emptyList()
+        }.map(::PlexFavouriteChannel)
+    }
+
+    /**
+     * Saves [channels] as the account's favourite Live TV channels, every server's, in this order: Plex keeps the
+     * whole list, so one added or taken off is the list as read with it changed, every other one sent back as Plex
+     * sent it. Sent as Plezy does (a JSON array), proven on the owner's account (docs/plex-api.md, row 17).
+     */
+    suspend fun saveFavouriteChannels(token: String, channels: List<PlexFavouriteChannel>) {
+        val request = plexRequest(
+            "PUT",
+            favouritesUrl,
+            plexHeaders(device, token) + PROVIDER_HEADER,
+            JsonArray(channels.map { it.json }).toString().toRequestBody(JSON)
+        )
+        http.execute(request) { }
+    }
 
     private fun rank(connection: PlexConnection): Int = when {
         connection.relay -> 2
@@ -165,7 +215,11 @@ class PlexAccount(
 
         /** Plex's guide service, which keeps the account's favourite channels. */
         const val EPG_PROVIDER = "https://epg.provider.plex.tv/"
-        private const val PROVIDER_VERSION = "X-Plex-Provider-Version"
+
+        /** Without it the guide service answers with no favourites, not an error. */
+        private val PROVIDER_HEADER = "X-Plex-Provider-Version" to "5.1"
+        private val JSON = "application/json".toMediaType()
+
         const val CONNECT_TIMEOUT_MS = 6_000L
 
         /** After an outside address answers, how long a home one still has. */

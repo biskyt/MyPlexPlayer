@@ -10,7 +10,6 @@ import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.data.db.ChannelPrefs
 import com.biskyt.myplexplayer.data.db.FavouriteEntity
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
-import com.biskyt.myplexplayer.data.db.PlexFavouriteSeenEntity
 import kotlinx.coroutines.flow.Flow
 
 /** Sources (Plex servers) and their channels. */
@@ -53,7 +52,6 @@ class PlaylistRepository(
             playlists.deleteChannels(id)
             playlists.deleteCategories(id)
             playlists.deleteFavourites(id)
-            playlists.deletePlexSeen(id)
             playlists.deleteRecents(id)
             playlists.deleteMappings(id)
             playlists.deleteMovies(id)
@@ -110,32 +108,26 @@ class PlaylistRepository(
             } catch (e: PlexException) {
                 epg.plexGuideFailed(p, e)
             }
-            syncFavourites(p, keys.values.toSet())
+            syncFavourites(p)
         }
         return count
     }
 
     /**
-     * The account's favourite channels in Plex: one made a favourite in Plex since the last sync is one here too (at
-     * the end of the user's order; only once it's in [lineup], this sync's channel keys), and one taken off there is
-     * taken off here. A choice made here stays until that channel changes in Plex (saving back to Plex isn't proven
-     * yet). A channel missing from one sync's lineup changes nothing. Unread, nothing changes.
+     * The favourite channels are the account's in Plex (which every Plex app shares), in Plex's order: this
+     * server's replace what was here (one missing from this sync's lineup keeps its place, shown again once it's
+     * back). Unread (out of reach), nothing changes.
      */
-    private suspend fun syncFavourites(p: PlaylistEntity, lineup: Set<String>) {
-        val inPlex = plex.favouriteChannelKeys(p) ?: return
+    private suspend fun syncFavourites(p: PlaylistEntity) = plex.withFavourites {
+        val ids = plex.favouriteChannelKeys(p)?.distinct()?.map(::plexChannelId) ?: return@withFavourites
         val favourites = db.favourites()
         db.withTransaction {
-            val seen = favourites.plexSeen(p.id).toSet()
-            var last = favourites.lastPosition(p.id)
+            val here = favourites.all(p.id).sortedBy { it.position }
+            if (here.map { it.streamId } == ids) return@withTransaction // as Plex has them: nothing for the lists to redraw
+            val added = here.associate { it.streamId to it.addedAt }
             val now = System.currentTimeMillis()
-            (inPlex.intersect(lineup) - seen).forEach { favourites.add(FavouriteEntity(p.id, plexChannelId(it), now, ++last)) }
-            (seen - inPlex).forEach { favourites.remove(p.id, plexChannelId(it)) }
-            // Seen: what was applied, so one not yet in the lineup is added once it is.
-            val nowSeen = seen.intersect(inPlex) + inPlex.intersect(lineup)
-            if (nowSeen != seen) {
-                favourites.clearPlexSeen(p.id)
-                favourites.addPlexSeen(nowSeen.map { PlexFavouriteSeenEntity(p.id, it) })
-            }
+            favourites.clear(p.id)
+            favourites.addAll(ids.mapIndexed { i, id -> FavouriteEntity(p.id, id, added[id] ?: now, i + 1L) })
         }
     }
 

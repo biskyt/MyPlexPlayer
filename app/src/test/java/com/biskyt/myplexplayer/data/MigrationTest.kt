@@ -284,4 +284,22 @@ class MigrationTest {
             assertEquals(0, count("SELECT COUNT(*) FROM plex_favourite_seen"))
         }
     }
+
+    @Test
+    fun `version 13 to 14 keeps favourites and drops what was seen in Plex`() {
+        helper.createDatabase("migration-test-14", 13).use { db ->
+            db.execSQL(
+                "INSERT INTO playlist (id, name, kind, server, password, lastSyncAt, machineId) VALUES (3, 'P', 'plex', 'x', 't', 5, 'm')"
+            )
+            db.execSQL("INSERT INTO favourite (playlistId, streamId, addedAt, position) VALUES (3, 101, 0, 1)")
+            db.execSQL("INSERT INTO plex_favourite_seen (playlistId, channelKey) VALUES (3, 'ch-1')")
+        }
+        helper.runMigrationsAndValidate("migration-test-14", 14, true).use { db ->
+            db.query("SELECT COUNT(*) FROM favourite").use { c ->
+                c.moveToFirst()
+                assertEquals(1, c.getInt(0))
+            }
+            db.query("SELECT name FROM sqlite_master WHERE name = 'plex_favourite_seen'").use { assertEquals(0, it.count) }
+        }
+    }
 }

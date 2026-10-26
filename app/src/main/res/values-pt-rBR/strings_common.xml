@@ -72,4 +72,6 @@
     <string name="common_move">Mover</string>
     <string name="common_move_hint">%1$s para movê-lo, OK para salvar, Voltar para cancelar</string>
     <string name="common_move_hint_touch">Toque nas setas para movê-lo, toque nele para deixá-lo aí, Voltar para cancelar</string>
+    <!-- Starring a channel, or moving one, saves to Plex (shared by every Plex app); shown when that failed. -->
+    <string name="common_favourites_not_saved">Canais favoritos não salvos no Plex</string>
 </resources>

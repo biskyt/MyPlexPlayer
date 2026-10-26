@@ -11,7 +11,7 @@ import androidx.room.migration.AutoMigrationSpec
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    version = 13,
+    version = 14,
     exportSchema = true,
     // 2: M3U playlists (playlist.kind; channel.streamUrl/userAgent/referrer).
     // 3: movies and series (category.type; movie, series, watch_progress, vod_favourite).
@@ -26,6 +26,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     // 11: Home's recently added series (series.newest).
     // 12: Plex only (0.6.0): Xtream accounts and added guides removed, with what only they, M3U or Catch-up used.
     // 13: the channels that were favourites in Plex at the last sync (plex_favourite_seen, 0.7.0).
+    // 14: that table goes: favourite channels are Plex's, mirrored at each sync (0.9.0).
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
@@ -38,15 +39,20 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AutoMigration(from = 9, to = 10, spec = AppDatabase.CarryOnOrder::class),
         AutoMigration(from = 10, to = 11),
         AutoMigration(from = 11, to = 12, spec = AppDatabase.PlexOnly::class),
-        AutoMigration(from = 12, to = 13)
+        AutoMigration(from = 12, to = 13),
+        AutoMigration(from = 13, to = 14, spec = AppDatabase.PlexFavourites::class)
     ],
     entities = [
         PlaylistEntity::class, CategoryEntity::class, ChannelEntity::class, FavouriteEntity::class, RecentEntity::class,
         EpgSourceEntity::class, ProgrammeEntity::class, ChannelEpgMappingEntity::class, MovieEntity::class, SeriesEntity::class,
-        WatchProgressEntity::class, VodFavouriteEntity::class, PlexFavouriteSeenEntity::class
+        WatchProgressEntity::class, VodFavouriteEntity::class
     ]
 )
 abstract class AppDatabase : RoomDatabase() {
+    /** Favourite channels are Plex's (0.9.0): what Plex had at the last sync, kept to merge with it, isn't needed. */
+    @DeleteTable(tableName = "plex_favourite_seen")
+    class PlexFavourites : AutoMigrationSpec
+
     /** Removes M3U playlists (offered until 0.2.1), with everything they had (see [removeRetired]). */
     class RetiredSources : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) = removeRetired(db, keep = listOf(KIND_PLEX, "xtream"), before12 = true)

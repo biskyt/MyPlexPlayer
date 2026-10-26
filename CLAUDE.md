@@ -178,9 +178,14 @@ See also:
   saved as the server's own guide source (`EpgRepository.savePlexGuide`, url `plex:<id>`), with why it last failed,
   if it did, shown on the server's row in Settings › Playlists. A channel is tuned once (`PlexLive`), its tuner let go before the next tune and on leaving; a
   server that refuses Live TV (a friend's) just has no channels.
-  - **Favourite channels** (0.7.0) are read from Plex's guide service (`PlexAccount.favouriteChannels`) at each sync
-    and merged (`PlaylistRepository.syncFavourites`): what changed in Plex since the last sync (the
-    `plex_favourite_seen` table) is applied here; a change made here stays. Nothing is saved back to Plex: writing isn't proven yet.
+  - **Favourite channels are Plex's** (the owner, 0.9.0: "no point storing it locally"): read from Plex's guide
+    service (`PlexAccount.favouriteChannels`) at each sync, they replace this server's favourites here, in Plex's
+    order (`PlaylistRepository.syncFavourites`). Adding or removing one (`ChannelRepository.setFavourite`), or the
+    end of a move (`Favourites.moveEnded`, not each step), saves the account's whole list back
+    (`PlexSources.setFavouriteChannel` / `orderFavouriteChannels`): each favourite as Plex sent it (raw JSON, so
+    nothing Plex added is lost), a JSON array. Changes and the sync's copy take turns (`PlexSources.withFavourites`).
+    When Plex doesn't take a change, nothing changes here and `Notices` says so. The favourite table is only the copy
+    screens read.
 - **Skip intro and credits** (0.8.0): markers come only with `includeMarkers=1` (`PlexClient.item(…, markers = true)`,
   asked for by playback only). When a pill shows and when a skip is due is core's `skipPill` (ROADMAP's rules); an
   automatic skip happens only when playback played on into it, so seeking into an intro offers the pill instead.

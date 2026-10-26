@@ -29,6 +29,7 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 
@@ -101,16 +102,17 @@ internal fun plexHeaders(device: PlexDevice, token: String?, session: String? = 
     session?.let { "X-Plex-Session-Identifier" to it },
 ).filter { it.second.isNotEmpty() }.toMap()
 
-/** A request for JSON, with [headers]. */
-internal fun plexRequest(method: String, url: HttpUrl, headers: Map<String, String>): Request = Request.Builder().url(url)
-    .method(method, if (method == "GET") null else ByteArray(0).toRequestBody())
-    .headers(
-        Headers.Builder().add("Accept", "application/json").apply {
-            // A device's own name ("Télé du salon") isn't ASCII, which OkHttp otherwise refuses.
-            headers.forEach { (name, value) -> addUnsafeNonAscii(name, value) }
-        }.build()
-    )
-    .build()
+/** A request for JSON, with [headers] (and a [body], else an empty one but for a GET). */
+internal fun plexRequest(method: String, url: HttpUrl, headers: Map<String, String>, body: RequestBody? = null): Request =
+    Request.Builder().url(url)
+        .method(method, body ?: if (method == "GET") null else ByteArray(0).toRequestBody())
+        .headers(
+            Headers.Builder().add("Accept", "application/json").apply {
+                // A device's own name ("Télé du salon") isn't ASCII, which OkHttp otherwise refuses.
+                headers.forEach { (name, value) -> addUnsafeNonAscii(name, value) }
+            }.build()
+        )
+        .build()
 
 /** [address] as the base of calls, or a [Reason.INVALID_ADDRESS] failure. */
 internal fun plexBase(address: String): HttpUrl = address.trim().trimEnd('/').toHttpUrlOrNull()

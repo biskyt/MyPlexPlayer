@@ -8,6 +8,7 @@ import com.biskyt.myplexplayer.core.plex.PlexAccount
 import com.biskyt.myplexplayer.core.plex.PlexClient
 import com.biskyt.myplexplayer.core.plex.PlexDevice
 import com.biskyt.myplexplayer.core.plex.PlexException
+import com.biskyt.myplexplayer.core.plex.PlexFavouriteChannel
 import com.biskyt.myplexplayer.core.plex.PlexItem
 import com.biskyt.myplexplayer.core.plex.PlexLiveTv
 import com.biskyt.myplexplayer.core.plex.PlexMarker
@@ -22,6 +23,7 @@ import com.biskyt.myplexplayer.core.vod.SeasonInfo
 import com.biskyt.myplexplayer.core.vod.SeriesDetails
 import com.biskyt.myplexplayer.core.vod.VodDetails
 import com.biskyt.myplexplayer.data.db.AppDatabase
+import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.data.db.MovieEntity
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
 import com.biskyt.myplexplayer.data.db.SeriesEntity
@@ -280,17 +282,78 @@ class PlexSources(
     // --- Live TV ---
 
     /**
-     * The keys of server [p]'s channels that the account has as favourites in Plex; null when they can't be read
-     * (not signed in, or out of reach: Plex keeps them, not the server).
+     * The keys of server [p]'s channels that the account has as favourites in Plex, in Plex's order; null when they
+     * can't be read (not signed in, or out of reach: Plex keeps them, not the server).
      */
-    suspend fun favouriteChannelKeys(p: PlaylistEntity): Set<String>? {
+    suspend fun favouriteChannelKeys(p: PlaylistEntity): List<String>? {
         val token = settings.plexToken() ?: return null
         val machineId = p.machineId ?: return null
-        return offlineOk { account().favouriteChannels(token) }?.filter { it.machineId == machineId }?.map { it.id }?.toSet()
+        return offlineOk { account().favouriteChannels(token) }?.filter { it.machineId == machineId }?.mapNotNull { it.id }
     }
+
+    /**
+     * Makes channel [ch] of server [p] a favourite in Plex, or not ([on]), in the account's list, which every Plex app
+     * shares: a new one goes last, named as other Plex apps name it (its server and guide, title, number and logo).
+     * Throws [PlexException] (or another IOException) when Plex can't be reached or refuses: then nothing changed.
+     */
+    suspend fun setFavouriteChannel(p: PlaylistEntity, ch: ChannelEntity, on: Boolean) = changeFavouriteChannels { now ->
+        val key = ch.providerEpgId
+        val isThis = { f: PlexFavouriteChannel -> f.machineId == p.machineId && f.id == key }
+        when {
+            !on -> now.filterNot(isThis)
+            key == null || now.any(isThis) -> now
+            else -> {
+                val source = now.firstOrNull { it.machineId == p.machineId }?.source ?: favouriteSource(p)
+                now + PlexFavouriteChannel.of(key, source, ch.name, ch.number.toString(), ch.logoUrl)
+            }
+        }
+    }
+
+    /**
+     * Orders server [p]'s favourite channels in Plex as [keys] (channel keys): its places in the account's list are
+     * filled in that order (any Plex has that [keys] hasn't, last), other servers' keep theirs. Throws as
+     * [setFavouriteChannel].
+     */
+    suspend fun orderFavouriteChannels(p: PlaylistEntity, keys: List<String>) = changeFavouriteChannels { now ->
+        val place = keys.withIndex().associate { it.value to it.index }
+        // A stable sort: one twice in Plex's list keeps both places; any [keys] hasn't, last.
+        val ordered = now.filter { it.machineId == p.machineId }.sortedBy { place[it.id] ?: Int.MAX_VALUE }.iterator()
+        now.map { if (it.machineId == p.machineId) ordered.next() else it }
+    }
+
+    private val favouritesLock = Mutex()
+
+    /**
+     * Runs [block] while no other change to the favourite channels, nor a sync's copy of them, runs: two changes
+     * mustn't each save the list as read before the other's, nor a sync put back a copy read before a change.
+     */
+    suspend fun <T> withFavourites(block: suspend () -> T): T = favouritesLock.withLock { block() }
+
+    /** The account's favourite channels as [change] makes them, from the list Plex has now (saved only if changed). */
+    private suspend fun changeFavouriteChannels(change: suspend (List<PlexFavouriteChannel>) -> List<PlexFavouriteChannel>) {
+        val account = account()
+        val token = token()
+        val now = account.favouriteChannels(token)
+        val changed = change(now)
+        if (changed != now) account.saveFavouriteChannels(token, changed)
+    }
+
+    /** The source a new favourite of server [p]'s channels names: the server, and its guide provider. */
+    private suspend fun favouriteSource(p: PlaylistEntity): String {
+        val machineId = p.machineId ?: throw PlexException("No server for ${p.id}", reason = PlexException.Reason.UNEXPECTED_RESPONSE)
+        return PlexFavouriteChannel.source(machineId, liveTvOf(p).provider)
+    }
+
+    private suspend fun token(): String =
+        settings.plexToken() ?: throw PlexException("Not signed in", reason = PlexException.Reason.UNAUTHORIZED)
 
     /** Each server's Live TV, as last found: tuning needs its DVR. */
     private val liveTv = java.util.concurrent.ConcurrentHashMap<Long, PlexLiveTv>()
+
+    /** Server [p]'s Live TV, as last found, else asked for; throws when it has none. */
+    private suspend fun liveTvOf(p: PlaylistEntity, client: PlexClient? = null): PlexLiveTv = liveTv[p.id]
+        ?: (client ?: client(p)).liveTv()?.also { liveTv[p.id] = it }
+        ?: throw PlexException("No Live TV on this server", reason = PlexException.Reason.UNEXPECTED_RESPONSE)
 
     /** A server's Live TV and its channels, or null when it has none. */
     suspend fun lineup(p: PlaylistEntity): PlexLineup? {
@@ -323,9 +386,7 @@ class PlexSources(
     /** A Live TV channel ([channelKey], its key on the server) to tune and play: see [PlexLive]. */
     suspend fun live(p: PlaylistEntity, channelKey: String): PlexLive {
         val client = client(p)
-        val live = liveTv[p.id] ?: client.liveTv()?.also { liveTv[p.id] = it }
-            ?: throw PlexException("No Live TV on this server", reason = PlexException.Reason.UNEXPECTED_RESPONSE)
-        return PlexLive(client, live, channelKey)
+        return PlexLive(client, liveTvOf(p, client), channelKey)
     }
 
     // --- play state (see PlexProgress) ---
