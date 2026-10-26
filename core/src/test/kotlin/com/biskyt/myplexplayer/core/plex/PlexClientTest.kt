@@ -216,6 +216,25 @@ class PlexClientTest {
     }
 
     @Test
+    fun `an item's intro and credits, asked for`() = runTest {
+        responses["library/metadata/7"] = MockResponse().setBody(
+            """{"MediaContainer":{"Metadata":[{"ratingKey":"7","type":"episode","duration":2400000,"Marker":[
+            {"id":1,"type":"intro","startTimeOffset":60000,"endTimeOffset":90000,"Attributes":{"id":1}},
+            {"id":2,"type":"credits","startTimeOffset":2300000,"endTimeOffset":2400000,"final":true,"Attributes":{"id":2,"version":4}},
+            {"id":3,"type":"commercial"},{"id":4,"type":"commercial","startTimeOffset":600000,"endTimeOffset":660000}]}]}}"""
+        )
+        val item = client.item("7", markers = true)
+        // One without times is left out, not every marker.
+        assertEquals(
+            listOf(PlexMarker("intro", 60_000, 90_000), PlexMarker("credits", 2_300_000, 2_400_000, final = true)),
+            item.markers.take(2)
+        )
+        assertEquals("1", server.takeRequest().requestUrl!!.queryParameter("includeMarkers"))
+        client.item("7")
+        assertNull("not asked for otherwise", server.takeRequest().requestUrl!!.queryParameter("includeMarkers"))
+    }
+
+    @Test
     fun `continue watching and search`() = runTest {
         val carryOn = client.continueWatching().single()
         assertEquals("episode", carryOn.type)

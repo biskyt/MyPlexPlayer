@@ -55,8 +55,10 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
     suspend fun recentlyAdded(section: String, type: PlexType, count: Int): List<PlexItem> =
         page(section, type, 0, count, if (type == PlexType.SHOW) "episode.addedAt:desc" else "addedAt:desc").items
 
-    suspend fun item(ratingKey: String): PlexItem = container(url("library/metadata/$ratingKey")).items.firstOrNull()
-        ?: throw PlexException("No item $ratingKey", reason = Reason.UNEXPECTED_RESPONSE)
+    /** One item; with [markers], its intro and credits too (they come only when asked for: playback asks). */
+    suspend fun item(ratingKey: String, markers: Boolean = false): PlexItem =
+        container(url("library/metadata/$ratingKey") { if (markers) addQueryParameter("includeMarkers", "1") }).items.firstOrNull()
+            ?: throw PlexException("No item $ratingKey", reason = Reason.UNEXPECTED_RESPONSE)
 
     /** Several items in one call (for their play state); any the server no longer has are left out. */
     suspend fun items(ratingKeys: List<String>): List<PlexItem> =

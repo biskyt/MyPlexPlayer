@@ -181,6 +181,10 @@ See also:
   - **Favourite channels** (0.7.0) are read from Plex's guide service (`PlexAccount.favouriteChannels`) at each sync
     and merged (`PlaylistRepository.syncFavourites`): what changed in Plex since the last sync (the
     `plex_favourite_seen` table) is applied here; a change made here stays. Nothing is saved back to Plex: writing isn't proven yet.
+- **Skip intro and credits** (0.8.0): markers come only with `includeMarkers=1` (`PlexClient.item(…, markers = true)`,
+  asked for by playback only). When a pill shows and when a skip is due is core's `skipPill` (ROADMAP's rules); an
+  automatic skip happens only when playback played on into it, so seeking into an intro offers the pill instead.
+  OK skips through `skipKeys` in VodPlayerScreen, kept out of the player code shared with MyTVPlayer.
 - **Dolby Vision with HDR10+** (0.3.2): the owner's TV (a MediaTek chip) shows HDR10, not Dolby Vision, while a Dolby Vision
   decoder also gets HDR10+ (found with `spikes/dv-diagnostics`, kept for other TVs). So a Dolby Vision decoder gets no
   HDR10+ while the screen shows Dolby Vision (`player/DolbyVisionCodec.kt`, with `core`'s `Hdr10PlusOff`): its SEI

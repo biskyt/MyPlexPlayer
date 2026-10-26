@@ -2,6 +2,12 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.8.0
+- **Skip intro and credits:** where your Plex server has found a title's intro or credits (Plex Pass), a Skip button
+  counts down and skips them by itself 2 seconds in. Press OK to skip at once, or Back to cancel. An episode's last
+  credits go on to the next episode. Settings › Playback sets the countdown (0 to 10 seconds, 3 to start with) for
+  intros and credits, or turns it off, leaving a Skip button to press.
+
 ## 0.7.0
 - **Your favourite channels from Plex:** the Live TV channels you've made favourites in Plex (in Plex's own apps
   or on the web) are favourites here too, for each of your servers, added after your own at the first update. One

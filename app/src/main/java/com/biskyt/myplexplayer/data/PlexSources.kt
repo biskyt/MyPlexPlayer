@@ -10,6 +10,7 @@ import com.biskyt.myplexplayer.core.plex.PlexDevice
 import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.plex.PlexItem
 import com.biskyt.myplexplayer.core.plex.PlexLiveTv
+import com.biskyt.myplexplayer.core.plex.PlexMarker
 import com.biskyt.myplexplayer.core.plex.PlexPin
 import com.biskyt.myplexplayer.core.plex.PlexPlayState
 import com.biskyt.myplexplayer.core.plex.PlexProgramme
@@ -269,7 +270,7 @@ class PlexSources(
      */
     suspend fun playback(p: PlaylistEntity, ratingKey: Long, kind: String): PlexPlayback {
         val client = client(p)
-        val item = client.item(ratingKey.toString())
+        val item = client.item(ratingKey.toString(), markers = true)
         val part = item.part ?: throw PlexException("No file for $ratingKey", reason = PlexException.Reason.UNEXPECTED_RESPONSE)
         progress.positions(p.id, kind, listOf(item), rowFor(client, p.id))
         // The token goes in the request headers, not the address, so it isn't in logs or error reports.
@@ -582,6 +583,9 @@ class PlexPlayback(
             throw e
         }
     }
+
+    /** Its intro and credits, which the player offers to skip. */
+    val markers: List<PlexMarker> get() = item.markers
 
     /** Ends the server's side of a [directStream] (its session would otherwise run on until Plex times it out). */
     suspend fun close() = streamLock.withLock {

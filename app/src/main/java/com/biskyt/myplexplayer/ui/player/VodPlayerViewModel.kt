@@ -12,7 +12,11 @@ import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.player.OverlayState
 import com.biskyt.myplexplayer.core.plex.PlexException
+import com.biskyt.myplexplayer.core.plex.PlexMarker
+import com.biskyt.myplexplayer.core.plex.SkipPill
+import com.biskyt.myplexplayer.core.plex.skipPill
 import com.biskyt.myplexplayer.core.vod.EpisodeInfo
+import com.biskyt.myplexplayer.data.Settings
 import com.biskyt.myplexplayer.data.VodStream
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
@@ -48,6 +52,22 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         private set
     var durationSec by mutableLongStateOf(0)
         private set
+
+    /** The Skip pill for the intro or credits coming or playing (counting down to skipping by itself, or not). */
+    var skip by mutableStateOf<SkipPill?>(null)
+        private set
+
+    /** Whether OK skips now: the pill shows on its own, with nothing over the picture. */
+    val skipsOnOk: Boolean get() = skip != null && overlay == OverlayState.NONE && sheet == null && !dimmed
+
+    /** This title's markers skipped, or whose automatic skip was cancelled: offered only by hand from then on. */
+    private val skipHandled = mutableSetOf<PlexMarker>()
+
+    /** On to the next episode ([playNext]) until it plays: nothing more is skipped, nor moved on from, meanwhile. */
+    private var movingOn = false
+
+    /** Where playback was at the last tick (null: just started), to tell playing on from seeking. */
+    private var lastTickMs: Long? = null
 
     /** The episode after this one, if any. */
     var nextEpisode by mutableStateOf<EpisodeInfo?>(null)
@@ -174,6 +194,10 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
 
     private suspend fun play(p: PlaylistEntity, playing: Playing, fromStart: Boolean) {
         current = playing
+        movingOn = false
+        lastTickMs = null
+        skipHandled.clear()
+        skip = null
         resetForNewStream()
         val engine = engine ?: return
         engine.play(playing.stream.url, hls = null, headers = playing.stream.plex?.stream?.headers.orEmpty())
@@ -194,6 +218,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
             var sinceSave = 0L
             while (isActive) {
                 val player = engine?.player ?: break
+                updateSkip()
                 if (overlay == OverlayState.CONTROLS) {
                     positionSec = player.currentPosition / 1000
                     durationSec = player.duration.coerceAtLeast(0) / 1000
@@ -259,8 +284,65 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         val p = playlist ?: return
         val next = nextEpisode ?: return
         val seriesId = screen.seriesId ?: return
+        if (movingOn) return
+        movingOn = true
+        skip = null
         save(stopped = true)
-        viewModelScope.launch { startEpisode(p, seriesId, next.id, fromStart = true) }
+        viewModelScope.launch {
+            try {
+                startEpisode(p, seriesId, next.id, fromStart = true)
+            } catch (e: java.io.IOException) { // as at the start: the server didn't answer
+                movingOn = false
+                fail(e.message)
+            }
+        }
+    }
+
+    /**
+     * The pill as playback stands now; a skip whose time has come happens, unless a panel is open or the user is
+     * scrubbing (then the pill waits to be pressed).
+     */
+    private fun updateSkip() {
+        val now = engine?.player?.currentPosition
+        val pill = pillNow(fromMs = lastTickMs)
+        lastTickMs = now
+        when {
+            pill?.due != true -> skip = pill
+            sheet == null && scrubMs == null -> skip(pill.marker)
+            else -> skip = pill.copy(due = false)
+        }
+    }
+
+    private fun pillNow(fromMs: Long? = null): SkipPill? {
+        val markers = current?.stream?.plex?.markers
+        val player = engine?.player
+        if (markers.isNullOrEmpty() || player == null || movingOn || error != null) return null
+        return skipPill(markers, player.currentPosition, fromMs) { m ->
+            val sec = if (m.type == PlexMarker.INTRO) settings.autoSkipIntroSec else settings.autoSkipCreditsSec
+            sec.takeUnless { m in skipHandled || it == Settings.AUTO_SKIP_OFF }
+        }
+    }
+
+    /** OK or a tap on the pill: past the intro or credits playing now, at once. */
+    fun skipNow() {
+        pillNow()?.let { skip(it.marker) }
+    }
+
+    /** Whether the pill counts down to skipping by itself (Back then cancels it). */
+    val autoSkipping: Boolean get() = skip?.countdownSec != null
+
+    /** Back while the pill counts down: no automatic skip of this one; a pill to press shows while it plays. */
+    fun cancelAutoSkip() {
+        skip?.let { skipHandled += it.marker }
+        updateSkip()
+    }
+
+    /** Past [marker]; the last credits of an episode go on to the next one, as at its end (and saved as there). */
+    private fun skip(marker: PlexMarker) {
+        skipHandled += marker
+        skip = null
+        engine?.player?.seekTo(marker.endMs)
+        if (marker.final && nextEpisode != null) playNext()
     }
 
     fun startOver() {

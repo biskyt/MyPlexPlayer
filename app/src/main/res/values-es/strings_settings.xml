@@ -16,6 +16,11 @@
     <string name="settings_skip_back_help">Izquierda en el control remoto durante la reproducción</string>
     <string name="settings_skip_forward_help">Derecha en el control remoto durante la reproducción</string>
     <string name="settings_seconds">%1$d s</string>
+    <string name="settings_auto_skip_intro">Saltar intros solas</string>
+    <string name="settings_auto_skip_intro_help">Segundos que el botón Saltar cuenta antes; Atrás lo cancela. Desactivado: solo al pulsarlo.</string>
+    <string name="settings_auto_skip_credits">Saltar créditos solos</string>
+    <string name="settings_auto_skip_credits_help">Igual para los créditos: los últimos de un episodio pasan al siguiente; los de una película la terminan.</string>
+    <string name="settings_auto_skip_off">Desactivado</string>
     <string name="settings_passthrough">Passthrough de audio</string>
     <string name="settings_passthrough_help">Envía Dolby / DTS / Atmos a tu barra de sonido o TV para que lo decodifique. Desactívalo si no tienes sonido.</string>
     <string name="settings_subtitles">Subtítulos predeterminados</string>

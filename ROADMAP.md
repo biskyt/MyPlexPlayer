@@ -45,7 +45,7 @@ Each step is its own pull request.
 
 ## Near future (owner's priorities, 2026-10-25)
 - **Play state from the server:** done in 0.3.0 (see step 5).
-- **Skip intro (and credits):** Plex marks a title's intro and credits (`includeMarkers=1` on a title's metadata
+- **Skip intro (and credits):** done in 0.8.0. Plex marks a title's intro and credits (`includeMarkers=1` on a title's metadata
   gives its Marker list), as Plezy uses. As the owner set it out:
   - **Settings:** auto skip intro, and auto skip credits, each Off or a delay of 0 to 10 seconds (default 3).
   - **The delay counts down on a Skip pill:** it appears *delay* seconds before the skip, which happens 2 seconds
