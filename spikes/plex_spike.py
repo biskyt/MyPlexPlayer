@@ -983,22 +983,24 @@ def deletion(args, state):
     rec.check("an item's own say on deleting (any field naming it)", True, f"fields: {item_fields or 'none'}")
 
     def show_pref():
-        _, _, body = http.get(f"/library/metadata/{show.get('ratingKey')}/prefs")
+        # Read as python-plexapi does: the show with includePreferences=1 (GET .../prefs lists nothing)
+        _, _, body = http.get(f"/library/metadata/{show.get('ratingKey')}", includePreferences=1)
         rec.save("show-prefs", body)
-        found = next((x for x in mc(body).get("Setting", []) if x.get("id") == AUTO_DELETE), None)
-        return found, body
+        settings = (first(mc(body), "Metadata").get("Preferences") or {}).get("Setting", [])
+        found = next((x for x in settings if x.get("id") == AUTO_DELETE), None)
+        return found
 
-    found, _ = show_pref()
-    rec.check(f"GET /library/metadata/{{show}}/prefs has {AUTO_DELETE}", found is not None,
+    found = show_pref()
+    rec.check(f"GET /library/metadata/{{show}}?includePreferences=1 has {AUTO_DELETE}", found is not None,
               f"value {found and pref_value(found)}, choices {found and found.get('enumValues')}")
     if found is not None:
         before = pref_value(found)
         status, _, _ = http.request("PUT", f"/library/metadata/{show.get('ratingKey')}/prefs", **{AUTO_DELETE: 7})
-        after, _ = show_pref()
+        after = show_pref()
         rec.check(f"PUT the show's prefs with {AUTO_DELETE}=7 (after a week) is kept", 200 <= status < 300 and
                   str(pref_value(after)) == "7", f"HTTP {status}, now {after and pref_value(after)}")
         http.request("PUT", f"/library/metadata/{show.get('ratingKey')}/prefs", **{AUTO_DELETE: before})
-        back, _ = show_pref()
+        back = show_pref()
         rec.check("and put back as it was", str(pref_value(back)) == str(before), f"{before} -> {back and pref_value(back)}")
     if not args.delete:
         return rec.finish()
