@@ -34,9 +34,6 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -78,6 +75,7 @@ import com.biskyt.myplexplayer.ui.common.digit
 import com.biskyt.myplexplayer.ui.common.formatTime
 import com.biskyt.myplexplayer.ui.common.isGuide
 import com.biskyt.myplexplayer.ui.common.numberLabel
+import com.biskyt.myplexplayer.ui.common.onAnyTouch
 import com.biskyt.myplexplayer.ui.common.rememberMinuteClock
 import com.biskyt.myplexplayer.ui.common.restoreFocusIf
 import com.biskyt.myplexplayer.ui.theme.Palette
@@ -104,13 +102,7 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
         Tab.LIVE,
         // Anywhere on the screen, the tabs included (else the TV would take the Guide button for its own guide): 0–9
         // on the remote jumps straight to that channel number; the Guide button switches list/guide.
-        Modifier.pointerInput(Unit) {
-            awaitPointerEventScope {
-                while (true) {
-                    if (awaitPointerEvent(PointerEventPass.Initial).type == PointerEventType.Press) screenFocus.moves++
-                }
-            }
-        }.onPreviewKeyEvent { e ->
+        Modifier.onAnyTouch { screenFocus.moves++ }.onPreviewKeyEvent { e ->
             if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0 && e.key in movingKeys) screenFocus.moves++
             val digit = e.key.digit()
             when {
@@ -129,7 +121,9 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
         }
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 56.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            LiveCategories(vm, filter, if (vm.guideMode) guideEntry else FocusRequester.Default)
+            // Only while the guide is there to take it (a requester with nothing attached fails the key).
+            val guideShown = vm.guideMode && vm.filters.settled
+            LiveCategories(vm, filter, if (guideShown) guideEntry else FocusRequester.Default)
             Column(Modifier.weight(1f)) {
                 val filterBox = remember { FocusRequester() }
                 ListHeader(vm, filter, Modifier.focusRequester(filterBox))

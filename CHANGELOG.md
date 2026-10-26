@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.10.3
+- **Fixed a crash in the TV guide:** pressing Right from the categories right after switching to the guide, before its
+  programmes had loaded, could close the app.
+
 ## 0.10.2
 - **The TV guide keeps the highlight in the guide.** Clicking TV guide no longer sends it to the Home tab while the
   programmes load, and Right from the categories goes back into the guide (to the programme you left) instead of

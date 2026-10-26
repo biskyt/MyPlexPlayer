@@ -92,9 +92,16 @@ class PlexWatchedUiTest {
 
         choose("Mark as watched", title = "Pilot")
         // Up next moves to the next episode; the remote stays on the one marked.
-        compose.waitAdvancingClock(stepMs = 50) { finished(VOD_EPISODE, 211) }
+        // Waits for the page itself to have moved on (its progress arrives from the database after the write
+        // above is saved), not for the write: a check made before then sees the old page.
+        val onPilot = { "Pilot" in compose.focusedText() && "Up next" !in compose.focusedText() }
+        compose.waitAdvancingClock(stepMs = 50) {
+            finished(VOD_EPISODE, 211) &&
+                compose.onAllNodes(hasText("Up next")).fetchSemanticsNodes().isNotEmpty() &&
+                "Up next" !in compose.focusedText()
+        }
         compose.idleFrames()
-        assertTrue(compose.focusedText(), "Pilot" in compose.focusedText() && "Up next" !in compose.focusedText())
+        assertTrue(compose.focusedText(), onPilot())
     }
 
     @Test

@@ -164,4 +164,36 @@ class GuideScrollUiTest {
         compose.settle()
         assertFalse("back in the guide: ${compose.focusedText()}", compose.focusedText().contains("Home"))
     }
+
+    /** Opened on the guide with no filter given, the guide waits on the database: it isn't there to take focus yet. */
+    @Test
+    fun `right from the categories before the guide is there doesn't fail`() {
+        val held = LinkedBlockingQueue<Runnable>()
+        ArchTaskExecutor.getInstance().setDelegate(
+            object : TaskExecutor() {
+                override fun executeOnDiskIO(runnable: Runnable) {
+                    held += runnable
+                }
+
+                override fun postToMainThread(runnable: Runnable) {
+                    Handler(Looper.getMainLooper()).post(runnable)
+                }
+
+                override fun isMainThread() = Looper.getMainLooper().isCurrentThread
+            }
+        )
+        try {
+            compose.setContent {
+                MyPlexTheme { NavHost(remember { navigators.new(Screen.Live(guide = true)) }) { ScreenContent(it) } }
+            }
+            compose.waitAdvancingClock { compose.onAllNodes(hasText("All channels")).fetchSemanticsNodes().isNotEmpty() }
+            compose.onNode(hasText("All channels") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
+            compose.settle()
+            press(Key.DirectionRight)
+        } finally {
+            ArchTaskExecutor.getInstance().setDelegate(null)
+            generateSequence { held.poll() }.forEach(ArchTaskExecutor.getInstance()::executeOnDiskIO)
+        }
+        compose.waitAdvancingClock(50) { compose.onAllNodes(hasText("Film 0")).fetchSemanticsNodes().isNotEmpty() }
+    }
 }
