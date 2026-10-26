@@ -52,14 +52,29 @@ class PlexAccountTest {
                     } else {
                         MockResponse().setResponseCode(401)
                     }
+                "/settings/favoriteChannels" ->
+                    if (request.getHeader("X-Plex-Token") == "account-token" && request.getHeader("X-Plex-Provider-Version") == "5.1") {
+                        MockResponse().setBody(fixture("favourite-channels"))
+                    } else {
+                        MockResponse().setResponseCode(401)
+                    }
                 else -> MockResponse().setResponseCode(404)
             }
         }
-        account = PlexAccount(OkHttpClient(), device, plexTv.url("/").toString())
+        account = PlexAccount(OkHttpClient(), device, plexTv.url("/").toString(), guideUrl = plexTv.url("/").toString())
     }
 
     @After
     fun tearDown() = (listOf(plexTv, home, outside, relay) + more).forEach { it.shutdown() }
+
+    @Test
+    fun `the account's favourite channels, each with its server`() = runBlocking {
+        val favourites = account.favouriteChannels("account-token")
+        // One without an id is left out, not the whole list.
+        assertEquals(listOf("5fc705db-ch1", "5fc705db-ch9"), favourites.map { it.id })
+        assertEquals(listOf("MACHINEID0", "MACHINEID1"), favourites.map { it.machineId })
+        assertNull(PlexFavouriteChannel("x", source = "elsewhere").machineId)
+    }
 
     @Test
     fun `a short code to enter at plex dot tv slash link, then the token once it's entered`() = runBlocking {

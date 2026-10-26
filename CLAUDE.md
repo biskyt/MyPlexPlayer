@@ -178,6 +178,9 @@ See also:
   saved as the server's own guide source (`EpgRepository.savePlexGuide`, url `plex:<id>`), with why it last failed,
   if it did, shown on the server's row in Settings › Playlists. A channel is tuned once (`PlexLive`), its tuner let go before the next tune and on leaving; a
   server that refuses Live TV (a friend's) just has no channels.
+  - **Favourite channels** (0.7.0) are read from Plex's guide service (`PlexAccount.favouriteChannels`) at each sync
+    and merged (`PlaylistRepository.syncFavourites`): what changed in Plex since the last sync (the
+    `plex_favourite_seen` table) is applied here; a change made here stays. Nothing is saved back to Plex: writing isn't proven yet.
 - **Dolby Vision with HDR10+** (0.3.2): the owner's TV (a MediaTek chip) shows HDR10, not Dolby Vision, while a Dolby Vision
   decoder also gets HDR10+ (found with `spikes/dv-diagnostics`, kept for other TVs). So a Dolby Vision decoder gets no
   HDR10+ while the screen shows Dolby Vision (`player/DolbyVisionCodec.kt`, with `core`'s `Hdr10PlusOff`): its SEI

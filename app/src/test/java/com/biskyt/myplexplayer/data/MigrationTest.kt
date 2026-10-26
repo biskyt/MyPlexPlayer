@@ -266,4 +266,22 @@ class MigrationTest {
             }
         }
     }
+
+    @Test
+    fun `version 12 to 13 keeps favourites, with none yet seen in Plex`() {
+        helper.createDatabase("migration-test-13", 12).use { db ->
+            db.execSQL(
+                "INSERT INTO playlist (id, name, kind, server, password, lastSyncAt, machineId) VALUES (3, 'P', 'plex', 'x', 't', 5, 'm')"
+            )
+            db.execSQL("INSERT INTO favourite (playlistId, streamId, addedAt, position) VALUES (3, 101, 0, 1)")
+        }
+        helper.runMigrationsAndValidate("migration-test-13", 13, true).use { db ->
+            fun count(sql: String) = db.query(sql).use { c ->
+                c.moveToFirst()
+                c.getInt(0)
+            }
+            assertEquals(1, count("SELECT COUNT(*) FROM favourite"))
+            assertEquals(0, count("SELECT COUNT(*) FROM plex_favourite_seen"))
+        }
+    }
 }

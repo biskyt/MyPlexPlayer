@@ -1,0 +1,5 @@
+{"MediaContainer":{"identifier":"tv.plex.provider.epg","size":3,"FavoriteChannel":[
+{"id":"5fc705db-ch1","source":"server://MACHINEID0/tv.plex.providers.epg.cloud:12","thumb":"https://example.org/channel1.png","title":"Channel One","vcn":"1"},
+{"id":"5fc705db-ch9","source":"server://MACHINEID1/tv.plex.providers.epg.cloud:3","title":"On another server","vcn":"9"},
+{"source":"server://MACHINEID0/tv.plex.providers.epg.cloud:12","title":"No id"}
+]}}

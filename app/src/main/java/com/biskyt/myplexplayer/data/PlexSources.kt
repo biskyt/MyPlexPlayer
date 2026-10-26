@@ -50,6 +50,10 @@ class PlexSources(
     @VisibleForTesting
     var plexTv: String = PlexAccount.PLEX_TV
 
+    /** Plex's guide service, which keeps the account's favourite channels (tests point it at a stand-in). */
+    @VisibleForTesting
+    var plexGuide: String = PlexAccount.EPG_PROVIDER
+
     private val playlists = db.playlists()
 
     /** The server's play state, brought into the app's progress rows. */
@@ -67,7 +71,7 @@ class PlexSources(
         deviceName = Build.MODEL.orEmpty(),
     ).also { device = it }
 
-    private suspend fun account() = PlexAccount(http, device(), plexTv)
+    private suspend fun account() = PlexAccount(http, device(), plexTv, plexGuide)
 
     /** A new code to enter at plex.tv/link. */
     suspend fun createPin(): PlexPin = account().createPin()
@@ -273,6 +277,16 @@ class PlexSources(
     }
 
     // --- Live TV ---
+
+    /**
+     * The keys of server [p]'s channels that the account has as favourites in Plex; null when they can't be read
+     * (not signed in, or out of reach: Plex keeps them, not the server).
+     */
+    suspend fun favouriteChannelKeys(p: PlaylistEntity): Set<String>? {
+        val token = settings.plexToken() ?: return null
+        val machineId = p.machineId ?: return null
+        return offlineOk { account().favouriteChannels(token) }?.filter { it.machineId == machineId }?.map { it.id }?.toSet()
+    }
 
     /** Each server's Live TV, as last found: tuning needs its DVR. */
     private val liveTv = java.util.concurrent.ConcurrentHashMap<Long, PlexLiveTv>()

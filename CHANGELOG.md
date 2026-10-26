@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.7.0
+- **Your favourite channels from Plex:** the Live TV channels you've made favourites in Plex (in Plex's own apps
+  or on the web) are favourites here too, for each of your servers, added after your own at the first update. One
+  you add or take off in Plex changes here at the next update; a change you make here stays as you left it.
+
 ## 0.6.1
 - Languages & categories: switching between Live TV, Movies and Series now always shows the first language's
   categories (it could show none).
