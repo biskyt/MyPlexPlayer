@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.8.1
+- **Credits are no longer skipped by themselves** to start with: a Skip credits button shows while they play, for
+  you to press. Settings › Playback can still skip them after a countdown. Intros are skipped as before.
+
 ## 0.8.0
 - **Skip intro and credits:** where your Plex server has found a title's intro or credits (Plex Pass), a Skip button
   counts down and skips them by itself 2 seconds in. Press OK to skip at once, or Back to cancel. An episode's last

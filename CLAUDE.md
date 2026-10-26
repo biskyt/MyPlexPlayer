@@ -185,6 +185,9 @@ See also:
   asked for by playback only). When a pill shows and when a skip is due is core's `skipPill` (ROADMAP's rules); an
   automatic skip happens only when playback played on into it, so seeking into an intro offers the pill instead.
   OK skips through `skipKeys` in VodPlayerScreen, kept out of the player code shared with MyTVPlayer.
+- **Changing a setting's default:** `SettingsRepository.update` (and a backup) saves every setting, so a default
+  already released is saved as if chosen. A new default needs a new preference key and `@SerialName`, as credits'
+  automatic skip got in 0.8.1.
 - **Dolby Vision with HDR10+** (0.3.2): the owner's TV (a MediaTek chip) shows HDR10, not Dolby Vision, while a Dolby Vision
   decoder also gets HDR10+ (found with `spikes/dv-diagnostics`, kept for other TVs). So a Dolby Vision decoder gets no
   HDR10+ while the screen shows Dolby Vision (`player/DolbyVisionCodec.kt`, with `core`'s `Hdr10PlusOff`): its SEI
@@ -202,7 +205,9 @@ See also:
   (`spikes/plex_spike.py`) before building on them; the results live in `docs/plex-api.md`.
 - **A real Plex server in CI and in the sandbox:** `.github/scripts/start-plex.sh <dir>` starts an unclaimed PMS (from
   Plex's .deb; Docker Hub rate-limits) with a generated film and series in about 20 s. PMS ignores play progress in
-  a title's first minute, hence the 10-minute clips. It can't do sign-in, Live TV or DVR.
+  a title's first minute, hence the 10-minute clips. It can't do sign-in, Live TV or DVR. Its clips are made with a
+  static ffmpeg from GitHub (`.github/scripts/install-ffmpeg.sh`), not apt: the runners' Ubuntu mirror has stalled
+  long enough to time the job out.
 
 ## Product decisions from the owner
 These are built in already (or planned, for the Plex ones). Keep them when changing the areas they cover.

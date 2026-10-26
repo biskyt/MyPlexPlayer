@@ -278,4 +278,20 @@ class RepositoriesTest {
         val prefs = context.dataStore.data.first()
         old.forEach { assertNull(it.name, prefs[it]) }
     }
+
+    @Test
+    fun `credits skipped by themselves as 0_8_0 saved it, with every setting, are off`() = runBlocking {
+        val saved = androidx.datastore.preferences.core.intPreferencesKey("auto_skip_credits")
+        context.dataStore.edit { it[saved] = 3 }
+        assertEquals(Settings.AUTO_SKIP_OFF, settings.current().autoSkipCreditsSec)
+        settings.update { it }
+        assertNull(context.dataStore.data.first()[saved])
+        // Nor from a 0.8.0 backup.
+        val restored = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+            .decodeFromString(Settings.serializer(), """{"autoSkipCreditsSec":3}""")
+        assertEquals(Settings.AUTO_SKIP_OFF, restored.autoSkipCreditsSec)
+        // One chosen since is kept.
+        settings.update { it.copy(autoSkipCreditsSec = 5) }
+        assertEquals(5, settings.current().autoSkipCreditsSec)
+    }
 }

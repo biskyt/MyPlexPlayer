@@ -49,16 +49,16 @@ class SkipMarkersUiTest {
     fun tearDown() = plex.close()
 
     /**
-     * Test Show's first episode (211) with one marker, from [startMs] to [endMs], its automatic skip after [autoSec]
-     * (the default 3, or off); the controls gone.
+     * Test Show's first episode (211) with one marker, from [startMs] to [endMs], intros and credits skipped by
+     * themselves after [autoSec] (null: the defaults, 3 s for intros, off for credits); the controls gone.
      */
-    private fun playPilotWith(type: String, endMs: Long, final: Boolean = false, autoSec: Int = 3, startMs: Long = 0) {
+    private fun playPilotWith(type: String, endMs: Long, final: Boolean = false, autoSec: Int? = null, startMs: Long = 0) {
         plex.episodes = listOf(
             FakePlex.episode("21", "Test Show", "211", 1, 1, "Pilot", markers = listOf(FakePlex.Marker(type, startMs, endMs, final))),
             FakePlex.episode("21", "Test Show", "212", 1, 2, "Second")
         )
         val source = runBlocking {
-            if (autoSec != 3) app.container.settings.update { it.copy(autoSkipIntroSec = autoSec, autoSkipCreditsSec = autoSec) }
+            if (autoSec != null) app.container.settings.update { it.copy(autoSkipIntroSec = autoSec, autoSkipCreditsSec = autoSec) }
             app.container.addSyncedHomePlex(plex)
         }
         val navigator = navigators.new(Screen.VodPlayer(source, 211, seriesId = 21, fromStart = true))
@@ -125,8 +125,21 @@ class SkipMarkersUiTest {
     }
 
     @Test
-    fun `skipping an episode's last credits plays the next episode`() {
+    fun `credits wait to be pressed, to start with`() {
         playPilotWith("credits", endMs = 600_000, final = true)
+        compose.waitForText("Skip credits")
+        seekTo(1_000)
+        compose.settle() // a tick at 1 s, then playing on past 2 s
+        seekTo(3_000)
+        compose.settle()
+        assertEquals("still the pilot", "Pilot", compose.runOnIdle { vm.subtitle }.substringAfterLast(" · "))
+        assertTrue("still in the credits", position in 3_000 until 600_000)
+        compose.onAllNodesWithText("Skip credits", useUnmergedTree = true).assertCountEquals(1)
+    }
+
+    @Test
+    fun `skipping an episode's last credits plays the next episode`() {
+        playPilotWith("credits", endMs = 600_000, final = true, autoSec = 3)
         compose.waitForText("Skip credits (2)")
         ok()
         compose.waitAdvancingClock(stepMs = 100) { vm.subtitle.contains("Second") }

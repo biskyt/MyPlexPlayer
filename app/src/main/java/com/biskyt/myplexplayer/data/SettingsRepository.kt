@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 enum class BufferSize { SMALL, NORMAL, LARGE }
@@ -40,8 +41,11 @@ data class Settings(
     val largeText: Boolean = false,
     /** Seconds the Skip pill counts down before skipping an intro by itself; [AUTO_SKIP_OFF]: only when pressed. */
     val autoSkipIntroSec: Int = 3,
-    /** The same for credits. */
-    val autoSkipCreditsSec: Int = 3
+    /**
+     * The same for credits: off to start with (the owner: credits aren't skipped unless asked to). Named anew in 0.8.1,
+     * here and in backups, so the 3 that 0.8.0 saved with every setting isn't read as chosen.
+     */
+    @SerialName("autoSkipCreditsAfterSec") val autoSkipCreditsSec: Int = AUTO_SKIP_OFF
 ) {
     val effectiveSubtitleLanguage: String get() = subtitleLanguage.ifEmpty { Locale.getDefault().language }
 
@@ -67,7 +71,7 @@ class SettingsRepository(private val context: Context) {
         val accent = intPreferencesKey("accent")
         val largeText = booleanPreferencesKey("large_text")
         val autoSkipIntro = intPreferencesKey("auto_skip_intro")
-        val autoSkipCredits = intPreferencesKey("auto_skip_credits")
+        val autoSkipCredits = intPreferencesKey("auto_skip_credits_after")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings() }.distinctUntilChanged()
@@ -122,6 +126,7 @@ class SettingsRepository(private val context: Context) {
             prefs.remove(stringPreferencesKey("last_live_filter"))
             prefs.remove(stringPreferencesKey("stream_format"))
             prefs.asMap().keys.filter { it.name.startsWith(FORMAT_FOR) }.forEach { prefs.remove(it) }
+            prefs.remove(intPreferencesKey("auto_skip_credits")) // 0.8.0's, saved as 3 whether chosen or not
             prefs[K.activePlaylist] = s.activePlaylistId
             prefs[K.skipBack] = s.skipBackSec
             prefs[K.skipForward] = s.skipForwardSec
