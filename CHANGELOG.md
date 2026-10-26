@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.5.2
+- **Update now** (Settings › Playlists, on a Plex server) says when the server updated but its TV guide couldn't
+  be loaded, rather than that all went well.
+
 ## 0.5.1
 - A film or episode opened while its details were still on their way from the server no longer closes the player
   straight away (or on coming back to the app before they arrived).

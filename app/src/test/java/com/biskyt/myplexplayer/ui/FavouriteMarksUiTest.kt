@@ -11,10 +11,11 @@ import com.biskyt.myplexplayer.BuildConfig
 import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
-import com.biskyt.myplexplayer.testutil.FakeProvider
+import com.biskyt.myplexplayer.data.plexChannelId
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
-import com.biskyt.myplexplayer.testutil.addHomeTv
+import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
@@ -38,20 +39,24 @@ class FavouriteMarksUiTest {
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
 
-    private val provider = FakeProvider()
+    private val plex = FakePlex()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
 
     @Before
     fun setUp() = runBlocking {
-        val pid = app.container.addHomeTv(provider, vod = true, guide = true)
-        // Channel One and Kite Kidz, Paddington 2 and Line of Duty.
-        listOf(101L, 103L).forEach { app.container.channels.setFavourite(pid, it, true) }
-        app.container.vod.setFavourite(pid, CAT_MOVIE, 502, true)
+        plex.channels = listOf(FakePlex.Channel("1", "One"), FakePlex.Channel("2", "Two"), FakePlex.Channel("3", "Kite Kids"))
+        plex.movies = listOf(FakePlex.film("51", "Dune", 2021), FakePlex.film("52", "Paddington 2", 2017))
+        plex.shows = listOf(FakePlex.show("77", "Line of Duty"))
+        plex.episodes = listOf(FakePlex.episode("77", "Line of Duty", "771", 1, 1, "Episode 1"))
+        val pid = app.container.addSyncedHomePlex(plex)
+        // One and Kite Kids, Paddington 2 and Line of Duty.
+        listOf("ch-1", "ch-3").forEach { app.container.channels.setFavourite(pid, plexChannelId(it), true) }
+        app.container.vod.setFavourite(pid, CAT_MOVIE, 52, true)
         app.container.vod.setFavourite(pid, CAT_SERIES, 77, true)
     }
 
     @After
-    fun tearDown() = provider.close()
+    fun tearDown() = plex.close()
 
     private fun show(start: Screen) {
         val navigator = navigators.new(start)
@@ -72,14 +77,14 @@ class FavouriteMarksUiTest {
     @Test
     fun `the tv guide marks favourite channels`() {
         show(Screen.Live(ChannelFilter.All, guide = true))
-        waitFor("UK: KITE KIDZ")
+        waitFor("Kite Kids")
         waitForHearts(2)
     }
 
     @Test
     fun `the channel list marks favourite channels`() {
         show(Screen.Live(ChannelFilter.All))
-        waitFor("UK: KITE KIDZ")
+        waitFor("Kite Kids")
         waitForHearts(2)
     }
 
@@ -103,7 +108,7 @@ class FavouriteMarksUiTest {
     @Test
     fun `search marks favourite channels`() {
         show(Screen.Search("kite"))
-        waitFor("UK: KITE KIDZ")
+        waitFor("Kite Kids")
         waitForHearts(1)
     }
 

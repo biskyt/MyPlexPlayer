@@ -3,9 +3,9 @@ package com.biskyt.myplexplayer.ui.player
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.core.player.RemoteKey
 import com.biskyt.myplexplayer.data.ChannelFilter
-import com.biskyt.myplexplayer.testutil.FakeProvider
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.TestApp
-import com.biskyt.myplexplayer.testutil.addHomeTv
+import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.idleFrames
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
@@ -24,20 +24,21 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34], application = TestApp::class)
 class GuidePreviewTest {
     @get:Rule val compose = createUiComposeRule()
-    private val provider = FakeProvider()
+    private val plex = FakePlex()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
 
     private lateinit var ids: List<Long>
 
     @After
-    fun tearDown() = provider.close()
+    fun tearDown() = plex.close()
 
     /** The player on the first channel, playing, with the channel list (for ◀ ▶) loaded. */
     private fun player(): PlayerViewModel {
-        provider.streamsTrickle = true
-        val playlistId = runBlocking { app.container.addHomeTv(provider) }
-        ids = runBlocking { app.container.channels.ids(playlistId, ChannelFilter.All) }
-        val vm = PlayerViewModel(app.container, app, Screen.Player(playlistId, ids[0], ChannelFilter.All))
+        plex.channels = listOf(FakePlex.Channel("1", "One"), FakePlex.Channel("2", "Two"), FakePlex.Channel("3", "Three"))
+        plex.liveTrickles = true
+        val source = runBlocking { app.container.addSyncedHomePlex(plex) }
+        ids = runBlocking { app.container.channels.ids(source, ChannelFilter.All) }
+        val vm = PlayerViewModel(app.container, app, Screen.Player(source, ids[0], ChannelFilter.All))
         compose.waitAdvancingClock { vm.channel != null && vm.channelListLoaded }
         return vm
     }

@@ -10,10 +10,11 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
-import com.biskyt.myplexplayer.testutil.FakeProvider
+import com.biskyt.myplexplayer.data.plexChannelId
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
-import com.biskyt.myplexplayer.testutil.addHomeTv
+import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
@@ -36,18 +37,18 @@ class StartListUiTest {
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
 
-    private val provider = FakeProvider()
+    private val plex = FakePlex()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
     private var playlistId = 0L
     private lateinit var navigator: Navigator
 
     @Before
     fun setUp() = runBlocking {
-        playlistId = app.container.addHomeTv(provider, vod = true)
+        playlistId = app.container.addSyncedHomePlex(plex)
     }
 
     @After
-    fun tearDown() = provider.close()
+    fun tearDown() = plex.close()
 
     private var shown by mutableStateOf<Navigator?>(null)
 
@@ -82,45 +83,46 @@ class StartListUiTest {
     @Test
     fun `Live TV opens on all channels until there are favourites, then on Favourites`() {
         open(Screen.Live())
-        waitFor("UK: KITE KIDZ")
-        runBlocking { app.container.channels.setFavourite(playlistId, 101, true) }
+        waitFor("Two")
+        runBlocking { app.container.channels.setFavourite(playlistId, plexChannelId("ch-1"), true) }
         go(Screen.Home)
         go(Screen.Live())
-        waitFor("UK: CHANNEL ONE HD")
-        waitGone("UK: KITE KIDZ")
+        waitFor("One")
+        waitGone("Two")
     }
 
     @Test
     fun `a Live TV list picked is kept while the app is open, and not once it has been closed`() {
-        runBlocking { app.container.channels.setFavourite(playlistId, 101, true) }
+        runBlocking { app.container.channels.setFavourite(playlistId, plexChannelId("ch-1"), true) }
         open(Screen.Live())
-        waitFor("UK: CHANNEL ONE HD")
-        pick("SPORT")
-        waitFor("UK: ARENA SPRTS 1 FHD")
+        waitFor("One")
+        waitGone("Two")
+        // A Plex server's Live TV has one category: all its channels.
+        pick("All channels")
+        waitFor("Two")
         go(Screen.Home)
         go(Screen.Live())
-        waitFor("UK: ARENA SPRTS 1 FHD")
-        waitGone("UK: CHANNEL ONE HD")
+        waitFor("Two")
 
         open(Screen.Live())
-        waitFor("UK: CHANNEL ONE HD")
-        waitGone("UK: ARENA SPRTS 1 FHD")
+        waitFor("One")
+        waitGone("Two")
     }
 
     @Test
     fun `Movies open on Favourites, and on the list picked while the app is open`() {
-        runBlocking { app.container.vod.setFavourite(playlistId, CAT_MOVIE, 502, true) }
+        runBlocking { app.container.vod.setFavourite(playlistId, CAT_MOVIE, 12, true) }
         open(Screen.Movies())
-        waitFor("Paddington 2")
-        waitGone("Dune")
+        waitFor("Sintel")
+        waitGone("Big Buck Bunny")
         pick("All movies")
-        waitFor("Dune")
+        waitFor("Big Buck Bunny")
         go(Screen.Home)
         go(Screen.Movies())
-        waitFor("Dune")
+        waitFor("Big Buck Bunny")
 
         open(Screen.Movies())
-        waitFor("Paddington 2")
-        waitGone("Dune")
+        waitFor("Sintel")
+        waitGone("Big Buck Bunny")
     }
 }

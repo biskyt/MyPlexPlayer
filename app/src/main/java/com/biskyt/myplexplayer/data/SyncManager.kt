@@ -93,7 +93,8 @@ class SyncManager(
             val name = playlists.get(playlistId)?.name.orEmpty()
             _state.value = SyncState.Channels(name, 0)
             playlists.syncChannels(playlistId) { _state.value = SyncState.Channels(name, it) }
-            val guideErrors = if (includeGuide) importGuide() else emptyMap()
+            // A Plex server's guide came with its channels: whether it loaded is kept with it.
+            val guideErrors = (if (includeGuide) importGuide() else emptyMap()) + epg.plexGuideError(playlistId)
             // Read again (by syncVod): updating the channels stores to the playlist (its account).
             syncVod(playlistId)
             guideErrors

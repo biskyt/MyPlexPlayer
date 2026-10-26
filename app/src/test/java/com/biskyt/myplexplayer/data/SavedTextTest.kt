@@ -5,8 +5,10 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.AppText
 import com.biskyt.myplexplayer.data.db.AppDatabase
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.FakeProvider
 import com.biskyt.myplexplayer.testutil.PlainApp
+import com.biskyt.myplexplayer.testutil.signInHome
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,17 +33,12 @@ import org.robolectric.annotation.Config
 class SavedTextTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val provider = FakeProvider()
+    private val fake = FakePlex()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
     private val epg = EpgRepository(db, OkHttpClient(), context.cacheDir.resolve("test-epg"), scope)
-    private val playlists = PlaylistRepository(
-        db,
-        OkHttpClient(),
-        SettingsRepository(context),
-        epg,
-        CategoryStore(db) { Locale.UK },
-        PlexSources(db, OkHttpClient(), SettingsRepository(context))
-    )
+    private val plex = PlexSources(db, OkHttpClient(), SettingsRepository(context)).apply { plexTv = fake.url }
+    private val playlists = PlaylistRepository(db, OkHttpClient(), SettingsRepository(context), epg, CategoryStore(db) { Locale.UK }, plex)
 
     @After
     fun tearDown() {
@@ -49,6 +46,7 @@ class SavedTextTest {
         scope.cancel()
         db.close()
         provider.close()
+        fake.close()
     }
 
     private suspend fun names() = db.playlists().all().map { it.name } + db.epg().enabledSources().map { it.name }
@@ -67,10 +65,9 @@ class SavedTextTest {
 
     @Test
     fun `a guide's last error is saved as what failed, and read in the language shown`() = runBlocking {
-        provider.guideFails = true
-        val id = playlists.add("Home", provider.url, "me", "secret")
+        fake.guideFails = true
+        val id = plex.signInHome(db)
         playlists.syncChannels(id)
-        epg.importAll(listOf(id))
         val saved = db.epg().enabledSources().single().lastError!!
         assertFalse(saved.contains("error"))
         assertEquals("Server returned error 500", GuideError.text(saved))

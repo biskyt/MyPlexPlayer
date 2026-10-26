@@ -11,13 +11,13 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
-import com.biskyt.myplexplayer.data.ChannelFilter
-import com.biskyt.myplexplayer.data.db.CAT_LIVE
+import com.biskyt.myplexplayer.data.VodFilter
+import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CategoryEntity
-import com.biskyt.myplexplayer.testutil.FakeProvider
+import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
-import com.biskyt.myplexplayer.testutil.addHomeTv
+import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.focusedText
 import com.biskyt.myplexplayer.testutil.screen
@@ -47,27 +47,37 @@ class HideCategoryUiTest {
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
 
-    private val provider = FakeProvider()
+    private val plex = FakePlex()
     private val app = ApplicationProvider.getApplicationContext<TestApp>()
     private var playlistId = 0L
 
-    /** The playlist's live categories, as the column lists them. */
+    /** The server's film libraries (Live TV has one category), as the column lists them. */
     private lateinit var shown: List<String>
 
     @Before
     fun setUp() = runBlocking {
-        playlistId = app.container.addHomeTv(provider)
-        shown = app.container.db.categories().observeIncluded(playlistId, CAT_LIVE).first().map { it.categoryId }
+        plex.libraries = listOf(
+            FakePlex.Library("1", "movie", "Films"),
+            FakePlex.Library("3", "movie", "Documentaries"),
+            FakePlex.Library("4", "movie", "Family Films"),
+        )
+        plex.movies = listOf(
+            FakePlex.film("11", "Big Buck Bunny", library = "1"),
+            FakePlex.film("12", "Cosmos", library = "3"),
+            FakePlex.film("13", "Sintel", library = "4"),
+        )
+        playlistId = app.container.addSyncedHomePlex(plex)
+        shown = app.container.db.categories().observeIncluded(playlistId, CAT_MOVIE).first().map { it.categoryId }
     }
 
     @After
-    fun tearDown() = provider.close()
+    fun tearDown() = plex.close()
 
-    private fun label(id: String) = provider.categories.first { it.first == id }.second
+    private fun label(id: String) = plex.libraries.first { it.key == id }.title
 
-    /** Opens Live TV on [id] and hides it from its options in the column. */
+    /** Opens Movies on [id] and hides it from its options in the column. */
     private fun hide(id: String) {
-        val navigator = navigators.new(Screen.Live(ChannelFilter.Category(id)))
+        val navigator = navigators.new(Screen.Movies(VodFilter.Category(id)))
         compose.setContent { MyPlexTheme { NavHost(remember { navigator }) { ScreenContent(it) } } }
         hideFromColumn(id)
     }
