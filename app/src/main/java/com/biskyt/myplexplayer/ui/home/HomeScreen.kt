@@ -2,9 +2,8 @@ package com.biskyt.myplexplayer.ui.home
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,15 +22,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.data.ChannelFilter
@@ -56,6 +59,8 @@ import com.biskyt.myplexplayer.ui.common.MoveHint
 import com.biskyt.myplexplayer.ui.common.MoveLayout
 import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.NowNextLoader
+import com.biskyt.myplexplayer.ui.common.OneLine
+import com.biskyt.myplexplayer.ui.common.POSTER_WIDTH
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.Poster
 import com.biskyt.myplexplayer.ui.common.PosterCard
@@ -70,12 +75,14 @@ import com.biskyt.myplexplayer.ui.common.formatDuration
 import com.biskyt.myplexplayer.ui.common.guideNowNext
 import com.biskyt.myplexplayer.ui.common.markWatched
 import com.biskyt.myplexplayer.ui.common.moveAction
+import com.biskyt.myplexplayer.ui.common.onAnyTouch
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.rememberMinuteClock
 import com.biskyt.myplexplayer.ui.common.shortEpisodeLabel
 import com.biskyt.myplexplayer.ui.common.titledRow
 import com.biskyt.myplexplayer.ui.common.vodActions
 import com.biskyt.myplexplayer.ui.common.vodDetails
+import com.biskyt.myplexplayer.ui.theme.Palette
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -143,7 +150,22 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
     fun setWatched(p: WatchProgressEntity) = viewModelScope.launch { c.vod.setWatched(p.playlistId, p.itemId, p.seriesId, watched = true) }
 
     val nowNext = guideNowNext(viewModelScope, c) { playlistId.value }
+
+    /**
+     * The Carry on watching card last played or opened ([cardKey]): back on Home, it has the remote wherever it has
+     * moved to on the row (played last, it's usually first). Until a key is pressed on Home, or Home is touched.
+     */
+    var returnTo by mutableStateOf<String?>(null)
 }
+
+/** [action] on every key pressed within, which still goes where it's going. */
+private fun Modifier.onAnyKeyDown(action: () -> Unit) = onPreviewKeyEvent { e ->
+    if (e.type == KeyEventType.KeyDown) action()
+    false
+}
+
+/** A Carry on watching card's lasting identity: its series' (a series' card moves on to the next episode), or its movie's. */
+private fun WatchProgressEntity.cardKey() = seriesId?.let { "series$it" } ?: "$kind$itemId"
 
 @Composable
 fun HomeScreen() {
@@ -201,7 +223,10 @@ fun HomeScreen() {
     }
 
     MoveBackHandler(vm.mover)
-    TabScaffold(Tab.HOME, Modifier.onFocusChanged { screenFocused = it.hasFocus }) {
+    TabScaffold(
+        Tab.HOME,
+        Modifier.onFocusChanged { screenFocused = it.hasFocus }.onAnyKeyDown { vm.returnTo = null }.onAnyTouch { vm.returnTo = null }
+    ) {
         // Carry on watching, recently added series and movies, favourite series and movies, then Live TV last.
         LazyColumn(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 56.dp, vertical = 8.dp),
@@ -212,7 +237,12 @@ fun HomeScreen() {
                 item {
                     Column {
                         SectionTitle(stringResource(R.string.home_carry_on))
-                        CarryOnRow(carryOnRow, { options = HomeTile.CarryOn(it) }, focusOn(HomeRow.CarryOn)) {
+                        // (Not while its options are open: they have the remote.)
+                        CarryOnRow(carryOnRow, vm.returnTo.takeIf { options == null }, focusOn(HomeRow.CarryOn), {
+                            vm.returnTo = it.cardKey()
+                            options = HomeTile.CarryOn(it)
+                        }) {
+                            vm.returnTo = it.cardKey()
                             nav.push(Screen.VodPlayer(pid, it.itemId, it.seriesId, continueSeries = true))
                         }
                     }
@@ -437,33 +467,52 @@ private fun ChannelCardRow(
     }
 }
 
-/** Movies and episodes part-watched (or the next episode up): a poster-sized card each, with how much is left. */
+/**
+ * Movies and episodes part-watched (or the next episode up), as posters with how far they got across the bottom. The
+ * card [returnTo] names ([cardKey]) has the remote ([first]) and is scrolled into view wherever it moves to; else the
+ * first card has it.
+ */
 @Composable
 private fun CarryOnRow(
     items: List<WatchProgressEntity>,
-    onOptions: (WatchProgressEntity) -> Unit,
+    returnTo: String?,
     first: Modifier,
+    onOptions: (WatchProgressEntity) -> Unit,
     onPlay: (WatchProgressEntity) -> Unit
 ) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+    val state = rememberLazyListState()
+    val back = returnTo?.let { k -> items.indexOfFirst { it.cardKey() == k } }?.takeIf { it >= 0 }
+    // Played last, it has usually moved to the start of the row, out of view of where the row was left.
+    LaunchedEffect(back) { if (back != null) state.scrollToItem(back) }
+    val focused = items[back ?: 0]
+    LazyRow(state = state, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         items(items, key = { "${it.kind}${it.itemId}" }) { p ->
-            val focus = if (p == items.first()) first else Modifier
-            TvCard(onClick = { onPlay(p) }, onLongClick = { onOptions(p) }, modifier = focus.width(272.dp)) {
-                Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Poster(p.imageUrl, p.title, 64.dp)
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(p.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        if (p.finished) {
-                            // A finished episode with another after it: the card leads on to that one.
-                            Muted(stringResource(R.string.home_up_next_after, shortEpisodeLabel(p.season, p.episode)))
-                        } else {
-                            if (p.season != null) Muted(shortEpisodeLabel(p.season, p.episode) + (p.episodeTitle?.let { " · $it" } ?: ""))
-                            Muted(stringResource(R.string.common_time_left, formatDuration(p.remainingMs)))
-                            ProgressLine(p.fraction, Modifier.fillMaxWidth())
-                        }
-                    }
-                }
+            val returning = remember { FocusRequester() }
+            // The remote goes to it once it's in view (and again wherever it moves to).
+            if (back != null && p == focused) LaunchedEffect(back) { runCatching { returning.requestFocus() } }
+            CarryOnCard(p, if (p == focused) first.focusRequester(returning) else Modifier, { onOptions(p) }) { onPlay(p) }
+        }
+    }
+}
+
+/** A movie or episode carried on: its poster with how far it got, its title, and what's left or up next. */
+@Composable
+private fun CarryOnCard(p: WatchProgressEntity, modifier: Modifier, onLongClick: () -> Unit, onClick: () -> Unit) {
+    TvCard(onClick = onClick, onLongClick = onLongClick, color = Palette.background, modifier = modifier) {
+        Column(Modifier.padding(6.dp).width(POSTER_WIDTH), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Box {
+                Poster(p.imageUrl, p.title, POSTER_WIDTH)
+                if (!p.finished) ProgressLine(p.fraction, Modifier.align(Alignment.BottomCenter).padding(6.dp))
             }
+            OneLine(p.title, MaterialTheme.typography.labelLarge)
+            Muted(
+                when {
+                    // A finished episode with another after it: the card leads on to that one.
+                    p.finished -> stringResource(R.string.home_up_next_after, shortEpisodeLabel(p.season, p.episode))
+                    p.season != null -> shortEpisodeLabel(p.season, p.episode) + (p.episodeTitle?.let { " · $it" } ?: "")
+                    else -> stringResource(R.string.common_time_left, formatDuration(p.remainingMs))
+                }
+            )
         }
     }
 }
