@@ -117,10 +117,20 @@ class FakePlex : AutoCloseable {
         val summary: String = "About it."
     )
 
-    /** What channel [i] (of [channels]) shows from half an hour ago ([n] 0) and for the hour after (1); null: nothing. */
+    /**
+     * What channel [i] (of [channels]) shows from half an hour ago ([n] 0), for the hour after (1), and for the
+     * [laterHours] after that ("Later 1 of <i>"…, an hour each); null: nothing.
+     */
     @Volatile var programme: (i: Int, n: Int) -> Programme? = { i, n ->
-        if (n == 0) Programme("Episode $i", show = "Show $i") else Programme("Film $i")
+        when (n) {
+            0 -> Programme("Episode $i", show = "Show $i")
+            1 -> Programme("Film $i")
+            else -> Programme("Later ${n - 1} of $i")
+        }
     }
+
+    /** Hours of programmes after the first two (a full guide). */
+    @Volatile var laterHours = 0
 
     /** Minutes each channel's guide is moved by, by channel key (else all start at the same times). */
     @Volatile var guideShiftMin: Map<String, Int> = emptyMap()
@@ -384,7 +394,7 @@ class FakePlex : AutoCloseable {
         val to = url.queryParameter("beginsAt<")?.toLong() ?: Long.MAX_VALUE
         return channels.withIndex().flatMap { (i, ch) ->
             val hour = guideStart + (guideShiftMin[ch.key] ?: 0) * 60
-            listOf(0, 1).filter { n -> hour + (n + 1) * 3600 >= from && hour + n * 3600 <= to }.mapNotNull { n ->
+            (0..1 + laterHours).filter { n -> hour + (n + 1) * 3600 >= from && hour + n * 3600 <= to }.mapNotNull { n ->
                 val p = programme(i, n) ?: return@mapNotNull null
                 obj {
                     put("ratingKey", "plex://programme/${ch.key}-$n")
