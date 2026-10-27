@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.11.1
+- Carry on watching on Home shows posters, with how far you got across the bottom, like the other rows.
+- Back from playing something from Carry on watching, the highlight is on its card, wherever it has moved to on the row.
+
 ## 0.11.0
 - The TV guide's highlight moves one channel or programme per press, held buttons included, and stays in the guide.
 - Right goes on through the whole guide, and Left comes back along the same channel.
