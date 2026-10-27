@@ -2,6 +2,14 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.11.0
+- The TV guide's highlight moves one channel or programme per press, held buttons included, and stays in the guide.
+- Right goes on through the whole guide, and Left comes back along the same channel.
+- Up from the first channel, or Back, goes to the filter, and from there to the categories.
+- The guide's time bar names the day, with a line where a new day starts.
+- The List and TV guide buttons keep the highlight, so you can switch back and forth.
+- All channels shows how many channels there are.
+
 ## 0.10.3
 - **Fixed a crash in the TV guide:** pressing Right from the categories right after switching to the guide, before its
   programmes had loaded, could close the app.

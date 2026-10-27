@@ -117,21 +117,34 @@ class GuideScrollUiTest {
         compose.onNode(hasText("TV guide") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
         compose.waitAdvancingClock { compose.focusedText().contains("TV guide") }
         press(Key.DirectionCenter)
-        compose.waitAdvancingClock(50) { compose.focusedText().isNotEmpty() && !compose.focusedText().contains("TV guide") }
-        assertTrue("in the guide after the click: ${compose.focusedText()}", compose.focusedText().contains("Show 0"))
+        // The button keeps focus (the guide is below it, a press away).
+        compose.waitAdvancingClock(50) { compose.onAllNodes(hasText("Show 0")).fetchSemanticsNodes().isNotEmpty() }
+        assertTrue("on the button after the click: ${compose.focusedText()}", compose.focusedText().contains("TV guide"))
+        // (Past the touch screen's Earlier and Later buttons, which the test app shows.)
+        repeat(3) { if (!inGuide(compose.focusedText())) press(Key.DirectionDown) }
+        assertTrue("in the guide: ${compose.focusedText()}", inGuide(compose.focusedText()))
         repeat(3) { press(Key.DirectionRight) }
-        repeat(8) { press(Key.DirectionLeft) }
+        // Over to the categories (Left at the guide's start stays in it).
+        compose.onNode(hasText("All channels") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
+        compose.settle()
         assertTrue("in the categories: ${compose.focusedText()}", compose.focusedText().contains("All channels"))
         repeat(8) {
             press(Key.DirectionRight)
             val focus = compose.focusedText()
-            assertTrue("Right ${it + 1} from the categories: $focus", "Show" in focus || "Film" in focus || "No guide" in focus)
+            assertTrue("Right ${it + 1} from the categories: $focus", inGuide(focus))
         }
     }
 
-    /** Programmes arriving late replace the cell holding focus; a TV may hand focus to the Home tab as that happens. */
+    /** A programme in the guide (or a row without one). */
+    private fun inGuide(focus: String) = "Show" in focus || "Film" in focus || "No guide" in focus
+
+    /**
+     * The Guide button from the list takes focus into the guide, which keeps it while its programmes load and arrive.
+     * (Before 0.11.0 a placeholder cell held focus and was replaced when they arrived; some TVs then handed focus to
+     * the Home tab. The guide is now one focus stop that stays put, whatever its rows do.)
+     */
     @Test
-    fun `focus handed to another tab while the guide's programmes load comes back to the guide`() {
+    fun `the guide keeps focus while its programmes load and arrive`() {
         compose.setContent {
             MyPlexTheme { NavHost(remember { navigators.new(Screen.Live(ChannelFilter.All)) }) { ScreenContent(it) } }
         }
@@ -152,17 +165,17 @@ class GuideScrollUiTest {
         )
         try {
             press(Key.Guide)
-            // The row holds focus with its placeholder; then focus is handed away without a key (as a TV does).
-            compose.onNode(hasText("Home") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
             compose.settle()
-            assertTrue(compose.focusedText(), compose.focusedText().contains("Home"))
+            assertTrue(
+                "in the guide while loading: ${compose.focusedText()}",
+                inGuide(compose.focusedText()) || compose.focusedText() == ""
+            )
+            assertFalse(compose.focusedText(), compose.focusedText().contains("One"))
         } finally {
             ArchTaskExecutor.getInstance().setDelegate(null)
             generateSequence { held.poll() }.forEach(ArchTaskExecutor.getInstance()::executeOnDiskIO)
         }
-        compose.waitAdvancingClock(50) { compose.onAllNodes(hasText("Film 0")).fetchSemanticsNodes().isNotEmpty() }
-        compose.settle()
-        assertFalse("back in the guide: ${compose.focusedText()}", compose.focusedText().contains("Home"))
+        compose.waitAdvancingClock(50) { compose.focusedText().contains("Show 0") }
     }
 
     /** Opened on the guide with no filter given, the guide waits on the database: it isn't there to take focus yet. */

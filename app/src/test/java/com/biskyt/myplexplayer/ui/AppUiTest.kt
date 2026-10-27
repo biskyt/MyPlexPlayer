@@ -207,9 +207,12 @@ class AppUiTest {
         press(Key.DirectionRight) // past the window edge: the guide moves on an hour
         waitFor(formatTime(start + 60 * 60_000L))
         assertTrue(compose.focusedText(), compose.focusedText().contains("Film 0"))
-        press(Key.DirectionRight) // and again, into empty time: focus stays in the same row
+        // And again, into empty time: focus stays in the same row. (A press while the next stretch of time loads does
+        // nothing, as when the window just crossed into a new 3-hour chunk, so pressed until it gets there.)
+        compose.waitAdvancingClock(50) {
+            compose.focusedText().contains("No guide information").also { if (!it) press(Key.DirectionRight) }
+        }
         waitFor(formatTime(start + 2 * 60 * 60_000L))
-        assertTrue(compose.focusedText(), compose.focusedText().contains("No guide information"))
 
         press(Key.Guide)
         waitFor("Show 0")
