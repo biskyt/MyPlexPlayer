@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.12.1
+- Fixed a rare case where starting the next episode could save the wrong place in it.
+
 ## 0.12.0
 - Carry on watching cards show the episode and time left, such as "S1E2 22m".
 - Carry on watching shows up to 20 titles.

@@ -208,18 +208,19 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     }
 
     private suspend fun play(p: PlaylistEntity, playing: Playing, fromStart: Boolean) {
+        // Read first: nothing waits between this title becoming current and its playback starting (a save meanwhile would
+        // write it with the last one's place), nor between that and the controls coming up.
+        val known = c.vod.progress(p.id, playing.kind, playing.itemId)
         current = playing
+        playedMs = 0
+        // Something already started (here or elsewhere) counts at once: only a new start waits.
+        onCarryOn = known != null && (known.carryOnAt != null || known.positionMs > 0 && !known.finished)
         movingOn = false
         lastTickMs = null
         skipHandled.clear()
         skip = null
         resetForNewStream()
         val engine = engine ?: return
-        // Read before playback starts, so nothing waits between starting it and the controls coming up.
-        val known = c.vod.progress(p.id, playing.kind, playing.itemId)
-        playedMs = 0
-        // Something already started (here or elsewhere) counts at once: only a new start waits.
-        onCarryOn = known != null && (known.carryOnAt != null || known.positionMs > 0 && !known.finished)
         engine.play(playing.stream.url, hls = null, headers = playing.stream.plex?.stream?.headers.orEmpty())
         // Resume unless it was nearly finished (or the user asked to start over). From Plex, the row has the server's point.
         val saved = if (fromStart) null else known
