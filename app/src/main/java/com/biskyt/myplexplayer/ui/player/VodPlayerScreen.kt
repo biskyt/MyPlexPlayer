@@ -68,7 +68,10 @@ private fun BoxScope.SkipPillButton(pill: SkipPill, vm: VodPlayerViewModel) {
     val name = stringResource(if (pill.marker.type == PlexMarker.INTRO) R.string.player_skip_intro else R.string.player_skip_credits)
     val text = pill.countdownSec?.let { stringResource(R.string.player_skip_countdown, name, it) } ?: name
     // Over the controls, under the clock in their top corner (its line grows with the font size).
-    val clockLine = with(LocalDensity.current) { MaterialTheme.typography.headlineSmall.lineHeight.toDp() }
+    val clockStyle = MaterialTheme.typography.headlineSmall
+    val clockLine = with(LocalDensity.current) {
+        (if (clockStyle.lineHeight.isSp) clockStyle.lineHeight else clockStyle.fontSize * 1.3f).toDp()
+    }
     val place = if (vm.overlay == OverlayState.NONE) {
         Modifier.align(Alignment.BottomEnd).padding(48.dp)
     } else {

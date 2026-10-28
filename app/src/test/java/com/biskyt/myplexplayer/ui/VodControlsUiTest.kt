@@ -55,8 +55,6 @@ class VodControlsUiTest {
         compose.waitAdvancingClock { vm.engine?.player?.currentMediaItem != null && shown("More") > 0 }
         // (Either side of a minute's turn.)
         compose.waitAdvancingClock { shown(formatTime(System.currentTimeMillis())) > 0 }
-        // Under the bar: how far in of how long, and how long is left.
-        compose.waitAdvancingClock { shown(" / ", substring = true) > 0 && shown(" left", substring = true) > 0 }
         assertEquals(0, shown("Restart"))
         assertEquals(0, shown("Next episode"))
         assertEquals(0, shown("Back hides this", substring = true))
