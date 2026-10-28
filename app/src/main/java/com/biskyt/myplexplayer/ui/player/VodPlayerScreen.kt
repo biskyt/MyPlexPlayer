@@ -1,9 +1,13 @@
 package com.biskyt.myplexplayer.ui.player
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -16,6 +20,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -28,7 +33,6 @@ import com.biskyt.myplexplayer.core.plex.SkipPill
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
 import com.biskyt.myplexplayer.ui.common.CastPanel
-import com.biskyt.myplexplayer.ui.common.LocalTouch
 import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.TextPanel
@@ -56,15 +60,21 @@ fun VodPlayerScreen(screen: Screen.VodPlayer) {
 }
 
 /**
- * Bottom right, or top right over the controls (where OK is theirs). Never focused: OK reaches it through [skipKeys],
+ * Bottom right, or top right (below the clock) over the controls (where OK is theirs). Never focused: OK reaches it through [skipKeys],
  * so focus doesn't fall away when it goes; a tap presses it.
  */
 @Composable
 private fun BoxScope.SkipPillButton(pill: SkipPill, vm: VodPlayerViewModel) {
     val name = stringResource(if (pill.marker.type == PlexMarker.INTRO) R.string.player_skip_intro else R.string.player_skip_credits)
     val text = pill.countdownSec?.let { stringResource(R.string.player_skip_countdown, name, it) } ?: name
-    val corner = if (vm.overlay == OverlayState.NONE) Alignment.BottomEnd else Alignment.TopEnd
-    PillButton(text, vm::skipNow, Modifier.align(corner).padding(48.dp).focusProperties { canFocus = false }, primary = true)
+    // Over the controls, under the clock in their top corner (its line grows with the font size).
+    val clockLine = with(LocalDensity.current) { MaterialTheme.typography.headlineSmall.lineHeight.toDp() }
+    val place = if (vm.overlay == OverlayState.NONE) {
+        Modifier.align(Alignment.BottomEnd).padding(48.dp)
+    } else {
+        Modifier.align(Alignment.TopEnd).padding(top = 27.dp + 12.dp + clockLine + 16.dp, end = 56.dp)
+    }
+    PillButton(text, vm::skipNow, place.focusProperties { canFocus = false }, primary = true)
 }
 
 /**
@@ -97,11 +107,7 @@ private fun VodControls(vm: VodPlayerViewModel, buttons: FocusRequester, root: F
             Text(vm.title, style = MaterialTheme.typography.displaySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Position(vm)
-        ControlsBar(vm, buttons, root) {
-            PillButton(stringResource(R.string.common_from_start), vm::startOver)
-            if (vm.nextEpisode != null) PillButton(stringResource(R.string.player_next_episode), vm::playNext)
-        }
-        if (!LocalTouch.current) Muted(stringResource(R.string.player_hint_skip), Modifier.align(Alignment.CenterHorizontally))
+        ControlsBar(vm, buttons, root)
     }
 }
 
@@ -112,13 +118,22 @@ private fun Position(vm: VodPlayerViewModel) {
     val scrub = vm.scrubMs
     // While scrubbing, the time shown is where playback will go.
     val pos = scrub?.div(1000) ?: vm.positionSec
-    fun fraction(sec: Long) = if (dur > 0) sec.toFloat() / dur else 0f
-    Timeline(
-        formatDuration(pos * 1000),
-        fraction(vm.positionSec),
-        if (dur > 0) formatDuration(dur * 1000) else "",
-        scrub?.let { fraction(it / 1000) },
-        handle = LocalBarSelected.current,
-        onSeek = if (dur > 0) ({ vm.scrubTo(0L..dur * 1000, it) }) else null
-    )
+    // Known once playback has started.
+    val totalMs = (dur * 1000).takeIf { it > 0 }
+    fun fraction(sec: Long) = totalMs?.let { sec * 1000f / it } ?: 0f
+    // The bar the whole width; under it, how far in of how long, and how long is left.
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        SeekBar(
+            fraction(vm.positionSec),
+            scrub?.let { fraction(it / 1000) },
+            handle = LocalBarSelected.current,
+            onSeek = totalMs?.let { t -> { vm.scrubTo(0L..t, it) } },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Row {
+            Muted(formatDuration(pos * 1000) + totalMs?.let { " / " + formatDuration(it) }.orEmpty())
+            Spacer(Modifier.weight(1f))
+            totalMs?.let { Muted(stringResource(R.string.common_time_left, formatDuration((it - pos * 1000).coerceAtLeast(0)))) }
+        }
+    }
 }

@@ -7,15 +7,10 @@
     <string name="player_subtitles">Sous-titres</string>
     <string name="player_more">Plus</string>
     <string name="player_channel_guide">Guide chaîne</string>
-    <string name="player_next_episode">Épisode suivant</string>
     <string name="player_skip_intro">Passer l\'intro</string>
     <string name="player_skip_credits">Passer le générique</string>
     <string name="player_skip_countdown">%1$s (%2$d)</string>
     <string name="player_up_next">À SUIVRE · %1$s</string>
-
-    <string name="player_hint_skip">▲ puis ◀ ▶ pour avancer ou reculer (maintenir pour défiler) · Retour pour masquer</string>
-    <string name="player_hint_zap_up_down">▲ ▼ changer de chaîne · Retour pour masquer</string>
-    <string name="player_hint_zap_channel_buttons">CH + − changer de chaîne · ▲ puis ◀ ▶ pour avancer ou reculer · Retour pour masquer</string>
     <string name="player_guide_hint">◀ ▶ autres chaînes · OK pour regarder</string>
     <string name="player_guide_previous">Précédente</string>
     <string name="player_guide_next">Suivante</string>

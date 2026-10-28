@@ -71,8 +71,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     private var lastTickMs: Long? = null
 
     /** The episode after this one, if any. */
-    var nextEpisode by mutableStateOf<EpisodeInfo?>(null)
-        private set
+    private var nextEpisode: EpisodeInfo? = null
 
     override val isLive = false
     override val failureMessage = R.string.player_failure_vod
@@ -327,7 +326,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         if (nextEpisode == null) stop() else playNext()
     }
 
-    fun playNext() {
+    private fun playNext() {
         val p = playlist ?: return
         val next = nextEpisode ?: return
         val seriesId = screen.seriesId ?: return
@@ -390,12 +389,6 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         skip = null
         engine?.player?.seekTo(marker.endMs)
         if (marker.final && nextEpisode != null) playNext()
-    }
-
-    fun startOver() {
-        cancelScrub()
-        engine?.player?.seekTo(0)
-        showControls()
     }
 
     override fun stop() {
