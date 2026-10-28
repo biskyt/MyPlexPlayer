@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.15.1
+- Fixed: after a film was deleted from its page, the remote could be left on nothing in the grid.
+
 ## 0.15.0
 - Back with the player's controls showing now hides them, instead of moving to the progress bar.
 - The sleep timer is gone from the player's More menu.

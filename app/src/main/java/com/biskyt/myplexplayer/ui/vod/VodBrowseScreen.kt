@@ -160,8 +160,20 @@ class VodBrowseViewModel(
         SORT(R.string.vod_pick_sort)
     }
 
-    /** A poster taken off Favourites while they're shown: focus moves on once it has gone. */
+    /**
+     * A poster leaving the list with the remote on it: one taken off Favourites while they're shown, or the film last
+     * opened, deleted on its page. Focus moves on once it has gone.
+     */
     var removedId by mutableStateOf<Long?>(null)
+
+    init {
+        // The film last opened, deleted on its page: the list catches up only after the remote has gone back to it.
+        if (isMovies) {
+            viewModelScope.launch {
+                c.vod.deletedMovies.collect { (pid, id) -> if (pid == playlist.value?.id && id == focusId) removedId = id }
+            }
+        }
+    }
 
     /** Moving a favourite within Favourites. */
     val mover = FavouriteMover(viewModelScope, c.favourites) { playlist.value?.id ?: 0 }
