@@ -125,6 +125,20 @@ class DeleteUiTest {
     }
 
     @Test
+    fun `a film gone from the grid after the remote went back to it hands the remote to the next`() {
+        val navigator = navigators.new(Screen.Movies())
+        compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
+        compose.waitForText("Big Buck Bunny", stepMs = 50)
+        click("Big Buck Bunny")
+        compose.waitForText("More info", stepMs = 50)
+        compose.runOnIdle { navigator.pop() }
+        compose.waitAdvancingClock(stepMs = 50) { "Big Buck Bunny" in compose.focusedText() }
+        // Gone once the remote is back on it, as when the grid catches up with a delete made on the film's page.
+        runBlocking { app.container.vod.deleteMovie(source, 11) }
+        compose.waitAdvancingClock(stepMs = 50) { "Sintel" in compose.focusedText() }
+    }
+
+    @Test
     fun `an episode's description is in its options`() {
         show(Screen.SeriesDetails(source, 21))
         options("Second", "Description")

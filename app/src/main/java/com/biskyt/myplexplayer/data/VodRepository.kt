@@ -28,6 +28,8 @@ import com.biskyt.myplexplayer.data.db.VodCard
 import com.biskyt.myplexplayer.data.db.VodFavouriteEntity
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 
 /** What a grid of movies or series shows: one [category] (null: all), which of them ([show]), in what order ([sort]). */
 data class VodView(val category: String? = null, val show: VodShow = VodShow.ALL, val sort: VodSort = VodSort.TITLE)
@@ -54,6 +56,12 @@ class VodRepository(
 ) {
     private val vod = db.vod()
     private val categories = db.categories()
+
+    // Not replayed: only grids open as a film is deleted need to hear of it (the buffer is so the emit never waits).
+    private val deleted = MutableSharedFlow<Pair<Long, Long>>(extraBufferCapacity = 8)
+
+    /** Films deleted from here (source, film), as they go: a grid moves the remote on once its list catches up. */
+    val deletedMovies: SharedFlow<Pair<Long, Long>> = deleted
 
     // maxSize drops pages scrolled far away, so browsing tens of thousands of titles doesn't keep them all.
     private val paging = PagingConfig(pageSize = 48, prefetchDistance = 24, initialLoadSize = 72, enablePlaceholders = true, maxSize = 300)
@@ -209,6 +217,7 @@ class VodRepository(
             vod.deleteProgress(playlistId, VOD_MOVIE, listOf(id))
         }
         movieDetails.remove("$playlistId:$id")
+        deleted.tryEmit(playlistId to id)
         return true
     }
 
