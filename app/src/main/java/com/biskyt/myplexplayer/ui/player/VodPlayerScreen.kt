@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -35,7 +36,6 @@ import com.biskyt.myplexplayer.ui.appViewModel
 import com.biskyt.myplexplayer.ui.common.CastPanel
 import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.PillButton
-import com.biskyt.myplexplayer.ui.common.TextPanel
 import com.biskyt.myplexplayer.ui.common.formatDuration
 import com.biskyt.myplexplayer.ui.common.isSelect
 
@@ -50,13 +50,12 @@ fun VodPlayerScreen(screen: Screen.VodPlayer) {
             controls = { buttons, root -> VodControls(vm, buttons, root) },
             extras = { vm.skip?.let { SkipPillButton(it, vm) } }
         )
-        // Over the player's own Back (which stops playback): while the pill counts down on its own, Back cancels the skip.
-        BackHandler(enabled = vm.autoSkipping && vm.overlay == OverlayState.NONE, onBack = vm::cancelAutoSkip)
+        // Back that skipKeys doesn't see (a touch screen's, or the remote's with focus outside the player, as a panel
+        // closes): while the pill counts down, it cancels the skip.
+        BackHandler(enabled = vm.backCancelsSkip, onBack = vm::cancelAutoSkip)
     }
     // The cast, from More: over the picture, which plays on.
     vm.cast?.let { (title, cast) -> CastPanel(title, cast) { vm.cast = null } }
-    // An episode's description, from More, the same way.
-    vm.describing?.let { e -> e.plot?.let { TextPanel(vm.title, episodeName(e), it) { vm.describing = null } } }
 }
 
 /**
@@ -81,24 +80,22 @@ private fun BoxScope.SkipPillButton(pill: SkipPill, vm: VodPlayerViewModel) {
 }
 
 /**
- * With the skip button showing on its own, OK skips: the whole press (down to up, repeats too), so it neither brings
- * up the controls nor, held, opens anything.
+ * With the skip button showing on its own, OK skips; while it counts down, the remote's Back cancels the skip rather
+ * than playback. Each acts as its key goes down, and takes the rest of that press (repeats, release), so it neither
+ * brings up the controls nor, held, does anything more; OK and Back are each followed on their own.
  */
 @Composable
 private fun Modifier.skipKeys(vm: VodPlayerViewModel): Modifier {
-    val swallowing = remember { booleanArrayOf(false) }
+    val taken = remember { mutableSetOf<Key>() }
     return onPreviewKeyEvent { e ->
-        if (!e.key.isSelect()) return@onPreviewKeyEvent false
-        if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) {
-            swallowing[0] = vm.skipsOnOk
-            if (swallowing[0]) {
-                vm.wake()
-                vm.skipNow()
-            }
+        val ok = e.key.isSelect()
+        if (!ok && e.key != Key.Back) return@onPreviewKeyEvent false
+        if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0 && (if (ok) vm.skipsOnOk else vm.backCancelsSkip)) {
+            taken += e.key
+            vm.wake()
+            if (ok) vm.skipNow() else vm.cancelAutoSkip()
         }
-        val swallowed = swallowing[0]
-        if (e.type == KeyEventType.KeyUp) swallowing[0] = false
-        swallowed
+        if (e.type == KeyEventType.KeyUp) taken.remove(e.key) else e.key in taken
     }
 }
 

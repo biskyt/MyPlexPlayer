@@ -134,7 +134,7 @@ class PausedScreenUiTest {
         paused()
         press(NativeKeyEvent.KEYCODE_MENU) // the controls, on More
         press(NativeKeyEvent.KEYCODE_DPAD_CENTER) // the More panel, a window of its own
-        compose.waitForText("Sleep timer")
+        compose.waitForText("Playback info")
         pass(90_000)
         press(NativeKeyEvent.KEYCODE_DPAD_DOWN)
         pass(90_000)

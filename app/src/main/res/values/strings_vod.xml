@@ -86,5 +86,4 @@
     <string name="vod_pick_sort">Sort</string>
     <string name="vod_none_shown">Nothing here with these choices.</string>
     <string name="vod_no_cast">No cast listed.</string>
-    <string name="vod_description">Description</string>
 </resources>

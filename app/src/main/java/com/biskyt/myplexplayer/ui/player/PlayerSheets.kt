@@ -37,7 +37,6 @@ import com.biskyt.myplexplayer.ui.common.ScheduleList
 import com.biskyt.myplexplayer.ui.common.SidePanel
 import com.biskyt.myplexplayer.ui.common.TouchStepButtons
 import com.biskyt.myplexplayer.ui.common.TvCard
-import com.biskyt.myplexplayer.ui.common.cycle
 import com.biskyt.myplexplayer.ui.common.displayLanguage
 import com.biskyt.myplexplayer.ui.common.formatRange
 import com.biskyt.myplexplayer.ui.common.perform
@@ -88,7 +87,8 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
     val nav = LocalNavigator.current
     val close = { vm.sheet = null }
     SidePanel(onDismiss = close, dim = false) {
-        val first = rememberFirstFocus(sheet) // again when one sheet leads to another (More › Playback info)
+        // Again when More opens another sheet in its place (Playback info, Description).
+        val first = rememberFirstFocus(sheet)
         LazyColumn(Modifier.panelKeys(vm), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             when (sheet) {
                 PlaybackViewModel.Sheet.AUDIO -> {
@@ -136,15 +136,6 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
                             vm.flash(nextLabel)
                         }
                     }
-                    item {
-                        val next = listOf(0, 15, 30, 60, 90, 120).cycle(vm.sleepMinutes)
-                        val sleep = if (vm.sleepMinutes == 0) {
-                            stringResource(R.string.player_sleep_timer_off)
-                        } else {
-                            stringResource(R.string.player_sleep_timer_minutes, vm.sleepMinutes)
-                        }
-                        Choice(sleep, false) { vm.setSleepTimer(next) }
-                    }
                     item { Choice(stringResource(R.string.player_info), false) { vm.sheet = PlaybackViewModel.Sheet.INFO } }
                 }
                 PlaybackViewModel.Sheet.INFO -> {
@@ -167,6 +158,10 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
                     item { Header(programmeTitle(p.title), formatRange(p.startMs, p.stopMs)) }
                     // Focusable, so the remote's keys (Back, play/pause) reach the panel.
                     item { Column(first.focusable()) { ProgrammeAbout(p, maxLines = 18) } }
+                }
+                PlaybackViewModel.Sheet.DESCRIPTION -> vm.description?.let { text ->
+                    item { Header(stringResource(R.string.player_description), null) }
+                    item { Column(first.focusable()) { Muted(text, maxLines = 18) } }
                 }
             }
         }

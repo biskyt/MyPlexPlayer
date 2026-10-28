@@ -20,6 +20,7 @@ import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -62,6 +63,7 @@ class PlayerDescriptionUiTest {
         compose.waitForText("Description")
         compose.onNode(hasText("Description") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForText("The crew meet for the first time.")
+        assertTrue("still playing", vm.engine?.player?.playWhenReady == true)
     }
 
     @Test
