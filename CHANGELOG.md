@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.15.0
+- Back with the player's controls showing now hides them, instead of moving to the progress bar.
+- The sleep timer is gone from the player's More menu.
+
 ## 0.14.1
 - Fixed: the Options button pressed in the player's Audio or Subtitles panel could also open the TV's own menu.
 - Fixed: at the very end of a live programme, the player's controls could say "0 min left".

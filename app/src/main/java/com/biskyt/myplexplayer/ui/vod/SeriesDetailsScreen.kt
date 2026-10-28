@@ -314,7 +314,7 @@ private fun EpisodeOptions(
     val episode = listOfNotNull(
         ItemAction.Heading(appString(R.string.vod_this_episode)),
         e.plot?.let {
-            ItemAction.Run(appString(R.string.vod_description)) {
+            ItemAction.Run(appString(R.string.player_description)) {
                 close()
                 vm.describing = e
             }

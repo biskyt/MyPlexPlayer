@@ -14,7 +14,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   (1.3.2, `73c1631`, in 0.5.0), the player not closing when shown before it's loaded (1.3.3, `1387654`, in 0.5.1), its tests' NIO warm-up
   (`8d20dcc`, in 0.5.1), the categories type switch (1.3.4, `299fc0b`, in 0.6.1),
   the TV guide as one focus stop with its own highlight (1.4.1 `4815775` and 1.5.0 `2773574`, in 0.11.0; catch-up
-  left out), and the player's clock, time left and Options to More (1.7.0, `6279932`, in 0.14.0) and its fixes (1.7.1, `44805ab`, in 0.14.1).
+  left out), and the player's clock, time left and Options to More (1.7.0, `6279932`, in 0.14.0) and its fixes (1.7.1, `44805ab`, in 0.14.1), the description in the player's own sheet (1.8.0, `3a43c5d`, in
+  0.15.0, in place of 0.13.0's own panel) and Back hiding the controls, with no sleep timer (1.8.1, `ba6b051`, in 0.15.0).
 - **Where a change is made first** (the owner, 2026-10-25): a feature or fix both apps need (the player, remote keys,
   menus, the guide's screens) is made in MyTVPlayer first, then cherry-picked here, so the shared code stays the same
   and ports apply cleanly. Plex-only work (sign-in, servers, play state, Live TV, DVR) is made here only.

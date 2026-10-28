@@ -77,7 +77,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     override val failureMessage = R.string.player_failure_vod
 
     private var playlist: PlaylistEntity? = null
-    private var current: Playing? = null
+    private var current by mutableStateOf<Playing?>(null)
     private var tickJob: Job? = null
 
     /** What is playing, with what its progress row needs, and where it plays from. */
@@ -96,13 +96,10 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     private val favouriteId = series ?: screen.itemId
     private var favourite by mutableStateOf(false)
 
+    override val description: String? get() = current?.episode?.plot
+
     override fun menuActions(): List<ItemAction> = listOfNotNull(
-        current?.episode?.takeIf { it.plot != null }?.let { e ->
-            ItemAction.Run(appString(R.string.vod_description)) {
-                sheet = null
-                describing = e
-            }
-        },
+        description?.let { ItemAction.Run(appString(R.string.player_description)) { sheet = Sheet.DESCRIPTION } },
         ItemAction.Run(appString(R.string.vod_cast_title)) { showCast() },
         ItemAction.Run(favouriteLabel(favourite)) {
             val add = !favourite
@@ -123,9 +120,6 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
             )
         }
     )
-
-    /** The episode whose description is shown over the player (opened from More); null while it's closed. */
-    var describing by mutableStateOf<EpisodeInfo?>(null)
 
     /** The cast shown over the player (opened from More), and whose, once read; null while it's closed. */
     var cast by mutableStateOf<Pair<String, List<CastMember>>?>(null)
@@ -227,6 +221,8 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         // write it with the last one's place), nor between that and the controls coming up.
         val known = c.vod.progress(p.id, playing.kind, playing.itemId)
         current = playing
+        // The last episode's description, open as the next one starts, goes with it.
+        if (sheet == Sheet.DESCRIPTION) sheet = null
         playedMs = 0
         // Something already started (here or elsewhere) counts at once: only a new start waits.
         onCarryOn = known != null && (known.carryOnAt != null || known.positionMs > 0 && !known.finished)
@@ -234,7 +230,6 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         lastTickMs = null
         skipHandled.clear()
         skip = null
-        describing = null
         resetForNewStream()
         val engine = engine ?: return
         engine.play(playing.stream.url, hls = null, headers = playing.stream.plex?.stream?.headers.orEmpty())
@@ -376,6 +371,12 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
 
     /** Whether the pill counts down to skipping by itself (Back then cancels it). */
     val autoSkipping: Boolean get() = skip?.countdownSec != null
+
+    /**
+     * Whether Back (the remote's or a touch screen's) now cancels the automatic skip: it counts down with nothing over
+     * it (on a dimmed paused screen, Back first wakes it).
+     */
+    val backCancelsSkip: Boolean get() = autoSkipping && overlay == OverlayState.NONE && !dimmed
 
     /** Back while the pill counts down: no automatic skip of this one; a pill to press shows while it plays. */
     fun cancelAutoSkip() {

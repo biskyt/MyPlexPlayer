@@ -116,6 +116,19 @@ class SkipMarkersUiTest {
     }
 
     @Test
+    fun `the remote's Back cancels the automatic skip, not playback`() {
+        playPilotWith("intro", endMs = 30_000)
+        compose.waitForText("Skip intro (2)")
+        // Held a moment, as a real press is: it still only cancels.
+        compose.sendKey(NativeKeyEvent.KEYCODE_BACK, NativeKeyEvent.ACTION_DOWN)
+        compose.sendKey(NativeKeyEvent.KEYCODE_BACK, NativeKeyEvent.ACTION_DOWN, repeat = 1)
+        compose.sendKey(NativeKeyEvent.KEYCODE_BACK, NativeKeyEvent.ACTION_UP)
+        compose.waitForText("Skip intro")
+        assertFalse("still playing", compose.runOnIdle { vm.exit })
+        assertFalse("no longer counting down", compose.runOnIdle { vm.autoSkipping })
+    }
+
+    @Test
     fun `sought into the intro, it waits to be pressed`() {
         playPilotWith("intro", startMs = 60_000, endMs = 90_000)
         seekTo(70_000)
