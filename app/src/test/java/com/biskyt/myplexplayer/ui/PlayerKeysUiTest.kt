@@ -98,6 +98,14 @@ class PlayerKeysUiTest {
         throw AssertionError("'$text' hasn't focus: ${focused()}", e)
     }
 
+    /** The remote's Options button brings up the controls on More; OK opens it. */
+    private fun openMore() {
+        press(Key.Menu)
+        waitForFocus("More")
+        press(Key.DirectionCenter)
+        waitFor("Sleep timer")
+    }
+
     @Test
     fun `the controls come up with focus on play-pause, and up goes back to the video`() {
         show(Screen.Player(source, one, ChannelFilter.All))
@@ -108,18 +116,43 @@ class PlayerKeysUiTest {
     }
 
     @Test
+    fun `live tv's controls say how long the programme has left, with no key hints`() {
+        show(Screen.Player(source, one, ChannelFilter.All))
+        waitFor("Channel guide")
+        waitFor(" left")
+        assertTrue(compose.onAllNodes(hasText("Back hides this", substring = true)).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun `options again puts focus back on more, and takes the place of the subtitles panel`() {
+        show(Screen.Player(source, one, ChannelFilter.All))
+        waitFor("Channel guide")
+        press(Key.Menu)
+        waitForFocus("More")
+        press(Key.DirectionLeft)
+        waitForFocus("Subtitles")
+        press(Key.Menu)
+        waitForFocus("More")
+        press(Key.DirectionLeft)
+        waitForFocus("Subtitles")
+        press(Key.DirectionCenter) // the Subtitles panel
+        waitFor("Off")
+        press(Key.Menu)
+        waitGone("Off")
+        waitForFocus("More")
+    }
+
+    @Test
     fun `the media buttons work with a panel open over the video`() {
         show(Screen.Live())
         compose.runOnIdle { navigator.push(Screen.Player(source, one, ChannelFilter.All)) }
         waitFor("Channel guide")
-        press(Key.Menu) // the More panel
-        waitFor("Sleep timer")
+        openMore()
         press(Key.MediaFastForward)
         // The panel closes and the player answers (live TV here can't skip).
         waitFor("Skipping isn't available here")
         waitGone("Sleep timer")
-        press(Key.Menu)
-        waitFor("Sleep timer")
+        openMore()
         press(Key.MediaStop)
         compose.waitAdvancingClock { navigator.current.screen is Screen.Live } // stopped, back where it was opened from
     }
@@ -145,8 +178,7 @@ class PlayerKeysUiTest {
     fun `the guide button with a panel open over the video opens the channel guide`() {
         show(Screen.Player(source, one, ChannelFilter.All))
         waitFor("Channel guide")
-        press(Key.Menu) // the More panel
-        waitFor("Sleep timer")
+        openMore()
         press(Key.Guide)
         // The panel gives way to the channel guide, as with no panel open (not the TV's own guide).
         // Its hint for the remote, or on a touch screen its buttons.
@@ -165,8 +197,7 @@ class PlayerKeysUiTest {
         waitForFocus("Now on One")
         press(Key.Guide)
         waitGone("Now on One")
-        press(Key.Menu)
-        waitFor("Sleep timer")
+        openMore()
         press(Key.Menu)
         waitGone("Sleep timer")
         assertTrue(navigator.current.screen is Screen.Player) // still playing
@@ -176,31 +207,31 @@ class PlayerKeysUiTest {
     fun `playback info takes focus from the More panel, and the menu button closes it`() {
         show(Screen.Player(source, one, ChannelFilter.All))
         waitFor("Channel guide")
-        press(Key.Menu)
-        waitFor("Playback info")
+        openMore()
         compose.onNode(hasText("Playback info") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         waitFor("Video:")
         // Media buttons reach the panel, so it has focus.
         press(Key.MediaFastForward)
         waitFor("Skipping isn't available here")
-        press(Key.Menu)
-        waitFor("Playback info")
+        openMore()
         compose.onNode(hasText("Playback info") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         waitFor("Video:")
         press(Key.Menu)
         waitGone("Video:")
-        assertTrue(compose.onAllNodes(hasText("Sleep timer", substring = true)).fetchSemanticsNodes().isEmpty()) // not back to More
+        waitForFocus("More")
+        assertTrue(compose.onAllNodes(hasText("Sleep timer", substring = true)).fetchSemanticsNodes().isEmpty()) // not back to the panel
     }
 
     @Test
-    fun `menu with the channel guide open opens the more menu in its place`() {
+    fun `menu with the channel guide open brings up the controls on More in its place`() {
         show(Screen.Player(source, one, ChannelFilter.All))
         waitFor("Channel guide")
         press(Key.Guide)
         waitForFocus("Now on One")
         press(Key.Menu)
-        waitFor("Sleep timer")
+        waitForFocus("More")
         waitGone("Now on One")
+        assertTrue("the panel isn't open yet", compose.onAllNodes(hasText("Sleep timer")).fetchSemanticsNodes().isEmpty())
     }
 
     @Test

@@ -2,6 +2,12 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.14.0
+- The player's controls show the time of day, and how far in you are, how long it is and how long is left.
+- On Live TV, the controls show how long the programme has left.
+- The remote's Options button brings up the controls with More picked out.
+- The hints about the remote's buttons are gone, and so are Restart and Next episode in the player.
+
 ## 0.13.0
 - HD Live TV channels with AAC LATM sound now play.
 - A file the device can't play now says "Your device cannot play this type of file" and names its format.
