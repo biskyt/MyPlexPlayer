@@ -36,8 +36,11 @@
     <string name="player_audio_output">Sortie audio : %1$s</string>
     <string name="player_video_unknown">Vidéo : inconnue</string>
     <string name="player_info">Infos de lecture</string>
-    <string name="player_info_direct_play">Lit le fichier tel quel (lecture directe)</string>
-    <string name="player_info_direct_stream">Diffusé par le serveur, image et son tels quels (diffusion directe)</string>
+    <string name="player_info_playback">Format de lecture : %1$s</string>
+    <string name="player_info_direct_play">Direct Play</string>
+    <string name="player_info_direct_stream">Direct Stream</string>
+    <string name="player_info_direct_stream_container">Direct Stream (le lecteur ne peut pas lire les fichiers %1$s)</string>
+    <string name="player_info_direct_stream_live">Direct Stream (la TV en direct passe toujours par le serveur)</string>
     <string name="player_info_video">Vidéo : %1$s</string>
     <string name="player_info_decoder">Décodeur vidéo : %1$s</string>
     <string name="player_info_audio">Audio : %1$s</string>

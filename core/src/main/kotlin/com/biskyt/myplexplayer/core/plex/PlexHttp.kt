@@ -43,6 +43,8 @@ class PlexException(
     val reason: Reason = Reason.OTHER,
     /** The server's HTTP status, for [Reason.SERVER_ERROR]. */
     val code: Int = 0,
+    /** For [Reason.NEEDS_TRANSCODE]: the streams the server would have to convert, in their own formats. */
+    val formats: List<PlexFormat> = emptyList(),
 ) : IOException(message, cause) {
     enum class Reason {
         /** The token was refused (401): sign in again. */
@@ -58,6 +60,15 @@ class PlexException(
         /** The server can't stream this file at all (missing, or no free streams): [message] has its reason. */
         CANNOT_STREAM,
         OTHER,
+    }
+}
+
+/** A stream's format: its type (1 picture, 2 sound, 3 subtitles), and its format as Plex labels it ("AAC_LATM Stereo"). */
+data class PlexFormat(val streamType: Int, val format: String) {
+    companion object {
+        const val VIDEO = 1
+        const val AUDIO = 2
+        const val SUBTITLES = 3
     }
 }
 

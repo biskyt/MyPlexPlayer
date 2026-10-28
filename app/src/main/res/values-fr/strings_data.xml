@@ -10,7 +10,11 @@
     <string name="data_plex_signed_out">Plex n\'a pas accepté la connexion : reconnectez-vous à Plex</string>
     <string name="data_plex_unreachable">Impossible de joindre le serveur Plex</string>
     <string name="data_plex_unexpected">Réponse inattendue de Plex</string>
-    <string name="data_plex_needs_converting">Ce fichier ne se lit que si le serveur le convertit, ce que MyPlexPlayer ne demande jamais.</string>
+    <string name="data_plex_needs_converting">Votre appareil ne peut pas lire ce type de fichier.</string>
+    <string name="data_plex_needs_converting_why">Votre appareil ne peut pas lire ce type de fichier (%1$s).</string>
+    <string name="data_format_video">vidéo : %1$s</string>
+    <string name="data_format_audio">audio : %1$s</string>
+    <string name="data_format_subtitles">sous-titres : %1$s</string>
     <string name="data_plex_cannot_stream">Le serveur ne peut pas diffuser ce fichier.</string>
 
     <string name="data_lang_uk">Anglais (Royaume-Uni)</string>

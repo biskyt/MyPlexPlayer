@@ -88,17 +88,17 @@ class PlexWatchedUiTest {
         val navigator = navigators.new(Screen.SeriesDetails(source, 21))
         compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
         // The episode to watch next has the remote as the page opens.
-        compose.waitAdvancingClock(stepMs = 50) { "Pilot" in compose.focusedText() && "Up next" in compose.focusedText() }
+        compose.waitAdvancingClock(stepMs = 50) { "Pilot" in compose.focusedText() && "Watched" !in compose.focusedText() }
+        // It isn't labelled: the episodes before it are marked watched instead.
+        assertTrue(compose.onAllNodes(hasText("Up next")).fetchSemanticsNodes().isEmpty())
 
         choose("Mark as watched", title = "Pilot")
-        // Up next moves to the next episode; the remote stays on the one marked.
+        // The episode to watch next moves on; the remote stays on the one marked.
         // Waits for the page itself to have moved on (its progress arrives from the database after the write
         // above is saved), not for the write: a check made before then sees the old page.
-        val onPilot = { "Pilot" in compose.focusedText() && "Up next" !in compose.focusedText() }
+        val onPilot = { "Pilot" in compose.focusedText() && "Watched" in compose.focusedText() }
         compose.waitAdvancingClock(stepMs = 50) {
-            finished(VOD_EPISODE, 211) &&
-                compose.onAllNodes(hasText("Up next")).fetchSemanticsNodes().isNotEmpty() &&
-                "Up next" !in compose.focusedText()
+            finished(VOD_EPISODE, 211) && compose.onAllNodes(hasText("Watched")).fetchSemanticsNodes().isNotEmpty()
         }
         compose.idleFrames()
         assertTrue(compose.focusedText(), onPilot())

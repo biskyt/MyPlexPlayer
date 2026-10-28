@@ -366,6 +366,7 @@ class PlexClientTest {
         assertEquals("secret-token", stream.headers["X-Plex-Token"])
         assertEquals("session-2", stream.headers["X-Plex-Session-Identifier"])
         assertEquals("Generic", stream.headers["X-Plex-Client-Profile-Name"])
+        assertTrue("AAC in LATM too, as HD channels send it", "aac_latm" in stream.headers["X-Plex-Client-Profile-Extra"]!!)
     }
 
     @Test
@@ -376,6 +377,16 @@ class PlexClientTest {
         )
         val e = expectFailure(PlexException.Reason.NEEDS_TRANSCODE) { client.directStream("1", "session-3") }
         assertTrue(e.message!!, e.message!!.contains("hevc: transcode"))
+        assertEquals("without a label, its own format isn't known (the codec named is the new one)", emptyList<PlexFormat>(), e.formats)
+
+        // A stream to be converted names its new codec: the format refused is the file's own, from its label.
+        responses["video/:/transcode/universal/decision"] = MockResponse().setBody(
+            """{"MediaContainer":{"generalDecisionCode":1001,"Metadata":[{"ratingKey":"1","Media":[{"Part":[{"Stream":[""" +
+                """{"streamType":1,"codec":"h264","decision":"copy"},""" +
+                """{"streamType":2,"codec":"opus","decision":"transcode","displayTitle":"English (AAC_LATM Stereo)"}]}]}]}]}}"""
+        )
+        val latm = expectFailure(PlexException.Reason.NEEDS_TRANSCODE) { client.directStream("1", "session-8") }
+        assertEquals(listOf(PlexFormat(2, "AAC_LATM Stereo")), latm.formats)
 
         responses["video/:/transcode/universal/decision"] = MockResponse().setBody(
             """{"MediaContainer":{"generalDecisionCode":2000,"generalDecisionText":"Neither direct play nor conversion is available."}}"""
@@ -396,7 +407,8 @@ class PlexClientTest {
                 """{"streamType":1,"codec":"h264","decision":"copy"},{"streamType":2,"codec":"aac","decision":"copy"},""" +
                 """{"streamType":3,"codec":"pgs","decision":"burn"}]}]}]}]}}"""
         )
-        expectFailure(PlexException.Reason.NEEDS_TRANSCODE) { client.directStream("1", "session-6") }
+        val burnt = expectFailure(PlexException.Reason.NEEDS_TRANSCODE) { client.directStream("1", "session-6") }
+        assertEquals("not converted, so its codec is its own", listOf(PlexFormat(3, "PGS")), burnt.formats)
 
         // An answer with no streams at all isn't taken for one that needs re-encoding.
         responses["video/:/transcode/universal/decision"] = MockResponse().setBody("""{"MediaContainer":{"generalDecisionCode":1001}}""")
@@ -404,7 +416,7 @@ class PlexClientTest {
 
         // Each refusal closed the session its decision opened, and never asked for the stream.
         val paths = List(server.requestCount) { server.takeRequest().requestUrl!!.encodedPath }
-        assertEquals(List(5) { listOf("/video/:/transcode/universal/decision", "/video/:/transcode/universal/stop") }.flatten(), paths)
+        assertEquals(List(6) { listOf("/video/:/transcode/universal/decision", "/video/:/transcode/universal/stop") }.flatten(), paths)
     }
 
     @Test

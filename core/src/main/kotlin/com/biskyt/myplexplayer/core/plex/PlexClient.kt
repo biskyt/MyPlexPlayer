@@ -1,6 +1,7 @@
 package com.biskyt.myplexplayer.core.plex
 
 import com.biskyt.myplexplayer.core.plex.PlexException.Reason
+import java.util.Locale
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import okhttp3.HttpUrl
@@ -225,9 +226,19 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
             (it.streamType == VIDEO || it.streamType == AUDIO) && it.decision != "copy" || it.decision in REENCODES
         }
         if (notCopied.isEmpty() && streams.any { it.streamType == VIDEO }) return null
+        val formats = notCopied.mapNotNull { s -> s.originalFormat()?.let { PlexFormat(s.streamType, it) } }
         val why = notCopied.joinToString { "${it.codec}: ${it.decision}" }.ifEmpty { "no video stream" }
-        return PlexException("The server can't stream this as it is: $why", reason = Reason.NEEDS_TRANSCODE)
+        return PlexException("The server can't stream this as it is: $why", reason = Reason.NEEDS_TRANSCODE, formats = formats)
     }
+
+    /**
+     * The stream's own format, as the file has it. A stream to be converted names its new codec ("opus"); its label
+     * keeps the original, in brackets ("Unknown (AAC_LATM)", "English (AAC_LATM Stereo)"). Without one, only a stream
+     * not being converted (dropped, burnt in) names its own; null when the format isn't known.
+     */
+    private fun PlexStreamInfo.originalFormat(): String? =
+        displayTitle?.takeIf { it.endsWith(")") && "(" in it }?.substringAfterLast("(")?.removeSuffix(")")?.trim()
+            ?: codec?.takeIf { decision != "transcode" }?.uppercase(Locale.ROOT)
 
     /** Ends a [directStream] on the server. */
     suspend fun stopStream(session: String) =
@@ -341,8 +352,8 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
     private companion object {
         const val CANNOT_STREAM = 2000
         val REENCODES = setOf("transcode", "burn")
-        const val VIDEO = 1
-        const val AUDIO = 2
+        const val VIDEO = PlexFormat.VIDEO
+        const val AUDIO = PlexFormat.AUDIO
         val SEARCHED = setOf("movie", "show", "episode")
         const val AUTO_DELETE_WATCHED = "autoDeletionItemPolicyWatchedLibrary"
     }
@@ -355,7 +366,8 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
  */
 data class PlexCodecs(
     val video: List<String> = listOf("h264", "hevc", "mpeg2video", "mpeg4", "vp9", "av1"),
-    val audio: List<String> = listOf("aac", "ac3", "eac3", "mp3", "mp2", "dts", "truehd", "flac", "opus", "vorbis"),
+    // aac_latm: AAC in LATM, as broadcast HD channels send it (the player reads it as AAC).
+    val audio: List<String> = listOf("aac", "aac_latm", "ac3", "eac3", "mp3", "mp2", "dts", "truehd", "flac", "opus", "vorbis"),
 ) {
     internal fun profileExtra(): String = "add-transcode-target(type=videoProfile&context=streaming&protocol=hls" +
         "&container=mpegts&videoCodec=${video.joinToString(",")}&audioCodec=${audio.joinToString(",")})"

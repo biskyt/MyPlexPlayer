@@ -12,7 +12,13 @@
     <string name="data_plex_signed_out">Plex didn\'t accept the sign-in: sign in to Plex again</string>
     <string name="data_plex_unreachable">Couldn\'t reach the Plex server</string>
     <string name="data_plex_unexpected">Unexpected response from Plex</string>
-    <string name="data_plex_needs_converting">This file plays only if the server converts it, which MyPlexPlayer never asks for.</string>
+    <!-- A file (or Live TV channel) only the server could convert, which the app never asks for. -->
+    <string name="data_plex_needs_converting">Your device cannot play this type of file.</string>
+    <!-- The same, naming what it couldn't play. %1$s: its formats, e.g. "audio: AAC LATM" -->
+    <string name="data_plex_needs_converting_why">Your device cannot play this type of file (%1$s).</string>
+    <string name="data_format_video">video: %1$s</string>
+    <string name="data_format_audio">audio: %1$s</string>
+    <string name="data_format_subtitles">subtitles: %1$s</string>
     <string name="data_plex_cannot_stream">The server can\'t stream this file.</string>
 
     <!--

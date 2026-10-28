@@ -57,7 +57,7 @@ class PlexPlaybackUiTest {
     fun `a file the server could only convert isn't converted`() {
         plex.copies = false
         play(11)
-        compose.waitForText("converts it", stepMs = 100)
+        compose.waitForText("Your device cannot play this type of file", stepMs = 100)
         assertTrue("nothing streamed", plex.streamed.isEmpty())
     }
 }

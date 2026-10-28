@@ -5,6 +5,7 @@ import com.biskyt.myplexplayer.AppText
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.plex.PlexException
+import com.biskyt.myplexplayer.core.plex.PlexFormat
 import com.biskyt.myplexplayer.data.db.CategoryEntity
 import java.io.IOException
 import java.util.Locale
@@ -23,16 +24,31 @@ fun PlexException.userMessage(): String = when (reason) {
     PlexException.Reason.UNREACHABLE -> appString(R.string.data_plex_unreachable)
     PlexException.Reason.SERVER_ERROR -> appString(R.string.data_server_error, code)
     PlexException.Reason.UNEXPECTED_RESPONSE, PlexException.Reason.INVALID_ADDRESS -> appString(R.string.data_plex_unexpected)
-    PlexException.Reason.NEEDS_TRANSCODE -> appString(R.string.data_plex_needs_converting)
+    PlexException.Reason.NEEDS_TRANSCODE -> if (formats.isEmpty()) {
+        appString(R.string.data_plex_needs_converting)
+    } else {
+        appString(R.string.data_plex_needs_converting_why, formats.joinToString(", ") { it.label() })
+    }
     PlexException.Reason.CANNOT_STREAM -> appString(R.string.data_plex_cannot_stream)
     PlexException.Reason.OTHER -> message.orEmpty()
+}
+
+/** "audio: AAC LATM Stereo", "video: HEVC Main 10". */
+private fun PlexFormat.label(): String {
+    val name = format.replace('_', ' ')
+    return when (streamType) {
+        PlexFormat.VIDEO -> appString(R.string.data_format_video, name)
+        PlexFormat.AUDIO -> appString(R.string.data_format_audio, name)
+        PlexFormat.SUBTITLES -> appString(R.string.data_format_subtitles, name)
+        else -> name
+    }
 }
 
 /** Runs [block] (a call to a Plex server or plex.tv), so that a failure's message is in the app's language. */
 internal inline fun <T> withUserPlexErrors(block: () -> T): T = try {
     block()
 } catch (e: PlexException) {
-    throw PlexException(e.userMessage(), e, e.reason, e.code)
+    throw PlexException(e.userMessage(), e, e.reason, e.code, e.formats)
 }
 
 /** The heading for a language/country group (as CategoryLanguageDetector gives them, null for none). */
