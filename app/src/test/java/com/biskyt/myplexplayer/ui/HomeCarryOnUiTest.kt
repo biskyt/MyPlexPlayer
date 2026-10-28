@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.test.core.app.ApplicationProvider
+import com.biskyt.myplexplayer.data.db.VOD_EPISODE
 import com.biskyt.myplexplayer.data.db.VOD_MOVIE
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import com.biskyt.myplexplayer.testutil.FakePlex
@@ -59,7 +60,7 @@ class HomeCarryOnUiTest {
     @Before
     fun setUp() = runBlocking {
         source = app.container.addHomePlex(plex)
-        // A full row (twelve), newest first: twice what fits across the screen. Big Buck Bunny is last.
+        // Twelve on the row, newest first: twice what fits across the screen. Big Buck Bunny is last.
         (0 until 12).forEach { i ->
             val p = if (i == 11) movie(11, "Big Buck Bunny", ago = i * 60_000L) else movie(900L + i, "Film $i", ago = i * 60_000L)
             app.container.vod.saveProgress(p.copy(pending = true))
@@ -97,5 +98,29 @@ class HomeCarryOnUiTest {
         assertEquals(1, compose.onAllNodes(hasText("Film 0")).fetchSemanticsNodes().size)
         press(Key.DirectionRight)
         assertTrue(compose.focusedText(), "Film 0" in compose.focusedText())
+    }
+
+    @Test
+    fun `a card says its episode and the time left, or a film's time left`() {
+        runBlocking {
+            app.container.vod.saveProgress(
+                movie(212, "Test Show", ago = -60_000L).copy(
+                    kind = VOD_EPISODE,
+                    positionMs = 120_000,
+                    durationMs = 1_440_000,
+                    seriesId = 21,
+                    season = 1,
+                    episode = 2,
+                    episodeTitle = "Second",
+                    pending = true
+                )
+            )
+        }
+        val navigator = navigators.new(Screen.Home)
+        compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
+        compose.waitAdvancingClock(50) { compose.onAllNodes(hasText("S1E2 22m")).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(0, compose.onAllNodes(hasText("Second", substring = true)).fetchSemanticsNodes().size)
+        // A film: 100 minutes, 10 in.
+        assertTrue(compose.onAllNodes(hasText("1h 30m")).fetchSemanticsNodes().isNotEmpty())
     }
 }

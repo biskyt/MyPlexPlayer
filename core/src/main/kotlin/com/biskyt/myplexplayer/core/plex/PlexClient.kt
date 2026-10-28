@@ -89,8 +89,10 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
     /** Every episode of a show, in order. */
     suspend fun episodes(showRatingKey: String): List<PlexItem> = container(url("library/metadata/$showRatingKey/allLeaves")).items
 
-    /** Films and episodes part-watched, newest first; one episode per show. */
-    suspend fun continueWatching(): List<PlexItem> = container(url("hubs/continueWatching")).let { c ->
+    /** Films and episodes part-watched, newest first; one episode per show; the first [count] (the hub gives fewer unasked). */
+    suspend fun continueWatching(count: Int = 20): List<PlexItem> = container(
+        url("hubs/continueWatching") { addQueryParameter("count", count.toString()) }
+    ).let { c ->
         c.items + c.hubs.flatMap { it.items }
     }
 

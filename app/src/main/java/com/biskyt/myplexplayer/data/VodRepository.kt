@@ -30,9 +30,12 @@ import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import kotlinx.coroutines.flow.Flow
 
 /** What a grid of movies or series shows: one [category] (null: all), which of them ([show]), in what order ([sort]). */
-data class VodView(val category: String? = null, val show: VodShow = VodShow.ALL, val sort: VodSort = VodSort.NEWEST)
+data class VodView(val category: String? = null, val show: VodShow = VodShow.ALL, val sort: VodSort = VodSort.TITLE)
 
 enum class VodShow { ALL, UNWATCHED, FAVOURITES }
+
+/** Cards on Carry on watching: as many as the server's Continue Watching is asked for. */
+const val CARRY_ON_LIMIT = 20
 
 /** [NEWEST]: films by date added, series by their newest episode. Favourites keep the user's own order. */
 enum class VodSort { NEWEST, TITLE, YEAR }
@@ -131,7 +134,8 @@ class VodRepository(
 
     fun observeSeriesProgress(playlistId: Long, seriesId: Long) = vod.observeSeriesProgress(playlistId, seriesId)
 
-    fun observeCarryOn(playlistId: Long, limit: Int = 12) = vod.observeCarryOn(playlistId, limit, WatchProgressEntity.FINISHED_FRACTION)
+    fun observeCarryOn(playlistId: Long, limit: Int = CARRY_ON_LIMIT) =
+        vod.observeCarryOn(playlistId, limit, WatchProgressEntity.FINISHED_FRACTION)
 
     /**
      * Where playback of [stream] has got to ([row]), as it plays ([playing]) or pauses, or when it [stopped]. From
