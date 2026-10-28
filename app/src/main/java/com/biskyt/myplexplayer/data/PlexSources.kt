@@ -687,6 +687,9 @@ class PlexPlayback(
     /** Who's in it, as the server lists them (photos made small, loaded only where shown). */
     val cast: List<CastMember> by lazy { castOf(client, item) }
 
+    /** The file's container, as Playback info names it ("MKV"), if the server says. */
+    val container: String? by lazy { PlexMediaInfo.of(item)?.container }
+
     /** Whether the server has been asked to stream the file ([directStream]), until [close]. */
     @Volatile var streaming = false
         private set

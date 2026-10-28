@@ -97,7 +97,13 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     private val favouriteId = series ?: screen.itemId
     private var favourite by mutableStateOf(false)
 
-    override fun menuActions(): List<ItemAction> = listOf(
+    override fun menuActions(): List<ItemAction> = listOfNotNull(
+        current?.episode?.takeIf { it.plot != null }?.let { e ->
+            ItemAction.Run(appString(R.string.vod_description)) {
+                sheet = null
+                describing = e
+            }
+        },
         ItemAction.Run(appString(R.string.vod_cast_title)) { showCast() },
         ItemAction.Run(favouriteLabel(favourite)) {
             val add = !favourite
@@ -119,6 +125,9 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         }
     )
 
+    /** The episode whose description is shown over the player (opened from More); null while it's closed. */
+    var describing by mutableStateOf<EpisodeInfo?>(null)
+
     /** The cast shown over the player (opened from More), and whose, once read; null while it's closed. */
     var cast by mutableStateOf<Pair<String, List<CastMember>>?>(null)
 
@@ -134,7 +143,14 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
 
     override val playsHow: String?
         get() = current?.stream?.plex?.let {
-            appString(if (it.streaming) R.string.player_info_direct_stream else R.string.player_info_direct_play)
+            // Streamed only when the player couldn't read the file's container (the server's own reason is just that
+            // the app asked it to).
+            val container = it.container
+            when {
+                !it.streaming -> appString(R.string.player_info_direct_play)
+                container != null -> appString(R.string.player_info_direct_stream_container, container)
+                else -> appString(R.string.player_info_direct_stream)
+            }
         }
 
     override fun beforeLeaving() = save(stopped = true)
@@ -219,6 +235,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         lastTickMs = null
         skipHandled.clear()
         skip = null
+        describing = null
         resetForNewStream()
         val engine = engine ?: return
         engine.play(playing.stream.url, hls = null, headers = playing.stream.plex?.stream?.headers.orEmpty())

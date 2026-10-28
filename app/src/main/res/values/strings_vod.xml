@@ -65,7 +65,6 @@
     <string name="vod_this_film">This film</string>
     <string name="vod_this_episode">This episode</string>
     <string name="vod_the_show">The show</string>
-    <string name="vod_up_next">Up next</string>
     <plurals name="vod_season_count">
         <item quantity="one">%1$d series</item>
         <item quantity="other">%1$d series</item>

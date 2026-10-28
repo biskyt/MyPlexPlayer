@@ -10,7 +10,11 @@
     <string name="data_plex_signed_out">Plex no aceptó el inicio de sesión: vuelve a iniciar sesión en Plex</string>
     <string name="data_plex_unreachable">No se pudo conectar con el servidor Plex</string>
     <string name="data_plex_unexpected">Respuesta inesperada de Plex</string>
-    <string name="data_plex_needs_converting">Este archivo solo se reproduce si el servidor lo convierte, y MyPlexPlayer nunca lo pide.</string>
+    <string name="data_plex_needs_converting">Tu dispositivo no puede reproducir este tipo de archivo.</string>
+    <string name="data_plex_needs_converting_why">Tu dispositivo no puede reproducir este tipo de archivo (%1$s).</string>
+    <string name="data_format_video">vídeo: %1$s</string>
+    <string name="data_format_audio">audio: %1$s</string>
+    <string name="data_format_subtitles">subtítulos: %1$s</string>
     <string name="data_plex_cannot_stream">El servidor no puede transmitir este archivo.</string>
 
     <string name="data_lang_uk">Inglés (Reino Unido)</string>

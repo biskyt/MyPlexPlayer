@@ -2,6 +2,13 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.13.0
+- HD Live TV channels with AAC LATM sound now play.
+- A file the device can't play now says "Your device cannot play this type of file" and names its format.
+- Playback info shows "Playback format: Direct Play" or "Direct Stream", with why it streams.
+- The next episode to watch no longer has an "Up next" label.
+- The player's More menu shows the episode's description.
+
 ## 0.12.1
 - Fixed a rare case where starting the next episode could save the wrong place in it.
 

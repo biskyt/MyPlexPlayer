@@ -44,11 +44,11 @@ class PlaybackInfoTest {
     }
 
     @Test
-    fun `the panel lists how it plays, the picture, its decoder, the sound, its output and dropped frames`() {
-        val lines = playbackInfo(playing(hdr10, sound), "Plays the file as it is", "OMX.hevc", "Passthrough", dropped = 2)
+    fun `the panel lists the playback format, the picture, its decoder, the sound, its output and dropped frames`() {
+        val lines = playbackInfo(playing(hdr10, sound), "Direct Play", "OMX.hevc", "Passthrough", dropped = 2)
         assertEquals(
             listOf(
-                "Plays the file as it is",
+                "Playback format: Direct Play",
                 "Video: 3840×1600 · HEVC · HDR10 · 25 fps",
                 "Video decoder: OMX.hevc",
                 "Audio: Dolby Digital Plus · 6ch · English",

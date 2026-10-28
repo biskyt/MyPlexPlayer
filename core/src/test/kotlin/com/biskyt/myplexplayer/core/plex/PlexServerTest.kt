@@ -16,7 +16,7 @@ import org.junit.Test
 
 /**
  * [PlexClient] against a real Plex Media Server: the one `.github/scripts/start-plex.sh` starts (a film and a
- * two-episode series, 10 minutes each, H.264 and AAC, no token). Run by `./gradlew :core:plexServerTest`, which
+ * two-episode series, 10 minutes each, H.264 and AAC, the second episode's AAC in LATM; no token). Run by `./gradlew :core:plexServerTest`, which
  * passes the server's address as `plex.server`; the plain `test` task leaves this class out.
  */
 class PlexServerTest {
@@ -154,6 +154,27 @@ class PlexServerTest {
             }
         } finally {
             client.stopStream(session)
+        }
+    }
+
+    /** The second episode is a TV recording: AAC sound in LATM, as broadcast HD channels send it. */
+    @Test
+    fun `aac latm sound is streamed as it is, and without it allowed, refused naming the format`() = runBlocking {
+        val recording = client.episodes(client.recentlyAdded(section("show"), PlexType.SHOW, 1).single().ratingKey).single { it.index == 2 }
+        val session = UUID.randomUUID().toString()
+        val stream = client.directStream(recording.ratingKey, session)
+        try {
+            fetch(stream).use { assertTrue(it.body!!.string().startsWith("#EXTM3U")) }
+        } finally {
+            client.stopStream(session)
+        }
+        try {
+            val withoutLatm = PlexCodecs().let { it.copy(audio = it.audio - "aac_latm") }
+            client.directStream(recording.ratingKey, UUID.randomUUID().toString(), codecs = withoutLatm)
+            fail("AAC LATM sound with LATM not allowed should need converting")
+        } catch (e: PlexException) {
+            assertEquals(PlexException.Reason.NEEDS_TRANSCODE, e.reason)
+            assertEquals(listOf(PlexFormat(2, "AAC_LATM")), e.formats)
         }
     }
 

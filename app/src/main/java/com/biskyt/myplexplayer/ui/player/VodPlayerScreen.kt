@@ -31,6 +31,7 @@ import com.biskyt.myplexplayer.ui.common.CastPanel
 import com.biskyt.myplexplayer.ui.common.LocalTouch
 import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.PillButton
+import com.biskyt.myplexplayer.ui.common.TextPanel
 import com.biskyt.myplexplayer.ui.common.formatDuration
 import com.biskyt.myplexplayer.ui.common.isSelect
 
@@ -50,6 +51,8 @@ fun VodPlayerScreen(screen: Screen.VodPlayer) {
     }
     // The cast, from More: over the picture, which plays on.
     vm.cast?.let { (title, cast) -> CastPanel(title, cast) { vm.cast = null } }
+    // An episode's description, from More, the same way.
+    vm.describing?.let { e -> e.plot?.let { TextPanel(vm.title, episodeName(e), it) { vm.describing = null } } }
 }
 
 /**

@@ -224,7 +224,7 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
                     }
                     d == null -> Muted(stringResource(R.string.vod_loading_episodes))
                     d.episodes.isEmpty() -> Muted(stringResource(R.string.vod_no_episodes))
-                    else -> Episodes(vm, d, season, progress, target, next, screen)
+                    else -> Episodes(vm, d, season, progress, target, screen)
                 }
             }
         }
@@ -252,7 +252,6 @@ private fun Episodes(
     season: Int?,
     progress: Map<Long, WatchProgressEntity>,
     target: EpisodeInfo?,
-    next: EpisodeInfo?,
     screen: Screen.SeriesDetails
 ) {
     val nav = LocalNavigator.current
@@ -278,7 +277,7 @@ private fun Episodes(
     ) {
         items(shown, key = { it.id }) { e ->
             val focus = Modifier.restoreFocusIf(vm.focusEpisodePending && e == target) { vm.focusEpisodePending = false }
-            EpisodeRow(e, progress[e.id], upNext = e == next, focus, onLongClick = { vm.openOptions(e) }) {
+            EpisodeRow(e, progress[e.id], focus, onLongClick = { vm.openOptions(e) }) {
                 vm.played()
                 nav.push(Screen.VodPlayer(screen.playlistId, e.id, screen.seriesId))
             }
@@ -346,7 +345,6 @@ private fun EpisodeOptions(
 private fun EpisodeRow(
     e: EpisodeInfo,
     progress: WatchProgressEntity?,
-    upNext: Boolean,
     modifier: Modifier,
     onLongClick: (() -> Unit)?,
     onClick: () -> Unit
@@ -368,7 +366,6 @@ private fun EpisodeRow(
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(episodeName(e), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (progress?.finished == true) WatchedPill()
-                    if (upNext) UpNextPill()
                 }
                 Muted(episodeLine(e, progress))
                 if (progress != null && !progress.finished && progress.durationMs > 0) {
@@ -402,15 +399,4 @@ private fun WatchedPill() {
         Icon(Icons.Rounded.Check, null, tint = accent.color, modifier = Modifier.size(14.dp))
         Text(stringResource(R.string.vod_watched), style = MaterialTheme.typography.labelMedium, color = accent.color)
     }
-}
-
-@Composable
-private fun UpNextPill() {
-    val accent = LocalAccent.current
-    Text(
-        stringResource(R.string.vod_up_next),
-        style = MaterialTheme.typography.labelMedium,
-        color = accent.onAccent,
-        modifier = Modifier.clip(RoundedCornerShape(50)).background(accent.color).padding(horizontal = 10.dp, vertical = 2.dp)
-    )
 }

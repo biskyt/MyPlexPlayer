@@ -17,11 +17,11 @@ import com.biskyt.myplexplayer.ui.common.displayLanguage
 import java.util.Locale
 
 /**
- * What the Playback info panel lists, a line each: how it plays ([how]: on-demand only), the picture and its
+ * What the Playback info panel lists, a line each: the playback format ([how]: Plex only), the picture and its
  * [decoder], the sound and where it goes ([audioOutput]), and frames [dropped].
  */
 fun playbackInfo(tracks: Tracks, how: String?, decoder: String?, audioOutput: String, dropped: Int?): List<String> = listOfNotNull(
-    how,
+    how?.let { appString(R.string.player_info_playback, it) },
     selectedFormat(tracks, C.TRACK_TYPE_VIDEO)?.let { appString(R.string.player_info_video, video(it)) }
         ?: appString(R.string.player_video_unknown),
     decoder?.let { appString(R.string.player_info_decoder, it) },

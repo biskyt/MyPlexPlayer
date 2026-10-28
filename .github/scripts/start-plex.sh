@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Starts a throwaway, unclaimed Plex Media Server on 127.0.0.1:32400 with a tiny generated library (a film and a
-# two-episode series, 10 minutes each, since PMS ignores play progress in a title's first minute), for spikes and
-# integration tests. No Plex account is needed: an unclaimed server answers local requests without a token.
+# two-episode series, the second a TV recording with AAC LATM sound; 10 minutes each, since PMS ignores play progress
+# in a title's first minute), for spikes and integration tests. No Plex account is needed: an unclaimed server answers local requests without a token.
 # Uses Plex's own .deb (not the Docker image: Docker Hub rate-limits shared runners). Needs curl, ffmpeg, python3.
 # Usage: start-plex.sh <work dir>. Prints the server's version once its libraries are scanned.
 set -euo pipefail
@@ -22,15 +22,17 @@ PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR="$work/data" PLEX_MEDIA_SERVER_HOME="$
   LD_LIBRARY_PATH="$home/lib" nohup "$home/Plex Media Server" > "$work/pms.log" 2>&1 &
 pms=$!
 
-clip() { # clip <file> <test pattern> <tone Hz>
+clip() { # clip <file> <test pattern> <tone Hz>; a .ts file is a TV recording: AAC sound in LATM, as HD channels send it
   mkdir -p "$(dirname "$1")"
+  local latm=()
+  [[ $1 == *.ts ]] && latm=(-mpegts_flags latm)
   ffmpeg -loglevel error -y -f lavfi -i "$2=size=320x180:rate=5" -f lavfi -i "sine=frequency=$3:sample_rate=22050" \
-    -t 600 -c:v libx264 -preset ultrafast -crf 40 -pix_fmt yuv420p -c:a aac -b:a 32k "$1"
+    -t 600 -c:v libx264 -preset ultrafast -crf 40 -pix_fmt yuv420p -c:a aac -b:a 32k "${latm[@]}" "$1"
 }
 clips=()
 clip "$work/media/Movies/Test Movie (2020)/Test Movie (2020).mp4" testsrc 440 & clips+=($!)
 clip "$work/media/TV/Test Show/Season 01/Test Show - S01E01.mkv" testsrc2 660 & clips+=($!)
-clip "$work/media/TV/Test Show/Season 01/Test Show - S01E02.mkv" testsrc2 880 & clips+=($!)
+clip "$work/media/TV/Test Show/Season 01/Test Show - S01E02.ts" testsrc2 880 & clips+=($!)
 for c in "${clips[@]}"; do wait "$c"; done # not plain `wait`: that would wait for the server too
 
 # As start-emulator.sh does: one deadline, and the server's log if it stops or isn't ready in time.

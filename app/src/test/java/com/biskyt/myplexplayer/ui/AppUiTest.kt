@@ -234,7 +234,7 @@ class AppUiTest {
         assertEquals(Screen.VodPlayer(playlistId, 11), navigator.current.screen)
 
         compose.runOnUiThread { navigator.reset(Screen.SeriesDetails(playlistId, 21)) }
-        waitFor("Up next")
+        waitFor("Pilot")
         waitFor("Second")
         compose.onRoot().captureRoboImage("screenshots/series-details.png")
         compose.onNode(hasText("Series 2")).performSemanticsAction(SemanticsActions.OnClick)

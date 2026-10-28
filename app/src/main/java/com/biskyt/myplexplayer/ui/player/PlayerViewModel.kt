@@ -90,6 +90,10 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
     /** The Plex server: its channels come from its tuner ([live]). */
     private var plexSource: PlaylistEntity? = null
     private var live: PlexLive? = null
+
+    /** A Plex channel comes through the server's tuner, never as a file of its own: always a direct stream. */
+    override val playsHow: String?
+        get() = live?.let { appString(R.string.player_info_direct_stream_live) }
     private var closing: Job? = null
     private var heartbeat: Job? = null
 

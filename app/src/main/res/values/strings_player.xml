@@ -50,8 +50,12 @@
     <string name="player_video_unknown">Video: unknown</string>
     <!-- Playback info (from More while watching): how it plays, the picture, the sound -->
     <string name="player_info">Playback info</string>
-    <string name="player_info_direct_play">Plays the file as it is (direct play)</string>
-    <string name="player_info_direct_stream">Streamed by the server, picture and sound as they are (direct stream)</string>
+    <!-- Playback info: how this plays. %1$s: Direct Play or Direct Stream (Plex's names), with why it streams -->
+    <string name="player_info_playback">Playback format: %1$s</string>
+    <string name="player_info_direct_play">Direct Play</string>
+    <string name="player_info_direct_stream">Direct Stream</string>
+    <string name="player_info_direct_stream_container">Direct Stream (the player can\'t read %1$s files)</string>
+    <string name="player_info_direct_stream_live">Direct Stream (Live TV always streams through the server)</string>
     <string name="player_info_video">Video: %1$s</string>
     <string name="player_info_decoder">Video decoder: %1$s</string>
     <string name="player_info_audio">Audio: %1$s</string>
