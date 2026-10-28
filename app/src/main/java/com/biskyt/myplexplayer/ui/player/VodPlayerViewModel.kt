@@ -215,9 +215,14 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         skip = null
         resetForNewStream()
         val engine = engine ?: return
+        // Read before playback starts, so nothing waits between starting it and the controls coming up.
+        val known = c.vod.progress(p.id, playing.kind, playing.itemId)
+        playedMs = 0
+        // Something already started (here or elsewhere) counts at once: only a new start waits.
+        onCarryOn = known != null && (known.carryOnAt != null || known.positionMs > 0 && !known.finished)
         engine.play(playing.stream.url, hls = null, headers = playing.stream.plex?.stream?.headers.orEmpty())
         // Resume unless it was nearly finished (or the user asked to start over). From Plex, the row has the server's point.
-        val saved = if (fromStart) null else c.vod.progress(p.id, playing.kind, playing.itemId)
+        val saved = if (fromStart) null else known
         if (saved != null && !saved.finished && saved.positionMs > RESUME_AFTER_MS) {
             engine.player.seekTo(saved.positionMs)
             flash(appString(R.string.player_resuming_from, formatDuration(saved.positionMs)))
@@ -239,6 +244,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
                     durationSec = player.duration.coerceAtLeast(0) / 1000
                 }
                 if (player.isPlaying) {
+                    playedMs += TICK_MS
                     sinceSave += TICK_MS
                     if (sinceSave >= SAVE_EVERY_MS) {
                         sinceSave = 0
@@ -279,11 +285,19 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         )
     }
 
+    /** How long this title has played since it started (pauses not counted): see [countsAsWatching]. */
+    private var playedMs = 0L
+
+    /** Whether it was started already, or is on Carry on watching (or has been saved since it started playing). */
+    private var onCarryOn = false
+
     /** Taken now and written in the app's scope, so it completes even as the screen closes ([stopped]: playback ends). */
     private fun save(stopped: Boolean = false) {
         // The server's stream ends with playback, saved or not (before it has started, there's nothing to save).
         if (stopped) current?.stream?.plex?.let { plex -> c.appScope.launch { plex.close() } }
         val row = snapshot() ?: return
+        if (!countsAsWatching(playedMs, onCarryOn, row.finished)) return
+        onCarryOn = true
         val stream = current?.stream ?: return
         val playing = engine?.player?.isPlaying == true
         c.appScope.launch { c.vod.saveProgress(row, stream, playing, stopped) }
@@ -383,6 +397,14 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         const val RESUME_AFTER_MS = 30_000L
     }
 }
+
+/**
+ * Whether playback is saved (and so on Carry on watching): once it has played [COUNTS_AFTER_MS] (a look at the start
+ * of something isn't watching it), or it was on the row already ([onCarryOn]), or it has been played to the end.
+ */
+internal fun countsAsWatching(playedMs: Long, onCarryOn: Boolean, finished: Boolean) = onCarryOn || finished || playedMs >= COUNTS_AFTER_MS
+
+internal const val COUNTS_AFTER_MS = 30_000L
 
 /** The provider's title for [e], as it gave it; null when it gave none. */
 fun providerTitle(e: EpisodeInfo): String? = e.title.ifBlank { null }

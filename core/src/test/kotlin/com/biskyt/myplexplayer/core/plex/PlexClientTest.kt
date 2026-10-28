@@ -241,9 +241,10 @@ class PlexClientTest {
         assertEquals("Test Show", carryOn.grandparentTitle)
         assertEquals(180_013L, carryOn.viewOffset)
         assertTrue("when it was last played", carryOn.lastViewedAt!! > 1_600_000_000)
+        // Twenty asked for (the hub gives fewer otherwise).
+        assertEquals("20", server.takeRequest().requestUrl!!.queryParameter("count"))
 
         assertEquals(setOf("movie", "show"), client.search("Test").map { it.type }.toSet())
-        server.takeRequest()
         assertEquals("Test", server.takeRequest().requestUrl!!.queryParameter("query"))
     }
 

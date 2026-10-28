@@ -2,6 +2,15 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.12.0
+- Carry on watching cards show the episode and time left, such as "S1E2 22m".
+- Carry on watching shows up to 20 titles.
+- Carry on watching cards show no progress bar for something not yet started.
+- Something goes on Carry on watching only once you've watched it for 30 seconds.
+- In the player, Up from the play button shows a handle on the progress bar.
+- The dark background behind the player controls is lighter.
+- Movies and TV Shows are sorted by title to start with.
+
 ## 0.11.1
 - Carry on watching on Home shows posters, with how far you got across the bottom, like the other rows.
 - Back from playing something from Carry on watching, the highlight is on its card, wherever it has moved to on the row.

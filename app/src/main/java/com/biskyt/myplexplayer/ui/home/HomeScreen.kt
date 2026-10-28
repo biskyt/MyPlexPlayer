@@ -71,14 +71,12 @@ import com.biskyt.myplexplayer.ui.common.TabScaffold
 import com.biskyt.myplexplayer.ui.common.TvCard
 import com.biskyt.myplexplayer.ui.common.channelActions
 import com.biskyt.myplexplayer.ui.common.collectIds
-import com.biskyt.myplexplayer.ui.common.formatDuration
 import com.biskyt.myplexplayer.ui.common.guideNowNext
 import com.biskyt.myplexplayer.ui.common.markWatched
 import com.biskyt.myplexplayer.ui.common.moveAction
 import com.biskyt.myplexplayer.ui.common.onAnyTouch
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.rememberMinuteClock
-import com.biskyt.myplexplayer.ui.common.shortEpisodeLabel
 import com.biskyt.myplexplayer.ui.common.titledRow
 import com.biskyt.myplexplayer.ui.common.vodActions
 import com.biskyt.myplexplayer.ui.common.vodDetails
@@ -502,20 +500,39 @@ private fun CarryOnCard(p: WatchProgressEntity, modifier: Modifier, onLongClick:
         Column(Modifier.padding(6.dp).width(POSTER_WIDTH), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Box {
                 Poster(p.imageUrl, p.title, POSTER_WIDTH)
-                if (!p.finished) ProgressLine(p.fraction, Modifier.align(Alignment.BottomCenter).padding(6.dp))
+                // (Not before it has been started: an episode up next.)
+                if (!p.finished && p.positionMs > 0) ProgressLine(p.fraction, Modifier.align(Alignment.BottomCenter).padding(6.dp))
             }
             OneLine(p.title, MaterialTheme.typography.labelLarge)
             Muted(
                 when {
                     // A finished episode with another after it: the card leads on to that one.
-                    p.finished -> stringResource(R.string.home_up_next_after, shortEpisodeLabel(p.season, p.episode))
-                    p.season != null -> shortEpisodeLabel(p.season, p.episode) + (p.episodeTitle?.let { " · $it" } ?: "")
-                    else -> stringResource(R.string.common_time_left, formatDuration(p.remainingMs))
+                    p.finished -> stringResource(R.string.home_up_next_after, episodeCode(p))
+                    p.season != null && p.episode != null -> "${episodeCode(p)} ${shortLeft(p.remainingMs)}"
+                    else -> shortLeft(p.remainingMs)
                 }
             )
         }
     }
 }
+
+/** An episode, short, as a card has room for: "S1E2". */
+@Composable
+private fun episodeCode(p: WatchProgressEntity) = stringResource(R.string.home_episode_code, p.season ?: 0, p.episode ?: 0)
+
+/** Time left, short, as a card has room for: "22m", "1h", "1h 5m" (whole minutes, rounded up). */
+@Composable
+private fun shortLeft(ms: Long): String {
+    val minutes = ((ms + MS_PER_MINUTE - 1) / MS_PER_MINUTE).toInt()
+    return when {
+        minutes < MINUTES_PER_HOUR -> stringResource(R.string.home_left_m, minutes)
+        minutes % MINUTES_PER_HOUR == 0 -> stringResource(R.string.home_left_h, minutes / MINUTES_PER_HOUR)
+        else -> stringResource(R.string.home_left_h_m, minutes / MINUTES_PER_HOUR, minutes % MINUTES_PER_HOUR)
+    }
+}
+
+private const val MS_PER_MINUTE = 60_000L
+private const val MINUTES_PER_HOUR = 60
 
 /** The title of Home's row of recently added movies or series ([type]). */
 @StringRes

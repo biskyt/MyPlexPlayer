@@ -498,7 +498,7 @@ class PlexSources(
         val (films, shows, hub) = coroutineScope {
             val films = async { movieLibraries.flatMap { client.viewedSince(it, PlexType.MOVIE, seconds) } }
             val shows = async { showLibraries.flatMap { client.viewedSince(it, PlexType.SHOW, seconds) } }
-            val hub = async { client.continueWatching() }
+            val hub = async { client.continueWatching(CARRY_ON_LIMIT) }
             Triple(films.await(), shows.await(), hub.await())
         }
         val onHub = hub.mapNotNullTo(HashSet()) { it.ratingKey.toLongOrNull() }
@@ -519,7 +519,7 @@ class PlexSources(
     /** "Carry on watching" from the server's Continue Watching ([hub], when already fetched). */
     private suspend fun carryOn(p: PlaylistEntity, client: PlexClient, hub: List<PlexItem>? = null) {
         val row = rowFor(client, p.id)
-        val hub = (hub ?: offlineOk { client.continueWatching() })?.filter { it.vodKind != null } ?: return
+        val hub = (hub ?: offlineOk { client.continueWatching(CARRY_ON_LIMIT) })?.filter { it.vodKind != null } ?: return
         // One it suggests next, unplayed, is listed at its start.
         progress.carryOn(p.id, hub.mapNotNull { row(it) ?: row(it.copy(viewOffset = 0)) })
     }
