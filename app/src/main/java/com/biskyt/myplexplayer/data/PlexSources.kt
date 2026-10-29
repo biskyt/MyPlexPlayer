@@ -21,6 +21,9 @@ import com.biskyt.myplexplayer.core.plex.PlexServer
 import com.biskyt.myplexplayer.core.plex.PlexStream
 import com.biskyt.myplexplayer.core.plex.PlexTag
 import com.biskyt.myplexplayer.core.plex.PlexType
+import com.biskyt.myplexplayer.core.plex.Score
+import com.biskyt.myplexplayer.core.plex.ageRating
+import com.biskyt.myplexplayer.core.plex.scores
 import com.biskyt.myplexplayer.core.plex.titleLinks
 import com.biskyt.myplexplayer.core.vod.CastMember
 import com.biskyt.myplexplayer.core.vod.EpisodeInfo
@@ -272,14 +275,18 @@ class PlexSources(
         return Triple(client, show, leaves)
     }
 
-    private fun details(client: PlexClient, item: PlexItem) = VodDetails(
+    private fun details(client: PlexClient, item: PlexItem) = scores(item).let { scores -> details(client, item, scores) }
+
+    private fun details(client: PlexClient, item: PlexItem, scores: List<Score>) = VodDetails(
         plot = item.summary.ifBlank { null },
         year = item.year,
         durationSec = item.durationSec,
         backdropUrl = image(client, item.art, BACKDROP_WIDTH, BACKDROP_HEIGHT),
         posterUrl = image(client, item.thumb),
-        rating = item.audienceRating ?: item.rating,
-        contentRating = item.contentRating,
+        // Only where the server names no source for it: otherwise its scores show, with their logos.
+        rating = (item.audienceRating ?: item.rating)?.takeIf { scores.isEmpty() },
+        contentRating = ageRating(item.contentRating),
+        scores = scores,
         genres = item.genres.tags(),
         directors = item.directors.tags(),
         writers = item.writers.tags(),

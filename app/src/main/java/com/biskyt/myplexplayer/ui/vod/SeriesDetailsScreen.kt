@@ -210,7 +210,7 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
             Column(Modifier.width(380.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Poster(seasonInfo?.posterUrl ?: show.coverUrl ?: d?.info?.posterUrl, show.title, 180.dp)
                 Text(show.title, style = MaterialTheme.typography.headlineMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Muted(showLine(seasonInfo, d), maxLines = 2)
+                ShowLine(seasonInfo, d)
                 d?.info?.plot?.let { Text(it, style = MaterialTheme.typography.bodyLarge, maxLines = 5, overflow = TextOverflow.Ellipsis) }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -234,15 +234,18 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
     vm.describing?.let { e -> e.plot?.let { TextPanel(show.title, episodeName(e), it) { vm.describing = null } } }
 }
 
-/** "Series 2 · 2023 · 3 series · 15 · Crime": the season shown, its year, how many there are, rating and genres. */
+/** "Series 2 · 2023 · 3 series · [15] · Crime" and the show's scores: the season shown, its year, how many, rating and genres. */
 @Composable
-private fun showLine(season: SeasonInfo?, d: SeriesDetails?): String = listOfNotNull(
-    season?.let { it.name ?: stringResource(R.string.vod_season, it.number) },
-    season?.year?.toString(),
-    d?.seasons?.size?.takeIf { it > 1 }?.let { pluralStringResource(R.plurals.vod_season_count, it, it) },
+private fun ShowLine(season: SeasonInfo?, d: SeriesDetails?) = DetailsLine(
+    listOfNotNull(
+        season?.let { it.name ?: stringResource(R.string.vod_season, it.number) },
+        season?.year?.toString(),
+        d?.seasons?.size?.takeIf { it > 1 }?.let { pluralStringResource(R.plurals.vod_season_count, it, it) }
+    ),
     d?.info?.contentRating,
-    d?.info?.genres?.take(2)?.takeIf { it.isNotEmpty() }?.joinToString(", ")
-).joinToString(" · ")
+    listOfNotNull(genresOf(d?.info?.genres.orEmpty())),
+    d?.info?.scores.orEmpty()
+)
 
 @Composable
 @Suppress("LongParameterList") // the page's state, passed down rather than read again
@@ -322,7 +325,7 @@ private fun EpisodeOptions(
         resumable?.let { ItemAction.Run(appString(R.string.vod_resume_from, formatDuration(it.positionMs))) { play(false) } },
         resumable?.let { ItemAction.Run(appString(R.string.common_from_start)) { play(true) } },
         if (saved?.finished != true) markWatched(false, set) else null,
-        if (saved != null) markWatched(true, set) else null,
+        if (saved?.started == true) markWatched(true, set) else null,
         if (canDelete) deleteAction(episodeName(e)) { vm.delete(e) } else null,
     )
     val showActions = listOf(ItemAction.Heading(appString(R.string.vod_the_show))) +
@@ -368,7 +371,7 @@ private fun EpisodeRow(
                     if (progress?.finished == true) WatchedPill()
                 }
                 Muted(episodeLine(e, progress))
-                if (progress != null && !progress.finished && progress.durationMs > 0) {
+                if (progress != null && !progress.finished && progress.started && progress.durationMs > 0) {
                     ProgressLine(progress.fraction, Modifier.widthIn(max = 420.dp).fillMaxWidth())
                 }
                 if (LocalCardFocused.current) BadgeRow(e.badges)
@@ -381,7 +384,7 @@ private fun EpisodeRow(
 @Composable
 private fun episodeLine(e: EpisodeInfo, progress: WatchProgressEntity?): String = listOfNotNull(
     e.durationSec?.takeIf { it > 0 }?.let(::formatRuntime),
-    progress?.takeIf { !it.finished && it.durationMs > 0 && it.positionMs > 0 }?.let {
+    progress?.takeIf { !it.finished && it.durationMs > 0 && it.started }?.let {
         stringResource(R.string.common_time_left, formatDuration(it.remainingMs))
     }
 ).joinToString(" · ")

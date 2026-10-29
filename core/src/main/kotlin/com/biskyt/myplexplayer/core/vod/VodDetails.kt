@@ -1,6 +1,7 @@
 package com.biskyt.myplexplayer.core.vod
 
 import com.biskyt.myplexplayer.core.plex.PlexMediaInfo
+import com.biskyt.myplexplayer.core.plex.Score
 import com.biskyt.myplexplayer.core.plex.TitleLink
 
 /** What a details page shows for a movie or series. Any field may be missing: servers fill them unevenly. */
@@ -12,7 +13,10 @@ data class VodDetails(
     val posterUrl: String?,
     /** Out of 10. */
     val rating: Double?,
+    /** As shown ("15"), without Plex's country ([com.biskyt.myplexplayer.core.plex.ageRating]). */
     val contentRating: String? = null,
+    /** Review scores by source, in the order shown. */
+    val scores: List<Score> = emptyList(),
     val genres: List<String> = emptyList(),
     val directors: List<String> = emptyList(),
     val writers: List<String> = emptyList(),

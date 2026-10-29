@@ -79,4 +79,6 @@
     <string name="vod_pick_sort">Orden</string>
     <string name="vod_none_shown">No hay nada con estas opciones.</string>
     <string name="vod_no_cast">No hay reparto.</string>
+    <string name="vod_score_rotten_tomatoes">Críticos de Rotten Tomatoes</string>
+    <string name="vod_score_rotten_tomatoes_audience">Público de Rotten Tomatoes</string>
 </resources>

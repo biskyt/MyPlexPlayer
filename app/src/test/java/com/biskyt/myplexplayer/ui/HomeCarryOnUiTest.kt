@@ -76,6 +76,30 @@ class HomeCarryOnUiTest {
     }
 
     @Test
+    fun `a watched episode's card is the next episode, not started`() {
+        runBlocking {
+            plex.episodes = listOf(
+                FakePlex.episode("21", "Test Show", "211", 1, 1, "Pilot"),
+                FakePlex.episode("21", "Test Show", "212", 1, 2, "Second"),
+            )
+            val p = app.container.db.playlists().get(source)!!
+            val next = app.container.vod.seriesDetails(p, 21).episodes.first { it.id == 212L }
+            app.container.vod.saveProgress(
+                WatchProgressEntity(
+                    source, VOD_EPISODE, 211, positionMs = 600_000, durationMs = 600_000, updatedAt = start + 5,
+                    title = "Test Show", imageUrl = null, seriesId = 21, season = 1, episode = 1, hasNext = true
+                ),
+                next = next
+            )
+        }
+        val navigator = navigators.new(Screen.Home)
+        compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
+        // Its code and running time, and no "Up next after".
+        compose.waitAdvancingClock(50) { compose.onAllNodes(hasText("S1E2 10m")).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(0, compose.onAllNodes(hasText("Up next", substring = true)).fetchSemanticsNodes().size)
+    }
+
+    @Test
     fun `back from playing a card, the remote is on it at the start of the row`() {
         val navigator = navigators.new(Screen.Home)
         compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
