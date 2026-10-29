@@ -14,6 +14,7 @@ import com.biskyt.myplexplayer.core.plex.PlexItem
 import com.biskyt.myplexplayer.core.plex.PlexPlayState
 import com.biskyt.myplexplayer.core.plex.PlexType
 import com.biskyt.myplexplayer.core.vod.CastMember
+import com.biskyt.myplexplayer.core.vod.EpisodeInfo
 import com.biskyt.myplexplayer.core.vod.SeriesDetails
 import com.biskyt.myplexplayer.core.vod.VodDetails
 import com.biskyt.myplexplayer.core.vod.VodTitles
@@ -150,24 +151,58 @@ class VodRepository(
      * Plex it's reported to the server too, the row marked pending until it gets there. Otherwise a stop also drops
      * the oldest rows beyond the cap (Plex's mirror the server's, so aren't capped).
      */
-    suspend fun saveProgress(row: WatchProgressEntity, stream: VodStream, playing: Boolean, stopped: Boolean) {
-        val plex = stream.plex ?: return saveProgress(row, trim = stopped)
+    suspend fun saveProgress(row: WatchProgressEntity, stream: VodStream, playing: Boolean, stopped: Boolean, next: EpisodeInfo? = null) {
+        val plex = stream.plex ?: return saveProgress(row, trim = stopped, next = next)
         val state = when {
             stopped -> PlexPlayState.STOPPED
             playing -> PlexPlayState.PLAYING
             else -> PlexPlayState.PAUSED
         }
-        val sent = plex.report(state, row.positionMs, row.updatedAt) { vod.saveProgress(row.copy(pending = true)) }
+        // With the watched one, in its save (a save dropped as older writes neither): the next one's card is kept here
+        // only, the server putting it on its Continue Watching by itself.
+        val up = next?.takeIf { row.finished }
+        val sent = plex.report(state, row.positionMs, row.updatedAt) {
+            db.withTransaction {
+                vod.saveProgress(row.copy(pending = true))
+                up?.let { upNext(row, it) }
+            }
+        }
         if (sent != null && sent != Sent.NOT_YET) vod.reported(row.playlistId, row.kind, row.itemId, row.updatedAt)
     }
 
-    /** Saves progress; [trim] (when playback stops) also drops the oldest rows beyond the cap, in the same write. */
-    suspend fun saveProgress(p: WatchProgressEntity, trim: Boolean = false) {
-        if (!trim) return vod.saveProgress(p)
+    /**
+     * Saves progress; [trim] (when playback stops) also drops the oldest rows beyond the cap, in the same write. A
+     * finished episode with [next] after it puts that one on "Carry on watching" in its place ([upNext]).
+     */
+    suspend fun saveProgress(p: WatchProgressEntity, trim: Boolean = false, next: EpisodeInfo? = null) {
+        val up = next?.takeIf { p.finished }
+        if (!trim && up == null) return vod.saveProgress(p)
         db.withTransaction {
             vod.saveProgress(p)
-            vod.trimProgress(p.playlistId, KEEP_PROGRESS)
+            if (up != null) upNext(p, up)
+            if (trim) vod.trimProgress(p.playlistId, KEEP_PROGRESS)
         }
+    }
+
+    /**
+     * After [watched], its series' card is [next]: placed just after it on "Carry on watching", not started (or, started
+     * already, where it got). Each later save of [watched] (the credits play on) places it again, so it stays after it.
+     * Only its place moves: its [WatchProgressEntity.updatedAt] stays when it was last watched.
+     */
+    private suspend fun upNext(watched: WatchProgressEntity, next: EpisodeInfo) {
+        val saved = vod.progress(watched.playlistId, VOD_EPISODE, next.id)
+        if (saved?.finished == true) return
+        val row = saved ?: watched.copy(
+            itemId = next.id,
+            positionMs = 0,
+            durationMs = next.runningMs ?: 0,
+            season = next.season,
+            episode = next.number,
+            episodeTitle = next.title.ifBlank { null },
+            hasNext = false,
+            pending = false
+        )
+        vod.saveProgress(listOf(row.copy(carryOnAt = watched.updatedAt + 1)))
     }
 
     /**
@@ -464,3 +499,6 @@ internal fun gridQuery(type: String, playlistId: Long, view: VodView): SimpleSQL
     )
     return SimpleSQLiteQuery(sql.toString(), args.toTypedArray())
 }
+
+/** An episode's running time, if known. */
+private val EpisodeInfo.runningMs: Long? get() = durationSec?.takeIf { it > 0 }?.times(1_000L)

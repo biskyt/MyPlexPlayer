@@ -36,7 +36,7 @@ class PlexProgress(private val db: AppDatabase) {
                 val server = row(item)?.let { it.copy(carryOnAt = local?.carryOnAt, hasNext = it.hasNext || local?.hasNext == true) }
                 if (server == null) {
                     // Unplayed: its point goes, unless it's an episode Carry on watching suggests next (at its start).
-                    if (local != null && (local.carryOnAt == null || local.positionMs > 0)) unplayed += id
+                    if (local != null && (local.carryOnAt == null || local.started)) unplayed += id
                 } else if (server != local) {
                     changed += server
                 }

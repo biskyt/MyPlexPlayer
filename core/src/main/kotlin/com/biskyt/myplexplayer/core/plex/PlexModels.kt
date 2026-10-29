@@ -109,6 +109,11 @@ data class PlexItem(
     /** Plex's critic rating and audience rating, out of 10. */
     val rating: Double? = null,
     val audienceRating: Double? = null,
+    /** Where [rating] and [audienceRating] come from ("rottentomatoes://image.rating.ripe"). */
+    val ratingImage: String? = null,
+    val audienceRatingImage: String? = null,
+    /** Each review score the server has, by source (see [scores]). */
+    @SerialName("Rating") @Serializable(with = SkippingList::class) val ratings: List<PlexRating> = emptyList(),
     val studio: String? = null,
     val originalTitle: String? = null,
     /** "2019-03-14". */

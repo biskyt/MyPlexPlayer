@@ -112,7 +112,12 @@ fun MovieDetailsScreen(screen: Screen.MovieDetails) {
         onOptions = vm::openOptions
     ) {
         Text(movie.title, style = MaterialTheme.typography.displaySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Muted(metaLine(movie.year ?: d?.year, d?.durationSec, d?.contentRating, d?.genres.orEmpty(), movie.rating ?: d?.rating))
+        DetailsLine(
+            yearAndRuntime(movie.year ?: d?.year, d?.durationSec),
+            d?.contentRating,
+            listOfNotNull(genresOf(d?.genres.orEmpty()), starRating(d?.rating)),
+            d?.scores.orEmpty()
+        )
         BadgeRow(d?.media?.badges.orEmpty())
         d?.plot?.let { Text(it, style = MaterialTheme.typography.bodyLarge, maxLines = 4, overflow = TextOverflow.Ellipsis) }
         People(d)
@@ -173,14 +178,15 @@ internal fun People(d: VodDetails?) {
     d?.writers?.takeIf { it.isNotEmpty() }?.let { Muted(stringResource(R.string.vod_written_by, it.joinToString(", "))) }
 }
 
-/** "2021 · 2 h 35 min · 12A · Drama, Mystery · ★ 8.1", skipping whatever is unknown (two genres at most). */
-fun metaLine(year: Int?, durationSec: Int?, contentRating: String?, genres: List<String>, rating: Double?): String = listOfNotNull(
-    year?.toString(),
-    durationSec?.takeIf { it > 0 }?.let(::formatRuntime),
-    contentRating,
-    genres.take(2).takeIf { it.isNotEmpty() }?.joinToString(", "),
-    rating?.let { "★ %.1f".format(AppText.locale, it) }
-).joinToString(" · ")
+/** "2021", "1 h 52 min": whichever is known. */
+fun yearAndRuntime(year: Int?, durationSec: Int?): List<String> =
+    listOfNotNull(year?.toString(), durationSec?.takeIf { it > 0 }?.let(::formatRuntime))
+
+/** Two genres at most: "Drama, Mystery". */
+fun genresOf(genres: List<String>): String? = genres.take(2).takeIf { it.isNotEmpty() }?.joinToString(", ")
+
+/** "★ 8.1". */
+fun starRating(rating: Double?): String? = rating?.let { "★ %.1f".format(AppText.locale, it) }
 
 @Composable
 internal fun ResumeBar(progress: WatchProgressEntity?) {

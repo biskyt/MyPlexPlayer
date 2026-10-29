@@ -37,7 +37,6 @@ import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.SectionLabel
 import com.biskyt.myplexplayer.ui.common.formatDate
-import com.biskyt.myplexplayer.ui.common.formatRuntime
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.theme.Palette
 import java.io.IOException
@@ -70,14 +69,10 @@ fun MoreInfoScreen(screen: Screen.MoreInfo) {
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(title, style = MaterialTheme.typography.headlineMedium)
-        Muted(
-            listOfNotNull(
-                d.year?.toString(),
-                d.durationSec?.takeIf {
-                    it > 0
-                }?.let(::formatRuntime),
-                d.contentRating
-            ).joinToString(" · ")
+        DetailsLine(
+            yearAndRuntime(d.year, d.durationSec),
+            d.contentRating,
+            scores = d.scores
         )
         Text(stringResource(R.string.vod_more_info), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
         SectionLabel(stringResource(if (film) R.string.vod_about_film else R.string.vod_about_show))

@@ -86,4 +86,9 @@
     <string name="vod_pick_sort">Sort</string>
     <string name="vod_none_shown">Nothing here with these choices.</string>
     <string name="vod_no_cast">No cast listed.</string>
+    <!-- Review scores' sources, read out for their logos (brand names stay as they are). -->
+    <string name="vod_score_imdb" translatable="false">IMDb</string>
+    <string name="vod_score_rotten_tomatoes">Rotten Tomatoes critics</string>
+    <string name="vod_score_rotten_tomatoes_audience">Rotten Tomatoes audience</string>
+    <string name="vod_score_tmdb" translatable="false">TMDB</string>
 </resources>

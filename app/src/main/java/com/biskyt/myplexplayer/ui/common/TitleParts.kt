@@ -1,5 +1,6 @@
 package com.biskyt.myplexplayer.ui.common
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -28,12 +29,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.tv.material3.Border
+import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.core.plex.TitleLink
 import com.biskyt.myplexplayer.core.vod.CastMember
 import com.biskyt.myplexplayer.ui.theme.Palette
+import com.biskyt.myplexplayer.ui.vod.SourceLogo
+import com.biskyt.myplexplayer.ui.vod.linkLogo
 
 /** A small heading over a group of options or details ("This episode", "File info"). */
 @Composable
@@ -61,10 +67,27 @@ fun LinksRow(label: String?, links: List<TitleLink>, modifier: Modifier = Modifi
     ) {
         label?.let { Text(it, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f)) }
         links.forEachIndexed { i, link ->
-            PillButton(link.name, { if (openLink(context, link.url) != null) shown = link }, if (i == 0) modifier else Modifier)
+            val open = { if (openLink(context, link.url) != null) shown = link }
+            val first = if (i == 0) modifier else Modifier
+            linkLogo(link.name)?.let { LogoPill(it, link.name, open, first) } ?: PillButton(link.name, open, first)
         }
     }
     shown?.let { LinkPanel(it.name, it.url) { shown = null } }
+}
+
+/** A pill showing a site's [logo] (named [name] for screen readers) in place of its name, as [PillButton] otherwise. */
+@Composable
+private fun LogoPill(@DrawableRes logo: Int, name: String, onClick: () -> Unit, modifier: Modifier) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.onTap(onClick = onClick),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Palette.surfaceHigh, focusedContainerColor = Palette.surfaceHigh),
+        border = ClickableSurfaceDefaults.border(focusedBorder = Border(FocusStroke))
+    ) {
+        SourceLogo(logo, name, Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
+    }
 }
 
 /** What a file is ("4K", "Dolby Vision", "Dolby Atmos 7.1"), as small chips. */

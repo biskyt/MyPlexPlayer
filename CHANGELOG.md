@@ -2,6 +2,12 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.16.0
+- Once an episode is watched, its Carry on watching card becomes the next episode, with its number and running time.
+- Film and show pages show each review score with its source's logo: IMDb, Rotten Tomatoes (critics and audience) and TMDB.
+- Age ratings show in a badge ("15"), without the country.
+- More info's links show the IMDb, TMDB and TVDB logos.
+
 ## 0.15.1
 - Fixed: after a film was deleted from its page, the remote could be left on nothing in the grid.
 

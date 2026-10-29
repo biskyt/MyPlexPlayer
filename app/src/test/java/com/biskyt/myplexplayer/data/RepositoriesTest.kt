@@ -153,6 +153,42 @@ class RepositoriesTest {
     }
 
     @Test
+    fun `a watched episode's card becomes the next episode's`() = runBlocking {
+        fake.episodes = listOf(
+            FakePlex.episode("21", "Test Show", "211", 1, 1, "Pilot"),
+            FakePlex.episode("21", "Test Show", "212", 1, 2, "Second"),
+        )
+        val id = addHomePlex()
+        val p = playlists.get(id)!!
+        vod.sync(p)
+        val episodes = vod.seriesDetails(p, 21).episodes
+        fun watched(item: Long, at: Long, hasNext: Boolean) =
+            WatchProgressEntity(id, VOD_EPISODE, item, 3_500_000, 3_600_000, at, "Test Show", "poster", seriesId = 21, hasNext = hasNext)
+        suspend fun card() = vod.observeCarryOn(id).first().single()
+
+        // The pilot watched: its card is the second episode's, not started, with its running time.
+        vod.saveProgress(watched(211, 10, hasNext = true), next = episodes[1])
+        val up = card()
+        assertEquals(212L, up.itemId)
+        assertEquals(0L, up.positionMs)
+        assertEquals(600_000L, up.durationMs)
+        assertEquals(listOf("Test Show", "poster", 1, 2), listOf(up.title, up.imageUrl, up.season, up.episode))
+        assertTrue("not reported to the server", !up.pending)
+        // The credits play on, saved again: the second episode stays the card.
+        vod.saveProgress(watched(211, 20, hasNext = true), next = episodes[1])
+        assertEquals(212L, card().itemId)
+
+        // Started already: it keeps where it got.
+        vod.saveProgress(WatchProgressEntity(id, VOD_EPISODE, 212, 60_000, 600_000, 30, "Test Show", null, seriesId = 21))
+        vod.saveProgress(watched(211, 40, hasNext = true), next = episodes[1])
+        assertEquals(212L to 60_000L, card().let { it.itemId to it.positionMs })
+
+        // The last episode watched: no card.
+        vod.saveProgress(watched(212, 50, hasNext = false), next = null)
+        assertTrue(vod.observeCarryOn(id).first().isEmpty())
+    }
+
+    @Test
     fun `search finds channels, programmes, movies and series`() = runBlocking {
         threeChannels()
         fake.programme = { i, n -> FakePlex.Programme((if (n == 0) "Now on " else "Next on ") + fake.channels[i].title) }

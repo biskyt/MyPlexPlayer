@@ -144,6 +144,29 @@ class PlexPlayStateTest {
     }
 
     @Test
+    fun `a watched episode's card is the next episode at once, not reported, and an older save doesn't move it back`() = runBlocking {
+        vod.sync(source)
+        val next = vod.seriesDetails(source, 21).episodes.single { it.id == 212L }
+        val stream = vod.episodeStream(source, 211)
+        val now = System.currentTimeMillis()
+        val watched = row(VOD_EPISODE, 211, updatedAt = now, positionMs = 590_000).copy(seriesId = 21, hasNext = true)
+        vod.saveProgress(watched, stream, playing = false, stopped = true, next = next)
+        assertEquals(listOf(VOD_EPISODE to 212L), carryOn())
+        val up = progress(VOD_EPISODE, 212)!!
+        assertTrue("kept here only", !up.pending && !up.started)
+        assertTrue("the server hasn't heard of it", fake.reports.none { r -> r[0].orEmpty().endsWith("212") })
+
+        // A save from before, which the server isn't sent, doesn't put the watched one back in front.
+        vod.saveProgress(watched.copy(updatedAt = now - 10_000), stream, playing = true, stopped = false, next = next)
+        assertEquals(listOf(VOD_EPISODE to 212L), carryOn())
+
+        // The server suggests it next too: the sync keeps it.
+        fake.continueWatching = listOf("212")
+        vod.sync(source)
+        assertEquals(listOf(VOD_EPISODE to 212L), carryOn())
+    }
+
+    @Test
     fun `marked unwatched elsewhere, a film's point goes`() = runBlocking {
         db.vod().saveProgress(listOf(row(VOD_MOVIE, 11, updatedAt = 1_000)))
         vod.sync(source) // the server hasn't started it
