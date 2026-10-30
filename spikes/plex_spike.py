@@ -18,6 +18,7 @@ addresses, account names, emails and file paths replaced, for test fixtures. rep
     python3 spikes/plex_spike.py markers   [--server URL] # S8: intro and credits markers, for skip intro
     python3 spikes/plex_spike.py deletion  [--server URL] [--delete] # S9: deleting, and a show's automatic deletion
     python3 spikes/plex_spike.py people    [--server URL] # S10: cast members' biographies and credits, similar titles
+    python3 spikes/plex_spike.py cast                    # S10 (signing in first if needed), then spike-results.zip
 
 Without --server the first server from `servers` is used. --tune briefly uses a tuner; --record schedules a recording
 of a programme starting in over an hour and cancels it straight away. --write-back (never part of `all`) saves the
@@ -1159,6 +1160,17 @@ def save_favourites(args, state):
     share_results(args)
 
 
+def cast(args, state):
+    """The spike app's "Test cast and similar titles": people (signing in and finding the servers first if needed),
+    then the results zipped as `all` does."""
+    if not state.get("token"):
+        signin(args, state)
+    if not state.get("servers") and not args.server:
+        servers(args, state)
+    people(args, state)
+    share_results(args)
+
+
 def share_results(args):
     """The shareable results (reports and sanitised responses) zipped into spike-results.zip."""
     zipped = Path("spike-results.zip").resolve()
@@ -1174,7 +1186,7 @@ def share_results(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("step", choices=["all", "signin", "servers", "library", "playback", "livetv", "dvr",
-                                             "favourites", "save-favourites", "markers", "deletion", "people"])
+                                             "favourites", "save-favourites", "markers", "deletion", "people", "cast"])
     parser.add_argument("--server", help="server URL, e.g. http://192.168.1.20:32400 (default: from `servers`)")
     parser.add_argument("--token", help="token for --server (not needed for a local unclaimed test server)")
     parser.add_argument("--out", type=Path, default=Path("spike-out"))
@@ -1191,7 +1203,7 @@ def main():
     hide_known(state)
     if args.server and not args.token and state.get("servers"):
         args.token = next((s["token"] for s in state["servers"] if s["uri"] == args.server), None)
-    steps = {"all": run_all, "save-favourites": save_favourites}
+    steps = {"all": run_all, "save-favourites": save_favourites, "cast": cast}
     (steps.get(args.step) or globals()[args.step])(args, state)
 
 
