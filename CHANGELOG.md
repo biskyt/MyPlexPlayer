@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.16.1
+- The menu bar now shows on film and series pages.
+
 ## 0.16.0
 - Once an episode is watched, its Carry on watching card becomes the next episode, with its number and running time.
 - Film and show pages show each review score with its source's logo: IMDb, Rotten Tomatoes (critics and audience) and TMDB.
