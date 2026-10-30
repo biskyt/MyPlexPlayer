@@ -17,6 +17,8 @@ addresses, account names, emails and file paths replaced, for test fixtures. rep
     python3 spikes/plex_spike.py save-favourites         # S7 with --write-back, then spike-results.zip
     python3 spikes/plex_spike.py markers   [--server URL] # S8: intro and credits markers, for skip intro
     python3 spikes/plex_spike.py deletion  [--server URL] [--delete] # S9: deleting, and a show's automatic deletion
+    python3 spikes/plex_spike.py people    [--server URL] # S10: cast members' biographies and credits, similar titles
+    python3 spikes/plex_spike.py cast                    # S10 (signing in first if needed), then spike-results.zip
 
 Without --server the first server from `servers` is used. --tune briefly uses a tuner; --record schedules a recording
 of a programme starting in over an hour and cancels it straight away. --write-back (never part of `all`) saves the
@@ -228,6 +230,17 @@ def items(body):
     """A response's Metadata, whether directly in its MediaContainer or in each of its Hubs."""
     m = mc(body)
     return m.get("Metadata", []) + [x for h in m.get("Hub", []) for x in h.get("Metadata", [])]
+
+
+def size_of(body):
+    """A reply's size in KB (as decoded, near what the app would download)."""
+    return round(len(body if isinstance(body, str) else json.dumps(body)) / 1024, 1)
+
+
+def listing(body):
+    """"12 titles; hubs ['Similar']; 3.4 KB": what a list reply holds, and its size."""
+    hubs = [h.get("title") for h in mc(body).get("Hub", [])]
+    return f"{len(items(body))} titles; hubs {hubs}; {size_of(body)} KB"
 
 
 def part_of(item):
@@ -1024,11 +1037,106 @@ def deletion(args, state):
     rec.finish()
 
 
+# ---------------------------------------------------------------- S10: cast members, their credits, similar titles
+DISCOVER = "https://discover.provider.plex.tv"
+# Where a person's other films and shows might be on Discover: none is documented, so each is tried and reported.
+CREDIT_PATHS = {"media": "/library/people/{}/media", "credits": "/library/people/{}/credits",
+                "hubs": "/library/people/{}/hubs", "hubs-people": "/hubs/people/{}"}
+
+
+def people(args, state):
+    """A cast member's page and similar titles: the cast of the newest show and one of its episodes (with each
+    person's Plex id, tagKey), a person on the server, the person's biography from Plex Discover (with the account's
+    token), the likely calls for their other credits, and similar or related titles from the server and from
+    Discover, with each reply's size. Only reads."""
+    rec = Recorder(args.out, "s10-people")
+    http = server_http(args, state)
+    note_server(rec, http)
+    discover = Http(state, DISCOVER, need_token(state))
+    _, _, sections = http.get("/library/sections")
+    shows = [d for d in mc(sections).get("Directory", []) if d.get("type") == "show"]
+    if not rec.check("a TV library exists", shows):
+        return rec.finish()
+    _, _, page = http.get(f"/library/sections/{shows[0]['key']}/all", type=2, sort="addedAt:desc",
+                          **{"X-Plex-Container-Start": 0, "X-Plex-Container-Size": 1})
+    key = first(mc(page), "Metadata").get("ratingKey")
+    if not rec.check("a show in it", key):
+        return rec.finish()
+    status, _, body = http.get(f"/library/metadata/{key}")
+    show = first(mc(body), "Metadata")
+    rec.save("show", body)
+    roles = show.get("Role", [])
+    rec.check(f"the show's cast (HTTP {status})", roles,
+              f"{len(roles)} people; fields {sorted({k for r in roles for k in r})}; "
+              f"{sum(1 for r in roles if r.get('tagKey'))} with a tagKey")
+
+    _, _, leaves = http.get(f"/library/metadata/{key}/allLeaves", **{"X-Plex-Container-Start": 0, "X-Plex-Container-Size": 1})
+    episode = first(mc(leaves), "Metadata").get("ratingKey")
+    if episode:
+        status, _, body = http.get(f"/library/metadata/{episode}")
+        rec.save("episode", body)
+        item = first(mc(body), "Metadata")
+        cast = item.get("Role", [])
+        # The same call gives the episode page its ratings and its full badges (HDR, Dolby Vision): the list has neither.
+        streams = [s for m in item.get("Media", []) for p in m.get("Part", []) for s in p.get("Stream", [])]
+        hdr = sorted({k for s in streams for k in s if k.startswith(("DOVI", "colo"))})
+        rec.check(f"an episode's own cast (HTTP {status})", True,
+                  f"{len(cast)} people ({sum(1 for r in cast if r.get('tagKey'))} with a tagKey); "
+                  f"ratings {[r.get('image') for r in item.get('Rating', [])]}; HDR fields {hdr}; {size_of(body)} KB")
+
+    person = next((r for r in roles if r.get("tagKey")), roles[0] if roles else {})
+    if person.get("id"):
+        status, _, body = http.get(f"/library/people/{person['id']}")
+        rec.save("person-on-server", body)
+        found = first(mc(body), "Directory")
+        rec.check(f"GET /library/people/{{id}} on the server (HTTP {status})", found.get("tagKey"),
+                  f"fields {sorted(found)}")
+        status, _, body = http.get(f"/library/people/{person['id']}/media")
+        rec.check(f"GET /library/people/{{id}}/media on the server (HTTP {status}): this library only", True,
+                  f"{len(mc(body).get('Metadata', []))} titles")
+    tag_key = person.get("tagKey") or (found.get("tagKey") if person.get("id") else None)
+    if not rec.check("a person with a tagKey (their Plex id)", tag_key):
+        return rec.finish()
+
+    status, _, body = discover.get(f"/library/people/{tag_key}")
+    rec.save("person-discover", body)
+    who = first(mc(body), "Metadata")
+    rec.check(f"Discover: GET /library/people/{{tagKey}} (HTTP {status}): biography", who.get("summary"),
+              f"fields {sorted(who)}; {len(who.get('summary') or '')} characters; {size_of(body)} KB")
+    for name, path in CREDIT_PATHS.items():
+        status, _, body = discover.get(path.format(tag_key), includeMeta=1,
+                                       **{"X-Plex-Container-Start": 0, "X-Plex-Container-Size": 50})
+        rec.save(f"credits-{name}", body)
+        rec.check(f"Discover: GET {path.format('{tagKey}')} (HTTP {status}): their other titles", True,
+                  f"{listing(body)}; total {mc(body).get('totalSize')}; "
+                  f"fields {sorted({k for i in items(body)[:5] for k in i})}")
+
+    for name, path in (("similar", "/library/metadata/{}/similar"), ("related", "/hubs/metadata/{}/related")):
+        status, _, body = http.get(path.format(key), count=10)
+        rec.save(f"server-{name}", body)
+        rec.check(f"server: GET {path.format('{show}')} (HTTP {status}): similar, in this library", True,
+                  listing(body))
+    guid = show.get("guid", "")
+    plex_id = guid.rsplit("/", 1)[-1] if guid.startswith("plex://") else None
+    if rec.check("the show's Plex guid", plex_id, guid or "none"):
+        status, _, body = discover.get(f"/library/metadata/{plex_id}/related")
+        rec.save("discover-related", body)
+        rec.check(f"Discover: GET /library/metadata/{{guid}}/related (HTTP {status}): similar, anywhere", True,
+                  listing(body))
+        status, _, body = discover.get(f"/library/metadata/{plex_id}", includeGuids=1)
+        rec.save("discover-title", body)
+        title = first(mc(body), "Metadata")
+        rec.check(f"Discover: GET /library/metadata/{{guid}} (HTTP {status}): a title's page off the server",
+                  title.get("summary"), f"fields {sorted(title)}; cast {len(title.get('Role', []))}; "
+                  f"ratings {[r.get('image') for r in title.get('Rating', [])]}; {size_of(body)} KB")
+    rec.finish()
+
+
 def run_all(args, state):
     """Every step in turn (signing in first if needed, tuning and recording included), carrying on past a step
     that fails, then the shareable results zipped into spike-results.zip."""
     args.tune = args.record = True
-    steps = ([] if state.get("token") else [signin]) + [servers, library, playback, livetv, dvr, favourites, markers, deletion]
+    steps = ([] if state.get("token") else [signin]) + [servers, library, playback, livetv, dvr, favourites, markers, deletion, people]
     for step in steps:
         print(f"\n=== {step.__name__} ===", flush=True)
         try:
@@ -1052,6 +1160,17 @@ def save_favourites(args, state):
     share_results(args)
 
 
+def cast(args, state):
+    """The spike app's "Test cast and similar titles": people (signing in and finding the servers first if needed),
+    then the results zipped as `all` does."""
+    if not state.get("token"):
+        signin(args, state)
+    if not state.get("servers") and not args.server:
+        servers(args, state)
+    people(args, state)
+    share_results(args)
+
+
 def share_results(args):
     """The shareable results (reports and sanitised responses) zipped into spike-results.zip."""
     zipped = Path("spike-results.zip").resolve()
@@ -1067,7 +1186,7 @@ def share_results(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("step", choices=["all", "signin", "servers", "library", "playback", "livetv", "dvr",
-                                             "favourites", "save-favourites", "markers", "deletion"])
+                                             "favourites", "save-favourites", "markers", "deletion", "people", "cast"])
     parser.add_argument("--server", help="server URL, e.g. http://192.168.1.20:32400 (default: from `servers`)")
     parser.add_argument("--token", help="token for --server (not needed for a local unclaimed test server)")
     parser.add_argument("--out", type=Path, default=Path("spike-out"))
@@ -1084,7 +1203,7 @@ def main():
     hide_known(state)
     if args.server and not args.token and state.get("servers"):
         args.token = next((s["token"] for s in state["servers"] if s["uri"] == args.server), None)
-    steps = {"all": run_all, "save-favourites": save_favourites}
+    steps = {"all": run_all, "save-favourites": save_favourites, "cast": cast}
     (steps.get(args.step) or globals()[args.step])(args, state)
 
 

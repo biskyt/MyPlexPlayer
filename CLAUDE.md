@@ -39,6 +39,7 @@ See also:
 - **Run `/simplify` and `/code-review` before every commit.**
   - Apply their findings, or note why one is skipped.
   - Never commit first and review afterwards.
+  - Spikes (`spikes/`) don't need them (the owner, 2026-10-30: only the main app is reviewed).
 - **No test APKs unless asked.** CI builds no APK on pushes; APKs are built only for release tags. Build a debug APK
   only when the owner asks for one.
 - **Steer clear of any reference to, or hint of, piracy.** This applies to code, docs, store text, changelog and commit messages.

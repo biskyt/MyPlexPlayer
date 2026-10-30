@@ -39,7 +39,7 @@ object SpikeRun {
     /** The screen showing the run, told on the main thread of each change. */
     var screen: MainActivity? = null
 
-    /** Runs the spike's [step]: "all", or "save-favourites". */
+    /** Runs the spike's [step]: "all", "save-favourites" or "cast". */
     fun start(files: File, step: String = "all") {
         if (running) return
         running = true
@@ -93,6 +93,7 @@ class MainActivity : Activity() {
     private lateinit var scroll: ScrollView
     private lateinit var run: Button
     private lateinit var saveFavourites: Button
+    private lateinit var cast: Button
     private lateinit var codePanel: LinearLayout
     private lateinit var code: TextView
     private lateinit var share: Button
@@ -113,7 +114,7 @@ class MainActivity : Activity() {
         column.addView(
             text(
                 "Tests how MyPlexPlayer will talk to your Plex server: sign-in, your servers, libraries, playback " +
-                    "(never transcoding), Live TV, DVR, favourite channels and skip-intro markers. Keep this phone " +
+                    "(never transcoding), Live TV, DVR, favourite channels, skip-intro markers and cast. Keep this phone " +
                     "on your home Wi-Fi until it says Done (about 10 minutes).",
                 15f
             )
@@ -129,6 +130,15 @@ class MainActivity : Activity() {
         )
         saveFavourites = button("Test saving favourite channels") { SpikeRun.start(filesDir, "save-favourites") }
         column.addView(saveFavourites)
+        column.addView(
+            text(
+                "Test cast and similar titles: reads a show's cast, a cast member's biography and other films and " +
+                    "shows, and similar titles, from your server and from Plex (about a minute; only reads).",
+                15f
+            )
+        )
+        cast = button("Test cast and similar titles") { SpikeRun.start(filesDir, "cast") }
+        column.addView(cast)
 
         code = text("", 40f, bold = true).apply { typeface = Typeface.MONOSPACE }
         codePanel = LinearLayout(this).apply {
@@ -164,6 +174,7 @@ class MainActivity : Activity() {
         val running = SpikeRun.running
         run.isEnabled = !running
         saveFavourites.isEnabled = !running
+        cast.isEnabled = !running
         run.text = if (SpikeRun.printed.isEmpty() || running) "Run the tests" else "Run the tests again"
         val shownCode = SpikeRun.code.takeIf { running }
         codePanel.visibility = if (shownCode != null) View.VISIBLE else View.GONE
