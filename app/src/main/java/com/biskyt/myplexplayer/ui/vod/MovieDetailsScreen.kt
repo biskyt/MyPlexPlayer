@@ -211,7 +211,8 @@ internal fun DetailsLayout(
 ) {
     Box(Modifier.fillMaxSize().background(Palette.background).onOptionsKey(onOptions)) {
         Backdrop(backdropUrl)
-        Row(Modifier.padding(horizontal = 72.dp, vertical = 56.dp), horizontalArrangement = Arrangement.spacedBy(40.dp)) {
+        // Under the top bar (TabScaffold), which leaves its own gap above the page.
+        Row(Modifier.padding(start = 72.dp, end = 72.dp, top = 8.dp, bottom = 40.dp), horizontalArrangement = Arrangement.spacedBy(40.dp)) {
             Poster(posterUrl, title, 240.dp)
             Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.widthIn(max = 760.dp).fillMaxHeight()) {
                 content()

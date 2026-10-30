@@ -30,6 +30,8 @@ import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.ui.common.NoticeToast
 import com.biskyt.myplexplayer.ui.common.SyncToast
+import com.biskyt.myplexplayer.ui.common.Tab
+import com.biskyt.myplexplayer.ui.common.TabScaffold
 import com.biskyt.myplexplayer.ui.common.onGuideKey
 import com.biskyt.myplexplayer.ui.home.HomeScreen
 import com.biskyt.myplexplayer.ui.live.LiveScreen
@@ -160,9 +162,10 @@ internal fun ScreenContent(screen: Screen) {
         is Screen.Live -> LiveScreen(screen.filter, screen.guide)
         is Screen.Movies -> VodBrowseScreen(CAT_MOVIE, screen.view)
         is Screen.Series -> VodBrowseScreen(CAT_SERIES, screen.view)
-        is Screen.MovieDetails -> MovieDetailsScreen(screen)
+        // With the top bar, as the tab screens draw it, under their tab.
+        is Screen.MovieDetails -> TabScaffold(Tab.MOVIES) { MovieDetailsScreen(screen) }
         is Screen.MoreInfo -> MoreInfoScreen(screen)
-        is Screen.SeriesDetails -> SeriesDetailsScreen(screen)
+        is Screen.SeriesDetails -> TabScaffold(Tab.SERIES) { SeriesDetailsScreen(screen) }
         is Screen.VodPlayer -> VodPlayerScreen(screen)
         is Screen.Search -> SearchScreen(screen.query)
         is Screen.Player -> PlayerScreen(screen)
