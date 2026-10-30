@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -46,6 +47,7 @@ import com.biskyt.myplexplayer.ui.common.BadgeRow
 import com.biskyt.myplexplayer.ui.common.CastPanel
 import com.biskyt.myplexplayer.ui.common.CastRow
 import com.biskyt.myplexplayer.ui.common.ItemActionsPanel
+import com.biskyt.myplexplayer.ui.common.LocalTopBarInset
 import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.Poster
@@ -209,10 +211,13 @@ internal fun DetailsLayout(
     onOptions: () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Box(Modifier.fillMaxSize().background(Palette.background).onOptionsKey(onOptions)) {
+    Box(Modifier.fillMaxSize().onOptionsKey(onOptions)) {
         Backdrop(backdropUrl)
-        // Under the top bar (TabScaffold), which leaves its own gap above the page.
-        Row(Modifier.padding(start = 72.dp, end = 72.dp, top = 8.dp, bottom = 40.dp), horizontalArrangement = Arrangement.spacedBy(40.dp)) {
+        // The art goes behind the top bar, the rest below it.
+        Row(
+            Modifier.padding(start = 72.dp, end = 72.dp, top = LocalTopBarInset.current + 8.dp, bottom = 40.dp),
+            horizontalArrangement = Arrangement.spacedBy(40.dp)
+        ) {
             Poster(posterUrl, title, 240.dp)
             Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.widthIn(max = 760.dp).fillMaxHeight()) {
                 content()
@@ -230,7 +235,7 @@ internal fun Backdrop(backdropUrl: String?) {
         val request = remember(backdropUrl) {
             ImageRequest.Builder(context).data(backdropUrl).size(BACKDROP_WIDTH, BACKDROP_WIDTH * 9 / 16).allowRgb565(true).build()
         }
-        AsyncImage(request, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.35f)
+        AsyncImage(request, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().testTag("backdrop"), alpha = 0.35f)
         Box(
             Modifier.fillMaxSize()
                 .background(Brush.horizontalGradient(listOf(Palette.background, Palette.background.copy(alpha = 0.6f))))

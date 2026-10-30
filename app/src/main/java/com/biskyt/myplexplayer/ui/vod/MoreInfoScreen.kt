@@ -1,7 +1,6 @@
 package com.biskyt.myplexplayer.ui.vod
 
 import android.text.format.Formatter
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,7 +37,6 @@ import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.SectionLabel
 import com.biskyt.myplexplayer.ui.common.formatDate
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
-import com.biskyt.myplexplayer.ui.theme.Palette
 import java.io.IOException
 import java.time.LocalDate
 import java.time.ZoneId
@@ -53,7 +51,7 @@ fun MoreInfoScreen(screen: Screen.MoreInfo) {
     val vm = appViewModel { MoreInfoViewModel(it, screen) }
     vm.error?.let { error ->
         Row(
-            Modifier.fillMaxSize().background(Palette.background).padding(horizontal = 72.dp, vertical = 48.dp),
+            Modifier.fillMaxSize().padding(horizontal = 72.dp, vertical = 48.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Muted(error, maxLines = 3)
@@ -64,8 +62,9 @@ fun MoreInfoScreen(screen: Screen.MoreInfo) {
     val (title, d) = vm.loaded ?: return
     val film = screen.type == CAT_MOVIE
     Column(
-        Modifier.fillMaxSize().background(Palette.background).verticalScroll(rememberScrollState())
-            .padding(horizontal = 72.dp, vertical = 48.dp),
+        // Under the top bar, which leaves its own gap above the page.
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(start = 72.dp, end = 72.dp, top = 8.dp, bottom = 48.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(title, style = MaterialTheme.typography.headlineMedium)

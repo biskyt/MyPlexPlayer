@@ -1,6 +1,5 @@
 package com.biskyt.myplexplayer.ui.settings
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -155,7 +154,7 @@ fun PlexSignInScreen(firstRun: Boolean) {
     if (state is PlexSignInViewModel.State.Done && state.unreachable.isEmpty()) LaunchedEffect(Unit) { leave() }
     var problem by remember { mutableStateOf<String?>(null) }
     Column(
-        Modifier.fillMaxSize().background(Palette.background).padding(horizontal = 96.dp, vertical = 72.dp),
+        Modifier.fillMaxSize().padding(horizontal = 96.dp, vertical = 72.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         Text(stringResource(R.string.settings_plex_sign_in), style = MaterialTheme.typography.displaySmall)

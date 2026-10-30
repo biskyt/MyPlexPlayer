@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.16.2
+- The menu bar now shows on the Settings pages and More info too.
+- A film's or series' art now shows behind the menu bar.
+
 ## 0.16.1
 - The menu bar now shows on film and series pages.
 

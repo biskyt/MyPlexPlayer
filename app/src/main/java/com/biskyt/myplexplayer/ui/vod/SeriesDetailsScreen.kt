@@ -58,6 +58,7 @@ import com.biskyt.myplexplayer.ui.common.CastPanel
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.ItemActionsPanel
 import com.biskyt.myplexplayer.ui.common.LocalCardFocused
+import com.biskyt.myplexplayer.ui.common.LocalTopBarInset
 import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.Poster
@@ -204,10 +205,13 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
         vm.season?.takeIf { s -> d?.episodes?.any { it.season == s } == true } ?: target?.season ?: d?.seasons?.firstOrNull()?.number
     val seasonInfo = d?.seasons?.firstOrNull { it.number == season }
 
-    Box(Modifier.fillMaxSize().background(Palette.background).onOptionsKey { target?.let(vm::openOptions) }) {
+    Box(Modifier.fillMaxSize().onOptionsKey { target?.let(vm::openOptions) }) {
         Backdrop(d?.info?.backdropUrl)
-        // Under the top bar (TabScaffold), which leaves its own gap above the page.
-        Row(Modifier.padding(start = 64.dp, end = 64.dp, top = 8.dp, bottom = 32.dp), horizontalArrangement = Arrangement.spacedBy(40.dp)) {
+        // The art goes behind the top bar, the rest below it.
+        Row(
+            Modifier.padding(start = 64.dp, end = 64.dp, top = LocalTopBarInset.current + 8.dp, bottom = 32.dp),
+            horizontalArrangement = Arrangement.spacedBy(40.dp)
+        ) {
             Column(Modifier.width(380.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Poster(seasonInfo?.posterUrl ?: show.coverUrl ?: d?.info?.posterUrl, show.title, 180.dp)
                 Text(show.title, style = MaterialTheme.typography.headlineMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)

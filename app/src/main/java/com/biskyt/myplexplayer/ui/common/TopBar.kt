@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -92,10 +93,10 @@ fun TopBar(selected: Tab?, selectedFocus: FocusRequester? = null) {
         }
         Box(Modifier.weight(1f))
         Clock()
-        IconPill(AppIcons.Search, stringResource(R.string.common_search)) { nav.push(Screen.Search()) }
-        IconPill(AppIcons.Settings, stringResource(R.string.common_settings)) { nav.push(Screen.Settings) }
+        IconPill(AppIcons.Search, stringResource(R.string.common_search)) { nav.open(Screen.Search()) }
+        IconPill(AppIcons.Settings, stringResource(R.string.common_settings)) { nav.open(Screen.Settings) }
         if (active != null) {
-            TvCard(onClick = { nav.push(Screen.Playlists) }, shape = RoundedCornerShape(50)) {
+            TvCard(onClick = { nav.open(Screen.Playlists) }, shape = RoundedCornerShape(50)) {
                 Row(
                     Modifier.padding(start = 6.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -128,12 +129,19 @@ fun Clock(
     Text(formatTime(now), style = style, color = color, modifier = modifier)
 }
 
+/** Between the top bar and the screen below it. */
+val TabScaffoldGap = 20.dp
+
+/** On a page drawn behind the top bar (its art showing through), how far down its content must start: 0 without. */
+val LocalTopBarInset = compositionLocalOf { 0.dp }
+
 /** Screen with the top bar above [content]; [tabFocus], if given, is the selected tab's (for routes up to it). */
 @Composable
 fun TabScaffold(tab: Tab?, modifier: Modifier = Modifier, tabFocus: FocusRequester? = null, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier.fillMaxSize().background(Palette.background)) {
+    // (On the app's background, painted once below every screen.)
+    Column(modifier.fillMaxSize()) {
         TopBar(tab, tabFocus)
-        Column(Modifier.padding(top = 20.dp).fillMaxSize(), content = content)
+        Column(Modifier.padding(top = TabScaffoldGap).fillMaxSize(), content = content)
     }
 }
 

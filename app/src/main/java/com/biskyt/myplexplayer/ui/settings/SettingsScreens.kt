@@ -54,7 +54,6 @@ import com.biskyt.myplexplayer.ui.common.cycle
 import com.biskyt.myplexplayer.ui.common.displayLanguage
 import com.biskyt.myplexplayer.ui.common.nativeLanguageName
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
-import com.biskyt.myplexplayer.ui.theme.Palette
 import java.util.Locale
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -68,7 +67,7 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
 /** Title + scrollable column used by every settings page. */
 @Composable
 fun SettingsPage(title: String, content: LazyListScope.() -> Unit) {
-    Column(Modifier.fillMaxSize().background(Palette.background).padding(horizontal = 96.dp, vertical = 40.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 96.dp, vertical = 40.dp)) {
         Text(title, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(bottom = 20.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 40.dp), content = content)
     }
@@ -243,7 +242,7 @@ fun AppearanceScreen() {
     val vm = appViewModel { SettingsViewModel(it) }
     val s = vm.settings.collectAsState().value ?: return
     Column(
-        Modifier.fillMaxSize().background(Palette.background).padding(horizontal = 96.dp, vertical = 40.dp),
+        Modifier.fillMaxSize().padding(horizontal = 96.dp, vertical = 40.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(stringResource(R.string.settings_appearance_title), style = MaterialTheme.typography.headlineLarge)

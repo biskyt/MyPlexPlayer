@@ -179,7 +179,14 @@ class StoreAssetsTest {
 
     private fun screenshot(name: String, start: Screen, ready: String, then: () -> Unit = {}) {
         val navigator = navigators.new(start)
-        compose.setContent { InAppLanguage { MyPlexTheme { NavHost(remember { navigator }) { ScreenContent(it) } } } }
+        compose.setContent {
+            // On the app's background, as the app paints it below every screen.
+            InAppLanguage {
+                MyPlexTheme {
+                    Box(Modifier.fillMaxSize().background(Palette.background)) { NavHost(remember { navigator }) { ScreenContent(it) } }
+                }
+            }
+        }
         runCatching { waitFor(ready) }.onFailure {
             compose.onRoot().captureRoboImage("build/store-assets/stuck-$name.png")
             throw AssertionError("'$ready' not shown on $name", it)
