@@ -95,7 +95,7 @@ fun AppRoot() {
         }
         // A backup file opened with MyPlexPlayer from another app: Backup & restore offers to restore it.
         LaunchedEffect(nav) {
-            container.openedFile.filterNotNull().collect { nav.open(Screen.Backup) }
+            container.openedFile.filterNotNull().collect { if (nav.current.screen != Screen.Backup) nav.push(Screen.Backup) }
         }
         val activity = LocalActivity.current
         BackHandler {

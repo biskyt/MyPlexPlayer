@@ -18,7 +18,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   0.15.0, in place of 0.13.0's own panel) and Back hiding the controls, with no sleep timer (1.8.1, `ba6b051`, in 0.15.0), and the next episode's card on
   Carry on watching (1.8.2, `099c88b`, by hand in 0.16.0: the next one's row isn't reported to Plex), the menu bar on film and
   series pages (1.8.3, `c456681`, in 0.16.1), and on every screen but playback and set-up (1.8.4, `1b8f228`, in
-  0.16.2; its `45f431f` fixes a test MyPlexPlayer hasn't; a title's art also goes behind the bar here).
+  0.16.2; its `45f431f` fixes a test MyPlexPlayer hasn't; a title's art also goes behind the bar here, which
+  MyTVPlayer 1.8.5 copied), and 1.8.5's opened backup file and `Navigator.open` KDoc (`3016f93`, by hand in 0.16.3).
 - **Where a change is made first** (the owner, 2026-10-25): a feature or fix both apps need (the player, remote keys,
   menus, the guide's screens) is made in MyTVPlayer first, then cherry-picked here, so the shared code stays the same
   and ports apply cleanly. Plex-only work (sign-in, servers, play state, Live TV, DVR) is made here only.
