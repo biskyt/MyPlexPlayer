@@ -8,6 +8,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
+import com.biskyt.myplexplayer.testutil.OnAppBackground
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
@@ -94,7 +95,7 @@ class ScoresUiTest {
     @Test
     fun `a film's page shows its age rating in a badge and each score with its logo`() {
         val navigator = navigators.new(Screen.MovieDetails(source, 11))
-        compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
+        compose.setContent { MyPlexTheme { OnAppBackground { NavHost(navigator) { ScreenContent(it) } } } }
         compose.waitForText("12A", stepMs = 50)
         assertEquals("no country", 0, shown("gb/12A"))
         compose.waitAdvancingClock(stepMs = 50) { shown("7.6") > 0 }
@@ -114,7 +115,7 @@ class ScoresUiTest {
     @Test
     fun `more info's links show their sites' logos`() {
         val navigator = navigators.new(Screen.MoreInfo(source, CAT_MOVIE, 11))
-        compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
+        compose.setContent { MyPlexTheme { OnAppBackground { NavHost(navigator) { ScreenContent(it) } } } }
         compose.waitAdvancingClock(stepMs = 50) { logos("TVDB") > 0 }
         assertEquals(
             listOf(1, 1),
@@ -126,7 +127,7 @@ class ScoresUiTest {
     @Test
     fun `a show's scores carry on to another line in its narrow column`() {
         val navigator = navigators.new(Screen.SeriesDetails(source, 21))
-        compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
+        compose.setContent { MyPlexTheme { OnAppBackground { NavHost(navigator) { ScreenContent(it) } } } }
         compose.waitForText("15", stepMs = 50)
         compose.waitAdvancingClock(stepMs = 50) { shown("79%") > 0 }
         assertEquals(listOf(1, 1, 1, 1), listOf(shown("8.1"), shown("55%"), shown("90%"), shown("79%")))
