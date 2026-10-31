@@ -20,7 +20,9 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   series pages (1.8.3, `c456681`, in 0.16.1), and on every screen but playback and set-up (1.8.4, `1b8f228`, in
   0.16.2; its `45f431f` fixes a test MyPlexPlayer hasn't; a title's art also goes behind the bar here, which
   MyTVPlayer 1.8.5 copied), 1.8.5's opened backup file and `Navigator.open` KDoc (`3016f93`, by hand in 0.16.3), and the play button in the
-  middle of the player's controls (1.8.6, `fee0749`, in 0.16.4).
+  middle of the player's controls (1.8.6, `fee0749`, in 0.16.4). The plain-english skill (`7de1099`) is copied as it
+  is. 1.8.7 (`fc738a8`) and 1.8.8 (`9cb696c`) change the XMLTV guide's reading and channel matching, which
+  MyPlexPlayer removed in 0.6.0: they don't apply.
 - **Where a change is made first** (the owner, 2026-10-25): a feature or fix both apps need (the player, remote keys,
   menus, the guide's screens) is made in MyTVPlayer first, then cherry-picked here, so the shared code stays the same
   and ports apply cleanly. Plex-only work (sign-in, servers, play state, Live TV, DVR) is made here only.
@@ -37,6 +39,8 @@ See also:
 - `CHANGELOG.md`: what changed in each version.
 
 ## Standing instructions from the owner
+- **Write in plain English.** Use the `plain-english` skill (`.claude/skills/plain-english/SKILL.md`) for all
+  documentation, code comments that explain behaviour, commit messages, PR descriptions and release notes.
 - **Run `/simplify` and `/code-review` before every commit.**
   - Apply their findings, or note why one is skipped.
   - Never commit first and review afterwards.
@@ -54,6 +58,9 @@ See also:
   answer first, then carry on. Leaving a question waiting behind other work reads as ignoring them.
 - **Release every merged app change** (the owner, 2026-10-25: "always build until I say otherwise"): once an app PR
   is merged, start `release.yml` (step 8) and give the owner the release link.
+  - A large feature that comes in steps is released once, when all its steps are merged (the owner, 2026-10-31,
+    for DVR). It has one version number: the first step's PR bumps the version, and each later step adds to that
+    version's changelog section, with no new number.
 - **When the owner says "don't release until X", don't merge or release** until they confirm.
 - **Only the app's own text is translated**: see **Languages** below.
 - **Release notes are English only**, on GitHub and in Play's "What's new" (translated Play notes: not worth the work).
@@ -68,7 +75,7 @@ See also:
    - `./gradlew ktlintFormat` fixes most style issues. Rerun `ktlintCheck` afterwards, because the format task itself exits non-zero when it changed something.
 3. Run `/simplify`, then `/code-review`, then apply their fixes.
 4. Bump `versionCode` (+1) and `versionName` in `app/build.gradle.kts`, for every PR that changes the app, released or
-   not: the patch number for fixes and small changes, the minor for a notable feature (1.1.0: languages).
+   not (except a later step of a feature released once, see the standing instructions): the patch number for fixes and small changes, the minor for a notable feature (1.1.0: languages).
 5. Add a `## x.y.z` section at the top of `CHANGELOG.md`, written for people using the app.
    - A release's notes are its section plus those of any unreleased versions since the last release
      (`.github/scripts/release-notes.sh`). For Play's "What's new" (500 characters), `play-notes.py` keeps the whole

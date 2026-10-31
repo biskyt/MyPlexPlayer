@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dvr_record">Grabar</string>
+    <string name="dvr_record_help">Esta emisión</string>
+    <string name="dvr_record_series">Grabar serie</string>
+    <string name="dvr_record_series_help">Episodios nuevos, en cualquier canal</string>
+    <string name="dvr_cancel">Cancelar esta grabación</string>
+    <string name="dvr_stop_series">Dejar de grabar la serie</string>
+    <string name="dvr_set_to_record">Programado para grabar</string>
+    <string name="dvr_series_set_to_record">Serie programada para grabar</string>
+    <string name="dvr_recording_now">Grabando</string>
+    <string name="dvr_record_failed">No se pudo programar la grabación</string>
+    <string name="dvr_cancel_failed">No se pudo cancelar la grabación</string>
+    <string name="dvr_already">Ya está programado para grabar</string>
+    <string name="dvr_not_allowed">Solo el propietario del servidor puede grabar</string>
+</resources>

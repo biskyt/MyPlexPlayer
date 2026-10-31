@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Recording from the TV guide (Plex DVR). -->
+    <string name="dvr_record">Record</string>
+    <string name="dvr_record_help">This airing</string>
+    <string name="dvr_record_series">Record series</string>
+    <string name="dvr_record_series_help">New episodes, on any channel</string>
+    <string name="dvr_cancel">Cancel this recording</string>
+    <string name="dvr_stop_series">Stop recording the series</string>
+    <string name="dvr_set_to_record">Set to record</string>
+    <string name="dvr_series_set_to_record">Series set to record</string>
+    <string name="dvr_recording_now">Recording</string>
+    <string name="dvr_record_failed">Couldn\'t set it to record</string>
+    <string name="dvr_cancel_failed">Couldn\'t cancel the recording</string>
+    <string name="dvr_already">It\'s already set to record</string>
+    <string name="dvr_not_allowed">Only the server\'s owner can record</string>
+</resources>

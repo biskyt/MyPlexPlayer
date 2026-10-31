@@ -50,6 +50,10 @@ data class PlexChannel(
 data class PlexProgramme(
     val ratingKey: String? = null,
     val key: String = "",
+    /** Plex's own id for it (`plex://episode/…`): what its recording template is asked for by. */
+    val guid: String? = null,
+    /** Its show's (`plex://show/…`): what a series recording names. */
+    val grandparentGuid: String? = null,
     val type: String = "",
     val title: String = "",
     val grandparentTitle: String? = null,

@@ -169,7 +169,7 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
     suspend fun autoDeleteWatched(showRatingKey: String): PlexAutoDelete? =
         container(url("library/metadata/$showRatingKey") { addQueryParameter("includePreferences", "1") })
             .items.firstOrNull()?.preferences?.settings
-            ?.firstOrNull { it.id == AUTO_DELETE_WATCHED }?.value?.toIntOrNull()
+            ?.firstOrNull { it.id == AUTO_DELETE_WATCHED }?.set?.toIntOrNull()
             .let(PlexAutoDelete::of)
 
     suspend fun setAutoDeleteWatched(showRatingKey: String, policy: PlexAutoDelete) = send(
@@ -335,6 +335,48 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
         return tuned?.takeIf { it.key.isNotEmpty() }
             ?: throw PlexException("No live session in the tune's reply", reason = Reason.UNEXPECTED_RESPONSE)
     }
+
+    /** How a guide programme (its [PlexProgramme.guid]) can be recorded: this airing, and for an episode its series. */
+    suspend fun recordingOptions(guid: String): List<PlexRecordingOption> =
+        recordings("GET", url("media/subscriptions/template") { addQueryParameter("guid", guid) })
+            .templates.flatMap { it.options }
+
+    /**
+     * Records with [option]: its template's parameters as they are, and every setting as `prefs[id]=value` (the
+     * server refuses a recording without them, docs/plex-api.md 14), [changes] over the template's. The server
+     * refuses a second rule for the same thing (409) and a user who isn't its admin (403).
+     */
+    suspend fun record(option: PlexRecordingOption, changes: Map<String, String> = emptyMap()): PlexRecordingRule {
+        val url = url("media/subscriptions") {
+            if (option.parameters.isNotEmpty()) encodedQuery(option.parameters)
+            val sent = build()
+            // What the template's parameters leave out (they hold hints[…] and params[…], not these).
+            listOf(
+                "targetLibrarySectionID" to option.targetLibrarySectionID,
+                "targetSectionLocationID" to option.targetSectionLocationID,
+                "type" to option.type,
+            ).forEach { (name, value) -> if (value != null && sent.queryParameter(name) == null) addQueryParameter(name, "$value") }
+            (option.settings.filter { it.id.isNotEmpty() }.associate { it.id to it.current } + changes)
+                .forEach { (id, value) -> addQueryParameter("prefs[$id]", value) }
+        }
+        return recordings("POST", url).rules.firstOrNull()
+            ?: throw PlexException("No recording in the server's reply", reason = Reason.UNEXPECTED_RESPONSE)
+    }
+
+    /** Every recording rule. */
+    suspend fun recordingRules(): List<PlexRecordingRule> = recordings("GET", url("media/subscriptions")).rules
+
+    /** Every airing set to record, and those recorded lately (`complete`). */
+    suspend fun scheduledRecordings(): List<PlexScheduledRecording> = recordings("GET", url("media/subscriptions/scheduled")).scheduled
+
+    /** Removes a rule, and every airing it set to record. */
+    suspend fun removeRecording(ruleKey: String) = send("DELETE", url("media/subscriptions/$ruleKey"))
+
+    /** Cancels one airing ([PlexScheduledRecording.key]); its rule (a series) stays. */
+    suspend fun cancelRecording(airingKey: String) = send("DELETE", url(airingKey.trimStart('/')))
+
+    private suspend fun recordings(method: String, url: HttpUrl): PlexRecordingContainer =
+        http.fetch<PlexRecordingResponse>(method, url, headers(null)).container
 
     private suspend fun live(url: HttpUrl): PlexLiveContainer = http.fetch<PlexLiveResponse>("GET", url, headers(null)).container
 

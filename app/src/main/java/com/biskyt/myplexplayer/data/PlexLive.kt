@@ -46,6 +46,8 @@ fun plexGuideRows(programmes: List<PlexProgramme>, channels: List<PlexChannel>):
                 },
                 season = programme.parentIndex.takeIf { episode },
                 episode = programme.index.takeIf { episode },
+                guid = programme.guid,
+                showGuid = programme.grandparentGuid.takeIf { episode },
             )
         }
     }.distinctBy { it.xmlId to it.startMs }

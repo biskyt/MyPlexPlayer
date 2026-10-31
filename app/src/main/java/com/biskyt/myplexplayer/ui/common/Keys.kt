@@ -43,6 +43,9 @@ fun Modifier.onOptionsKey(onOptions: () -> Unit): Modifier = onPreviewKeyEvent {
 fun Modifier.onGuideKey(enabled: () -> Boolean, onGuide: () -> Unit): Modifier =
     onKeyEvent { e -> handlePress(e, e.key.isGuide() && enabled(), onGuide) }
 
+/** Runs [onRecord] for the remote's Record button, once per press (MyPlexPlayer's own: recording with Plex's DVR). */
+fun Modifier.onRecordKey(onRecord: () -> Unit): Modifier = onPreviewKeyEvent { e -> handlePress(e, e.key == Key.MediaRecord, onRecord) }
+
 /** Consumes the whole press (down, repeats, up) when [matches], acting once on the first key-down. */
 private fun handlePress(e: KeyEvent, matches: Boolean, action: () -> Unit): Boolean {
     if (!matches) return false

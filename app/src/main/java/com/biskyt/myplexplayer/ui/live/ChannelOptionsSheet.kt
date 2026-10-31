@@ -69,6 +69,8 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                     close()
                     play(ch)
                 }
+                // MyPlexPlayer's own: recording it with Plex's DVR.
+                if (programme != null) RecordOptions(ch.playlistId, programme, close)
                 val kind = findKind
                 if (programme != null && kind != null) {
                     val label = when (kind) {

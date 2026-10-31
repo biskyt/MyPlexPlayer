@@ -253,7 +253,10 @@ data class ProgrammeEntity(
     /** Series, film or neither (a ProgrammeKind constant), for "Find series" / "Find in Movies". */
     @ColumnInfo(defaultValue = "0") val kind: Int = 0,
     val season: Int? = null,
-    val episode: Int? = null
+    val episode: Int? = null,
+    /** Plex's id for it (`plex://episode/…`), which recording asks by; its show's ([showGuid]), for a series. */
+    val guid: String? = null,
+    val showGuid: String? = null
 )
 
 /**
