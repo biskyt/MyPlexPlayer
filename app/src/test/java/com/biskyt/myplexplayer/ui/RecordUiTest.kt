@@ -22,6 +22,7 @@ import com.biskyt.myplexplayer.testutil.focusedText
 import com.biskyt.myplexplayer.testutil.idleFrames
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
+import com.biskyt.myplexplayer.ui.common.RecordingToasts
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -32,6 +33,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowToast
 
 /**
  * Recording from the TV guide with Plex's DVR: the remote's Record button opens the programme's options, which record
@@ -56,7 +58,10 @@ class RecordUiTest {
     private fun guide() {
         runBlocking { app.container.addSyncedHomePlex(plex) }
         compose.setContent {
-            MyPlexTheme { NavHost(remember { navigators.new(Screen.Live(ChannelFilter.All, guide = true)) }) { ScreenContent(it) } }
+            MyPlexTheme {
+                NavHost(remember { navigators.new(Screen.Live(ChannelFilter.All, guide = true)) }) { ScreenContent(it) }
+                RecordingToasts()
+            }
         }
         compose.waitAdvancingClock { compose.focusedText() == "Show 0" }
     }
@@ -108,6 +113,36 @@ class RecordUiTest {
         press(Key.MediaRecord)
         choose("Cancel this recording")
         compose.waitAdvancingClock(50) { plex.rules.isEmpty() && !marked("Set to record") }
+    }
+
+    @Test
+    fun `a recording starting and stopping shows a toast, and the guide marks it recording`() {
+        guide()
+        val pid = runBlocking { app.container.settings.current().activePlaylistId }
+        plex.rules += FakePlex.Rule("1", 2, "plex://show/Show-0", emptyMap())
+        runBlocking { app.container.recordings.refresh(pid) } // the first look: nothing started
+        plex.recordingNow += "plex://episode/ch-1-0"
+        runBlocking { app.container.recordings.refresh(pid) }
+        compose.waitAdvancingClock(50) { ShadowToast.getTextOfLatestToast() == "Recording started: Show 0" }
+        compose.waitAdvancingClock(50) { marked("Recording") }
+        plex.rules.clear()
+        runBlocking { app.container.recordings.refresh(pid) }
+        // It was due to end half an hour from now: stopped early.
+        compose.waitAdvancingClock(50) { ShadowToast.getTextOfLatestToast() == "Recording stopped early: Show 0" }
+    }
+
+    @Test
+    fun `what changed while the app was away isn't told`() {
+        guide()
+        val pid = runBlocking { app.container.settings.current().activePlaylistId }
+        plex.rules += FakePlex.Rule("1", 2, "plex://show/Show-0", emptyMap())
+        runBlocking { app.container.recordings.refresh(pid) }
+        // The app leaves, and the recording starts meanwhile: back, it's shown recording, with no toast.
+        app.container.recordings.stopWatching()
+        plex.recordingNow += "plex://episode/ch-1-0"
+        runBlocking { app.container.recordings.refresh(pid) }
+        compose.waitAdvancingClock(50) { marked("Recording") }
+        assertEquals(null, ShadowToast.getTextOfLatestToast())
     }
 
     @Test

@@ -8,16 +8,32 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.biskyt.myplexplayer.R
+import com.biskyt.myplexplayer.container
 import com.biskyt.myplexplayer.data.RecordingMark
+import com.biskyt.myplexplayer.data.RecordingState
 
 private val DOT = 10.dp
+
+/**
+ * Source [playlistId]'s recordings as last read, for marks: kept up to date while the app shows (see
+ * `Recordings.startWatching`), so this doesn't ask the server again.
+ */
+@Composable
+fun rememberRecordings(playlistId: Long): State<RecordingState> {
+    val recordings = LocalContext.current.container.recordings
+    return remember(playlistId) { recordings.watch(playlistId) }.collectAsState(recordings.current(playlistId))
+}
 
 /** The red of a recording, as on a recorder's button. */
 val RecordRed = Color(0xFFE53935)

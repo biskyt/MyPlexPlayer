@@ -17,7 +17,7 @@ import com.biskyt.myplexplayer.container
 import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.VodView
 
-/** Every screen in the app. Tab roots are [Home], [Live], [Movies], [Series]. */
+/** Every screen in the app. Tab roots are [Home], [Live], [Movies], [Series], [Dvr]. */
 sealed interface Screen {
     /** First launch, or after the last playlist is deleted: sign in to Plex, add a provider, or restore a backup. */
     data object Welcome : Screen
@@ -27,6 +27,9 @@ sealed interface Screen {
     data class Live(val filter: ChannelFilter? = null, val guide: Boolean = false) : Screen
     data class Movies(val view: VodView? = null) : Screen
     data class Series(val view: VodView? = null) : Screen
+
+    /** What the server's DVR records (MyPlexPlayer's own). */
+    data object Dvr : Screen
 
     /** [query]: already typed (e.g. a TV programme's title). */
     data class Search(val query: String = "") : Screen

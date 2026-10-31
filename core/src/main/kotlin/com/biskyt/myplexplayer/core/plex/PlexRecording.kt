@@ -26,7 +26,7 @@ data class PlexRecordingOption(
 
 /**
  * A recording rule ("subscription"): one airing, or a series ([PlexRecordingOption.SERIES], its show in `Directory`;
- * an airing's programme is in `Video`). [key] is what it's removed by.
+ * an airing's programme is in `Video`). [key] is what it's removed and changed by; [settings] are as it records.
  */
 @Serializable
 data class PlexRecordingRule(
@@ -34,8 +34,12 @@ data class PlexRecordingRule(
     val type: Int = 0,
     @SerialName("Directory") @Serializable(with = SkippingList::class) val shows: List<PlexProgramme> = emptyList(),
     @SerialName("Video") @Serializable(with = SkippingList::class) val programmes: List<PlexProgramme> = emptyList(),
+    @SerialName("Setting") @Serializable(with = SkippingList::class) val settings: List<PlexSetting> = emptyList(),
 ) {
     val isSeries: Boolean get() = type == PlexRecordingOption.SERIES
+
+    /** Setting [id] as the rule records now (its value, else its default), or null if it has no such setting. */
+    fun setting(id: String): String? = settings.firstOrNull { it.id == id }?.current
 
     /** What it records: the show of a series, else the programme. */
     val subject: PlexProgramme? get() = shows.firstOrNull() ?: programmes.firstOrNull()
@@ -58,9 +62,14 @@ data class PlexScheduledRecording(
 
     val isScheduled: Boolean get() = status == SCHEDULED
     val isRecording: Boolean get() = status in RECORDING
+    val isComplete: Boolean get() = status == COMPLETE
+
+    /** What it's called: its show's title (an episode), else the programme's. */
+    val title: String get() = programme?.grandparentTitle ?: programme?.title.orEmpty()
 
     companion object {
         const val SCHEDULED = "scheduled"
+        const val COMPLETE = "complete"
 
         /** The tune's own grab (docs/plex-api.md, 13) says `inprogress`; Plezy reads `grabbing` as recording too. */
         val RECORDING = setOf("inprogress", "grabbing")

@@ -198,9 +198,10 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     override fun playAnotherWay(e: PlaybackException): Boolean {
         val plex = current?.stream?.plex
         val engine = engine
-        // Once only: not when the server's stream is the one that failed.
+        // Once only: not when the server's stream is the one that failed. Nor for an empty file: the server has nothing
+        // to stream, and the error says so.
         val fileUnreadable = e.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED && plex?.streaming == false
-        if (plex == null || engine == null || !fileUnreadable) return false
+        if (plex == null || engine == null || !fileUnreadable || engine.sentNothing(engine.currentUrl)) return false
         val position = engine.player.currentPosition
         viewModelScope.launch {
             val stream = try {

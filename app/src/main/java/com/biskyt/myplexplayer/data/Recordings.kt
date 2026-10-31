@@ -8,17 +8,24 @@ import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.plex.PlexRecordingRule
 import com.biskyt.myplexplayer.core.plex.PlexScheduledRecording
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** How a guide programme is set to record: one airing, as part of its series, or recording now. */
 enum class RecordingMark { EPISODE, SERIES, RECORDING }
@@ -27,7 +34,7 @@ enum class RecordingMark { EPISODE, SERIES, RECORDING }
  * What a server has set to record ([rules], and the airings [scheduled] by them), read from the server whenever a
  * screen shows it and after each change: Plex keeps it, the app only shows it (docs/plex-api.md 14, 22-24).
  */
-class RecordingState(val rules: List<PlexRecordingRule> = emptyList(), val scheduled: List<PlexScheduledRecording> = emptyList()) {
+data class RecordingState(val rules: List<PlexRecordingRule> = emptyList(), val scheduled: List<PlexScheduledRecording> = emptyList()) {
     private val ruleByKey = rules.associateBy { it.key }
 
     /** Airings to come or recording now, by their programme's id and start (seconds). */
@@ -45,18 +52,65 @@ class RecordingState(val rules: List<PlexRecordingRule> = emptyList(), val sched
     fun seriesRule(showGuid: String?): PlexRecordingRule? =
         showGuid?.let { guid -> rules.firstOrNull { it.isSeries && it.subject?.guid == guid } }
 
-    fun mark(guid: String?, startMs: Long): RecordingMark? = airing(guid, startMs)?.let {
-        when {
-            it.isRecording -> RecordingMark.RECORDING
-            ruleOf(it)?.isSeries == true -> RecordingMark.SERIES
-            else -> RecordingMark.EPISODE
-        }
+    /** The airings recording now (by their key), from the server's status. */
+    val recordingNow: Map<String, PlexScheduledRecording> = scheduled.filter {
+        it.isRecording && it.key.isNotBlank()
+    }.associateBy { it.key }
+
+    /** The same, by their channel's key. */
+    private val recordingOnChannel = recordingNow.values.associateBy { it.airing?.channelIdentifier }
+
+    /** What channel [channelKey] (its `providerEpgId`) is recording now, if anything. */
+    fun recordingOn(channelKey: String?): PlexScheduledRecording? = channelKey?.let(recordingOnChannel::get)
+
+    fun mark(guid: String?, startMs: Long): RecordingMark? = airing(guid, startMs)?.let(::mark)
+
+    /** How [airing] is set to record: recording now, as part of its series, or alone. */
+    fun mark(airing: PlexScheduledRecording): RecordingMark = when {
+        airing.isRecording -> RecordingMark.RECORDING
+        ruleOf(airing)?.isSeries == true -> RecordingMark.SERIES
+        else -> RecordingMark.EPISODE
     }
 
     companion object {
         val NONE = RecordingState()
     }
 }
+
+/** A recording that started or ended, for its toast: [title] is the show's (an episode's) or the programme's. */
+data class RecordingEvent(val kind: Kind, val title: String) {
+    enum class Kind { STARTED, FINISHED, STOPPED_EARLY }
+}
+
+/**
+ * What changed between two reads of a server's recordings ([before], [after]) at [nowS] (seconds): airings that began
+ * recording, and those that stopped (finished, or more than a minute before their end: stopped early).
+ */
+fun recordingEvents(before: RecordingState, after: RecordingState, nowS: Long): List<RecordingEvent> {
+    val started = (after.recordingNow - before.recordingNow.keys).values.map { RecordingEvent(RecordingEvent.Kind.STARTED, it.title) }
+    val ended = (before.recordingNow - after.recordingNow.keys).values.map {
+        val early = (it.airing?.endsAt ?: 0) > nowS + EARLY_S
+        RecordingEvent(if (early) RecordingEvent.Kind.STOPPED_EARLY else RecordingEvent.Kind.FINISHED, it.title)
+    }
+    return started + ended
+}
+
+/** When to read a server's recordings again after [state] at [nowS]: just after the next airing starts or ends, at most [MAX_WAIT_S] away. */
+fun nextRecordingCheckS(state: RecordingState, nowS: Long): Long {
+    // One still recording after its end (Plex records on a little): look again soon, for when it stops.
+    if (state.scheduled.any { it.isRecording && (it.airing?.endsAt ?: Long.MAX_VALUE) <= nowS }) return OVERRUN_WAIT_S
+    val times = state.scheduled.filter { it.isScheduled || it.isRecording }
+        .flatMap { listOfNotNull(it.airing?.beginsAt, it.airing?.endsAt) }.filter { it > nowS }
+    return ((times.minOrNull() ?: Long.MAX_VALUE) - nowS + SETTLE_S).coerceIn(MIN_WAIT_S, MAX_WAIT_S)
+}
+
+private const val EARLY_S = 60L
+
+/** Plex takes a few seconds to mark an airing recording once it starts. */
+private const val SETTLE_S = 10L
+private const val MIN_WAIT_S = 15L
+private const val OVERRUN_WAIT_S = 60L
+private const val MAX_WAIT_S = 15 * 60L
 
 /**
  * Recording from the guide on each Plex server (a source): its [RecordingState], and setting a programme, or its
@@ -74,6 +128,47 @@ class Recordings(
     /** Each source's newest refresh started, and the one its state is from: an older one finishing late is dropped. */
     private val started = AtomicLong()
     private val applied = mutableMapOf<Long, Long>()
+
+    private val changes = MutableSharedFlow<RecordingEvent>(extraBufferCapacity = EVENTS)
+
+    /** Recordings that started or ended on the source being watched ([startWatching]), for their toasts. */
+    val events: SharedFlow<RecordingEvent> = changes
+
+    private var watcher: Job? = null
+
+    /** A change made here (see [change]): the watcher works out its next look again. */
+    private val changed = Channel<Unit>(Channel.CONFLATED)
+
+    /**
+     * Sources read since the app was shown: [events] tells only what changes after a source's first read, not what
+     * happened while the app was away.
+     */
+    private val seen = ConcurrentHashMap.newKeySet<Long>()
+
+    /**
+     * While the app is shown: reads the active source's ([activePlaylist], read again when it changes) recordings just
+     * after each airing starts or ends (and every 15 minutes), so [events] says when one starts or stops.
+     */
+    fun startWatching(activePlaylist: Flow<Long>) {
+        stopWatching()
+        watcher = scope.launch {
+            activePlaylist.collectLatest { pid ->
+                var read = true
+                while (true) {
+                    if (read) refresh(pid)
+                    val waitMs = nextRecordingCheckS(current(pid), System.currentTimeMillis() / 1000) * 1000
+                    // After a change here the state is new already: only the wait is worked out again.
+                    read = withTimeoutOrNull(waitMs) { changed.receive() } == null
+                }
+            }
+        }
+    }
+
+    fun stopWatching() {
+        watcher?.cancel()
+        watcher = null
+        seen.clear()
+    }
 
     /** Source [playlistId]'s state as last read, for a screen's first frame. */
     fun current(playlistId: Long): RecordingState = states.value[playlistId] ?: RecordingState.NONE
@@ -95,10 +190,14 @@ class Recordings(
                 val scheduled = async { client.scheduledRecordings() }
                 RecordingState(rules.await(), scheduled.await())
             }
-            synchronized(applied) {
+            val before = synchronized(applied) {
                 if (run < (applied[playlistId] ?: 0)) return
                 applied[playlistId] = run
-                states.update { it + (playlistId to state) }
+                states.value[playlistId].also { states.update { it + (playlistId to state) } }
+            }
+            // Not on the first read since the app was shown: what was already recording then didn't just start.
+            if (!seen.add(playlistId)) {
+                before?.let { recordingEvents(it, state, System.currentTimeMillis() / 1000).forEach(changes::tryEmit) }
             }
         } catch (_: IOException) {
             // Shown as it was: the guide works without its marks.
@@ -122,6 +221,14 @@ class Recordings(
             }
         }
 
+    /** Whether series [rule] records new airings only (else repeats too). */
+    fun isNewOnly(rule: PlexRecordingRule) = rule.setting(ONLY_NEW_AIRINGS) == NEW_ONLY
+
+    /** Sets whether series [rule] records new airings only (Plex decides what's new), or repeats too. */
+    fun setNewOnly(playlistId: Long, rule: PlexRecordingRule, newOnly: Boolean) = change(playlistId, R.string.dvr_change_failed) { client ->
+        client.changeRecording(rule.key, mapOf(ONLY_NEW_AIRINGS to if (newOnly) NEW_ONLY else ALL_AIRINGS))
+    }
+
     /** Stops recording a series ([rule]): the rule and every airing it set to record go. */
     fun stopSeries(playlistId: Long, rule: PlexRecordingRule) =
         change(playlistId, R.string.dvr_cancel_failed) { client -> client.removeRecording(rule.key) }
@@ -144,13 +251,17 @@ class Recordings(
                 notices.post(Notice(appString(failed), userMessage(e)))
             }
             refresh(playlistId)
+            changed.trySend(Unit)
         }
     }
 
     private companion object {
+        /** A series rule's setting: [NEW_ONLY] or [ALL_AIRINGS] (new and repeats). */
         const val ONLY_NEW_AIRINGS = "onlyNewAirings"
         const val NEW_ONLY = "1"
+        const val ALL_AIRINGS = "0"
         const val HTTP_CONFLICT = 409
         const val HTTP_FORBIDDEN = 403
+        const val EVENTS = 8
     }
 }

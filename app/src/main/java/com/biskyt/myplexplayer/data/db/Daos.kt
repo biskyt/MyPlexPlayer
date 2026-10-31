@@ -260,7 +260,10 @@ data class ProgrammeHit(
     val startMs: Long,
     val stopMs: Long,
     val title: String,
-    val subtitle: String?
+    val subtitle: String?,
+    /** Plex's id for it and its show's, for recording. */
+    val guid: String? = null,
+    val showGuid: String? = null
 )
 
 /** Now/next row: a programme for a playlist channel with the channel's time shift already applied. */
@@ -322,7 +325,7 @@ interface EpgDao {
      */
     @Query(
         """SELECT m.streamId, c.name AS channelName, c.logoUrl, p.startMs + m.offsetMinutes * 60000 AS startMs,
-                  p.stopMs + m.offsetMinutes * 60000 AS stopMs, p.title, p.subtitle
+                  p.stopMs + m.offsetMinutes * 60000 AS stopMs, p.title, p.subtitle, p.guid, p.showGuid
            FROM programme p JOIN channel_epg_mapping m ON m.sourceId = p.sourceId AND m.xmlId = p.xmlId
            JOIN channel c ON c.playlistId = m.playlistId AND c.streamId = m.streamId
            WHERE m.playlistId = :pid AND c.hidden = 0

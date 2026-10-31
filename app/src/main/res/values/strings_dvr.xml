@@ -14,4 +14,26 @@
     <string name="dvr_cancel_failed">Couldn\'t cancel the recording</string>
     <string name="dvr_already">It\'s already set to record</string>
     <string name="dvr_not_allowed">Only the server\'s owner can record</string>
+    <string name="dvr_toast_started">Recording started: %1$s</string>
+    <string name="dvr_toast_finished">Recording finished: %1$s</string>
+    <string name="dvr_toast_stopped">Recording stopped early: %1$s</string>
+    <!-- The DVR tab. -->
+    <string name="dvr_now_title">Recording now</string>
+    <string name="dvr_coming_up">Coming up</string>
+    <string name="dvr_series_title">Series recordings</string>
+    <string name="dvr_problems">Not recorded</string>
+    <string name="dvr_nothing">Nothing is set to record. To record a programme, hold OK on it in the TV guide, or press the remote\'s Record button.</string>
+    <!-- %1$s: when and on which channel, e.g. "Today at 21:00 – 22:00 · One" -->
+    <string name="dvr_series_next">Next: %1$s</string>
+    <string name="dvr_series_none">Nothing to record yet</string>
+    <plurals name="dvr_to_come">
+        <item quantity="one">%d airing to come</item>
+        <item quantity="other">%d airings to come</item>
+    </plurals>
+    <string name="dvr_episodes">Episodes</string>
+    <string name="dvr_new_only">New only</string>
+    <string name="dvr_new_and_repeats">New and repeats</string>
+    <string name="dvr_change_failed">Couldn\'t change the recording</string>
+    <!-- %1$s: Plex's own word for what happened (not translated) -->
+    <string name="dvr_status">Plex says: %1$s</string>
 </resources>

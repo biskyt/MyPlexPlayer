@@ -240,7 +240,7 @@ class PlayerKeysUiTest {
         waitForFocus("One")
         press(Key.DirectionUp) // the filter box
         press(Key.DirectionUp) // the tabs
-        assertTrue(focused(), listOf("Home", "Live TV", "Movies", "Series").any { focused().contains(it) })
+        assertTrue(focused(), listOf("Home", "Live TV", "Movies", "Series", "TV Shows", "DVR").any { focused().contains(it) })
         press(Key.Guide)
         waitFor("No guide information")
     }

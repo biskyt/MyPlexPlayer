@@ -79,6 +79,8 @@ class PlexRecordingTest {
         assertTrue(series.isSeries)
         assertEquals("plex://show/show0001", series.subject?.guid)
         assertEquals("The Harbour", series.subject?.title)
+        assertEquals("1", series.setting("onlyNewAirings")) // new airings only, as set
+        assertEquals(null, rules.last().setting("onlyNewAirings"))
         assertFalse(rules.last().isSeries)
         assertEquals("A Film", rules.last().subject?.title)
 
@@ -103,6 +105,16 @@ class PlexRecordingTest {
         server.takeRequest().let {
             assertEquals("DELETE", it.method)
             assertEquals("/media/subscriptions/11", it.requestUrl!!.encodedPath)
+        }
+    }
+
+    @Test
+    fun `a rule's setting is changed`() = runTest {
+        client.changeRecording("11", mapOf("onlyNewAirings" to "0"))
+        server.takeRequest().let {
+            assertEquals("PUT", it.method)
+            assertEquals("/media/subscriptions/11", it.requestUrl!!.encodedPath)
+            assertEquals("0", it.requestUrl!!.queryParameter("prefs[onlyNewAirings]"))
         }
     }
 

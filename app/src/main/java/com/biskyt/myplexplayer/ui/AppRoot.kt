@@ -33,11 +33,13 @@ import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.ui.common.LocalTopBarInset
 import com.biskyt.myplexplayer.ui.common.NoticeToast
+import com.biskyt.myplexplayer.ui.common.RecordingToasts
 import com.biskyt.myplexplayer.ui.common.SyncToast
 import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.TabScaffoldGap
 import com.biskyt.myplexplayer.ui.common.TopBar
 import com.biskyt.myplexplayer.ui.common.onGuideKey
+import com.biskyt.myplexplayer.ui.dvr.DvrScreen
 import com.biskyt.myplexplayer.ui.home.HomeScreen
 import com.biskyt.myplexplayer.ui.live.LiveScreen
 import com.biskyt.myplexplayer.ui.player.PlayerScreen
@@ -116,6 +118,7 @@ fun AppRoot() {
             NavHost(nav) { screen -> ScreenContent(screen, hasPlaylist) }
             SyncToast(nav, Modifier.align(Alignment.BottomEnd).padding(24.dp))
             NoticeToast(nav, Modifier.align(Alignment.BottomStart).padding(24.dp))
+            RecordingToasts()
         }
     }
 }
@@ -203,7 +206,7 @@ private val Screen.drawsBehindTopBar: Boolean
 /** The tab screens draw the top bar themselves (Live TV's number keys cover its tabs too). Every screen is listed. */
 private val Screen.drawsOwnTopBar: Boolean
     get() = when (this) {
-        Screen.Home, is Screen.Live, is Screen.Movies, is Screen.Series, is Screen.Search -> true
+        Screen.Home, is Screen.Live, is Screen.Movies, is Screen.Series, Screen.Dvr, is Screen.Search -> true
         Screen.Welcome, is Screen.Player, is Screen.VodPlayer, is Screen.MovieDetails, is Screen.MoreInfo,
         is Screen.SeriesDetails, Screen.Settings, Screen.Playlists, is Screen.PlexSignIn, is Screen.Categories,
         Screen.PlaybackSettings, Screen.Appearance, Screen.Backup, Screen.About, Screen.Licences -> false
@@ -226,6 +229,7 @@ private fun ScreenBody(screen: Screen) {
         is Screen.Live -> LiveScreen(screen.filter, screen.guide)
         is Screen.Movies -> VodBrowseScreen(CAT_MOVIE, screen.view)
         is Screen.Series -> VodBrowseScreen(CAT_SERIES, screen.view)
+        Screen.Dvr -> DvrScreen()
         is Screen.MovieDetails -> MovieDetailsScreen(screen)
         is Screen.MoreInfo -> MoreInfoScreen(screen)
         is Screen.SeriesDetails -> SeriesDetailsScreen(screen)

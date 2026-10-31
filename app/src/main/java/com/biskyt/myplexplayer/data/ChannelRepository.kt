@@ -48,6 +48,8 @@ class ChannelRepository(private val db: AppDatabase, private val plex: PlexSourc
 
     suspend fun get(playlistId: Long, streamId: Long) = channels.get(playlistId, streamId)
 
+    suspend fun getAll(playlistId: Long, streamIds: List<Long>) = channels.getAll(playlistId, streamIds)
+
     suspend fun byNumber(playlistId: Long, number: Int) = channels.byNumber(playlistId, number)
 
     fun observeCount(playlistId: Long) = channels.observeCount(playlistId)

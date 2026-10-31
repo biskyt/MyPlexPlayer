@@ -20,7 +20,11 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   series pages (1.8.3, `c456681`, in 0.16.1), and on every screen but playback and set-up (1.8.4, `1b8f228`, in
   0.16.2; its `45f431f` fixes a test MyPlexPlayer hasn't; a title's art also goes behind the bar here, which
   MyTVPlayer 1.8.5 copied), 1.8.5's opened backup file and `Navigator.open` KDoc (`3016f93`, by hand in 0.16.3), and the play button in the
-  middle of the player's controls (1.8.6, `fee0749`, in 0.16.4). The plain-english skill (`7de1099`) is copied as it
+  middle of the player's controls (1.8.6, `fee0749`, in 0.16.4). In 0.17.0, by hand: from 1.8.9 (`c18cb42`), the
+  empty file error and the address on the error screen (a Plex token hidden), and only the buffer line of its Stream
+  info (MyPlexPlayer's Playback info shows the rest), not its http/https buttons (no address to type here); from
+  1.8.10 (`ecf5468`), Up and Down leaving a text box (`9456942`) and the focus back on a search result (`a17787f`),
+  not its category line (a Plex title is in one library). The plain-english skill (`7de1099`) is copied as it
   is. 1.8.7 (`fc738a8`) and 1.8.8 (`9cb696c`) change the XMLTV guide's reading and channel matching, which
   MyPlexPlayer removed in 0.6.0: they don't apply.
 - **Where a change is made first** (the owner, 2026-10-25): a feature or fix both apps need (the player, remote keys,

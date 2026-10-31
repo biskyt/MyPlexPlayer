@@ -55,6 +55,13 @@ class MainActivity : ComponentActivity() {
         val syncIfDue = started
         started = true
         container.appScope.launch { container.sync.refreshPlayState(container.settings.current().activePlaylistId, syncIfDue) }
+        // While shown: recordings starting and stopping (toasts, see AppRoot).
+        container.recordings.startWatching(container.settings.activePlaylistId)
+    }
+
+    override fun onStop() {
+        container.recordings.stopWatching()
+        super.onStop()
     }
 
     private var started = false

@@ -13,4 +13,27 @@
     <string name="dvr_cancel_failed">No se pudo cancelar la grabación</string>
     <string name="dvr_already">Ya está programado para grabar</string>
     <string name="dvr_not_allowed">Solo el propietario del servidor puede grabar</string>
+    <string name="dvr_toast_started">Grabación iniciada: %1$s</string>
+    <string name="dvr_toast_finished">Grabación terminada: %1$s</string>
+    <string name="dvr_toast_stopped">Grabación detenida antes de tiempo: %1$s</string>
+    <!-- The DVR tab. -->
+    <string name="dvr_now_title">Grabando ahora</string>
+    <string name="dvr_coming_up">Próximas grabaciones</string>
+    <string name="dvr_series_title">Series que se graban</string>
+    <string name="dvr_problems">No grabado</string>
+    <string name="dvr_nothing">No hay nada programado para grabar. Para grabar un programa, mantén pulsado OK sobre él en la guía de TV o pulsa el botón Grabar del mando.</string>
+    <!-- %1$s: when and on which channel, e.g. "Today at 21:00 – 22:00 · One" -->
+    <string name="dvr_series_next">Siguiente: %1$s</string>
+    <string name="dvr_series_none">Aún no hay nada que grabar</string>
+    <plurals name="dvr_to_come">
+        <item quantity="one">%d emisión pendiente</item>
+        <item quantity="many">%d emisiones pendientes</item>
+        <item quantity="other">%d emisiones pendientes</item>
+    </plurals>
+    <string name="dvr_episodes">Episodios</string>
+    <string name="dvr_new_only">Solo nuevos</string>
+    <string name="dvr_new_and_repeats">Nuevos y repeticiones</string>
+    <string name="dvr_change_failed">No se pudo cambiar la grabación</string>
+    <!-- %1$s: Plex's own word for what happened (not translated) -->
+    <string name="dvr_status">Plex dice: %1$s</string>
 </resources>

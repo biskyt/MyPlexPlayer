@@ -3,8 +3,17 @@
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
 ## 0.17.0
+- The new DVR tab, last in the menu, shows what is recording now, what is coming up and your series recordings.
 - Record a programme or its whole series from the TV guide: hold OK, press Menu, or press the remote's Record button.
+- You can also record from search results and from the channel list.
+- A message shows when a recording starts or stops, over everything on the screen.
 - Programmes set to record show a red dot in the TV guide, and two dots when the whole series is set to record.
+- While a channel plays, its controls show when the channel is recording.
+- A series recording can record new episodes only, or repeats too.
+- When you go back to search results, the focus is on the result you opened.
+- On some TVs, Up and Down now leave a text box after the keyboard closes.
+- When the server sends an empty file, the error now says so, and errors show the file's address.
+- The Playback info panel shows how many seconds of the video are loaded ahead.
 
 ## 0.16.4
 - The play button is now in the middle of the player's controls.

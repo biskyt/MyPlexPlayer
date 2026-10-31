@@ -372,6 +372,12 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
     /** Removes a rule, and every airing it set to record. */
     suspend fun removeRecording(ruleKey: String) = send("DELETE", url("media/subscriptions/$ruleKey"))
 
+    /** Changes a rule's settings ([changes], by setting id), as proven (docs/plex-api.md, 23). */
+    suspend fun changeRecording(ruleKey: String, changes: Map<String, String>) = send(
+        "PUT",
+        url("media/subscriptions/$ruleKey") { changes.forEach { (id, value) -> addQueryParameter("prefs[$id]", value) } }
+    )
+
     /** Cancels one airing ([PlexScheduledRecording.key]); its rule (a series) stays. */
     suspend fun cancelRecording(airingKey: String) = send("DELETE", url(airingKey.trimStart('/')))
 

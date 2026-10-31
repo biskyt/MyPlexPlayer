@@ -45,6 +45,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.data.ChannelFilter
+import com.biskyt.myplexplayer.data.RecordingMark
 import com.biskyt.myplexplayer.data.db.CAT_LIVE
 import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.data.label
@@ -66,6 +67,7 @@ import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.NowNext
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.ProgressLine
+import com.biskyt.myplexplayer.ui.common.RecordingDot
 import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.TabScaffold
 import com.biskyt.myplexplayer.ui.common.TvCard
@@ -75,7 +77,9 @@ import com.biskyt.myplexplayer.ui.common.digit
 import com.biskyt.myplexplayer.ui.common.formatTime
 import com.biskyt.myplexplayer.ui.common.isGuide
 import com.biskyt.myplexplayer.ui.common.numberLabel
+import com.biskyt.myplexplayer.ui.common.onRecordKey
 import com.biskyt.myplexplayer.ui.common.rememberMinuteClock
+import com.biskyt.myplexplayer.ui.common.rememberRecordings
 import com.biskyt.myplexplayer.ui.common.restoreFocusIf
 import com.biskyt.myplexplayer.ui.theme.Palette
 
@@ -204,6 +208,9 @@ private fun ChannelList(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>
     KeepInView(listState) { vm.mover.movingId(CAT_LIVE)?.let { p -> items.itemSnapshotList.indexOfFirst { it?.streamId == p } } }
     LaunchedEffect(Unit) { if (vm.restoreFocusPending) vm.revealFocused() }
     val now by rememberMinuteClock()
+    // What's recording now (Plex's DVR), for the channels' marks.
+    val pid by vm.playlistId.collectAsState()
+    val recordings by rememberRecordings(pid)
 
     LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
         items(count = items.itemCount, key = items.itemKey { it.streamId }) { index ->
@@ -222,7 +229,10 @@ private fun ChannelList(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>
                         nowMs = now,
                         onClick = { play(ch) },
                         onLongClick = { vm.openOptions(ch) },
+                        recording = recordings.recordingOn(ch.providerEpgId) != null,
+                        // The remote's Record button opens the options too, which can record what's on now.
                         modifier = Modifier.restoreFocusIf(wantsFocus) { vm.restoreFocusPending = false }
+                            .onRecordKey { vm.openOptions(ch) }
                             .onFocusChanged { if (it.isFocused) vm.focusMoved(ch.streamId, index) }
                     )
                 }
@@ -242,7 +252,9 @@ fun ChannelRow(
     nowMs: Long,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** MyPlexPlayer's own: the channel is recording now (Plex's DVR). */
+    recording: Boolean = false
 ) {
     TvCard(onClick = onClick, onLongClick = onLongClick, modifier = modifier.fillMaxWidth().height(64.dp), color = Palette.surfaceLow) {
         Row(
@@ -266,6 +278,7 @@ fun ChannelRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1.2f)
             )
+            if (recording) RecordingDot(RecordingMark.RECORDING)
             Column(Modifier.weight(1f)) {
                 when {
                     nn == null -> SkeletonLines()

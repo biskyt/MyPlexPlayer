@@ -51,10 +51,12 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     var tuning by mutableStateOf(false)
         protected set
 
-    /** Stops on an error: [message] says what happened and what to do, [reason] why (when known). */
-    /** Shows the error [message] ([failureMessage] when there's none to tell), and why: [reason]. */
-    protected fun fail(message: String? = null, reason: String? = null) {
-        error = PlaybackError(message ?: appString(failureMessage), reason)
+    /**
+     * Shows the error [message] ([failureMessage] when there is none to tell), and why it happened ([reason]). For a stream
+     * that failed, [url] is its address: the error shows it, and the reason names its server.
+     */
+    protected fun fail(message: String? = null, reason: String? = null, url: String? = null) {
+        error = PlaybackError(message ?: appString(failureMessage), reason, url)
         tuning = false
         wake() // an error isn't left under the dimming
     }
@@ -95,7 +97,8 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     protected open val playsHow: String? get() = null
 
     /** The Playback info panel's lines, as playback stands now. */
-    fun info(): List<String> = playbackInfo(tracks, playsHow, videoDecoder, audioLabel, engine?.droppedFrames())
+    fun info(): List<String> = playbackInfo(tracks, playsHow, videoDecoder, audioLabel, engine?.droppedFrames()) +
+        listOfNotNull(engine?.player?.totalBufferedDuration?.let(::bufferLine))
 
     /** Before an action replaces the player with another screen (e.g. saves how far a movie got). */
     open fun beforeLeaving() = Unit
@@ -178,7 +181,8 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             playedMs = 0
             playingSince = 0
             if (!retries.take()) {
-                fail(reason = failureReason(e, engine?.currentUrl))
+                val url = engine?.currentUrl
+                fail(reason = failureReason(e, url, engine?.sentNothing(url) == true), url = url)
                 return
             }
             if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
@@ -226,7 +230,8 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             it.player.addListener(listener)
             it.player.addAnalyticsListener(formatListener)
             it.onStalled = listener::onPlayerError
-            it.onUnsupported = { url -> fail(appString(R.string.player_unsupported_format), failureReason(null, url)) }
+            it.onUnsupported =
+                { url -> fail(appString(R.string.player_unsupported_format), failureReason(null, url), url.ifEmpty { null }) }
             engine = it
         }
     }
