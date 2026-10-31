@@ -16,10 +16,15 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.jsonArray
 import okhttp3.Call
@@ -80,7 +85,8 @@ internal val plexJson = Json {
 
 /**
  * A list without the items that can't be read (a programme with a field of another type, say), rather than failing
- * the whole reply: one odd programme mustn't cost the whole guide.
+ * the whole reply: one odd programme mustn't cost the whole guide. A single item where a list could be (a recording
+ * rule's `Video` or `Directory`, docs/plex-api.md 25) is a list of one.
  */
 internal class SkippingList<T>(private val item: KSerializer<T>) : KSerializer<List<T>> {
     private val list = ListSerializer(item)
@@ -88,7 +94,9 @@ internal class SkippingList<T>(private val item: KSerializer<T>) : KSerializer<L
 
     override fun deserialize(decoder: Decoder): List<T> {
         val json = decoder as JsonDecoder
-        return json.decodeJsonElement().jsonArray.mapNotNull {
+        val element = json.decodeJsonElement()
+        val items = if (element is JsonObject) listOf(element) else element.jsonArray
+        return items.mapNotNull {
             try {
                 json.json.decodeFromJsonElement(item, it)
             } catch (ignored: IllegalArgumentException) { // SerializationException included
@@ -98,6 +106,19 @@ internal class SkippingList<T>(private val item: KSerializer<T>) : KSerializer<L
     }
 
     override fun serialize(encoder: Encoder, value: List<T>) = list.serialize(encoder, value)
+}
+
+/**
+ * An id that Plex sends as text or as a number, as text: a scheduled airing's `mediaSubscriptionID` is a number,
+ * while the rule's `key` it names is text (docs/plex-api.md 25).
+ */
+internal object PlexIdText : KSerializer<String> {
+    override val descriptor = PrimitiveSerialDescriptor("PlexIdText", PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): String =
+        ((decoder as JsonDecoder).decodeJsonElement() as? JsonPrimitive)?.contentOrNull.orEmpty()
+
+    override fun serialize(encoder: Encoder, value: String) = encoder.encodeString(value)
 }
 
 /** Who is asking, the [token] and (during playback) the [session], as Plex's X-Plex-* headers; blank ones left out. */

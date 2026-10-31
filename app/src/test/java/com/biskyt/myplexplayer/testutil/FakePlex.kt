@@ -411,7 +411,7 @@ class FakePlex : AutoCloseable {
     private fun grab(rule: Rule, airing: Showing) = obj {
         put("key", "/media/grabbers/operations/g-${airing.guid}")
         put("status", if (airing.guid in recordingNow) "inprogress" else "scheduled")
-        put("mediaSubscriptionID", rule.key)
+        put("mediaSubscriptionID", rule.key.toInt()) // a number, as Plex sends it (the rule's key is text)
         putJsonObject("Metadata") {
             put("guid", airing.guid)
             airing.showGuid?.let { put("grandparentGuid", it) }
@@ -449,13 +449,10 @@ class FakePlex : AutoCloseable {
         val title = showings().firstOrNull {
             if (series) it.showGuid == rule.guid else it.guid == rule.guid
         }?.let { if (series) it.show else it.title }
-        putJsonArray(if (series) "Directory" else "Video") {
-            add(
-                obj {
-                    put("guid", rule.guid)
-                    title?.let { put("title", it) }
-                }
-            )
+        // One object, not a list, as Plex sends it.
+        putJsonObject(if (series) "Directory" else "Video") {
+            put("guid", rule.guid)
+            title?.let { put("title", it) }
         }
     }
 

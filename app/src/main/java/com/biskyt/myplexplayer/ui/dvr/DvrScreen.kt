@@ -73,7 +73,7 @@ class DvrLists(state: RecordingState) {
     private val byStart = state.scheduled.sortedBy { it.airing?.beginsAt ?: Long.MAX_VALUE }
     val now = byStart.filter { it.isRecording }
     val comingUp = byStart.filter { it.isScheduled }
-    val problems = byStart.filter { !it.isScheduled && !it.isRecording && !it.isComplete }
+    val problems = byStart.filter { it.needsAttention }
     private val byRule = comingUp.groupBy { it.mediaSubscriptionID }
     val series = state.rules.filter { it.isSeries }.map { rule ->
         val toCome = byRule[rule.key].orEmpty()
