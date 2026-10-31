@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.17.0
+- Record a programme or its whole series from the TV guide: hold OK, press Menu, or press the remote's Record button.
+- Programmes set to record show a red dot in the TV guide, and two dots when the whole series is set to record.
+
 ## 0.16.4
 - The play button is now in the middle of the player's controls.
 

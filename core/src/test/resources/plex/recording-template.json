@@ -1,0 +1,15 @@
+{"MediaContainer":{"size":1,"SubscriptionTemplate":[{"MediaSubscription":[
+{"type":4,"targetLibrarySectionID":2,"title":"This Episode","airingsType":"New Airings Only","selected":true,
+ "parameters":"hints%5Bguid%5D=plex%3A%2F%2Fepisode%2Fep0001&hints%5Btitle%5D=Low%20Tide&hints%5Btype%5D=4&params%5BairingChannels%5D=5fc705db-ch1&params%5BlibraryType%5D=2&params%5BmediaProviderID%5D=5",
+ "Setting":[
+  {"id":"minVideoQuality","label":"Resolution","type":"int","default":0,"value":0,"enumValues":"0:Prefer HD|720:HD only","advanced":true},
+  {"id":"recordPartials","label":"Allow partial airings","type":"bool","default":true,"value":true,"advanced":true},
+  {"id":"endOffsetMinutes","label":"Minutes after end","type":"int","default":0,"value":0,"advanced":true},
+  {"id":"startTimeslot","label":"Limit to airing time","type":"int","default":-1,"value":-1,"enumValues":"-1:Any|1793006100:09%3A15 AM","advanced":true},
+  {"id":"oneShot","label":"","type":"bool","default":false,"value":false,"hidden":true}]},
+{"type":2,"targetLibrarySectionID":2,"title":"All Episodes","airingsType":"New Airings Only",
+ "parameters":"hints%5Bguid%5D=plex%3A%2F%2Fshow%2Fshow0001&hints%5Btitle%5D=The%20Harbour&hints%5Btype%5D=2&params%5BlibraryType%5D=2&params%5BmediaProviderID%5D=5",
+ "Setting":[
+  {"id":"onlyNewAirings","label":"Airings","type":"int","default":0,"value":0,"enumValues":"0:New and Repeat Airings|1:New Airings Only"},
+  {"id":"endOffsetMinutes","label":"Minutes after end","type":"int","default":0,"value":0,"advanced":true},
+  {"id":"oneShot","label":"","type":"bool","default":false,"value":false,"hidden":true}]}]}]}}

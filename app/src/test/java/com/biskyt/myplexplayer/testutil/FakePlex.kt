@@ -1,6 +1,7 @@
 package com.biskyt.myplexplayer.testutil
 
 import com.biskyt.myplexplayer.AppContainer
+import com.biskyt.myplexplayer.core.plex.PlexRecordingOption
 import com.biskyt.myplexplayer.data.PlexSources
 import com.biskyt.myplexplayer.data.db.AppDatabase
 import com.biskyt.myplexplayer.data.plexChannelId
@@ -347,12 +348,151 @@ class FakePlex : AutoCloseable {
         }
         path == "/$EPG/grid" -> container { put("Metadata", JsonArray(guide(request))) }
         path.startsWith("/livetv/dvrs/$DVR/channels/") && path.endsWith("/tune") -> tune(path.split('/')[5])
+        path.startsWith("/media/subscriptions") || path.startsWith("/media/grabbers/") -> dvrAnswer(path, request)
         path == "/:/timeline" && request.requestUrl!!.queryParameter("key").orEmpty().startsWith("/livetv/sessions/") -> {
             val url = request.requestUrl!!
             if (url.queryParameter("state") == "stopped") liveStopped += url.queryParameter("key")!!
             MockResponse()
         }
         else -> null
+    }
+
+    /** A recording rule made here: its key, type (4 an airing, 2 a series), what it records and its settings. */
+    data class Rule(val key: String, val type: Int, val guid: String, val prefs: Map<String, String>)
+
+    /** The recording rules, made with Record (each one's airings follow from the guide, see [airings]). */
+    val rules: MutableList<Rule> = java.util.Collections.synchronizedList(mutableListOf())
+
+    /** Airings cancelled one at a time (their programme's guid). */
+    val cancelledAirings: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
+    /** Refuses recording, as a server does for someone who isn't its admin. */
+    @Volatile var recordingRefused = false
+
+    private fun programmeGuid(channel: String, n: Int) = "plex://episode/$channel-$n"
+    private fun showGuid(show: String) = "plex://show/${show.replace(' ', '-')}"
+
+    /** A showing in the guide, as the DVR answers know it. */
+    private data class Showing(
+        val guid: String,
+        val showGuid: String?,
+        val channel: String,
+        val begins: Long,
+        val ends: Long,
+        val title: String
+    )
+
+    /** Every showing in the guide. */
+    private fun showings(): List<Showing> = channels.withIndex().flatMap { (i, ch) ->
+        val hour = guideStart + (guideShiftMin[ch.key] ?: 0) * 60
+        (0..1 + laterHours).mapNotNull { n ->
+            val p = programme(i, n) ?: return@mapNotNull null
+            Showing(programmeGuid(ch.key, n), p.show?.let(::showGuid), ch.key, hour + n * 3600, hour + (n + 1) * 3600, p.title)
+        }
+    }
+
+    /** What [rule] records: its programme, or every airing of its show; less those cancelled. */
+    private fun airings(rule: Rule) = showings().filter {
+        (if (rule.type == PlexRecordingOption.SERIES) it.showGuid == rule.guid else it.guid == rule.guid) && it.guid !in cancelledAirings
+    }
+
+    private fun grab(rule: Rule, airing: Showing) = obj {
+        put("key", "/media/grabbers/operations/g-${airing.guid}")
+        put("status", "scheduled")
+        put("mediaSubscriptionID", rule.key)
+        putJsonObject("Metadata") {
+            put("guid", airing.guid)
+            airing.showGuid?.let { put("grandparentGuid", it) }
+            put("title", airing.title)
+            putJsonArray("Media") {
+                add(
+                    obj {
+                        put("beginsAt", airing.begins)
+                        put("endsAt", airing.ends)
+                        put("channelIdentifier", airing.channel)
+                    }
+                )
+            }
+        }
+    }
+
+    private fun ruleJson(rule: Rule) = obj {
+        put("key", rule.key)
+        put("type", rule.type)
+        putJsonArray(if (rule.type == PlexRecordingOption.SERIES) "Directory" else "Video") { add(obj { put("guid", rule.guid) }) }
+    }
+
+    /** Plex's DVR: recording templates, rules (made, listed, removed) and scheduled airings (listed, cancelled). */
+    private fun dvrAnswer(path: String, request: RecordedRequest): MockResponse {
+        val url = request.requestUrl!!
+        return when {
+            path == "/media/subscriptions/template" -> {
+                val guid = url.queryParameter("guid")!!
+                val show = showings().firstOrNull { it.guid == guid }?.showGuid
+                container {
+                    putJsonArray("SubscriptionTemplate") {
+                        add(
+                            obj {
+                                putJsonArray("MediaSubscription") {
+                                    add(template(PlexRecordingOption.EPISODE, guid, oneShot = true))
+                                    if (show != null) add(template(PlexRecordingOption.SERIES, show, oneShot = false))
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+            path == "/media/subscriptions" && request.method == "POST" -> {
+                if (recordingRefused) return MockResponse().setResponseCode(403)
+                val guid = url.queryParameter("hints[guid]")!!
+                if (rules.any { it.guid == guid }) return MockResponse().setResponseCode(409)
+                val prefs = url.queryParameterNames.filter { it.startsWith("prefs[") }
+                    .associate { it.removePrefix("prefs[").removeSuffix("]") to url.queryParameter(it).orEmpty() }
+                val rule = Rule("${rules.size + 1}", url.queryParameter("type")!!.toInt(), guid, prefs)
+                rules += rule
+                container { putJsonArray("MediaSubscription") { add(ruleJson(rule)) } }
+            }
+            path == "/media/subscriptions" -> container {
+                putJsonArray("MediaSubscription") { rules.toList().forEach { add(ruleJson(it)) } }
+            }
+            path == "/media/subscriptions/scheduled" -> container {
+                putJsonArray("MediaGrabOperation") { rules.toList().forEach { r -> airings(r).forEach { add(grab(r, it)) } } }
+            }
+            request.method == "DELETE" && path.startsWith("/media/subscriptions/") -> {
+                rules.removeAll { it.key == path.substringAfterLast('/') }
+                MockResponse()
+            }
+            request.method == "DELETE" && path.startsWith("/media/grabbers/operations/g-") -> {
+                cancelledAirings += path.substringAfter("/g-")
+                MockResponse()
+            }
+            else -> MockResponse().setResponseCode(404)
+        }
+    }
+
+    private fun template(type: Int, guid: String, oneShot: Boolean) = obj {
+        put("type", type)
+        put("targetLibrarySectionID", 2)
+        put("parameters", "hints%5Bguid%5D=${java.net.URLEncoder.encode(guid, Charsets.UTF_8)}&params%5BlibraryType%5D=2")
+        putJsonArray("Setting") {
+            if (type == PlexRecordingOption.SERIES) {
+                add(
+                    obj {
+                        put("id", "onlyNewAirings")
+                        put("type", "int")
+                        put("default", 0)
+                    }
+                )
+            }
+            add(
+                obj {
+                    put("id", "oneShot")
+                    put("type", "bool")
+                    put("default", oneShot)
+                    put("hidden", true)
+                }
+            )
+        }
     }
 
     /** A tune: what's on, with its live session's path (in a grab, as the owner's server answers). */
@@ -398,6 +538,8 @@ class FakePlex : AutoCloseable {
                 val p = programme(i, n) ?: return@mapNotNull null
                 obj {
                     put("ratingKey", "plex://programme/${ch.key}-$n")
+                    put("guid", programmeGuid(ch.key, n))
+                    p.show?.let { put("grandparentGuid", showGuid(it)) }
                     put("type", if (p.show != null) "episode" else "movie")
                     put("title", p.title)
                     p.show?.let { put("grandparentTitle", it) }

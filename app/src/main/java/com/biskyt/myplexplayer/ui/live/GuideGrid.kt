@@ -62,6 +62,8 @@ import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.container
 import com.biskyt.myplexplayer.data.EpgRepository
+import com.biskyt.myplexplayer.data.RecordingMark
+import com.biskyt.myplexplayer.data.RecordingState
 import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.data.db.ChannelProgramme
 import com.biskyt.myplexplayer.data.programmeTitle
@@ -71,6 +73,7 @@ import com.biskyt.myplexplayer.ui.common.ChannelLogo
 import com.biskyt.myplexplayer.ui.common.FocusStroke
 import com.biskyt.myplexplayer.ui.common.LocalTouch
 import com.biskyt.myplexplayer.ui.common.Muted
+import com.biskyt.myplexplayer.ui.common.RecordingDot
 import com.biskyt.myplexplayer.ui.common.TouchStepButtons
 import com.biskyt.myplexplayer.ui.common.collectIds
 import com.biskyt.myplexplayer.ui.common.formatDay
@@ -83,6 +86,7 @@ import com.biskyt.myplexplayer.ui.common.isSelect
 import com.biskyt.myplexplayer.ui.common.isToday
 import com.biskyt.myplexplayer.ui.common.numberLabel
 import com.biskyt.myplexplayer.ui.common.onOptionsKey
+import com.biskyt.myplexplayer.ui.common.onRecordKey
 import com.biskyt.myplexplayer.ui.common.onTap
 import com.biskyt.myplexplayer.ui.common.rememberDetails
 import com.biskyt.myplexplayer.ui.common.rememberMinuteClock
@@ -236,6 +240,10 @@ fun GuideGrid(
     val noGuide = stringResource(R.string.common_no_guide)
     // After a guide update, reload the rows already shown (keeping them on screen meanwhile).
     LaunchedEffect(guideVersion) { rows.guide().refreshAll() }
+    // What's set to record (MyPlexPlayer's own: Plex's DVR), read again each time the guide opens.
+    val recordings by remember(playlistId) {
+        container.recordings.observe(playlistId)
+    }.collectAsState(container.recordings.current(playlistId))
 
     // Arriving (from the list, the player or another tab): the highlight goes to what's on now on the channel last
     // used. Focus comes too, unless the view was switched with its buttons (they keep it).
@@ -282,6 +290,8 @@ fun GuideGrid(
                 .onFocusChanged { hasFocus = it.isFocused }
                 .ignoreHeldSelect()
                 .onOptionsKey(highlight::options)
+                // The programme's options hold its recording ones.
+                .onRecordKey(highlight::options)
                 .onKeyEvent(highlight::onKey)
                 .focusable()
         ) {
@@ -304,6 +314,7 @@ fun GuideGrid(
                         windowStart = windowStart,
                         now = now,
                         highlight = time?.takeIf { hasFocus },
+                        recordings = recordings,
                         onTap = { p -> highlight.tap(index, ch, p) },
                         onLongTap = { p -> highlight.longTap(index, ch, p) }
                     )
@@ -531,6 +542,7 @@ private fun GuideRow(
     now: Long,
     /** The highlight's time when it's on this row (and the grid has focus). */
     highlight: Long?,
+    recordings: RecordingState,
     onTap: (ChannelProgramme?) -> Unit,
     onLongTap: (ChannelProgramme?) -> Unit
 ) {
@@ -572,7 +584,8 @@ private fun GuideRow(
                     i == highlighted,
                     cellTitle(p, noGuide = null),
                     { onTap(p) },
-                    { onLongTap(p) }
+                    { onLongTap(p) },
+                    recordings.mark(p.guid, p.startMs)
                 )
                 cursor = end
             }
@@ -582,7 +595,16 @@ private fun GuideRow(
 
 /** A programme: not focusable itself (the grid is, see [GuideGrid]); drawn as a focused card when [highlighted]. */
 @Composable
-private fun Cell(width: Dp, live: Boolean, highlighted: Boolean, title: String, onTap: () -> Unit, onLongTap: () -> Unit) {
+@Suppress("LongParameterList") // (MyPlexPlayer: its recording mark, last)
+private fun Cell(
+    width: Dp,
+    live: Boolean,
+    highlighted: Boolean,
+    title: String,
+    onTap: () -> Unit,
+    onLongTap: () -> Unit,
+    mark: RecordingMark? = null
+) {
     Box(
         Modifier.width(width).fillMaxHeight().padding(horizontal = 2.dp)
             .clip(CardShape)
@@ -602,13 +624,10 @@ private fun Cell(width: Dp, live: Boolean, highlighted: Boolean, title: String, 
             },
         contentAlignment = Alignment.CenterStart
     ) {
-        Text(
-            title,
-            style = MaterialTheme.typography.bodyMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 10.dp)
-        )
+        Row(Modifier.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            mark?.let { RecordingDot(it, Modifier.padding(end = 6.dp)) }
+            Text(title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 

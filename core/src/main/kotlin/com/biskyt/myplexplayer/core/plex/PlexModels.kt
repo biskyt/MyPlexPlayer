@@ -2,6 +2,8 @@ package com.biskyt.myplexplayer.core.plex
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 /**
  * One Plex Media Server: its address (the connection chosen for it) and its access token (null for a test server
@@ -142,8 +144,15 @@ data class PlexItem(
 @Serializable
 class PlexPreferences(@SerialName("Setting") val settings: List<PlexSetting> = emptyList())
 
+/** One of Plex's settings: its value, else its default, as text (a number or true/false where Plex sends one). */
 @Serializable
-class PlexSetting(val id: String = "", val value: String? = null)
+class PlexSetting(val id: String = "", private val value: JsonPrimitive? = null, private val default: JsonPrimitive? = null) {
+    /** What's set, if anything (null: Plex didn't say). */
+    val set: String? get() = value?.contentOrNull
+
+    /** What's set now, else the default, as Plex reads it back ("true" and "false" in lower case). */
+    val current: String get() = (set ?: default?.contentOrNull).orEmpty()
+}
 
 /**
  * A show's "Delete episodes after playing": how soon Plex deletes an episode once the server's admin has watched

@@ -30,6 +30,7 @@ import com.biskyt.myplexplayer.data.Favourites
 import com.biskyt.myplexplayer.data.Notices
 import com.biskyt.myplexplayer.data.PlaylistRepository
 import com.biskyt.myplexplayer.data.PlexSources
+import com.biskyt.myplexplayer.data.Recordings
 import com.biskyt.myplexplayer.data.SearchRepository
 import com.biskyt.myplexplayer.data.SettingsRepository
 import com.biskyt.myplexplayer.data.SyncManager
@@ -74,6 +75,7 @@ class AppContainer(context: Context) {
     val channels = ChannelRepository(db, plex, notices)
     val vod = VodRepository(db, playlists, categoryStore, plex, notices)
     val favourites = Favourites(appScope, settings, channels, vod)
+    val recordings = Recordings(appScope, playlists, plex, notices)
     val search = SearchRepository(db)
     val sync = SyncManager(appScope, playlists, vod, epg)
     val backup = BackupRepository(db, settings, sync, epg)
