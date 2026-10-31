@@ -834,16 +834,7 @@ def series_dvr(args, state):
     _, _, window = guide_window(http, grid, now + 3600, now + 24 * 3600)
     programmes = [p for p in mc(window).get("Metadata", []) if first(p, "Media").get("beginsAt", 0) > now + 3600]
 
-    # The mapping call, as Plezy makes it: under the provider's number (its name answers 404 there).
-    keys = [p.get("ratingKey") for p in programmes[:20] if p.get("ratingKey")]
-    mapped = []
-    for label, pid in (("number", provider.get("id")), ("name", provider.get("identifier"))):
-        status, _, body = http.get(f"/media/providers/{pid}/media/subscriptions/mapping/{','.join(keys)}", includeStorage=1)
-        rec.save(f"mapping-by-{label}", body)
-        mapped = mapped or mc(body).get("MediaSubscription", [])
-        rec.check(f"GET /media/providers/{{{label}}}/media/subscriptions/mapping/{{ids}} (HTTP {status})", True,
-                  f"{len(mc(body).get('MediaSubscription', []))} rule(s) for {len(keys)} programmes; "
-                  f"fields {sorted({k for s in mc(body).get('MediaSubscription', []) for k in s})}")
+    mapping(http, rec, provider.get("id"), [p.get("ratingKey") for p in programmes[:20] if p.get("ratingKey")], "guide")
 
     # A show with two or more airings ahead, no rule and nothing scheduled: the rule made below changes nothing else.
     taken = {str(r.get("title")) for r in existing} | {str(first(r, "Directory").get("guid")) for r in existing}
@@ -881,19 +872,41 @@ def series_dvr(args, state):
     rec.finish()
 
 
+def mapping(http, rec, provider_id, keys, name):
+    """The "is it set to record" call for programme [keys] (ratingKeys, URL-encoded as the guide sends them), with
+    the keys as sent, decoded and encoded again: the first run's keys as sent answered 404. Returns the rules found."""
+    found = []
+    for label, form in (("as sent", keys), ("decoded", [urllib.parse.unquote(k) for k in keys]),
+                        ("encoded again", [urllib.parse.quote(k, safe="") for k in keys])):
+        status, _, body = http.get(f"/media/providers/{provider_id}/media/subscriptions/mapping/{','.join(form)}",
+                                   includeStorage=1)
+        rec.save(f"mapping-{name}-{label.replace(' ', '-')}", body)
+        rules = mc(body).get("MediaSubscription", []) if isinstance(body, dict) else []
+        found = found or rules
+        rec.check(f"mapping, {name}, keys {label} (HTTP {status})", True,
+                  f"{len(rules)} rule(s) for {len(keys)} programme(s); fields {sorted({k for r in rules for k in r})}")
+    return found
+
+
 def series_checks(http, rec, key, show, provider_id):
     """The series rule [key]'s airings, the mapping call and reading the rule, editing it, and cancelling one airing."""
-    status, _, body = http.get(f"/media/providers/{provider_id}/media/subscriptions/mapping/{show.get('ratingKey')}")
-    rec.save("series-mapping", body)
-    found = mc(body).get("MediaSubscription", [])
-    rec.check(f"the mapping call names the new rule for one of its airings (HTTP {status})",
-              any(str(m.get("key")) == str(key) for m in found), f"{[(m.get('key'), m.get('type')) for m in found]}")
+    found = mapping(http, rec, provider_id, [show.get("ratingKey")], "series")
+    rec.check("the mapping call names the new rule for one of its airings", any(str(m.get("key")) == str(key) for m in found),
+              f"{[(m.get('key'), m.get('type')) for m in found]}")
     status, _, body = http.get(f"/media/subscriptions/{key}", includeGrabs=1)
     rec.save("series-read", body)
     rule = first(mc(body), "MediaSubscription")
     rec.check(f"GET /media/subscriptions/{{id}} (HTTP {status})", rule, f"fields {sorted(rule)}; show {first(rule, 'Directory')}")
-    _, _, scheduled = http.get("/media/subscriptions/scheduled")
-    grabs = [g for g in mc(scheduled).get("MediaGrabOperation", []) if str(g.get("mediaSubscriptionID")) == str(key)]
+    # A series rule's airings weren't scheduled straight away (first run): ask the server to work its rules out
+    # (as Plezy's Refresh does), then look again every few seconds for up to a minute.
+    status, _, _ = http.request("POST", "/media/subscriptions/process")
+    rec.check(f"POST /media/subscriptions/process (HTTP {status})", status in (200, 204))
+    started, grabs = time.time(), []
+    while not grabs and time.time() - started < 60:
+        time.sleep(3)
+        _, _, scheduled = http.get("/media/subscriptions/scheduled")
+        grabs = [g for g in mc(scheduled).get("MediaGrabOperation", []) if str(g.get("mediaSubscriptionID")) == str(key)]
+    rec.check("how long its airings took to be scheduled", True, f"{round(time.time() - started)} s")
     rec.save("series-scheduled", {"MediaContainer": {"MediaGrabOperation": grabs}})
     rec.check("its airings are scheduled", grabs, f"{len(grabs)} airing(s); statuses {Counter(g.get('status') for g in grabs)}")
 
