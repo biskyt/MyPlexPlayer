@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +30,7 @@ import androidx.tv.material3.MaterialTheme
 import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.data.ChannelFilter
+import com.biskyt.myplexplayer.data.RecordingMark
 import com.biskyt.myplexplayer.data.SearchResults
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
@@ -48,6 +50,7 @@ import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.OnNowLabel
 import com.biskyt.myplexplayer.ui.common.OneLine
 import com.biskyt.myplexplayer.ui.common.PosterCard
+import com.biskyt.myplexplayer.ui.common.RecordingDot
 import com.biskyt.myplexplayer.ui.common.SectionTitle
 import com.biskyt.myplexplayer.ui.common.TabScaffold
 import com.biskyt.myplexplayer.ui.common.TvCard
@@ -57,10 +60,14 @@ import com.biskyt.myplexplayer.ui.common.collectIds
 import com.biskyt.myplexplayer.ui.common.formatDayTime
 import com.biskyt.myplexplayer.ui.common.guideNowNext
 import com.biskyt.myplexplayer.ui.common.isLive
+import com.biskyt.myplexplayer.ui.common.onRecordKey
 import com.biskyt.myplexplayer.ui.common.rememberMinuteClock
+import com.biskyt.myplexplayer.ui.common.rememberRecordings
+import com.biskyt.myplexplayer.ui.common.restoreFocusIf
 import com.biskyt.myplexplayer.ui.common.titledRow
 import com.biskyt.myplexplayer.ui.common.vodActions
 import com.biskyt.myplexplayer.ui.common.vodDetails
+import com.biskyt.myplexplayer.ui.live.RecordOptions
 import com.biskyt.myplexplayer.ui.theme.Palette
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -118,13 +125,20 @@ class SearchViewModel(private val c: AppContainer, initialQuery: String = "") : 
     fun setVodFavourite(pid: Long, type: String, id: Long, favourite: Boolean) =
         viewModelScope.launch { c.vod.setFavourite(pid, type, id, favourite) }
 
+    /** The result last opened (see [resultKey]): back from it, the focus returns to it. */
+    var opened: String? = null
+
+    /** Set on returning to the results, until the result last opened has the focus again. */
+    var restoreFocusPending by mutableStateOf(false)
+
     /** The channel of a result (for its options). */
     suspend fun channel(pid: Long, streamId: Long) = c.channels.get(pid, streamId)
 }
 
 /** A search result whose options panel is open. */
 private sealed interface Picked {
-    data class Channel(val streamId: Long, val name: String) : Picked
+    /** A channel, or a [programme] on it (which can also be recorded). */
+    data class Channel(val streamId: Long, val name: String, val programme: ProgrammeHit? = null) : Picked
     data class Vod(val type: String, val card: VodCard) : Picked
 }
 
@@ -146,6 +160,19 @@ fun SearchScreen(initialQuery: String = "") {
     // The keyboard is up on arrival, ready to type.
     val editing = rememberSaveable { mutableStateOf(true) }
     var picked by remember { mutableStateOf<Picked?>(null) }
+    LaunchedEffect(Unit) { vm.restoreFocusPending = vm.opened != null }
+    // What's set to record (Plex's DVR), for the programmes' marks.
+    val recordings by rememberRecordings(pid)
+
+    /** Back from a result, the focus goes to it again. */
+    @Composable
+    fun returnFocus(key: String) = Modifier.restoreFocusIf(vm.restoreFocusPending && vm.opened == key) { vm.restoreFocusPending = false }
+
+    /** Opens [screen] from the result [key], and remembers it for when the user comes back. */
+    fun open(key: String, screen: Screen) {
+        vm.opened = key
+        nav.push(screen)
+    }
     TabScaffold(null) {
         LazyColumn(
             contentPadding = PaddingValues(start = 56.dp, end = 56.dp, bottom = 40.dp),
@@ -169,34 +196,42 @@ fun SearchScreen(initialQuery: String = "") {
                 else -> {
                     // Series, films, then Live TV: channels, then TV programmes. Holding OK (or the remote's Menu
                     // button) on a result opens its options.
-                    titledRow(R.string.common_tab_series, results.series, { it.id }, SECTION_GAP) {
-                        PosterCard(it, favourite = it.id in favouriteSeries, onLongClick = { picked = Picked.Vod(CAT_SERIES, it) }) {
-                            nav.push(vodDetails(pid, CAT_SERIES, it.id))
+                    @Composable
+                    fun VodResult(type: String, card: VodCard, favourites: Set<Long>) {
+                        val key = resultKey(type, card.id)
+                        val options = { picked = Picked.Vod(type, card) }
+                        PosterCard(card, returnFocus(key), favourite = card.id in favourites, onLongClick = options) {
+                            open(key, vodDetails(pid, type, card.id))
                         }
+                    }
+                    titledRow(R.string.common_tab_series, results.series, { it.id }, SECTION_GAP) {
+                        VodResult(CAT_SERIES, it, favouriteSeries)
                     }
                     titledRow(R.string.common_tab_movies, results.movies, { it.id }, SECTION_GAP) {
-                        PosterCard(it, favourite = it.id in favouriteMovies, onLongClick = { picked = Picked.Vod(CAT_MOVIE, it) }) {
-                            nav.push(vodDetails(pid, CAT_MOVIE, it.id))
-                        }
+                        VodResult(CAT_MOVIE, it, favouriteMovies)
                     }
                     titledRow(R.string.common_channels, results.channels, { it.streamId }, SECTION_GAP) {
+                        val key = resultKey("c", it.streamId)
                         ChannelCard(
                             it,
                             vm.nowNext,
                             now,
                             { picked = Picked.Channel(it.streamId, it.name) },
-                            favourite =
-                            it.streamId in favouriteChannels
+                            returnFocus(key),
+                            favourite = it.streamId in favouriteChannels
                         ) {
-                            nav.push(Screen.Player(pid, it.streamId, ChannelFilter.All))
+                            open(key, Screen.Player(pid, it.streamId, ChannelFilter.All))
                         }
                     }
                     // TV programmes last: often a long list, it would push the rest out of sight.
                     if (results.programmes.isNotEmpty()) {
                         item { SectionTitle(stringResource(R.string.search_on_tv), Modifier.padding(top = SECTION_GAP)) }
-                        items(results.programmes, key = { "p${it.streamId}:${it.startMs}" }) { p ->
-                            ProgrammeRow(p, now, { picked = Picked.Channel(p.streamId, p.channelName) }) {
-                                nav.push(Screen.Player(pid, p.streamId, ChannelFilter.All))
+                        items(results.programmes, key = ::programmeKey) { p ->
+                            val key = programmeKey(p)
+                            val options = { picked = Picked.Channel(p.streamId, p.channelName, p) }
+                            // The remote's Record button opens its options too, which can record it.
+                            ProgrammeRow(p, now, recordings.mark(p.guid, p.startMs), returnFocus(key).onRecordKey(options), options) {
+                                open(key, Screen.Player(pid, p.streamId, ChannelFilter.All))
                             }
                         }
                     }
@@ -228,16 +263,27 @@ private fun ResultOptions(item: Picked, pid: Long, vm: SearchViewModel, onDismis
             }
         }
     }
-    ItemActionsPanel(title, actions, onDismiss)
+    val programme = (item as? Picked.Channel)?.programme
+    ItemActionsPanel(title, actions, onDismiss) {
+        // MyPlexPlayer's own: recording it with Plex's DVR.
+        if (programme != null) RecordOptions(pid, programme.guid, programme.showGuid, programme.startMs, programme.stopMs, onDismiss)
+    }
 }
 
 @Composable
-private fun ProgrammeRow(p: ProgrammeHit, now: Long, onLongClick: () -> Unit, onClick: () -> Unit) {
+private fun ProgrammeRow(
+    p: ProgrammeHit,
+    now: Long,
+    mark: RecordingMark?,
+    modifier: Modifier,
+    onLongClick: () -> Unit,
+    onClick: () -> Unit
+) {
     TvCard(
         onClick = onClick,
         onLongClick = onLongClick,
         color = Palette.surfaceLow,
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             ChannelLogo(p.logoUrl, p.channelName, 56.dp, 34.dp)
@@ -249,9 +295,17 @@ private fun ProgrammeRow(p: ProgrammeHit, now: Long, onLongClick: () -> Unit, on
                     color = Palette.textMuted
                 )
             }
+            // MyPlexPlayer's own: set to record with Plex's DVR.
+            mark?.let { RecordingDot(it, Modifier.padding(end = 12.dp)) }
             if (isLive(p.startMs, p.stopMs, now)) OnNowLabel() else Muted(formatDayTime(p.startMs, now))
         }
     }
 }
 
 private val SECTION_GAP = 18.dp
+
+/** Names a result for [SearchViewModel.opened]: its kind (a channel, a series or a film) and its id. */
+private fun resultKey(kind: String, id: Long) = "$kind$id"
+
+/** A programme's key, in the list and for [SearchViewModel.opened]. */
+private fun programmeKey(p: ProgrammeHit) = "p${p.streamId}:${p.startMs}"

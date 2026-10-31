@@ -13,4 +13,27 @@
     <string name="dvr_cancel_failed">Impossible d\'annuler l\'enregistrement</string>
     <string name="dvr_already">L\'enregistrement est déjà programmé</string>
     <string name="dvr_not_allowed">Seul le propriétaire du serveur peut enregistrer</string>
+    <string name="dvr_toast_started">Enregistrement commencé : %1$s</string>
+    <string name="dvr_toast_finished">Enregistrement terminé : %1$s</string>
+    <string name="dvr_toast_stopped">Enregistrement arrêté avant la fin : %1$s</string>
+    <!-- The DVR tab. -->
+    <string name="dvr_now_title">Enregistrement en cours</string>
+    <string name="dvr_coming_up">À venir</string>
+    <string name="dvr_series_title">Séries enregistrées</string>
+    <string name="dvr_problems">Non enregistré</string>
+    <string name="dvr_nothing">Rien n\'est programmé. Pour enregistrer un programme, maintenez OK dessus dans le guide TV, ou appuyez sur le bouton Enregistrer de la télécommande.</string>
+    <!-- %1$s: when and on which channel, e.g. "Today at 21:00 – 22:00 · One" -->
+    <string name="dvr_series_next">Prochain : %1$s</string>
+    <string name="dvr_series_none">Rien à enregistrer pour l\'instant</string>
+    <plurals name="dvr_to_come">
+        <item quantity="one">%d diffusion à venir</item>
+        <item quantity="many">%d diffusions à venir</item>
+        <item quantity="other">%d diffusions à venir</item>
+    </plurals>
+    <string name="dvr_episodes">Épisodes</string>
+    <string name="dvr_new_only">Nouveaux seulement</string>
+    <string name="dvr_new_and_repeats">Nouveaux et rediffusions</string>
+    <string name="dvr_change_failed">Impossible de modifier l\'enregistrement</string>
+    <!-- %1$s: Plex's own word for what happened (not translated) -->
+    <string name="dvr_status">Plex indique : %1$s</string>
 </resources>

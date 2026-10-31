@@ -47,8 +47,10 @@ Each step is its own pull request.
    - Record from the TV guide and search: Record, Record series (new airings only by default), Cancel, the series
      recording's settings; marks on guide cells and results; one OK records with the defaults, More options shows
      the template's other settings.
-   - A DVR tab, last in the menu: Recording now, Coming up, Series recordings, Recently recorded, Problems.
-     Recordings are library items, so the shared series and film pages play them.
+   - A DVR tab, last in the menu: Recording now, Coming up, Series recordings, Problems. Finished recordings are
+     library items (Recently added and the shared series and film pages play them), so the tab doesn't list them.
+   - Done in 0.17.0: all of this step, except More options (the template's other settings): a series recording
+     offers only new airings or repeats too.
    - Upcoming airings of a show, and the remote's Record key.
    - Scheduled recordings show a record icon on their TV guide cell (a series' airings too) and in search results.
    - While a channel plays, the player shows that its programme is recording (a red Recording mark with the clock),

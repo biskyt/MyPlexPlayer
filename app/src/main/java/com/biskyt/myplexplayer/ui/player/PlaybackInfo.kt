@@ -77,3 +77,8 @@ private fun dynamicRange(f: Format): String? = when {
     f.colorInfo?.colorTransfer == C.COLOR_TRANSFER_HLG -> "HLG"
     else -> null
 }
+
+/** "Buffered ahead: 12 s", for the panel's last line (from MyTVPlayer 1.8.9's Stream info). */
+fun bufferLine(bufferedMs: Long): String = appString(R.string.player_info_buffer, bufferedMs / MS_PER_S)
+
+private const val MS_PER_S = 1000L

@@ -71,6 +71,7 @@ import com.biskyt.myplexplayer.core.player.isMedia
 import com.biskyt.myplexplayer.core.player.passedOnByPanels
 import com.biskyt.myplexplayer.data.programmeTitle
 import com.biskyt.myplexplayer.player.PlaybackError
+import com.biskyt.myplexplayer.player.displayAddress
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
@@ -105,7 +106,13 @@ fun PlayerScreen(screen: Screen.Player) {
     PlayerFrame(
         vm,
         controls = { buttons, root -> LiveControls(vm, buttons, root) },
-        extras = { if (vm.numberEntry.typed.isNotEmpty()) FlashLabel(vm.numberEntry.typed, Modifier.align(Alignment.TopEnd)) }
+        extras = {
+            if (vm.numberEntry.typed.isNotEmpty()) FlashLabel(vm.numberEntry.typed, Modifier.align(Alignment.TopEnd))
+            // MyPlexPlayer's own: with the controls, whether this channel is recording (Plex's DVR).
+            if (vm.overlay == OverlayState.CONTROLS) {
+                RecordingBadge(vm.channel, Modifier.align(Alignment.TopCenter).padding(top = 27.dp))
+            }
+        }
     )
     if (vm.overlay == OverlayState.GUIDE) GuidePanel(vm)
 }
@@ -399,8 +406,11 @@ private val PANEL_FADE = 80.dp
 
 private const val MINUTE_MS = 60_000L
 
-/** Behind the controls (and the clock): dark enough for text over a bright picture, light enough to see it through. */
-private val PanelShade = Color(0xBF080A0D)
+/**
+ * Behind the controls (and the clock, and the Recording badge beside it): dark enough for text over a bright picture,
+ * light enough to see it through.
+ */
+internal val PanelShade = Color(0xBF080A0D)
 
 /** Whether the remote is on the progress bar (the video has focus, so left and right skip): a film's shows its handle. */
 internal val LocalBarSelected = compositionLocalOf { false }
@@ -584,6 +594,8 @@ private fun ErrorBox(error: PlaybackError, vm: PlaybackViewModel) {
         ) {
             Text(error.message, style = MaterialTheme.typography.titleLarge)
             error.reason?.let { Muted(it, maxLines = 4) }
+            // The address, so that the viewer can report it. It is not translated, and the login in it is hidden.
+            error.address?.let { Muted(displayAddress(it), maxLines = 3) }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 PillButton(stringResource(R.string.common_retry), vm::retry, retry, primary = true)
                 PillButton(stringResource(R.string.player_back), vm::stop)

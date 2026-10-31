@@ -3,6 +3,7 @@ package com.biskyt.myplexplayer.ui
 import androidx.compose.runtime.remember
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.lifecycle.ViewModelProvider
@@ -75,6 +76,25 @@ class PlexLiveUiTest {
 
         compose.runOnIdle { vm.stop() }
         compose.waitAdvancingClock(stepMs = 100) { plex.liveStopped.size == 2 }
+    }
+
+    @Test
+    fun `with the controls up, a channel that's recording says so`() {
+        plex.rules += FakePlex.Rule("1", 2, "plex://show/Show-0", emptyMap())
+        plex.recordingNow += "plex://episode/ch-1-0"
+        // As the app's watcher reads it (MainActivity starts it, not this test).
+        runBlocking { app.container.recordings.refresh(source) }
+        watch("ch-1")
+        compose.runOnIdle { vm.showControls() }
+        compose.waitForText("Recording", stepMs = 100)
+        compose.runOnIdle { vm.hideOverlay() } // only with the controls
+        compose.waitAdvancingClock(stepMs = 100) { compose.onAllNodes(hasText("Recording")).fetchSemanticsNodes().isEmpty() }
+
+        // Another channel: not recording.
+        compose.topRoot().performKeyInput { pressKey(Key.ChannelUp) }
+        compose.waitAdvancingClock(stepMs = 100) { plex.tuned.size == 2 }
+        compose.runOnIdle { vm.showControls() }
+        compose.waitAdvancingClock(stepMs = 100) { compose.onAllNodes(hasText("Recording")).fetchSemanticsNodes().isEmpty() }
     }
 
     @Test

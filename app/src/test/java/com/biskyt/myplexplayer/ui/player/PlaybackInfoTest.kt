@@ -44,8 +44,8 @@ class PlaybackInfoTest {
     }
 
     @Test
-    fun `the panel lists the playback format, the picture, its decoder, the sound, its output and dropped frames`() {
-        val lines = playbackInfo(playing(hdr10, sound), "Direct Play", "OMX.hevc", "Passthrough", dropped = 2)
+    fun `the panel lists the playback format, the picture, its decoder, the sound, its output, dropped frames and the buffer`() {
+        val lines = playbackInfo(playing(hdr10, sound), "Direct Play", "OMX.hevc", "Passthrough", dropped = 2) + bufferLine(12_400)
         assertEquals(
             listOf(
                 "Playback format: Direct Play",
@@ -54,6 +54,7 @@ class PlaybackInfoTest {
                 "Audio: Dolby Digital Plus · 6ch · English",
                 "Audio output: Passthrough",
                 "Dropped frames: 2",
+                "Buffered ahead: 12 s",
             ),
             lines
         )

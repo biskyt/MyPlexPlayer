@@ -108,6 +108,7 @@
     <string name="player_error_decode_media">This TV box can\'t decode the stream\'s media (%1$s).</string>
     <string name="player_error_decode">This TV box can\'t decode the stream\'s video or audio.</string>
     <string name="player_error_parsing">The stream sent data MyPlexPlayer can\'t read (an unsupported or damaged format).</string>
+    <string name="player_error_empty">The server sent an empty file. It may no longer have this file: try again later.</string>
     <string name="player_error_behind_live">The stream kept falling behind its live point.</string>
     <string name="player_error_io">The stream stopped arriving: the connection to its server failed.</string>
     <!-- %1$s: the player's technical error name, e.g. "io bad http status" (not translated) -->
@@ -124,4 +125,5 @@
     <!-- While a Live TV channel is tuned (it can take a while), until its picture starts. -->
     <string name="player_tuning">Tuning…</string>
     <string name="player_description">Description</string>
+    <string name="player_info_buffer">Buffered ahead: %1$d s</string>
 </resources>

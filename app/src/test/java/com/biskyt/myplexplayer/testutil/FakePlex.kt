@@ -89,6 +89,9 @@ class FakePlex : AutoCloseable {
     /** Whether the films' files are in a container no player reads (so they're streamed by the server instead). */
     @Volatile var unreadableFiles = false
 
+    /** Whether the films' files come back empty ("OK", with no data), as from a server that no longer has them. */
+    @Volatile var emptyFiles = false
+
     /** Whether the server would stream a file with its picture and sound as they are (false: only by converting). */
     @Volatile var copies = true
 
@@ -232,7 +235,7 @@ class FakePlex : AutoCloseable {
             !libraryUp && path.startsWith("/library/") -> MockResponse().setResponseCode(500)
             path == "/identity" -> container { put("machineIdentifier", MACHINE_ID) }
             path == "/" -> container { put("allowMediaDeletion", allowsDeletion) }.also { deletionAsked++ }
-            path.startsWith("/library/sections") || path.startsWith("/library/metadata/") -> libraryAnswer(path, request)
+            LIBRARY.any(path::startsWith) -> libraryAnswer(path, request)
             path == "/hubs/continueWatching" -> {
                 val items = continueWatching.map { withState(byKey(it)!!) }
                 container { putJsonArray("Hub") { add(obj { put("Metadata", JsonArray(items)) }) } }
@@ -245,7 +248,6 @@ class FakePlex : AutoCloseable {
             }
             path == "/photo/:/transcode" ->
                 MockResponse().setBody(okio.Buffer().write(request.requestUrl!!.queryParameter("url")?.let(images) ?: ByteArray(0)))
-            path.startsWith("/library/parts/") && unreadableFiles -> MockResponse().setBody("not a container anyone reads")
             path == "/video/:/transcode/universal/decision" -> decision()
             // Reached only with the server's token (above), in a header now rather than the address.
             // A live session's stream: a tuner still locking, it doesn't answer yet.
@@ -269,6 +271,12 @@ class FakePlex : AutoCloseable {
 
     /** The libraries, what's in them, and each title's details. */
     private fun libraryAnswer(path: String, request: RecordedRequest): MockResponse = when {
+        // A file: empty, or in a container no player reads (else not served here).
+        path.startsWith("/library/parts/") -> when {
+            emptyFiles -> MockResponse()
+            unreadableFiles -> MockResponse().setBody("not a container anyone reads")
+            else -> MockResponse().setResponseCode(404)
+        }
         path.startsWith("/library/metadata/") && request.method == "DELETE" -> delete(path.substringAfterLast('/'))
         path.startsWith("/library/metadata/") && path.endsWith("/prefs") && request.method == "PUT" -> {
             val key = path.split('/')[3]
@@ -366,6 +374,9 @@ class FakePlex : AutoCloseable {
     /** Airings cancelled one at a time (their programme's guid). */
     val cancelledAirings: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
+    /** Airings recording now (their programme's guid): the server says `inprogress` for them. */
+    val recordingNow: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
     /** Refuses recording, as a server does for someone who isn't its admin. */
     @Volatile var recordingRefused = false
 
@@ -379,7 +390,8 @@ class FakePlex : AutoCloseable {
         val channel: String,
         val begins: Long,
         val ends: Long,
-        val title: String
+        val title: String,
+        val show: String?
     )
 
     /** Every showing in the guide. */
@@ -387,7 +399,7 @@ class FakePlex : AutoCloseable {
         val hour = guideStart + (guideShiftMin[ch.key] ?: 0) * 60
         (0..1 + laterHours).mapNotNull { n ->
             val p = programme(i, n) ?: return@mapNotNull null
-            Showing(programmeGuid(ch.key, n), p.show?.let(::showGuid), ch.key, hour + n * 3600, hour + (n + 1) * 3600, p.title)
+            Showing(programmeGuid(ch.key, n), p.show?.let(::showGuid), ch.key, hour + n * 3600, hour + (n + 1) * 3600, p.title, p.show)
         }
     }
 
@@ -398,12 +410,13 @@ class FakePlex : AutoCloseable {
 
     private fun grab(rule: Rule, airing: Showing) = obj {
         put("key", "/media/grabbers/operations/g-${airing.guid}")
-        put("status", "scheduled")
+        put("status", if (airing.guid in recordingNow) "inprogress" else "scheduled")
         put("mediaSubscriptionID", rule.key)
         putJsonObject("Metadata") {
             put("guid", airing.guid)
             airing.showGuid?.let { put("grandparentGuid", it) }
             put("title", airing.title)
+            airing.show?.let { put("grandparentTitle", it) }
             putJsonArray("Media") {
                 add(
                     obj {
@@ -419,7 +432,31 @@ class FakePlex : AutoCloseable {
     private fun ruleJson(rule: Rule) = obj {
         put("key", rule.key)
         put("type", rule.type)
-        putJsonArray(if (rule.type == PlexRecordingOption.SERIES) "Directory" else "Video") { add(obj { put("guid", rule.guid) }) }
+        putJsonArray("Setting") {
+            rule.prefs[ONLY_NEW]?.let {
+                add(
+                    obj {
+                        put("id", ONLY_NEW)
+                        put("type", "int")
+                        put("default", 0)
+                        put("value", it)
+                    }
+                )
+            }
+        }
+        val series = rule.type == PlexRecordingOption.SERIES
+        // Its title, as Plex sends it: the show's, or the programme's.
+        val title = showings().firstOrNull {
+            if (series) it.showGuid == rule.guid else it.guid == rule.guid
+        }?.let { if (series) it.show else it.title }
+        putJsonArray(if (series) "Directory" else "Video") {
+            add(
+                obj {
+                    put("guid", rule.guid)
+                    title?.let { put("title", it) }
+                }
+            )
+        }
     }
 
     /** Plex's DVR: recording templates, rules (made, listed, removed) and scheduled airings (listed, cancelled). */
@@ -457,6 +494,13 @@ class FakePlex : AutoCloseable {
             }
             path == "/media/subscriptions/scheduled" -> container {
                 putJsonArray("MediaGrabOperation") { rules.toList().forEach { r -> airings(r).forEach { add(grab(r, it)) } } }
+            }
+            request.method == "PUT" && path.startsWith("/media/subscriptions/") -> {
+                val key = path.substringAfterLast('/')
+                val changes = url.queryParameterNames.filter { it.startsWith("prefs[") }
+                    .associate { it.removePrefix("prefs[").removeSuffix("]") to url.queryParameter(it).orEmpty() }
+                synchronized(rules) { rules.replaceAll { if (it.key == key) it.copy(prefs = it.prefs + changes) else it } }
+                MockResponse()
             }
             request.method == "DELETE" && path.startsWith("/media/subscriptions/") -> {
                 rules.removeAll { it.key == path.substringAfterLast('/') }
@@ -796,6 +840,8 @@ class FakePlex : AutoCloseable {
         const val SERVER_TOKEN = "server-token"
         const val MACHINE_ID = "home-plex"
         private const val DVR = "7"
+        private const val ONLY_NEW = "onlyNewAirings"
+        private val LIBRARY = listOf("/library/sections", "/library/metadata/", "/library/parts/")
         private const val EPG = "tv.plex.providers.epg.cloud:12"
 
         private fun obj(body: JsonObjectBuilder.() -> Unit) = buildJsonObject(body)

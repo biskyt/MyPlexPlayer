@@ -128,11 +128,12 @@ fun vodDetails(playlistId: Long, type: String, id: Long): Screen =
     if (type == CAT_MOVIE) Screen.MovieDetails(playlistId, id) else Screen.SeriesDetails(playlistId, id)
 
 /**
- * A side panel of what can be done with something: [actions] in order, the first with focus. A [ItemAction.Confirmed]
- * asks its question in the panel first, with "no" focused.
+ * A side panel of what can be done with something: [actions] in order, the first with focus, then any [more] options
+ * (such as a programme's recording options). A [ItemAction.Confirmed] asks its question in the panel first, with "no"
+ * focused.
  */
 @Composable
-fun ItemActionsPanel(title: String, actions: List<ItemAction>, onDismiss: () -> Unit) {
+fun ItemActionsPanel(title: String, actions: List<ItemAction>, onDismiss: () -> Unit, more: (@Composable () -> Unit)? = null) {
     val nav = LocalNavigator.current
     var asking by remember { mutableStateOf<ItemAction.Confirmed?>(null) }
     SidePanel(onDismiss) {
@@ -159,6 +160,7 @@ fun ItemActionsPanel(title: String, actions: List<ItemAction>, onDismiss: () -> 
                     else -> MenuOption(a.label, a.help, focus) { a.perform(nav, onDismiss) }
                 }
             }
+            more?.invoke()
         }
     }
 }

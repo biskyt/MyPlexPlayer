@@ -5,6 +5,7 @@ import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.HttpDataSource
 import com.biskyt.myplexplayer.testutil.PlainApp
 import java.net.UnknownHostException
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -53,5 +54,14 @@ class PlaybackFailureTest {
         says(failure(PlaybackException.ERROR_CODE_UNSPECIFIED), "couldn't play it (unspecified)")
         // An odd but playable address still names its server.
         assertTrue(streamSource("http://srv.example:8080/live/a b|c.ts") == "Stream from srv.example.")
+    }
+
+    @Test
+    fun `an address is shown without the server's token`() {
+        assertEquals(
+            "http://192.0.2.10:32400/photo/:/transcode?url=%2Fx&X-Plex-Token=•••&width=1",
+            displayAddress("http://192.0.2.10:32400/photo/:/transcode?url=%2Fx&X-Plex-Token=abc123&width=1")
+        )
+        assertEquals("https://srv.example/library/parts/7/file.mkv", displayAddress("https://srv.example/library/parts/7/file.mkv"))
     }
 }
