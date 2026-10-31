@@ -104,9 +104,13 @@ class TouchUiTest {
         show(Screen.Live(guide = true))
         waitFor(hasText("Later ▶"), "Later")
         // The header starts at the current half hour; moving later leaves its first half hours behind, and earlier
-        // brings them back. Checked on its second time: the first is also the clock's for a minute (e.g. 22:00).
+        // brings them back. Checked on its second time: the first is also the clock's for a minute (e.g. 22:00). At
+        // midnight the header names the day instead, so then on its third.
         val halfHour = 30 * 60_000L
-        val second = com.biskyt.myplexplayer.ui.common.formatTime(System.currentTimeMillis() / halfHour * halfHour + halfHour)
+        val start = System.currentTimeMillis() / halfHour * halfHour
+        val atMidnight = java.time.Instant.ofEpochMilli(start + halfHour).atZone(java.time.ZoneId.systemDefault()).toLocalTime() ==
+            java.time.LocalTime.MIDNIGHT
+        val second = com.biskyt.myplexplayer.ui.common.formatTime(start + if (atMidnight) 2 * halfHour else halfHour)
         waitFor(hasText(second), "the time $second")
         val before = navigator.current.screen
         compose.onNode(hasText("Later ▶")).performTouchInput { click() }

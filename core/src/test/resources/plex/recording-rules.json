@@ -1,9 +1,9 @@
 {"MediaContainer":{"size":2,"MediaSubscription":[
 {"key":"11","type":2,"title":"All Episodes","airingsType":"New Airings Only","targetLibrarySectionID":2,"librarySectionTitle":"TV Shows",
- "Directory":[{"guid":"plex://show/show0001","ratingKey":"plex%3A%2F%2Fshow%2Fshow0001","title":"The Harbour","type":"show","year":2021,"thumb":"https://example.com/harbour.jpg"}],
+ "Directory":{"guid":"plex://show/show0001","ratingKey":"plex%3A%2F%2Fshow%2Fshow0001","title":"The Harbour","type":"show","year":2021,"thumb":"https://example.com/harbour.jpg"},
  "Setting":[{"id":"onlyNewAirings","label":"Airings","type":"int","default":0,"value":"1","enumValues":"0:New and Repeat Airings|1:New Airings Only"}],
- "MediaGrabOperation":[{"id":"g1","key":"/media/grabbers/operations/g1","status":"scheduled","mediaSubscriptionID":"11",
+ "MediaGrabOperation":[{"id":"g1","key":"/media/grabbers/operations/g1","status":"scheduled","mediaSubscriptionID":11,
    "Metadata":{"guid":"plex://episode/ep0001","grandparentGuid":"plex://show/show0001","grandparentTitle":"The Harbour","title":"Low Tide","type":"episode","parentIndex":2,"index":4,
    "Media":[{"beginsAt":1793000000,"endsAt":1793003600,"channelIdentifier":"5fc705db-ch1","channelTitle":"Channel One","premiere":"1"}]}}]},
 {"key":"12","type":1,"title":"This Movie","targetLibrarySectionID":1,"librarySectionTitle":"Movies",
- "Video":[{"guid":"plex://movie/film0001","title":"A Film","type":"movie","year":2019}]}]}}
+ "Video":{"guid":"plex://movie/film0001","title":"A Film","type":"movie","year":2019}}]}}

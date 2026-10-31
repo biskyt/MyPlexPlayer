@@ -2,6 +2,12 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.17.2
+- Recording no longer says it failed when it worked.
+- The DVR tab and the TV guide now show what is set to record.
+- Films and series sorted by title now ignore a leading "The", "A" or "An", so "The Mentalist" comes under M.
+- The DVR tab's Not recorded list no longer shows recordings that were cancelled or are still being saved.
+
 ## 0.17.1
 - Back on the home screen now closes the app fully, so it no longer stays in the list of recent apps.
 - When a video cannot be played, the error names its server only once.

@@ -491,7 +491,7 @@ internal fun gridQuery(type: String, playlistId: Long, view: VodView): SimpleSQL
     sql.append(
         when {
             view.show == VodShow.FAVOURITES -> " ORDER BY f.position, f.addedAt DESC"
-            view.sort == VodSort.TITLE -> " ORDER BY $t.title COLLATE NOCASE, $t.position"
+            view.sort == VodSort.TITLE -> " ORDER BY ${sortTitle("$t.title")}, $t.position"
             view.sort == VodSort.YEAR -> " ORDER BY $t.year IS NULL, $t.year DESC, $t.position"
             movies -> " ORDER BY m.added DESC"
             else -> " ORDER BY s.lastModified DESC"
@@ -502,3 +502,13 @@ internal fun gridQuery(type: String, playlistId: Long, view: VodView): SimpleSQL
 
 /** An episode's running time, if known. */
 private val EpisodeInfo.runningMs: Long? get() = durationSec?.takeIf { it > 0 }?.times(1_000L)
+
+/**
+ * SQL for a title as it sorts, in any case: without a leading "The", "A" or "An", as Plex sorts it ("The Mentalist" under
+ * M). The title itself is shown as it is.
+ */
+private fun sortTitle(column: String): String {
+    val title = "ltrim($column)"
+    return "ltrim(CASE WHEN $title LIKE 'The %' THEN substr($title, 5) WHEN $title LIKE 'An %' THEN substr($title, 4) " +
+        "WHEN $title LIKE 'A %' THEN substr($title, 3) ELSE $title END) COLLATE NOCASE"
+}

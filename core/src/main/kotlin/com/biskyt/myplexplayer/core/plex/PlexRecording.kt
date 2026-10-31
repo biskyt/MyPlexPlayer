@@ -30,7 +30,7 @@ data class PlexRecordingOption(
  */
 @Serializable
 data class PlexRecordingRule(
-    val key: String = "",
+    @Serializable(with = PlexIdText::class) val key: String = "",
     val type: Int = 0,
     @SerialName("Directory") @Serializable(with = SkippingList::class) val shows: List<PlexProgramme> = emptyList(),
     @SerialName("Video") @Serializable(with = SkippingList::class) val programmes: List<PlexProgramme> = emptyList(),
@@ -47,14 +47,14 @@ data class PlexRecordingRule(
 
 /**
  * One airing set to record (a grab), by the rule [mediaSubscriptionID]: its programme, with the showing's times and
- * channel in [PlexProgramme.airings]. [status] is `scheduled`, `inprogress` while recording, `complete`, or another
- * Plex sends for a problem. [key] cancels this airing alone.
+ * channel in [PlexProgramme.airings]. [status] is `scheduled`, `inprogress` while recording, then `postprocessing`
+ * and `complete`; or `error`, `cancelled`, `inactive` or `paused` (the spec's list). [key] cancels this airing alone.
  */
 @Serializable
 data class PlexScheduledRecording(
-    val key: String = "",
+    @Serializable(with = PlexIdText::class) val key: String = "",
     val status: String = "",
-    val mediaSubscriptionID: String? = null,
+    @Serializable(with = PlexIdText::class) val mediaSubscriptionID: String? = null,
     @SerialName("Metadata") val programme: PlexProgramme? = null,
 ) {
     /** When it starts and ends, in seconds since 1970, and on which channel. */
@@ -62,14 +62,19 @@ data class PlexScheduledRecording(
 
     val isScheduled: Boolean get() = status == SCHEDULED
     val isRecording: Boolean get() = status in RECORDING
-    val isComplete: Boolean get() = status == COMPLETE
+
+    /**
+     * It won't record as set: it failed, or Plex holds it back (`inactive`, `paused`). Not one cancelled, or still being
+     * processed once recorded.
+     */
+    val needsAttention: Boolean get() = status in NEEDS_ATTENTION
 
     /** What it's called: its show's title (an episode), else the programme's. */
     val title: String get() = programme?.grandparentTitle ?: programme?.title.orEmpty()
 
     companion object {
         const val SCHEDULED = "scheduled"
-        const val COMPLETE = "complete"
+        val NEEDS_ATTENTION = setOf("error", "inactive", "paused")
 
         /** The tune's own grab (docs/plex-api.md, 13) says `inprogress`; Plezy reads `grabbing` as recording too. */
         val RECORDING = setOf("inprogress", "grabbing")
