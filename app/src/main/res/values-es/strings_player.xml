@@ -62,7 +62,6 @@
     <string name="player_failure_vod">No se puede reproducir en este momento. Vuelve a intentarlo más tarde.</string>
     <string name="player_unsupported_format">Usa un formato de transmisión que MyPlexPlayer no puede reproducir.</string>
 
-    <string name="player_stream_source">Transmisión desde %1$s.</string>
     <string name="player_error_dns">No se encuentra el servidor de la transmisión: puede que su dirección ya no exista.</string>
     <string name="player_error_stalled">El servidor de la transmisión la envió demasiado lento para empezar. Puede que esté saturado.</string>
     <string name="player_error_timeout">El servidor de la transmisión no respondió. Puede que esté caído o saturado.</string>

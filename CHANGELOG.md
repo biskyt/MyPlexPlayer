@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.17.1
+- Back on the home screen now closes the app fully, so it no longer stays in the list of recent apps.
+- When a video cannot be played, the error names its server only once.
+
 ## 0.17.0
 - The new DVR tab, last in the menu, shows what is recording now, what is coming up and your series recordings.
 - Record a programme or its whole series from the TV guide: hold OK, press Menu, or press the remote's Record button.
