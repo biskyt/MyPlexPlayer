@@ -811,7 +811,7 @@ def dvr(args, state):
 # ---------------------------------------------------------------- S11: series recordings, for the DVR tab
 def series_dvr(args, state):
     """What the DVR tab and Record series need, on a show with no recording rule yet: every grab status and rule
-    field already on the server, the "is it set to record" mapping call, then a series rule (All Episodes, new
+    field already on the server, then a series rule (All Episodes, new
     airings only) made, read, edited and put back, one of its airings cancelled, and the rule deleted, so nothing is
     left. Only rules and grabs this step made are changed or deleted."""
     rec = Recorder(args.out, "s11-series-dvr")
@@ -831,19 +831,30 @@ def series_dvr(args, state):
     if not grid:
         return rec.finish()
     now = time.time()
-    _, _, window = guide_window(http, grid, now + 3600, now + 24 * 3600)
+    _, _, window = guide_window(http, grid, now + 3600, now + 48 * 3600)
     programmes = [p for p in mc(window).get("Metadata", []) if first(p, "Media").get("beginsAt", 0) > now + 3600]
 
-    mapping(http, rec, provider.get("id"), [p.get("ratingKey") for p in programmes[:20] if p.get("ratingKey")], "guide")
 
     # A show with two or more airings ahead, no rule and nothing scheduled: the rule made below changes nothing else.
     taken = {str(r.get("title")) for r in existing} | {str(first(r, "Directory").get("guid")) for r in existing}
     taken |= {str(g.get("Metadata", {}).get("grandparentGuid")) for g in mc(scheduled).get("MediaGrabOperation", [])}
-    airings = Counter(p.get("grandparentGuid") for p in programmes if p.get("type") == "episode")
-    show = next((p for p in programmes if p.get("type") == "episode" and airings[p.get("grandparentGuid")] > 1
-                 and p.get("grandparentGuid") not in taken and p.get("grandparentTitle") not in taken), None)
+    # New airings carry Media[].premiere=1 (the second run's show had only repeats, so new-only scheduled nothing):
+    # a show with two or more new airings ahead records new airings only; failing that, one with two or more airings
+    # records new and repeat ones, so there are airings to cancel one of.
+    def counts(only_new):
+        return Counter(p.get("grandparentGuid") for p in programmes if p.get("type") == "episode"
+                       and (not only_new or str(first(p, "Media").get("premiere")) == "1"))
+    new, every = counts(True), counts(False)
+    rec.check("new airings in the next 48 hours (Media[].premiere=1)", True,
+              f"{sum(new.values())} of {sum(every.values())} episode airings")
+    free = [p for p in programmes if p.get("type") == "episode" and p.get("grandparentGuid") not in taken
+            and p.get("grandparentTitle") not in taken]
+    show = next((p for p in free if new[p.get("grandparentGuid")] > 1), None)
+    only_new = show is not None
+    show = show or next((p for p in free if every[p.get("grandparentGuid")] > 1), None)
     if not rec.check("a show with two or more airings ahead and no rule", show,
-                     show and f"{show.get('grandparentTitle')} ({airings[show.get('grandparentGuid')]} airings)"):
+                     show and f"{(new if only_new else every)[show.get('grandparentGuid')]} "
+                              f"{'new' if only_new else 'new or repeat'} airings"):
         return rec.finish()
     status, _, template = http.get("/media/subscriptions/template", guid=show.get("guid"))
     options = first(mc(template), "SubscriptionTemplate").get("MediaSubscription", [])
@@ -853,16 +864,17 @@ def series_dvr(args, state):
     if not args.record:
         return rec.finish()
 
-    query, prefs = subscribe_query(series, onlyNewAirings=1)
+    query, prefs = subscribe_query(series, onlyNewAirings=1 if only_new else 0)
     status, _, created = http.request("POST", f"/media/subscriptions?{query}")
     rec.save("series-created", created)
     rule = first(mc(created), "MediaSubscription")
     key = rule.get("key")
-    if not rec.check(f"POST /media/subscriptions: a series rule, new airings only (HTTP {status})", key,
+    if not rec.check(f"POST /media/subscriptions: a series rule, {'new airings only' if only_new else 'new and repeat'} "
+                     f"(HTTP {status})", key,
                      f"fields {sorted(rule)}"):
         return rec.finish()
     try:
-        series_checks(http, rec, key, show, provider.get("id"))
+        series_checks(http, rec, key)
     finally:
         status, _, _ = http.request("DELETE", f"/media/subscriptions/{key}")
         rec.check("DELETE /media/subscriptions/{id}: the rule and its airings are gone", status == 200, f"HTTP {status}")
@@ -872,27 +884,8 @@ def series_dvr(args, state):
     rec.finish()
 
 
-def mapping(http, rec, provider_id, keys, name):
-    """The "is it set to record" call for programme [keys] (ratingKeys, URL-encoded as the guide sends them), with
-    the keys as sent, decoded and encoded again: the first run's keys as sent answered 404. Returns the rules found."""
-    found = []
-    for label, form in (("as sent", keys), ("decoded", [urllib.parse.unquote(k) for k in keys]),
-                        ("encoded again", [urllib.parse.quote(k, safe="") for k in keys])):
-        status, _, body = http.get(f"/media/providers/{provider_id}/media/subscriptions/mapping/{','.join(form)}",
-                                   includeStorage=1)
-        rec.save(f"mapping-{name}-{label.replace(' ', '-')}", body)
-        rules = mc(body).get("MediaSubscription", []) if isinstance(body, dict) else []
-        found = found or rules
-        rec.check(f"mapping, {name}, keys {label} (HTTP {status})", True,
-                  f"{len(rules)} rule(s) for {len(keys)} programme(s); fields {sorted({k for r in rules for k in r})}")
-    return found
-
-
-def series_checks(http, rec, key, show, provider_id):
-    """The series rule [key]'s airings, the mapping call and reading the rule, editing it, and cancelling one airing."""
-    found = mapping(http, rec, provider_id, [show.get("ratingKey")], "series")
-    rec.check("the mapping call names the new rule for one of its airings", any(str(m.get("key")) == str(key) for m in found),
-              f"{[(m.get('key'), m.get('type')) for m in found]}")
+def series_checks(http, rec, key):
+    """The series rule [key]: reading it, its airings, editing it, and cancelling one airing."""
     status, _, body = http.get(f"/media/subscriptions/{key}", includeGrabs=1)
     rec.save("series-read", body)
     rule = first(mc(body), "MediaSubscription")
