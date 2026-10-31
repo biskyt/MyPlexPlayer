@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.16.4
+- The play button is now in the middle of the player's controls.
+
 ## 0.16.3
 - Opening a backup file from another app no longer closes what you had open.
 
