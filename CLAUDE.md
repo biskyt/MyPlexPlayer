@@ -59,7 +59,8 @@ See also:
 - **Release every merged app change** (the owner, 2026-10-25: "always build until I say otherwise"): once an app PR
   is merged, start `release.yml` (step 8) and give the owner the release link.
   - A large feature that comes in steps is released once, when all its steps are merged (the owner, 2026-10-31,
-    for DVR). Each step still gets its own version and changelog section.
+    for DVR). It has one version number: the first step's PR bumps the version, and each later step adds to that
+    version's changelog section, with no new number.
 - **When the owner says "don't release until X", don't merge or release** until they confirm.
 - **Only the app's own text is translated**: see **Languages** below.
 - **Release notes are English only**, on GitHub and in Play's "What's new" (translated Play notes: not worth the work).
@@ -74,7 +75,7 @@ See also:
    - `./gradlew ktlintFormat` fixes most style issues. Rerun `ktlintCheck` afterwards, because the format task itself exits non-zero when it changed something.
 3. Run `/simplify`, then `/code-review`, then apply their fixes.
 4. Bump `versionCode` (+1) and `versionName` in `app/build.gradle.kts`, for every PR that changes the app, released or
-   not: the patch number for fixes and small changes, the minor for a notable feature (1.1.0: languages).
+   not (except a later step of a feature released once, see the standing instructions): the patch number for fixes and small changes, the minor for a notable feature (1.1.0: languages).
 5. Add a `## x.y.z` section at the top of `CHANGELOG.md`, written for people using the app.
    - A release's notes are its section plus those of any unreleased versions since the last release
      (`.github/scripts/release-notes.sh`). For Play's "What's new" (500 characters), `play-notes.py` keeps the whole
