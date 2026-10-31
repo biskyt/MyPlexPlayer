@@ -50,6 +50,15 @@ Each step is its own pull request.
    - A DVR tab, last in the menu: Recording now, Coming up, Series recordings, Recently recorded, Problems.
      Recordings are library items, so the shared series and film pages play them.
    - Upcoming airings of a show, and the remote's Record key.
+   - Scheduled recordings show a record icon on their TV guide cell (a series' airings too) and in search results.
+   - While a channel plays, the player shows that its programme is recording (a red Recording mark with the clock),
+     and the guide and the channel list mark what's recording now.
+   - A toast whenever a scheduled recording starts or stops ("Recording started: {title}", "Recording finished" or
+     "Recording stopped early"): on every screen, over playing video and over open menus and panels (panels are
+     their own windows, so the toast needs its own window above them). The app learns of it from the scheduled
+     list: timers at each recording's start and end (the list read again every 15 minutes and after any change),
+     each confirmed with one call; Plex's notification socket may replace the timers later. Only while the app is
+     open.
 
 ## Near future (owner's priorities, 2026-10-25)
 - **Play state from the server:** done in 0.3.0 (see step 5).
