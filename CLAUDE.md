@@ -245,8 +245,9 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
 - **Tuning a channel is slow** on the owner's server: Plex answers the tune before the tuner has locked (see
   docs/plex-api.md). Show "Tuning…" until the picture starts, let the player wait for the live stream to fill,
   and never retry a tune that timed out (a second tune can take a second tuner).
-- **Live TV goes last:** in the menu, on Home and in search results.
-- **DVR replaces Catch-up.**
+- **Live TV goes last:** on Home and in search results. In the menu, DVR is last, after Live TV (the owner, 2026-10-31).
+- **DVR replaces Catch-up.** Record series defaults to new airings only (the owner, 2026-10-31). DVR comes before the
+  series page redesign.
 - **Home rows:** Continue watching, recently added series, recently added movies, favourite series, favourite movies,
   favourite Live TV channels. Empty rows are hidden.
 - **Favourites** for channels, films and series stay as in MyTVPlayer.

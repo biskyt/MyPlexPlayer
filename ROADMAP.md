@@ -41,7 +41,15 @@ Each step is its own pull request.
    - Done (0.4.0): the tuner's channels and the Plex guide (two days ahead, kept as the server's own guide source),
      tuning with "Tuning…" and the tuner let go on changing channel or leaving.
    - Done (0.6.0): the server's guide is the only one; why it last failed shows with the server.
-7. **DVR** in place of Catch-up: recordings, what's scheduled, and Record from the TV guide.
+7. **DVR** in place of Catch-up (next, before the series page redesign; the plan of 2026-10-31):
+   - Spike S11 (series recordings: made, edited, one airing cancelled, removed; the mapping call).
+   - Core and data: the DVR calls in `PlexClient`; the guide keeps each programme's `guid` and its show's.
+   - Record from the TV guide and search: Record, Record series (new airings only by default), Cancel, the series
+     recording's settings; marks on guide cells and results; one OK records with the defaults, More options shows
+     the template's other settings.
+   - A DVR tab, last in the menu: Recording now, Coming up, Series recordings, Recently recorded, Problems.
+     Recordings are library items, so the shared series and film pages play them.
+   - Upcoming airings of a show, and the remote's Record key.
 
 ## Near future (owner's priorities, 2026-10-25)
 - **Play state from the server:** done in 0.3.0 (see step 5).
