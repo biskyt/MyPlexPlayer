@@ -32,6 +32,7 @@ python3 spikes/plex_spike.py dvr --record    # recording options; schedules one 
 python3 spikes/plex_spike.py favourites --write-back  # favourite channels: read, saved back unchanged, read again (not in `all`)
 python3 spikes/plex_spike.py markers         # intro and credits markers, for Skip intro (only reads)
 python3 spikes/plex_spike.py people          # cast members' biographies and other credits, similar titles (only reads)
+python3 spikes/plex_spike.py series_dvr --record  # a series recording made, edited, one airing cancelled, then removed
 ```
 
 - `library` uses one episode you haven't started (unwatched, no resume point): it sets a resume point, plays it

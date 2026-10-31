@@ -1,4 +1,4 @@
-"""Runs a step of spikes/plex_spike.py ("all", "save-favourites" or "cast") inside the app: its printed lines go to the
+"""Runs a step of spikes/plex_spike.py ("all", "save-favourites", "cast" or "test-dvr") inside the app: its printed lines go to the
 screen, its files to the app's own storage."""
 import os
 import sys

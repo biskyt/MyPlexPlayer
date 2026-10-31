@@ -19,6 +19,8 @@ addresses, account names, emails and file paths replaced, for test fixtures. rep
     python3 spikes/plex_spike.py deletion  [--server URL] [--delete] # S9: deleting, and a show's automatic deletion
     python3 spikes/plex_spike.py people    [--server URL] # S10: cast members' biographies and credits, similar titles
     python3 spikes/plex_spike.py cast                    # S10 (signing in first if needed), then spike-results.zip
+    python3 spikes/plex_spike.py series_dvr [--server URL] [--record] # S11: series recordings: made, edited, removed
+    python3 spikes/plex_spike.py test-dvr                # S11 with --record (signing in first if needed), then the zip
 
 Without --server the first server from `servers` is used. --tune briefly uses a tuner; --record schedules a recording
 of a programme starting in over an hour and cancels it straight away. --write-back (never part of `all`) saves the
@@ -749,6 +751,21 @@ def pref_value(setting):
     return str(value).lower() if isinstance(value, bool) else value
 
 
+def subscribe_query(option, **overrides):
+    """POST /media/subscriptions' query for a template [option]: its parameters as they are (repeated hints/params
+    keys included), what it leaves out, and every setting as prefs[id]=value (its value, else its default, else an
+    [overrides] value), as Plezy sends them. Returns the query and the prefs sent."""
+    query = option.get("parameters", "")
+    for name in ("targetLibrarySectionID", "targetSectionLocationID", "type"):
+        if f"{name}=" not in query and option.get(name) is not None:
+            query += f"&{name}={option[name]}"
+    prefs = {st["id"]: pref_value(st) for st in option.get("Setting", []) if st.get("id")}
+    prefs.update({k: v for k, v in overrides.items() if k in prefs})
+    if prefs:
+        query += "&" + urllib.parse.urlencode({f"prefs[{k}]": v for k, v in prefs.items()})
+    return query.lstrip("&"), prefs
+
+
 def dvr(args, state):
     rec = Recorder(args.out, "s6-dvr")
     http = server_http(args, state)
@@ -773,18 +790,10 @@ def dvr(args, state):
     if not (args.record and tmpl):
         return rec.finish()
     one_off = next((t for t in tmpl if t.get("type") in (4, 1)), tmpl[-1])  # an episode or movie: this airing only
-    # The template's parameters go as they are (repeated hints/params keys included); add what it leaves out.
-    query = one_off.get("parameters", "")
-    for name in ("targetLibrarySectionID", "targetSectionLocationID", "type"):
-        if f"{name}=" not in query and one_off.get(name) is not None:
-            query += f"&{name}={one_off[name]}"
-    # Every setting the template offers, as prefs[id]=value (its value, else its default): as Plezy sends them.
-    prefs = {st["id"]: pref_value(st) for st in one_off.get("Setting", []) if st.get("id")}
-    if prefs:
-        query += "&" + urllib.parse.urlencode({f"prefs[{k}]": v for k, v in prefs.items()})
+    query, prefs = subscribe_query(one_off)
     rec.check("the recording's settings, sent as prefs[...]", True,
               ", ".join(f"{k}={v}" for k, v in prefs.items()) or "none offered")
-    status, _, created = http.request("POST", f"/media/subscriptions?{query.lstrip('&')}")
+    status, _, created = http.request("POST", f"/media/subscriptions?{query}")
     rec.save("subscription-created", created)
     sub = first(mc(created), "MediaSubscription")
     rec.check("POST /media/subscriptions schedules it", status in (200, 201) and sub.get("key"), f"HTTP {status}")
@@ -797,6 +806,118 @@ def dvr(args, state):
         status, _, _ = http.request("DELETE", f"/media/subscriptions/{sub['key']}")
         rec.check("DELETE /media/subscriptions/{id} cancels it", status == 200, f"HTTP {status}")
     rec.finish()
+
+
+# ---------------------------------------------------------------- S11: series recordings, for the DVR tab
+def series_dvr(args, state):
+    """What the DVR tab and Record series need, on a show with no recording rule yet: every grab status and rule
+    field already on the server, the "is it set to record" mapping call, then a series rule (All Episodes, new
+    airings only) made, read, edited and put back, one of its airings cancelled, and the rule deleted, so nothing is
+    left. Only rules and grabs this step made are changed or deleted."""
+    rec = Recorder(args.out, "s11-series-dvr")
+    http = server_http(args, state)
+    note_server(rec, http)
+    status, _, rules = http.get("/media/subscriptions", includeGrabs=1, includeStorage=1)
+    rec.save("rules-before", rules)
+    existing = mc(rules).get("MediaSubscription", [])
+    rec.check(f"GET /media/subscriptions (HTTP {status}): the rules there already", status == 200,
+              "; ".join(f"type {r.get('type')} '{r.get('title')}': fields {sorted(r)}, "
+                        f"show {first(r, 'Directory').get('guid') or first(r, 'Directory').get('title')}" for r in existing))
+    _, _, scheduled = http.get("/media/subscriptions/scheduled")
+    rec.save("scheduled-before", scheduled)
+    rec.check("the statuses of scheduled recordings", True,
+              str(Counter(g.get("status") for g in mc(scheduled).get("MediaGrabOperation", []))))
+    provider, grid = epg_provider(http, rec)
+    if not grid:
+        return rec.finish()
+    now = time.time()
+    _, _, window = guide_window(http, grid, now + 3600, now + 24 * 3600)
+    programmes = [p for p in mc(window).get("Metadata", []) if first(p, "Media").get("beginsAt", 0) > now + 3600]
+
+    # The mapping call, as Plezy makes it: under the provider's number (its name answers 404 there).
+    keys = [p.get("ratingKey") for p in programmes[:20] if p.get("ratingKey")]
+    mapped = []
+    for label, pid in (("number", provider.get("id")), ("name", provider.get("identifier"))):
+        status, _, body = http.get(f"/media/providers/{pid}/media/subscriptions/mapping/{','.join(keys)}", includeStorage=1)
+        rec.save(f"mapping-by-{label}", body)
+        mapped = mapped or mc(body).get("MediaSubscription", [])
+        rec.check(f"GET /media/providers/{{{label}}}/media/subscriptions/mapping/{{ids}} (HTTP {status})", True,
+                  f"{len(mc(body).get('MediaSubscription', []))} rule(s) for {len(keys)} programmes; "
+                  f"fields {sorted({k for s in mc(body).get('MediaSubscription', []) for k in s})}")
+
+    # A show with two or more airings ahead, no rule and nothing scheduled: the rule made below changes nothing else.
+    taken = {str(r.get("title")) for r in existing} | {str(first(r, "Directory").get("guid")) for r in existing}
+    taken |= {str(g.get("Metadata", {}).get("grandparentGuid")) for g in mc(scheduled).get("MediaGrabOperation", [])}
+    airings = Counter(p.get("grandparentGuid") for p in programmes if p.get("type") == "episode")
+    show = next((p for p in programmes if p.get("type") == "episode" and airings[p.get("grandparentGuid")] > 1
+                 and p.get("grandparentGuid") not in taken and p.get("grandparentTitle") not in taken), None)
+    if not rec.check("a show with two or more airings ahead and no rule", show,
+                     show and f"{show.get('grandparentTitle')} ({airings[show.get('grandparentGuid')]} airings)"):
+        return rec.finish()
+    status, _, template = http.get("/media/subscriptions/template", guid=show.get("guid"))
+    options = first(mc(template), "SubscriptionTemplate").get("MediaSubscription", [])
+    series = next((o for o in options if o.get("type") == 2), None)
+    if not rec.check("the template's All Episodes option", series, series and series.get("parameters")):
+        return rec.finish()
+    if not args.record:
+        return rec.finish()
+
+    query, prefs = subscribe_query(series, onlyNewAirings=1)
+    status, _, created = http.request("POST", f"/media/subscriptions?{query}")
+    rec.save("series-created", created)
+    rule = first(mc(created), "MediaSubscription")
+    key = rule.get("key")
+    if not rec.check(f"POST /media/subscriptions: a series rule, new airings only (HTTP {status})", key,
+                     f"fields {sorted(rule)}"):
+        return rec.finish()
+    try:
+        series_checks(http, rec, key, show, provider.get("id"))
+    finally:
+        status, _, _ = http.request("DELETE", f"/media/subscriptions/{key}")
+        rec.check("DELETE /media/subscriptions/{id}: the rule and its airings are gone", status == 200, f"HTTP {status}")
+        _, _, after = http.get("/media/subscriptions/scheduled")
+        left = [g for g in mc(after).get("MediaGrabOperation", []) if str(g.get("mediaSubscriptionID")) == str(key)]
+        rec.check("nothing of it is left scheduled", not left, f"{len(left)} left")
+    rec.finish()
+
+
+def series_checks(http, rec, key, show, provider_id):
+    """The series rule [key]'s airings, the mapping call and reading the rule, editing it, and cancelling one airing."""
+    status, _, body = http.get(f"/media/providers/{provider_id}/media/subscriptions/mapping/{show.get('ratingKey')}")
+    rec.save("series-mapping", body)
+    found = mc(body).get("MediaSubscription", [])
+    rec.check(f"the mapping call names the new rule for one of its airings (HTTP {status})",
+              any(str(m.get("key")) == str(key) for m in found), f"{[(m.get('key'), m.get('type')) for m in found]}")
+    status, _, body = http.get(f"/media/subscriptions/{key}", includeGrabs=1)
+    rec.save("series-read", body)
+    rule = first(mc(body), "MediaSubscription")
+    rec.check(f"GET /media/subscriptions/{{id}} (HTTP {status})", rule, f"fields {sorted(rule)}; show {first(rule, 'Directory')}")
+    _, _, scheduled = http.get("/media/subscriptions/scheduled")
+    grabs = [g for g in mc(scheduled).get("MediaGrabOperation", []) if str(g.get("mediaSubscriptionID")) == str(key)]
+    rec.save("series-scheduled", {"MediaContainer": {"MediaGrabOperation": grabs}})
+    rec.check("its airings are scheduled", grabs, f"{len(grabs)} airing(s); statuses {Counter(g.get('status') for g in grabs)}")
+
+    setting = next((s for s in rule.get("Setting", []) if s.get("id") == "endOffsetMinutes"), {})
+    before = setting.get("value", setting.get("default", 0))
+    status, _, edited = http.request("PUT", f"/media/subscriptions/{key}?prefs%5BendOffsetMinutes%5D=1")
+    rec.save("series-edited", edited)
+    now = next((s.get("value") for s in first(mc(http.get(f"/media/subscriptions/{key}")[2]), "MediaSubscription")
+                .get("Setting", []) if s.get("id") == "endOffsetMinutes"), None)
+    rec.check(f"PUT /media/subscriptions/{{id}}?prefs[endOffsetMinutes]=1 (HTTP {status}), read back", str(now) == "1",
+              f"was {before}, now {now}")
+    status, _, _ = http.request("PUT", f"/media/subscriptions/{key}?" + urllib.parse.urlencode({"prefs[endOffsetMinutes]": before}))
+    rec.check("and put back", status == 200, f"HTTP {status}")
+
+    if grabs:
+        grab = grabs[-1]
+        path = grab.get("key") or f"/media/grabbers/operations/{grab.get('id')}"
+        status, _, _ = http.request("DELETE", path)
+        _, _, after = http.get("/media/subscriptions/scheduled")
+        still = [g for g in mc(after).get("MediaGrabOperation", []) if str(g.get("mediaSubscriptionID")) == str(key)]
+        rec.check(f"DELETE {{grab key}}: one airing cancelled, the rule kept (HTTP {status})",
+                  status == 200 and len(still) == len(grabs) - 1, f"{len(grabs)} then {len(still)} airing(s)")
+        rules = mc(http.get("/media/subscriptions")[2]).get("MediaSubscription", [])
+        rec.check("the rule is still there", any(str(r.get("key")) == str(key) for r in rules))
 
 
 # ---------------------------------------------------------------- S7: favourite channels
@@ -1136,7 +1257,7 @@ def run_all(args, state):
     """Every step in turn (signing in first if needed, tuning and recording included), carrying on past a step
     that fails, then the shareable results zipped into spike-results.zip."""
     args.tune = args.record = True
-    steps = ([] if state.get("token") else [signin]) + [servers, library, playback, livetv, dvr, favourites, markers, deletion, people]
+    steps = ([] if state.get("token") else [signin]) + [servers, library, playback, livetv, dvr, favourites, markers, deletion, people, series_dvr]
     for step in steps:
         print(f"\n=== {step.__name__} ===", flush=True)
         try:
@@ -1171,6 +1292,18 @@ def cast(args, state):
     share_results(args)
 
 
+def test_dvr(args, state):
+    """The spike app's "Test series recording": series_dvr with --record (signing in and finding the servers first
+    if needed), then the results zipped as `all` does."""
+    if not state.get("token"):
+        signin(args, state)
+    if not state.get("servers") and not args.server:
+        servers(args, state)
+    args.record = True
+    series_dvr(args, state)
+    share_results(args)
+
+
 def share_results(args):
     """The shareable results (reports and sanitised responses) zipped into spike-results.zip."""
     zipped = Path("spike-results.zip").resolve()
@@ -1186,7 +1319,7 @@ def share_results(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("step", choices=["all", "signin", "servers", "library", "playback", "livetv", "dvr",
-                                             "favourites", "save-favourites", "markers", "deletion", "people", "cast"])
+                                             "favourites", "save-favourites", "markers", "deletion", "people", "cast", "series_dvr", "test-dvr"])
     parser.add_argument("--server", help="server URL, e.g. http://192.168.1.20:32400 (default: from `servers`)")
     parser.add_argument("--token", help="token for --server (not needed for a local unclaimed test server)")
     parser.add_argument("--out", type=Path, default=Path("spike-out"))
@@ -1203,7 +1336,7 @@ def main():
     hide_known(state)
     if args.server and not args.token and state.get("servers"):
         args.token = next((s["token"] for s in state["servers"] if s["uri"] == args.server), None)
-    steps = {"all": run_all, "save-favourites": save_favourites, "cast": cast}
+    steps = {"all": run_all, "save-favourites": save_favourites, "cast": cast, "test-dvr": test_dvr}
     (steps.get(args.step) or globals()[args.step])(args, state)
 
 
