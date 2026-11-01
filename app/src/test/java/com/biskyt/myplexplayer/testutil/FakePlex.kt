@@ -679,8 +679,14 @@ class FakePlex : AutoCloseable {
         if (!allowsDeletion) return MockResponse().setResponseCode(403)
         if (byKey(key) == null) return MockResponse().setResponseCode(404)
         deleted += key
+        val show = byKey(key)?.string("grandparentRatingKey")
         movies = movies.filter { it.string("ratingKey") != key }
-        episodes = episodes.filter { it.string("ratingKey") != key }
+        // A show goes with its episodes; and, as on a real server, with its last episode.
+        episodes = episodes.filter { it.string("ratingKey") != key && it.string("grandparentRatingKey") != key }
+        shows = shows.filter { s ->
+            val k = s.string("ratingKey")!!
+            k != key && (k != show || episodesOf(k).isNotEmpty())
+        }
         return MockResponse()
     }
 

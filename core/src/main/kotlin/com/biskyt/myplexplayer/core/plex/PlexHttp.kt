@@ -51,6 +51,9 @@ class PlexException(
     /** For [Reason.NEEDS_TRANSCODE]: the streams the server would have to convert, in their own formats. */
     val formats: List<PlexFormat> = emptyList(),
 ) : IOException(message, cause) {
+    /** The server doesn't have what was asked for (HTTP 404): deleted, say. */
+    val isNotFound: Boolean get() = code == HTTP_NOT_FOUND
+
     enum class Reason {
         /** The token was refused (401): sign in again. */
         UNAUTHORIZED,
@@ -220,3 +223,5 @@ private suspend fun Call.await(): Response = suspendCancellableCoroutine { conti
 }
 
 private const val HTTP_UNAUTHORIZED = 401
+
+private const val HTTP_NOT_FOUND = 404

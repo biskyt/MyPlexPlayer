@@ -29,6 +29,15 @@
     </plurals>
     <string name="vod_delete">Delete…</string>
     <string name="vod_delete_confirm">Delete “%1$s” from the Plex server? Its file is deleted too, for everyone using the server.</string>
+    <string name="vod_delete_series">Delete the series…</string>
+    <string name="vod_delete_series_button">Delete the series</string>
+    <string name="vod_no_episodes_delete">This series has no episodes. Do you want to delete it from the Plex server?</string>
+    <string name="vod_delete_series_confirm_all">Delete “%1$s” and all its episodes from the Plex server? Their files are deleted too, for everyone using the server.</string>
+    <!-- %1$s: the series' title; %2$d: how many episodes go with it (more than one) -->
+    <plurals name="vod_delete_series_confirm">
+        <item quantity="one">Delete “%1$s” and its %2$d episode from the Plex server? Its file is deleted too, for everyone using the server.</item>
+        <item quantity="other">Delete “%1$s” and all %2$d of its episodes from the Plex server? Their files are deleted too, for everyone using the server.</item>
+    </plurals>
     <string name="vod_delete_yes">Delete</string>
     <string name="vod_delete_no">Keep it</string>
     <string name="vod_not_deleted">Couldn’t delete it</string>

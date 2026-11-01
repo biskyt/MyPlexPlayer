@@ -219,7 +219,9 @@ See also:
 - **Deleting** (0.10.0, docs/plex-api.md row 19): whether a server allows it is one server setting
   (`allowMediaDeletion` in `/`), asked once per source and again after each sync; a show's "Delete episodes after
   playing" is read with `includePreferences=1` (its `/prefs` lists nothing) and saved with a PUT to `/prefs`, once the
-  remote rests on a choice (`AutoDeleteChoice`). Delete always asks first (`ItemAction.Confirmed`).
+  remote rests on a choice (`AutoDeleteChoice`). Delete always asks first (`ItemAction.Confirmed`). A series' last episode deleted
+  takes the series with it on the server (404 after it, docs/plex-api.md row 27), so the app then drops its own copy
+  (`VodRepository.forgetSeries`); a whole series is deleted with one `DELETE` of the show (0.18.0).
 - **Changing a setting's default:** `SettingsRepository.update` (and a backup) saves every setting, so a default
   already released is saved as if chosen. A new default needs a new preference key and `@SerialName`, as credits'
   automatic skip got in 0.8.1.

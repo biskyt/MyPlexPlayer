@@ -477,6 +477,9 @@ interface VodDao {
     @Query("DELETE FROM movie WHERE playlistId = :pid AND streamId = :id")
     suspend fun deleteMovie(pid: Long, id: Long)
 
+    @Query("DELETE FROM series WHERE playlistId = :pid AND seriesId = :id")
+    suspend fun deleteOneSeries(pid: Long, id: Long)
+
     @Query("DELETE FROM movie WHERE playlistId = :pid AND syncStamp != :stamp")
     suspend fun deleteStaleMovies(pid: Long, stamp: Long)
 
@@ -535,6 +538,10 @@ interface VodDao {
 
     @Query("DELETE FROM watch_progress WHERE playlistId = :pid AND kind = :kind AND itemId IN (:ids)")
     suspend fun deleteProgress(pid: Long, kind: String, ids: List<Long>)
+
+    /** The progress of series [seriesId]'s episodes. */
+    @Query("DELETE FROM watch_progress WHERE playlistId = :pid AND seriesId = :seriesId")
+    suspend fun deleteSeriesProgress(pid: Long, seriesId: Long)
 
     @Query("SELECT * FROM watch_progress WHERE playlistId = :pid AND pending")
     suspend fun pendingProgress(pid: Long): List<WatchProgressEntity>

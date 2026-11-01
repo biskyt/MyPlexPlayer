@@ -167,11 +167,9 @@ class VodBrowseViewModel(
     var removedId by mutableStateOf<Long?>(null)
 
     init {
-        // The film last opened, deleted on its page: the list catches up only after the remote has gone back to it.
-        if (isMovies) {
-            viewModelScope.launch {
-                c.vod.deletedMovies.collect { (pid, id) -> if (pid == playlist.value?.id && id == focusId) removedId = id }
-            }
+        // The title last opened, deleted on its page: the list catches up only after the remote has gone back to it.
+        viewModelScope.launch {
+            c.vod.deletedTitles.collect { (pid, id) -> if (pid == playlist.value?.id && id == focusId) removedId = id }
         }
     }
 
@@ -185,11 +183,13 @@ class VodBrowseViewModel(
         c.vod.setWatched(pid, card.id, series = card.id.takeIf { type == CAT_SERIES }, watched)
     }
 
-    /** Whether a film can be deleted here (the server allows it), for its menu. */
-    suspend fun canDelete(): Boolean = type == CAT_MOVIE && playlist.value?.let { c.vod.canDelete(it.id) } == true
+    /** Whether a title can be deleted here (the server allows it), for its menu. */
+    suspend fun canDelete(): Boolean = playlist.value?.let { c.vod.canDelete(it.id) } == true
 
-    /** Deletes film [card] on the server; the grid follows (refused or out of reach, a notice says so). */
-    fun delete(pid: Long, card: VodCard) = viewModelScope.launch { c.vod.deleteMovie(pid, card.id) }
+    /** Deletes film or series [card] on the server; the grid follows (refused or out of reach, a notice says so). */
+    fun delete(pid: Long, card: VodCard) = viewModelScope.launch {
+        if (type == CAT_SERIES) c.vod.deleteSeries(pid, card.id) else c.vod.deleteMovie(pid, card.id)
+    }
 
     /** A series' "Delete watched episodes", for its menu. */
     fun autoDelete(pid: Long, card: VodCard): AutoDeleteChoice? =
@@ -326,7 +326,11 @@ private fun PosterOptions(vm: VodBrowseViewModel, card: VodCard, view: VodView, 
                 vm.setWatched(pid, card, it)
             }
         },
-        if (canDelete) deleteAction(card.title) { vm.delete(pid, card) } else null,
+        when {
+            !canDelete -> null
+            vm.type == CAT_SERIES -> deleteSeriesAction(card.title, card.episodes) { vm.delete(pid, card) }
+            else -> deleteAction(card.title) { vm.delete(pid, card) }
+        },
         autoDelete?.action()
     )
     ItemActionsPanel(card.title, actions, close)

@@ -47,6 +47,7 @@ import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.vod.EpisodeInfo
 import com.biskyt.myplexplayer.core.vod.SeasonInfo
 import com.biskyt.myplexplayer.core.vod.SeriesDetails
+import com.biskyt.myplexplayer.data.VodRepository
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.data.db.SeriesEntity
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
@@ -91,6 +92,10 @@ class SeriesDetailsViewModel(
     var details by mutableStateOf<SeriesDetails?>(null)
         private set
     var error by mutableStateOf<String?>(null)
+        private set
+
+    /** The series was deleted here (or with its last episode): the page closes. */
+    var gone by mutableStateOf(false)
         private set
 
     /** The season asked for or picked (until then, the one with the episode to carry on with). */
@@ -168,12 +173,24 @@ class SeriesDetailsViewModel(
         if (autoDelete == null) autoDelete = AutoDeleteChoice(viewModelScope, c.vod, playlistId, seriesId)
     }
 
-    /** Deletes [e] on the server; the list follows (refused or out of reach, a notice says so). */
+    /**
+     * Deletes [e] on the server; the list follows (refused or out of reach, a notice says so). The series' last episode
+     * takes the series with it, and the page closes.
+     */
     fun delete(e: EpisodeInfo) {
         if (season == null) season = e.season
         changedInList = true
-        viewModelScope.launch { if (c.vod.deleteEpisode(playlistId, seriesId, e.id)) load() }
+        viewModelScope.launch {
+            when (c.vod.deleteEpisode(playlistId, seriesId, e.id)) {
+                VodRepository.EpisodeDeleted.EPISODE -> load()
+                VodRepository.EpisodeDeleted.SERIES -> gone = true
+                VodRepository.EpisodeDeleted.NOTHING -> Unit
+            }
+        }
     }
+
+    /** Deletes the series on the server, every episode with it; the page closes (refused or out of reach, a notice says so). */
+    fun deleteSeries() = viewModelScope.launch { if (c.vod.deleteSeries(playlistId, seriesId)) gone = true }
 }
 
 /**
@@ -190,6 +207,8 @@ fun continueEpisode(episodes: List<EpisodeInfo>, progress: Map<Long, WatchProgre
 @Composable
 fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
     val vm = appViewModel { SeriesDetailsViewModel(it, screen.playlistId, screen.seriesId, screen.season) }
+    val nav = LocalNavigator.current
+    if (vm.gone) LaunchedEffect(Unit) { nav.pop() }
     val show = vm.series ?: return
     val d = vm.details
     val progress by vm.progress.collectAsState()
@@ -228,7 +247,7 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
                         PillButton(stringResource(R.string.common_retry), { vm.load() }, rememberFirstFocus())
                     }
                     d == null -> Muted(stringResource(R.string.vod_loading_episodes))
-                    d.episodes.isEmpty() -> Muted(stringResource(R.string.vod_no_episodes))
+                    d.episodes.isEmpty() -> NoEpisodes(vm)
                     else -> Episodes(vm, d, season, progress, target, screen)
                 }
             }
@@ -237,6 +256,18 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
     vm.optionsFor?.let { e -> EpisodeOptions(vm, show.title, d, e, progress[e.id], screen) }
     if (vm.castOpen) CastPanel(show.title, d?.info?.cast.orEmpty()) { vm.castOpen = false }
     vm.describing?.let { e -> e.plot?.let { TextPanel(show.title, episodeName(e), it) { vm.describing = null } } }
+}
+
+/** A series with no episodes: says so, and offers to delete it where the server allows it. */
+@Composable
+private fun NoEpisodes(vm: SeriesDetailsViewModel) {
+    val canDelete by produceState(false) { value = vm.canDelete() }
+    if (!canDelete) {
+        Muted(stringResource(R.string.vod_no_episodes))
+        return
+    }
+    Muted(stringResource(R.string.vod_no_episodes_delete), maxLines = 3)
+    PillButton(stringResource(R.string.vod_delete_series_button), { vm.deleteSeries() }, rememberFirstFocus())
 }
 
 /** "Series 2 · 2023 · 3 series · [15] · Crime" and the show's scores: the season shown, its year, how many, rating and genres. */
@@ -345,7 +376,10 @@ private fun EpisodeOptions(
                 vm.castOpen = true
             },
             setFavourite = { vm.toggleFavourite() }
-        ) + listOfNotNull(vm.autoDelete?.action())
+        ) + listOfNotNull(
+            vm.autoDelete?.action(),
+            if (canDelete) deleteSeriesAction(title, d?.episodes?.size) { vm.deleteSeries() } else null
+        )
     ItemActionsPanel("$title · ${episodeName(e)}", episode + showActions, close)
 }
 

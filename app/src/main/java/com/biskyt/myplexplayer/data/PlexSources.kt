@@ -576,7 +576,25 @@ class PlexSources(
 
     /** A series' unwatched count, again from the server (after one of its episodes played): for its badge. */
     private suspend fun refreshUnwatched(p: PlaylistEntity, client: PlexClient, seriesId: Long) {
-        val show = offlineOk { client.item(seriesId.toString()) } ?: return // not answered: the next sync updates it
+        offlineOk { refreshCounts(p, client, seriesId) } // not answered: the next sync updates it
+    }
+
+    /**
+     * Series [seriesId]'s counts again, after one of its episodes was deleted: true when the server no longer has the
+     * series (Plex deletes a show with its last episode, docs/plex-api.md row 27). Out of reach, false: the next sync
+     * brings the counts.
+     */
+    suspend fun seriesGone(p: PlaylistEntity, seriesId: Long): Boolean = try {
+        refreshCounts(p, client(p), seriesId)
+        false
+    } catch (e: PlexException) {
+        e.isNotFound
+    } catch (ignored: IOException) {
+        false
+    }
+
+    private suspend fun refreshCounts(p: PlaylistEntity, client: PlexClient, seriesId: Long) {
+        val show = client.item(seriesId.toString())
         db.vod().setEpisodeCounts(p.id, seriesId, unwatched(show), show.leafCount)
     }
 
