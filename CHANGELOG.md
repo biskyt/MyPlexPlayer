@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.20.1
+- "Warn if VPN is not connected" is now in the main Settings list, after Appearance.
+
 ## 0.20.0
 - A new setting in Appearance, "Warn if VPN is not connected", shows in the top bar whether Android reports a VPN on the device.
 - When you remove a card from Carry on watching, the card now in its place has the remote.
