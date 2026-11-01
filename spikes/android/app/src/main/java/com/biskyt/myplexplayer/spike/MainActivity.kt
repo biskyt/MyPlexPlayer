@@ -152,8 +152,9 @@ class MainActivity : Activity() {
         column.addView(seriesDvr)
         column.addView(
             text(
-                "Test recordings: while a recording is in progress, finds it and a recent recording in your " +
-                    "library, and checks that their files can be read (about a minute; only reads).",
+                "Test recordings: while a recording is in progress, finds it and recent recordings in your " +
+                    "library, checks that their files can be read, and briefly tunes the channel being recorded " +
+                    "to test watching from the start (about a minute).",
                 15f
             )
         )
