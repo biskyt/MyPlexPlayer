@@ -82,8 +82,8 @@ class PlexSignInViewModel(private val c: AppContainer) : ViewModel() {
                 }
                 when {
                     added.ids.isNotEmpty() -> {
-                        // Their films and series load now, one server after another.
-                        added.ids.forEach { c.sync.refresh(it) }
+                        // The server in use loads its films and series now. The others load when switched to.
+                        c.sync.refreshAll()
                         State.Done(added.unreachable)
                     }
                     added.unreachable.isNotEmpty() -> State.Failed(

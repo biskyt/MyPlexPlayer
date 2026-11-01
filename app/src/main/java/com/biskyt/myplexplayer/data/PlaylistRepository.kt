@@ -36,6 +36,9 @@ class PlaylistRepository(
 
     suspend fun allIds(): List<Long> = playlists.all().map { it.id }
 
+    /** [id]'s last update was stopped part way: it is due another, made when it is next in use. */
+    suspend fun markDue(id: Long) = playlists.setLastSync(id, 0)
+
     /**
      * Hides a category, as unticking it in Settings › Languages & categories does: its channels (or titles) go now,
      * without downloading anything, and updates leave it out.

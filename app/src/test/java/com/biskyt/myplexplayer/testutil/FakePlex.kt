@@ -202,6 +202,12 @@ class FakePlex : AutoCloseable {
     /** How many requests it has had. */
     val requestCount: Int get() = server.requestCount
 
+    /** The paths asked for, in order. */
+    val paths: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+
+    /** How long the library list (`/library/sections`) takes to come. Under 5 s: [close] waits that long at most. */
+    @Volatile var sectionsDelayMs = 0L
+
     init {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse = answer(request)
@@ -221,6 +227,7 @@ class FakePlex : AutoCloseable {
 
     private fun answer(request: RecordedRequest): MockResponse {
         val path = request.requestUrl!!.encodedPath
+        paths += path
         liveTvAnswer(path, request)?.let { return it }
         val token = request.getHeader("X-Plex-Token") ?: request.requestUrl!!.queryParameter("X-Plex-Token")
         return when {
@@ -286,7 +293,7 @@ class FakePlex : AutoCloseable {
         }
         path == "/library/sections" -> container {
             putJsonArray("Directory") { libraries.forEach { add(section(it.key, it.type, it.title)) } }
-        }
+        }.setBodyDelay(sectionsDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
         path.startsWith("/library/sections/") && path.endsWith("/all") -> when (library(path)?.type) {
             "movie" -> page(request, inLibrary(movies, request).filter { viewedSince(request, it) }.map(::withState))
             "show" -> shows(request)

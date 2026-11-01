@@ -112,7 +112,7 @@ class FavouriteOrderTest {
 
     @Test
     fun `restored from a backup, channels come back in Plex's order, whatever order the backup had`() = runBlocking {
-        val backup = BackupRepository(db, settings, SyncManager(scope, playlists, vod, epg), epg)
+        val backup = BackupRepository(db, settings, SyncManager(scope, playlists, vod, epg, settings), epg)
         listOf(ONE, TWO, THREE).forEach { channels.setFavourite(pid, it, true) }
         // Moved, as a move ends: saved to Plex.
         favourites.setOrder(pid, CAT_LIVE, listOf(THREE, ONE, TWO))

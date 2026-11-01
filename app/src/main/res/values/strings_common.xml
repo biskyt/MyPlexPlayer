@@ -122,4 +122,6 @@
     <string name="common_move_hint_touch">Tap the arrows to move it, tap it to keep it there, Back to cancel</string>
     <!-- Starring a channel, or moving one, saves to Plex (shared by every Plex app); shown when that failed. -->
     <string name="common_favourites_not_saved">Favourite channels not saved to Plex</string>
+    <string name="common_vpn_on">VPN on</string>
+    <string name="common_vpn_off">VPN not connected</string>
 </resources>

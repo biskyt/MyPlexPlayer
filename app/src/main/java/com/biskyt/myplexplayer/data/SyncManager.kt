@@ -7,10 +7,15 @@ import com.biskyt.myplexplayer.appString
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -39,20 +44,26 @@ class SyncManager(
     private val scope: CoroutineScope,
     private val playlists: PlaylistRepository,
     private val vod: VodRepository,
-    private val epg: EpgRepository
+    private val epg: EpgRepository,
+    private val settings: SettingsRepository
 ) {
     private val mutex = Mutex()
     private val _state = MutableStateFlow<SyncState>(SyncState.Idle)
     val state: StateFlow<SyncState> = _state.asStateFlow()
+
+    init {
+        // A switch to another source (from any screen) stops the old one's running work.
+        scope.launch { settings.activePlaylistId.drop(1).collect { id -> running?.takeIf { it.playlistId != id }?.stop() } }
+    }
 
     /** Refreshes a source's channels (and its guide), then movies and series (the slowest, so last). */
     fun refresh(playlistId: Long): Job = scope.launch { refreshNow(playlistId) }
 
     fun refreshAll(): Job = scope.launch { refreshAllNow() }
 
-    /** Every source's channels and guide, movies and series. */
+    /** The source in use: its channels and guide, movies and series. Sources not in use are left alone. */
     suspend fun refreshAllNow() {
-        playlists.allIds().forEach { refreshNow(it) }
+        refreshNow(settings.current().activePlaylistId)
     }
 
     /** Runs [block] while no refresh is running, e.g. replacing everything from a backup. */
@@ -60,9 +71,13 @@ class SyncManager(
 
     /**
      * [refresh], waiting for it: the outcome is returned (with why its guide couldn't be loaded, if it couldn't), and
-     * also shows in [state].
+     * also shows in [state]. Nothing for a source not in use: it is refreshed when switched to.
      */
     suspend fun refreshNow(playlistId: Long): Result<String?> = attempt(R.string.data_refresh_failed) {
+        ifInUse(playlistId) { refreshSource(playlistId) }
+    }
+
+    private suspend fun refreshSource(playlistId: Long): String? {
         val name = playlists.get(playlistId)?.name.orEmpty()
         _state.value = SyncState.Channels(name, 0)
         playlists.syncChannels(playlistId) { _state.value = SyncState.Channels(name, it) }
@@ -71,7 +86,7 @@ class SyncManager(
         val guideError = epg.plexGuideError(playlistId)
         // Read again (by syncVod): updating the channels stores to the playlist (its account).
         syncVod(playlistId)
-        guideError
+        return guideError
     }
 
     /**
@@ -110,7 +125,48 @@ class SyncManager(
     }
 
     /** Only movies and series (after their categories change). */
-    fun refreshVod(playlistId: Long): Job = scope.launch { guarded(R.string.data_vod_failed) { syncVod(playlistId) } }
+    fun refreshVod(playlistId: Long): Job = scope.launch {
+        guarded(R.string.data_vod_failed) { ifInUse(playlistId) { syncVod(playlistId) } }
+    }
+
+    /** The work running now, for a source: a switch to another source stops it. */
+    @Volatile private var running: Work? = null
+
+    /** [job], the work for [playlistId]. [stopped]: a switch stopped it (not a cancellation from within the work). */
+    private class Work(val playlistId: Long, val job: Job) {
+        @Volatile var stopped = false
+
+        fun stop() {
+            stopped = true
+            job.cancel()
+        }
+    }
+
+    /**
+     * [block], the work for [playlistId], when it is the source in use (null, without running it, for one that is
+     * not: those are left alone). A switch to another source stops it (see init), and the caller then gets null: the
+     * work runs in a job of its own, so the caller (for example the daily refresh's housekeeping after it) carries on.
+     */
+    private suspend fun <T> ifInUse(playlistId: Long, block: suspend () -> T): T? {
+        val job = scope.async(start = CoroutineStart.LAZY) { block() }
+        val work = Work(playlistId, job)
+        // Seen by a switch before the check below, so a switch between the two still stops it.
+        running = work
+        try {
+            if (settings.current().activePlaylistId != playlistId) return null
+            return job.await()
+        } catch (e: CancellationException) {
+            if (work.stopped && currentCoroutineContext().isActive) {
+                // Stopped by a switch. Its channels can show it as updated (with its films and series not loaded).
+                playlists.markDue(playlistId)
+                return null
+            }
+            throw e
+        } finally {
+            job.cancel() // the caller stopped waiting: the work stops too (no effect once it has finished)
+            if (running === work) running = null
+        }
+    }
 
     private suspend fun syncVod(playlistId: Long) {
         val p = playlists.get(playlistId) ?: return

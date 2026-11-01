@@ -327,9 +327,27 @@ fun HomeScreen() {
     options?.let { tile ->
         TileOptions(tile, vm, pid) { removed ->
             options = null
-            if (removed) scope.launch { snapshotFlow { shown(tile) }.first { !it }.also { refocus++ } }
+            if (!removed) return@TileOptions
+            // Taken off Carry on watching: the card now in its place has the remote (or its own, moved on to the
+            // next episode). Else the row on top's first card.
+            val key = (tile as? HomeTile.CarryOn)?.p?.cardKey()
+            val place = carryOn.orEmpty().indexOfFirst { it.cardKey() == key }
+            scope.launch {
+                snapshotFlow { shown(tile) }.first { !it }
+                vm.focusAfterRemoving(key, place, carryOn.orEmpty()) { refocus++ }
+            }
         }
     }
+}
+
+/**
+ * After a card is taken off Home: the Carry on watching card ([key], at [place]) gives the remote to its own card, moved
+ * on to the next episode, or else to the one now in its place on [now] ([HomeViewModel.returnTo]). Any other card, or
+ * an empty row: [elsewhere].
+ */
+private fun HomeViewModel.focusAfterRemoving(key: String?, place: Int, now: List<WatchProgressEntity>, elsewhere: () -> Unit) {
+    val next = key?.let { k -> now.firstOrNull { it.cardKey() == k } ?: now.getOrNull(place) ?: now.lastOrNull() }
+    if (next != null) returnTo = next.cardKey() else elsewhere()
 }
 
 /** A film's or series' card ([type] and [id]): its picture goes behind Home while it has the remote. A channel's (null): none. */

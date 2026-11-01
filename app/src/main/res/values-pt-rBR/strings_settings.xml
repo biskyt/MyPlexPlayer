@@ -151,4 +151,6 @@
     <string name="settings_playlist_in_use">EM USO</string>
     <string name="settings_playlist_update_now">Atualizar agora</string>
     <string name="settings_playlist_select_hint">Selecione uma playlist para mudar para ela.</string>
+    <string name="settings_warn_vpn">Avisar se a VPN não estiver conectada</string>
+    <string name="settings_warn_vpn_help">Mostra na barra superior se o Android indica uma VPN neste dispositivo. Não é possível detectar uma VPN configurada no roteador ou em outro dispositivo.</string>
 </resources>

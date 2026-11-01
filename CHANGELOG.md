@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.20.0
+- A new setting in Appearance, "Warn if VPN is not connected", shows in the top bar whether Android reports a VPN on the device.
+- When you remove a card from Carry on watching, the card now in its place has the remote.
+- Only the Plex server in use is updated. A switch to another server stops the old server's update.
+
 ## 0.19.1
 - An episode's options and the player's More menu now have "Episode description", which also says when the episode was first shown.
 - A long episode description no longer runs off the bottom of its panel: it ends with "…".

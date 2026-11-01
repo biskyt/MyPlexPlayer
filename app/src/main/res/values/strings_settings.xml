@@ -200,4 +200,6 @@
     <!-- Buttons. -->
     <string name="settings_playlist_update_now">Update now</string>
     <string name="settings_playlist_select_hint">Select a playlist to switch to it.</string>
+    <string name="settings_warn_vpn">Warn if VPN is not connected</string>
+    <string name="settings_warn_vpn_help">Shows in the top bar whether Android reports a VPN on this device. A VPN set up on your router or on another device cannot be detected.</string>
 </resources>

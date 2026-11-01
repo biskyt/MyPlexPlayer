@@ -214,7 +214,7 @@ class RepositoriesTest {
 
     @Test
     fun `a backup's M3U playlist or Xtream account is left out of the restore, with what it had`() = runBlocking {
-        val backup = BackupRepository(db, settings, SyncManager(scope, playlists, vod, epg), epg)
+        val backup = BackupRepository(db, settings, SyncManager(scope, playlists, vod, epg, settings), epg)
         val kept = addHomePlex()
         val retired = listOf("m3u", "xtream").map { kind ->
             db.playlists().insert(PlaylistEntity(name = "Old", kind = kind, server = "http://x/a", password = ""))
@@ -231,7 +231,7 @@ class RepositoriesTest {
 
     @Test
     fun `a backup restores sources, choices, favourites and settings`() = runBlocking {
-        val backup = BackupRepository(db, settings, SyncManager(scope, playlists, vod, epg), epg)
+        val backup = BackupRepository(db, settings, SyncManager(scope, playlists, vod, epg, settings), epg)
         fun import(text: String) = runBlocking { backup.apply(backup.read(text.byteInputStream())) }
         threeChannels()
         val id = addHomePlex()

@@ -60,7 +60,7 @@ class PlexPlayStateTest {
         }
         val playlists = PlaylistRepository(db, settings, epg, categoryStore, plex)
         vod = VodRepository(db, playlists, categoryStore, plex, Notices())
-        sync = SyncManager(scope, playlists, vod, epg)
+        sync = SyncManager(scope, playlists, vod, epg, settings)
         plex.signIn(FakePlex.ACCOUNT_TOKEN)
         source = db.playlists().all().single { it.machineId == FakePlex.MACHINE_ID }
     }
