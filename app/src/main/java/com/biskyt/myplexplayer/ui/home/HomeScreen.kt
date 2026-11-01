@@ -52,6 +52,8 @@ import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
+import com.biskyt.myplexplayer.ui.common.BackdropImage
+import com.biskyt.myplexplayer.ui.common.BackdropShade
 import com.biskyt.myplexplayer.ui.common.ChannelCard
 import com.biskyt.myplexplayer.ui.common.FavouriteMover
 import com.biskyt.myplexplayer.ui.common.ItemAction
@@ -86,8 +88,6 @@ import com.biskyt.myplexplayer.ui.common.titledRow
 import com.biskyt.myplexplayer.ui.common.vodActions
 import com.biskyt.myplexplayer.ui.common.vodDetails
 import com.biskyt.myplexplayer.ui.theme.Palette
-import com.biskyt.myplexplayer.ui.vod.BackdropImage
-import com.biskyt.myplexplayer.ui.vod.BackdropShade
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
