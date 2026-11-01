@@ -190,8 +190,8 @@ class DeleteUiTest {
     @Test
     fun `an episode's description is in its options`() {
         show(Screen.SeriesDetails(source, 21))
-        options("Second", "Description")
-        click("Description")
+        options("Second", "Episode description")
+        click("Episode description")
         compose.waitForText("Colour bars, one more time.", stepMs = 50)
     }
 
@@ -199,7 +199,7 @@ class DeleteUiTest {
     fun `an episode without one has no entry for it, and the page no hint about the options`() {
         show(Screen.SeriesDetails(source, 21))
         options("Pilot", "Mark as watched")
-        assertEquals(0, compose.onAllNodes(hasText("Description")).fetchSemanticsNodes().size)
+        assertEquals(0, compose.onAllNodes(hasText("Episode description")).fetchSemanticsNodes().size)
         assertEquals(0, compose.onAllNodes(hasText("hold OK", substring = true)).fetchSemanticsNodes().size)
     }
 }

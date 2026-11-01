@@ -123,6 +123,6 @@
     <string name="player_about_programme">About this programme</string>
     <!-- While a Live TV channel is tuned (it can take a while), until its picture starts. -->
     <string name="player_tuning">Tuning…</string>
-    <string name="player_description">Description</string>
+    <string name="player_description">Episode description</string>
     <string name="player_info_buffer">Buffered ahead: %1$d s</string>
 </resources>

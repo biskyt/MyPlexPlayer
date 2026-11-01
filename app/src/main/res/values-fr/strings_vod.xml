@@ -90,4 +90,5 @@
     <string name="vod_no_cast">Aucune distribution indiquée.</string>
     <string name="vod_score_rotten_tomatoes">Critiques Rotten Tomatoes</string>
     <string name="vod_score_rotten_tomatoes_audience">Public Rotten Tomatoes</string>
+    <string name="vod_first_shown">Première diffusion le %1$s</string>
 </resources>

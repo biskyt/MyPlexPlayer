@@ -28,6 +28,7 @@ import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.plex.PlexMediaInfo
 import com.biskyt.myplexplayer.core.vod.VodDetails
+import com.biskyt.myplexplayer.data.airDateOf
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
@@ -38,8 +39,6 @@ import com.biskyt.myplexplayer.ui.common.SectionLabel
 import com.biskyt.myplexplayer.ui.common.formatDate
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import java.io.IOException
-import java.time.LocalDate
-import java.time.ZoneId
 import kotlinx.coroutines.launch
 
 /**
@@ -130,7 +129,7 @@ private fun Facts(facts: List<Pair<String, String?>>) {
 
 private fun about(d: VodDetails): List<Pair<String, String?>> = listOf(
     appString(R.string.vod_original_title) to d.originalTitle,
-    appString(R.string.vod_released) to d.released?.let(::date),
+    appString(R.string.vod_released) to d.released?.let(::airDateOf)?.let(::formatDate),
     appString(R.string.vod_studio) to d.studio,
     appString(R.string.vod_countries) to d.countries.list(),
     appString(R.string.vod_producers) to d.producers.list(),
@@ -154,11 +153,5 @@ private fun fileInfo(context: android.content.Context, m: PlexMediaInfo): List<P
 
 private fun List<String>.list() = takeIf { it.isNotEmpty() }?.joinToString(", ")
 
-/** "2019-03-14" as the app writes dates. */
-private fun date(iso: String): String? = runCatching {
-    formatDate(LocalDate.parse(iso.take(ISO_DATE)).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli())
-}.getOrNull()
-
-private const val ISO_DATE = 10
 private const val MS_PER_S = 1000L
 private const val KBPS_PER_MBPS = 1000.0

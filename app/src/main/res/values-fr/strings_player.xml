@@ -85,6 +85,6 @@
     <string name="player_about_programme">À propos de ce programme</string>
     <!-- While a Live TV channel is tuned (it can take a while), until its picture starts. -->
     <string name="player_tuning">Recherche de la chaîne…</string>
-    <string name="player_description">Description</string>
+    <string name="player_description">Description de l\'épisode</string>
     <string name="player_info_buffer">En mémoire tampon : %1$d s</string>
 </resources>

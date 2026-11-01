@@ -2,7 +2,6 @@ package com.biskyt.myplexplayer.ui.common
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,9 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -129,20 +126,6 @@ fun CastRow(cast: List<CastMember>, modifier: Modifier = Modifier) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(cast) { person ->
                 TvCard(onClick = {}, color = Palette.background) { CastPerson(person, 56.dp, Modifier.padding(8.dp)) }
-            }
-        }
-    }
-}
-
-/** A title's text (an episode's description) in a side panel; focusable, so the remote's keys (Back) reach it. */
-@Composable
-fun TextPanel(heading: String, title: String, text: String, onDismiss: () -> Unit) {
-    SidePanel(onDismiss, dim = false) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Muted(heading)
-            Text(title, style = MaterialTheme.typography.titleLarge)
-            Column(rememberFirstFocus().focusable().verticalScroll(rememberScrollState())) {
-                Text(text, style = MaterialTheme.typography.bodyLarge)
             }
         }
     }
