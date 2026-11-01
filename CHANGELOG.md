@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.18.0
+- You can now delete a whole series from its options, after a question that says how many episodes go with it.
+- A series with no episodes now offers to delete it from the Plex server.
+- Deleting a series' last episode no longer shows an error: the series goes, as it does on the Plex server, and leaves TV Shows and Home.
+
 ## 0.17.4
 - The TV guide now fits the screen, so the selected programme no longer goes past the right edge when you move right.
 

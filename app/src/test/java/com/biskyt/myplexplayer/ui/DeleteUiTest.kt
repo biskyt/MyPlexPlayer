@@ -16,6 +16,7 @@ import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -107,6 +108,54 @@ class DeleteUiTest {
         click("Delete")
         compose.waitAdvancingClock(stepMs = 50) { plex.deleted == listOf("212") }
         compose.waitAdvancingClock(stepMs = 50) { compose.onAllNodes(hasText("Second")).fetchSemanticsNodes().isEmpty() }
+        // The series' counts follow: one episode, unwatched.
+        compose.waitAdvancingClock(stepMs = 50) { series()?.let { it.episodes == 1 && it.unwatched == 1 } == true }
+    }
+
+    private fun series() = runBlocking { app.container.db.vod().series(source, 21) }
+
+    /** The TV Shows grid, then the series' page over it. */
+    private fun seriesPage() {
+        val navigator = navigators.new(Screen.Series())
+        compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
+        compose.waitForText("Test Show", stepMs = 50)
+        compose.runOnIdle { navigator.push(Screen.SeriesDetails(source, 21)) }
+    }
+
+    @Test
+    fun `deleting a series' last episode deletes the series, here too, and its page closes`() {
+        plex.episodes = plex.episodes.filter { it["ratingKey"]?.jsonPrimitive?.content == "211" }
+        runBlocking { app.container.vod.sync(app.container.db.playlists().get(source)!!) }
+        seriesPage()
+        options("Pilot", "Delete…")
+        click("Delete…")
+        compose.waitForText("Keep it", stepMs = 50)
+        click("Delete")
+        // As a real server does, the series went with its last episode: no "server returned 404", but back to the grid.
+        compose.waitAdvancingClock(stepMs = 50) { series() == null }
+        compose.waitAdvancingClock(stepMs = 50) { compose.onAllNodes(hasText("Pilot")).fetchSemanticsNodes().isEmpty() }
+        compose.waitAdvancingClock(stepMs = 50) { compose.onAllNodes(hasText("Test Show")).fetchSemanticsNodes().isEmpty() }
+        assertEquals(listOf("211"), plex.deleted)
+    }
+
+    @Test
+    fun `a series is deleted from the grid with all its episodes, once confirmed`() {
+        show(Screen.Series())
+        options("Test Show", "Delete the series…")
+        click("Delete the series…")
+        compose.waitForText("Delete “Test Show” and all 2 of its episodes from the Plex server?", stepMs = 50)
+        click("Delete")
+        compose.waitAdvancingClock(stepMs = 50) { plex.deleted == listOf("21") && series() == null }
+    }
+
+    @Test
+    fun `a series with no episodes offers to delete it`() {
+        plex.episodes = emptyList()
+        seriesPage()
+        compose.waitForText("This series has no episodes. Do you want to delete it from the Plex server?", stepMs = 50)
+        click("Delete the series")
+        compose.waitAdvancingClock(stepMs = 50) { plex.deleted == listOf("21") && series() == null }
+        compose.waitAdvancingClock(stepMs = 50) { compose.onAllNodes(hasText("Test Show")).fetchSemanticsNodes().isEmpty() }
     }
 
     @Test

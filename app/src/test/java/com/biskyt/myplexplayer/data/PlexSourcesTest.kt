@@ -231,8 +231,11 @@ class PlexSourcesTest {
         assertEquals(emptyList<Long>(), vod.favouriteOrder(source.id, CAT_MOVIE))
 
         vod.seriesDetails(source, 21)
-        assertTrue(vod.deleteEpisode(source.id, 21, 212))
+        assertEquals(VodRepository.EpisodeDeleted.EPISODE, vod.deleteEpisode(source.id, 21, 212))
         assertEquals("the page is fetched again", listOf("Pilot"), vod.seriesDetails(source, 21).episodes.map { it.title })
+        // The last one takes the series with it, on the server and here.
+        assertEquals(VodRepository.EpisodeDeleted.SERIES, vod.deleteEpisode(source.id, 21, 211))
+        assertNull(db.vod().series(source.id, 21))
     }
 
     @Test

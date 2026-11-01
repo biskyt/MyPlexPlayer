@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.biskyt.myplexplayer.R
+import com.biskyt.myplexplayer.appPlural
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.plex.PlexAutoDelete
 import com.biskyt.myplexplayer.data.VodRepository
@@ -81,6 +82,21 @@ fun autoDeleteName(policy: PlexAutoDelete): String = appString(
         PlexAutoDelete.AFTER_A_MONTH -> R.string.vod_auto_delete_month
         PlexAutoDelete.ON_NEXT_REFRESH -> R.string.vod_auto_delete_refresh
     }
+)
+
+/**
+ * "Delete the series…", asking first whether to delete series [title] from the server with its episodes, files and
+ * all: how many, when known.
+ */
+fun deleteSeriesAction(title: String, episodes: Int?, delete: () -> Unit) = ItemAction.Confirmed(
+    appString(R.string.vod_delete_series),
+    if (episodes != null && episodes > 0) {
+        appPlural(R.plurals.vod_delete_series_confirm, episodes, title, episodes)
+    } else {
+        appString(R.string.vod_delete_series_confirm_all, title)
+    },
+    appString(R.string.vod_delete_yes),
+    delete
 )
 
 /** "Delete…", asking first whether to delete [title] from the server, file and all. */

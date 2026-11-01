@@ -58,11 +58,11 @@ class VodRepository(
     private val vod = db.vod()
     private val categories = db.categories()
 
-    // Not replayed: only grids open as a film is deleted need to hear of it (the buffer is so the emit never waits).
+    // Not replayed: only grids open as a title is deleted need to hear of it (the buffer is so the emit never waits).
     private val deleted = MutableSharedFlow<Pair<Long, Long>>(extraBufferCapacity = 8)
 
-    /** Films deleted from here (source, film), as they go: a grid moves the remote on once its list catches up. */
-    val deletedMovies: SharedFlow<Pair<Long, Long>> = deleted
+    /** Films and series deleted from here (source, title), as they go: a grid moves the remote on once its list catches up. */
+    val deletedTitles: SharedFlow<Pair<Long, Long>> = deleted
 
     // maxSize drops pages scrolled far away, so browsing tens of thousands of titles doesn't keep them all.
     private val paging = PagingConfig(pageSize = 48, prefetchDistance = 24, initialLoadSize = 72, enablePlaceholders = true, maxSize = 300)
@@ -256,12 +256,41 @@ class VodRepository(
         return true
     }
 
-    /** Deletes episode [id] of [seriesId] on its server, as [deleteMovie]; its page, fetched again, brings the badge. */
-    suspend fun deleteEpisode(playlistId: Long, seriesId: Long, id: Long): Boolean {
-        deleteOnServer(playlistId, id) ?: return false
+    /** What deleting an episode did: nothing (a notice says why), the episode went, or its series went with it. */
+    enum class EpisodeDeleted { NOTHING, EPISODE, SERIES }
+
+    /**
+     * Deletes episode [id] of [seriesId] on its server, as [deleteMovie], and reads the series' counts again. The
+     * series' last episode takes the series with it on the server, so here too ([forgetSeries]).
+     */
+    suspend fun deleteEpisode(playlistId: Long, seriesId: Long, id: Long): EpisodeDeleted {
+        val source = deleteOnServer(playlistId, id) ?: return EpisodeDeleted.NOTHING
         vod.deleteProgress(playlistId, VOD_EPISODE, listOf(id))
         seriesDetails.remove("$playlistId:$seriesId")
+        if (!plex.seriesGone(source, seriesId)) return EpisodeDeleted.EPISODE
+        forgetSeries(playlistId, seriesId)
+        return EpisodeDeleted.SERIES
+    }
+
+    /** Deletes series [seriesId] on its server, every episode and file with it, then here. False, with a notice, if it couldn't. */
+    suspend fun deleteSeries(playlistId: Long, seriesId: Long): Boolean {
+        deleteOnServer(playlistId, seriesId) ?: return false
+        forgetSeries(playlistId, seriesId)
         return true
+    }
+
+    /**
+     * Series [seriesId], which its server no longer has: its row goes (and with it its place in the grids, on Home and
+     * in the unwatched counts), with its favourite and its episodes' progress.
+     */
+    private suspend fun forgetSeries(playlistId: Long, seriesId: Long) {
+        db.withTransaction {
+            vod.deleteOneSeries(playlistId, seriesId)
+            vod.removeFavourite(playlistId, CAT_SERIES, seriesId)
+            vod.deleteSeriesProgress(playlistId, seriesId)
+        }
+        seriesDetails.remove("$playlistId:$seriesId")
+        deleted.tryEmit(playlistId to seriesId)
     }
 
     /** Deletes [id] on its source's server: the source, or null (with a notice) when it couldn't. */

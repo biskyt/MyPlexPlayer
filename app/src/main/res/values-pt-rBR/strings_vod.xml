@@ -22,6 +22,15 @@
     </plurals>
     <string name="vod_delete">Excluir…</string>
     <string name="vod_delete_confirm">Excluir “%1$s” do servidor Plex? O arquivo também é excluído, para todos que usam o servidor.</string>
+    <string name="vod_delete_series">Excluir a série…</string>
+    <string name="vod_delete_series_button">Excluir a série</string>
+    <string name="vod_no_episodes_delete">Esta série não tem episódios. Quer excluí-la do servidor Plex?</string>
+    <string name="vod_delete_series_confirm_all">Excluir “%1$s” e todos os seus episódios do servidor Plex? Os arquivos também são excluídos, para todos que usam o servidor.</string>
+    <plurals name="vod_delete_series_confirm">
+        <item quantity="one">Excluir “%1$s” e seu %2$d episódio do servidor Plex? O arquivo também é excluído, para todos que usam o servidor.</item>
+        <item quantity="many">Excluir “%1$s” e todos os seus %2$d episódios do servidor Plex? Os arquivos também são excluídos, para todos que usam o servidor.</item>
+        <item quantity="other">Excluir “%1$s” e todos os seus %2$d episódios do servidor Plex? Os arquivos também são excluídos, para todos que usam o servidor.</item>
+    </plurals>
     <string name="vod_delete_yes">Excluir</string>
     <string name="vod_delete_no">Manter</string>
     <string name="vod_not_deleted">Não foi possível excluir</string>
