@@ -39,7 +39,7 @@ object SpikeRun {
     /** The screen showing the run, told on the main thread of each change. */
     var screen: MainActivity? = null
 
-    /** Runs the spike's [step]: "all", "save-favourites", "cast" or "test-dvr". */
+    /** Runs the spike's [step]: "all", "save-favourites", "cast", "test-dvr" or "test-recordings". */
     fun start(files: File, step: String = "all") {
         if (running) return
         running = true
@@ -95,6 +95,7 @@ class MainActivity : Activity() {
     private lateinit var saveFavourites: Button
     private lateinit var cast: Button
     private lateinit var seriesDvr: Button
+    private lateinit var recordings: Button
     private lateinit var codePanel: LinearLayout
     private lateinit var code: TextView
     private lateinit var share: Button
@@ -149,6 +150,15 @@ class MainActivity : Activity() {
         )
         seriesDvr = button("Test series recording") { SpikeRun.start(filesDir, "test-dvr") }
         column.addView(seriesDvr)
+        column.addView(
+            text(
+                "Test recordings: while a recording is in progress, finds it and a recent recording in your " +
+                    "library, and checks that their files can be read (about a minute; only reads).",
+                15f
+            )
+        )
+        recordings = button("Test recordings") { SpikeRun.start(filesDir, "test-recordings") }
+        column.addView(recordings)
 
         code = text("", 40f, bold = true).apply { typeface = Typeface.MONOSPACE }
         codePanel = LinearLayout(this).apply {
@@ -186,6 +196,7 @@ class MainActivity : Activity() {
         saveFavourites.isEnabled = !running
         cast.isEnabled = !running
         seriesDvr.isEnabled = !running
+        recordings.isEnabled = !running
         run.text = if (SpikeRun.printed.isEmpty() || running) "Run the tests" else "Run the tests again"
         val shownCode = SpikeRun.code.takeIf { running }
         codePanel.visibility = if (shownCode != null) View.VISIBLE else View.GONE

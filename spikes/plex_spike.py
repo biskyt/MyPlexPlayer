@@ -21,6 +21,8 @@ addresses, account names, emails and file paths replaced, for test fixtures. rep
     python3 spikes/plex_spike.py cast                    # S10 (signing in first if needed), then spike-results.zip
     python3 spikes/plex_spike.py series_dvr [--server URL] [--record] # S11: series recordings: made, edited, removed
     python3 spikes/plex_spike.py test-dvr                # S11 with --record (signing in first if needed), then the zip
+    python3 spikes/plex_spike.py recordings [--server URL] # S12: a recording in progress and recent ones (only reads)
+    python3 spikes/plex_spike.py test-recordings         # S12 (signing in first if needed), then the zip
 
 Without --server the first server from `servers` is used. --tune briefly uses a tuner; --record schedules a recording
 of a programme starting in over an hour and cancels it straight away. --write-back (never part of `all`) saves the
@@ -926,6 +928,87 @@ def series_checks(http, rec, key):
         rec.check("the rule is still there", any(str(r.get("key")) == str(key) for r in rules))
 
 
+# ---------------------------------------------------------------- S12: recordings in progress and recent ones
+def library_match(http, rec, name, grab):
+    """The library item of a recording (grab): looked up by the programme's guid, as the library may list it."""
+    meta = grab.get("Metadata", {})
+    found = {}
+    for label, endpoint, params in (
+            ("by guid", "/library/all", {"guid": meta.get("guid")}),
+            ("by guid, episodes", "/library/all", {"type": 4, "guid": meta.get("guid")}),
+            ("recently added", "/library/recentlyAdded", {})):
+        status, _, body = http.get(endpoint, **params)
+        rec.save(f"{name}-library-{label.replace(' ', '-').replace(',', '')}", body)
+        items = [m for m in mc(body).get("Metadata", []) if m.get("guid") == meta.get("guid")]
+        rec.check(f"{name}: the library item {label} ({endpoint})", items,
+                  f"HTTP {status}, {len(items)} match(es) of {mc(body).get('size')}")
+        for m in items:
+            found.setdefault(m.get("ratingKey"), m)
+    return list(found.values())
+
+
+def part_check(http, rec, name, item):
+    """An item's file: its details twice, 15 s apart (does it grow?), and its first bytes, as a player asks."""
+    key = item.get("ratingKey")
+    _, _, first_body = http.get(f"/library/metadata/{key}")
+    rec.save(f"{name}-item", first_body)
+    meta = first(mc(first_body), "Metadata")
+    media = first(meta, "Media")
+    part = first(media, "Part")
+    rec.check(f"{name}: its file", part.get("key"),
+              f"duration {media.get('duration')} ms, size {part.get('size')}, container {part.get('container') or media.get('container')}, "
+              f"fields {sorted(meta)}")
+    if not part.get("key"):
+        return
+    status, hdrs, body = http.request("GET", part["key"], {"Range": "bytes=0-65535"}, raw=True)
+    rec.check(f"{name}: the first 64 KB of its file", status in (200, 206),
+              f"HTTP {status}, {len(body)} bytes, Content-Range {hdrs.get('Content-Range')}, length {hdrs.get('Content-Length')}")
+    time.sleep(15)
+    _, _, later_body = http.get(f"/library/metadata/{key}")
+    later = first(first(first(mc(later_body), "Metadata"), "Media"), "Part")
+    rec.check(f"{name}: 15 s later", True,
+              f"size {part.get('size')} then {later.get('size')}, duration {part.get('duration')} then {later.get('duration')}")
+
+
+def recordings(args, state):
+    """S12: what the DVR tab and the guide need to play a recording that is still going, and recent ones: the
+    scheduled list's statuses, each one's library item, and whether its file plays while it grows. Only reads."""
+    rec = Recorder(args.out, "s12-recordings")
+    http = server_http(args, state)
+    note_server(rec, http)
+    status, _, body = http.get("/media/subscriptions/scheduled")
+    rec.save("scheduled", body)
+    grabs = mc(body).get("MediaGrabOperation", [])
+    rec.check(f"GET /media/subscriptions/scheduled (HTTP {status})", status == 200,
+              str(Counter(g.get("status") for g in grabs)))
+    now_s = time.time()
+    going = [g for g in grabs if g.get("status") in ("inprogress", "grabbing")]
+    done = [g for g in grabs if g.get("status") == "complete"]
+    if rec.check("a recording in progress (start one first, for this step)", going,
+                 "; ".join(f"started {round((now_s - first(g.get('Metadata', {}), 'Media').get('beginsAt', now_s)) / 60)} min ago, "
+                           f"fields {sorted(g)}, programme fields {sorted(g.get('Metadata', {}))}" for g in going[:2])):
+        for item in library_match(http, rec, "in-progress", going[0]):
+            part_check(http, rec, "in-progress", item)
+    if rec.check("a recent recording (complete)", done, f"{len(done)}"):
+        for item in library_match(http, rec, "recent", done[0])[:1]:
+            part_check(http, rec, "recent", item)
+    for path in ("/livetv/sessions", "/status/sessions"):
+        status, _, body = http.get(path)
+        rec.save(path.strip("/").replace("/", "-"), body)
+        rec.check(f"GET {path}", status == 200, f"HTTP {status}, {mc(body).get('size')} item(s)")
+    rec.finish()
+
+
+def test_recordings(args, state):
+    """The spike app's "Test recordings": S12 (signing in and finding the servers first if needed), then the zip."""
+    if not state.get("token"):
+        signin(args, state)
+    if not state.get("servers") and not args.server:
+        servers(args, state)
+    recordings(args, state)
+    share_results(args)
+
+
 # ---------------------------------------------------------------- S7: favourite channels
 EPG_CLOUD = "https://epg.provider.plex.tv"
 PROVIDER_VERSION = {"X-Plex-Provider-Version": "5.1"}
@@ -1325,7 +1408,8 @@ def share_results(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("step", choices=["all", "signin", "servers", "library", "playback", "livetv", "dvr",
-                                             "favourites", "save-favourites", "markers", "deletion", "people", "cast", "series_dvr", "test-dvr"])
+                                             "favourites", "save-favourites", "markers", "deletion", "people", "cast", "series_dvr", "test-dvr",
+                                             "recordings", "test-recordings"])
     parser.add_argument("--server", help="server URL, e.g. http://192.168.1.20:32400 (default: from `servers`)")
     parser.add_argument("--token", help="token for --server (not needed for a local unclaimed test server)")
     parser.add_argument("--out", type=Path, default=Path("spike-out"))
@@ -1342,7 +1426,8 @@ def main():
     hide_known(state)
     if args.server and not args.token and state.get("servers"):
         args.token = next((s["token"] for s in state["servers"] if s["uri"] == args.server), None)
-    steps = {"all": run_all, "save-favourites": save_favourites, "cast": cast, "test-dvr": test_dvr}
+    steps = {"all": run_all, "save-favourites": save_favourites, "cast": cast, "test-dvr": test_dvr,
+             "test-recordings": test_recordings}
     (steps.get(args.step) or globals()[args.step])(args, state)
 
 
