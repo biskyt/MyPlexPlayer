@@ -79,4 +79,6 @@
     <string name="common_move_hint_touch">Touchez les flèches pour le déplacer, touchez-le pour le laisser là, Retour pour annuler</string>
     <!-- Starring a channel, or moving one, saves to Plex (shared by every Plex app); shown when that failed. -->
     <string name="common_favourites_not_saved">Chaînes favorites non enregistrées dans Plex</string>
+    <string name="common_vpn_on">VPN activé</string>
+    <string name="common_vpn_off">VPN non connecté</string>
 </resources>

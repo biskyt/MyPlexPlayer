@@ -1,10 +1,13 @@
 package com.biskyt.myplexplayer.ui
 
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.db.VOD_EPISODE
@@ -18,6 +21,7 @@ import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.focusedText
 import com.biskyt.myplexplayer.testutil.idleFrames
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
+import com.biskyt.myplexplayer.testutil.waitForText
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -122,6 +126,22 @@ class HomeCarryOnUiTest {
         assertEquals(1, compose.onAllNodes(hasText("Film 0")).fetchSemanticsNodes().size)
         press(Key.DirectionRight)
         assertTrue(compose.focusedText(), "Film 0" in compose.focusedText())
+    }
+
+    @Test
+    fun `a card removed from the row leaves the remote on the card now in its place`() {
+        val navigator = navigators.new(Screen.Home)
+        compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
+        compose.waitAdvancingClock(50) { "Film 0" in compose.focusedText() }
+        compose.waitAdvancingClock(50) { ("Film 2" in compose.focusedText()).also { if (!it) press(Key.DirectionRight) } }
+        compose.onNode(hasText("Film 2") and hasClickAction()).performSemanticsAction(SemanticsActions.OnLongClick)
+        compose.waitForText("Remove from Carry on watching")
+        compose.onNode(hasText("Remove from Carry on watching") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        // The card now in its place, not the first card of the row.
+        compose.waitAdvancingClock(50) { "Film 3" in compose.focusedText() }
+        compose.idleFrames()
+        assertTrue(compose.focusedText(), "Film 3" in compose.focusedText())
+        assertEquals(0, compose.onAllNodes(hasText("Film 2")).fetchSemanticsNodes().size)
     }
 
     @Test

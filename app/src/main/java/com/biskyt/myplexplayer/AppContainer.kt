@@ -35,6 +35,7 @@ import com.biskyt.myplexplayer.data.SearchRepository
 import com.biskyt.myplexplayer.data.SettingsRepository
 import com.biskyt.myplexplayer.data.SyncManager
 import com.biskyt.myplexplayer.data.VodRepository
+import com.biskyt.myplexplayer.data.VpnMonitor
 import com.biskyt.myplexplayer.data.db.AppDatabase
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -77,8 +78,9 @@ class AppContainer(context: Context) {
     val favourites = Favourites(appScope, settings, channels, vod)
     val recordings = Recordings(appScope, playlists, plex, notices)
     val search = SearchRepository(db)
-    val sync = SyncManager(appScope, playlists, vod, epg)
+    val sync = SyncManager(appScope, playlists, vod, epg, settings)
     val backup = BackupRepository(db, settings, sync, epg)
+    val vpn = VpnMonitor(context, appScope)
     val backupFile = BackupFile(context)
     val crashLog = CrashLog(context.filesDir, BuildConfig.VERSION_NAME)
 
@@ -133,7 +135,7 @@ open class MyPlexApp : Application(), SingletonImageLoader.Factory {
 
 val Context.container: AppContainer get() = (applicationContext as MyPlexApp).container
 
-/** Daily refresh of every playlist's channels and the TV guide. */
+/** Daily refresh of the source in use: its channels, films and series, and its TV guide. */
 class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val c = applicationContext.container

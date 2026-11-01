@@ -45,7 +45,9 @@ data class Settings(
      * The same for credits: off to start with (the owner: credits aren't skipped unless asked to). Named anew in 0.8.1,
      * here and in backups, so the 3 that 0.8.0 saved with every setting isn't read as chosen.
      */
-    @SerialName("autoSkipCreditsAfterSec") val autoSkipCreditsSec: Int = AUTO_SKIP_OFF
+    @SerialName("autoSkipCreditsAfterSec") val autoSkipCreditsSec: Int = AUTO_SKIP_OFF,
+    /** Show in the top bar whether Android reports a VPN (see VpnMonitor). */
+    val warnVpn: Boolean = false
 ) {
     val effectiveSubtitleLanguage: String get() = subtitleLanguage.ifEmpty { Locale.getDefault().language }
 
@@ -72,6 +74,7 @@ class SettingsRepository(private val context: Context) {
         val largeText = booleanPreferencesKey("large_text")
         val autoSkipIntro = intPreferencesKey("auto_skip_intro")
         val autoSkipCredits = intPreferencesKey("auto_skip_credits_after")
+        val warnVpn = booleanPreferencesKey("warn_vpn")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings() }.distinctUntilChanged()
@@ -115,6 +118,7 @@ class SettingsRepository(private val context: Context) {
             largeText = this[K.largeText] ?: d.largeText,
             autoSkipIntroSec = this[K.autoSkipIntro] ?: d.autoSkipIntroSec,
             autoSkipCreditsSec = this[K.autoSkipCredits] ?: d.autoSkipCreditsSec,
+            warnVpn = this[K.warnVpn] ?: d.warnVpn,
         )
     }
 
@@ -141,6 +145,7 @@ class SettingsRepository(private val context: Context) {
             prefs[K.largeText] = s.largeText
             prefs[K.autoSkipIntro] = s.autoSkipIntroSec
             prefs[K.autoSkipCredits] = s.autoSkipCreditsSec
+            prefs[K.warnVpn] = s.warnVpn
         }
     }
 

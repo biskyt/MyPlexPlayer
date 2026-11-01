@@ -136,7 +136,8 @@ fun PlaylistsScreen() {
                         }
                     }
                 }
-                PillButton(stringResource(R.string.settings_playlist_update_now), { vm.update(p) })
+                // Only the source in use is updated (see SyncManager).
+                if (isActive) PillButton(stringResource(R.string.settings_playlist_update_now), { vm.update(p) })
                 // A Plex server has nothing to type in (its address and token come from the account): only removing.
                 PillButton(stringResource(R.string.common_remove), { vm.remove(p) { any -> if (!any) nav.reset(Screen.Welcome) } })
             }

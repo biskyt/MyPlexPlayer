@@ -58,7 +58,7 @@ class PlexLiveTvTest {
         }
         val playlists = PlaylistRepository(db, settings, epg, categoryStore, plex)
         val vod = VodRepository(db, playlists, categoryStore, plex, Notices())
-        sync = SyncManager(scope, playlists, vod, epg)
+        sync = SyncManager(scope, playlists, vod, epg, settings)
         channelRepo = ChannelRepository(db, plex, notices)
         favourites = Favourites(scope, settings, channelRepo, vod)
         plex.signIn(FakePlex.ACCOUNT_TOKEN)

@@ -27,7 +27,10 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   not its category line (a Plex title is in one library). In 0.17.1: 1.8.11 (`66ed289`, the server named once and
   Back from Home leaving the recent apps). In 0.17.4: 1.8.12 (`d3c96e4`, the guide fitted to the screen; its
   catch-up parts left out). In 0.19.1: 1.8.13 (`897971c`, "Episode description" with the date first
-  shown, from Plex's `originallyAvailableAt`; its Xtream dates left out). The plain-english skill (`7de1099`) is copied as it
+  shown, from Plex's `originallyAvailableAt`; its Xtream dates left out). In 0.20.0: 1.8.16 (`e899cac`, "Warn if VPN is not connected"), and from
+  1.8.14 (`1a9dcc7`) only the server in use refreshed (a switch stops the old one's work) and the focus on the card now
+  in a removed Carry on card's place (by hand, through `returnTo`: Home already opened on the top row's first card).
+  1.8.15 (`c8933a5`, Xtream category languages) doesn't apply. The plain-english skill (`7de1099`) is copied as it
   is. 1.8.7 (`fc738a8`) and 1.8.8 (`9cb696c`) change the XMLTV guide's reading and channel matching, which
   MyPlexPlayer removed in 0.6.0: they don't apply.
 - **Where a change is made first** (the owner, 2026-10-25): a feature or fix both apps need (the player, remote keys,
