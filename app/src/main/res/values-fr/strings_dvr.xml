@@ -39,4 +39,9 @@
     <string name="dvr_change_failed">Impossible de modifier l\'enregistrement</string>
     <!-- %1$s: Plex's own word for what happened (not translated) -->
     <string name="dvr_status">Plex indique : %1$s</string>
+    <!-- A channel that records now: where to start it. -->
+    <string name="dvr_watch_live">Regarder en direct</string>
+    <string name="dvr_watch_from_start">Regarder depuis le début</string>
+    <string name="dvr_recent_title">Enregistré récemment</string>
+    <string name="dvr_play_failed">Impossible de lire l\'enregistrement</string>
 </resources>

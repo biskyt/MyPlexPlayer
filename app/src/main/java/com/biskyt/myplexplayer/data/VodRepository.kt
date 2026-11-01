@@ -342,6 +342,11 @@ class VodRepository(
         return withUserPlexErrors { plex.movieDetails(p, streamId) }.also { movieDetails.put(key, it) }
     }
 
+    /** Series [seriesId] has an episode its kept page may not list (one just recorded): its page is read again. */
+    fun episodesAdded(playlistId: Long, seriesId: Long) {
+        seriesDetails.remove("$playlistId:$seriesId")
+    }
+
     /** A series' page and episodes (kept, once fetched), with their play state, as [movieDetails]. */
     suspend fun seriesDetails(p: PlaylistEntity, seriesId: Long, withState: Boolean = true): SeriesDetails {
         val key = "${p.id}:$seriesId"

@@ -15,7 +15,7 @@ class DvrListsTest {
     private fun airing(key: String, status: String) = PlexScheduledRecording(
         key = key,
         status = status,
-        programme = PlexProgramme(guid = "plex://episode/$key", airings = listOf(PlexAiring(100, 200, "ch-1")))
+        metadata = PlexProgramme(guid = "plex://episode/$key", airings = listOf(PlexAiring(100, 200, "ch-1")))
     )
 
     @Test

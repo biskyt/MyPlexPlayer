@@ -90,7 +90,7 @@ class PlexClientTest {
         assertEquals(listOf("The Pilot", "A Film"), guide.map { it.title })
         assertEquals(listOf("5fc705db-ch1", "5fc705db-ch2", "5fc705db-ch2"), guide.flatMap { it.airings }.map { it.channelIdentifier })
 
-        val tuned = client.tune(live, channels.first().tuneKey!!, "session-1")
+        val tuned = client.tune(live, channels.first().tuneKey!!, "session-1").programme
         val tune = server.takeRequest()
         assertEquals("POST", tune.method)
         assertEquals("session-1", tune.requestUrl!!.queryParameter("X-Plex-Session-Identifier"))
@@ -107,6 +107,34 @@ class PlexClientTest {
         assertEquals("/livetv/sessions/0f3c-uuid", stopped.queryParameter("key"))
         assertEquals("stopped", stopped.queryParameter("state"))
         assertEquals("3600000", stopped.queryParameter("duration"))
+    }
+
+    @Test
+    fun `a tune's capture buffer is read wherever the server puts it, and a stream starts at its start when asked`() = runTest {
+        val live = client.liveTv()!!
+        val path = "livetv/dvrs/7/channels/5fc705db-ch1/tune"
+        // In the tuned programme, at the top, and under CaptureBuffer (Plezy reads all three).
+        responses[path] = MockResponse().setBody(javaClass.getResource("/plex/tune-recording.json")!!.readText())
+        val inProgramme = client.tune(live, "5fc705db-ch1", "s").buffer!!
+        assertEquals(1_793_000_000.5, inProgramme.timeStamp!!, 0.0)
+        assertEquals(3_000.0, inProgramme.heldS, 0.001)
+        assertTrue(inProgramme.offersStart)
+        val session = """{"ratingKey":"p","key":"/livetv/sessions/s1"}"""
+        val buffer = """{"timeStamp":1793000000,"minOffsetAvailable":2.4,"maxOffsetAvailable":63.0}"""
+        responses[path] = MockResponse().setBody("""{"MediaContainer":{"Metadata":[$session],"TranscodeSession":$buffer}}""")
+        val atTop = client.tune(live, "5fc705db-ch1", "s").buffer!!
+        assertEquals(60.6, atTop.heldS, 0.001)
+        assertTrue("a minute and a bit", atTop.offersStart)
+        val short = """{"timeStamp":1793000000,"minOffsetAvailable":0,"maxOffsetAvailable":60}"""
+        responses[path] =
+            MockResponse().setBody("""{"MediaContainer":{"Metadata":[$session],"CaptureBuffer":{"TranscodeSession":[$short]}}}""")
+        assertFalse("a minute only", client.tune(live, "5fc705db-ch1", "s").buffer!!.offersStart)
+        responses[path] = MockResponse().setBody("""{"MediaContainer":{"Metadata":[$session]}}""")
+        assertNull(client.tune(live, "5fc705db-ch1", "s").buffer)
+        repeat(6) { server.takeRequest() }
+
+        client.liveStream("/livetv/sessions/s1", "s", fromS = 0)
+        assertEquals("0", server.takeRequest().requestUrl!!.queryParameter("offset"))
     }
 
     @Test

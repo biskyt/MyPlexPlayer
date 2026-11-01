@@ -170,9 +170,18 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
     /**
      * [hls]: null works the format out from the stream (retrying once as HLS when that fails, see [retryAsHls]).
      * [userAgent] / [referrer]: some streams only play when these headers are sent. [headers]: sent with every request
-     * for the stream (a Plex server's token, so it isn't in the address).
+     * for the stream (a Plex server's token, so it isn't in the address). [fromWindowStart]: a live stream starts at
+     * the start of what it holds, not at its live edge.
      */
-    fun play(url: String, hls: Boolean?, userAgent: String? = null, referrer: String? = null, headers: Map<String, String> = emptyMap()) {
+    @Suppress("LongParameterList") // the stream's address, its format and what is sent for it
+    fun play(
+        url: String,
+        hls: Boolean?,
+        userAgent: String? = null,
+        referrer: String? = null,
+        headers: Map<String, String> = emptyMap(),
+        fromWindowStart: Boolean = false
+    ) {
         subtitlesApplied = false
         // A track chosen on the last stream mustn't carry over (or quietly match a different one on this).
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
@@ -187,14 +196,14 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         http.setDefaultRequestProperties(if (referrer != null) headers + ("Referer" to referrer) else headers)
         val asHls = hls ?: (url in hlsUrls)
         val item = MediaItem.Builder().setUri(url).apply { if (asHls) setMimeType(MimeTypes.APPLICATION_M3U8) }.build()
-        if (!start(item)) return
+        if (!start(item, if (fromWindowStart) 0L else null)) return
         player.playWhenReady = true
         watchForStall()
     }
 
-    /** Sets and prepares [item]; false (and [onUnsupported]) when the player can't handle its type. */
-    private fun start(item: MediaItem): Boolean = try {
-        player.setMediaItem(item)
+    /** Sets and prepares [item], from [positionMs] if given; false (and [onUnsupported]) when the player can't handle its type. */
+    private fun start(item: MediaItem, positionMs: Long? = null): Boolean = try {
+        if (positionMs != null) player.setMediaItem(item, positionMs) else player.setMediaItem(item)
         player.prepare()
         true
     } catch (e: IllegalStateException) {

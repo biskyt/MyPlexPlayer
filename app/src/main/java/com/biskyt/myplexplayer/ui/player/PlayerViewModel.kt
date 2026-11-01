@@ -2,6 +2,7 @@ package com.biskyt.myplexplayer.ui.player
 
 import android.content.Context
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -79,11 +80,86 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
 
     override fun menuActions(): List<ItemAction> {
         val ch = channel ?: return emptyList()
-        return channelActions(ch.streamId in favouriteIds) { favourite ->
+        // MyPlexPlayer's own: from the start of a recording, and back to live from there.
+        val where = when {
+            playingFromStart -> ItemAction.Run(appString(R.string.dvr_watch_live)) {
+                sheet = null
+                watchLive()
+            }
+            startOffered() -> ItemAction.Run(appString(R.string.dvr_watch_from_start)) {
+                sheet = null
+                watchFromStart()
+            }
+            else -> null
+        }
+        return listOfNotNull(where) + channelActions(ch.streamId in favouriteIds) { favourite ->
             viewModelScope.launch {
                 val saved = c.channels.setFavourite(ch.playlistId, ch.streamId, favourite)
                 flash(if (saved) favouriteFlash(favourite) else appString(R.string.common_favourites_not_saved))
             }
+        }
+    }
+
+    /**
+     * Whether "Watch from start" is offered (MyPlexPlayer's own): the channel records its programme now, and the
+     * tune's capture buffer holds more than a minute. Asked each time, as a recording can start while it plays.
+     */
+    private fun startOffered(): Boolean {
+        val ch = channel ?: return false
+        return live?.buffer?.offersStart == true &&
+            c.recordings.current(screen.playlistId).recordingOn(ch.providerEpgId) != null
+    }
+
+    /** The choice of live or from the start, offered once when the picture starts; shown when nothing else is open. */
+    var startChoice by mutableStateOf(false)
+        private set
+
+    /** Whether this tune's picture has started (the choice is offered only the first time). */
+    private var pictureSeen = false
+
+    /** Played from the start of the capture buffer: see [keepsWindowStart]. */
+    private var playingFromStart = false
+    override val keepsWindowStart: Boolean get() = playingFromStart
+
+    override fun onPlayingChanged(playing: Boolean) {
+        if (playing) pictureStarted()
+    }
+
+    /** The picture started: offers where to watch from, if it applies (see [startOffered]). */
+    @VisibleForTesting
+    internal fun pictureStarted() {
+        if (pictureSeen) return
+        pictureSeen = true
+        startChoice = startOffered()
+    }
+
+    /** Watches live: from the choice, carries on as it is; from the start of the recording, goes back to live. */
+    fun watchLive() {
+        startChoice = false
+        if (playingFromStart) restream(fromStart = false)
+    }
+
+    /** Plays the channel's session again from the start of its capture buffer, with no new tune. */
+    fun watchFromStart() {
+        startChoice = false
+        restream(fromStart = true)
+    }
+
+    private fun restream(fromStart: Boolean) {
+        val tuner = live ?: return
+        viewModelScope.launch {
+            val stream = try {
+                tuner.restream(fromStart)
+            } catch (e: PlexException) {
+                if (live === tuner) fail(e.userMessage())
+                return@launch
+            }
+            if (live !== tuner) return@launch // another channel meanwhile
+            // The stream playing stops first: its failures mustn't reach the retries of this one.
+            engine?.player?.stop()
+            playingFromStart = fromStart
+            resetForNewStream()
+            engine?.play(stream.url, hls = true, headers = stream.headers, fromWindowStart = fromStart)
         }
     }
 
@@ -161,6 +237,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
         closing?.join() // also one let go on leaving the app, or the screen remade
         val key = ch.providerEpgId ?: return false.also { fail() }
         tuning = true
+        pictureSeen = false
         val (tuner, stream) = try {
             val tuner = c.plex.live(p, key).also { live = it }
             tuner to tuner.start()
@@ -181,6 +258,8 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
     /** Lets the Plex tuner go, in the app's scope (the screen's own may be ending): [closing] till it has. */
     private fun letTunerGo() {
         heartbeat?.cancel()
+        startChoice = false
+        playingFromStart = false
         val tuner = live ?: return
         live = null
         closing = c.appScope.launch { tuner.close() }

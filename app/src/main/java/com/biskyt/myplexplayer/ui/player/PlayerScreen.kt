@@ -79,6 +79,8 @@ import com.biskyt.myplexplayer.ui.common.AppIcons
 import com.biskyt.myplexplayer.ui.common.ChannelLogo
 import com.biskyt.myplexplayer.ui.common.Clock
 import com.biskyt.myplexplayer.ui.common.FlashLabel
+import com.biskyt.myplexplayer.ui.common.ItemAction
+import com.biskyt.myplexplayer.ui.common.ItemActionsPanel
 import com.biskyt.myplexplayer.ui.common.LocalOverVideo
 import com.biskyt.myplexplayer.ui.common.LocalTouch
 import com.biskyt.myplexplayer.ui.common.Muted
@@ -115,6 +117,17 @@ fun PlayerScreen(screen: Screen.Player) {
         }
     )
     if (vm.overlay == OverlayState.GUIDE) GuidePanel(vm)
+    if (vm.startChoice && vm.sheet == null && vm.overlay != OverlayState.GUIDE && vm.error == null) StartChoice(vm)
+}
+
+/** A channel that records now: watch it live (focused, and what Back keeps) or from the start of the recording. */
+@Composable
+private fun StartChoice(vm: PlayerViewModel) {
+    val actions = listOf(
+        ItemAction.Run(stringResource(R.string.dvr_watch_live), run = vm::watchLive),
+        ItemAction.Run(stringResource(R.string.dvr_watch_from_start), run = vm::watchFromStart)
+    )
+    ItemActionsPanel(vm.channel?.name.orEmpty(), actions, onDismiss = vm::watchLive)
 }
 
 /**

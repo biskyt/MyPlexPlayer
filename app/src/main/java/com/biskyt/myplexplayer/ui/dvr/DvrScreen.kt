@@ -31,14 +31,18 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.R
+import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.plex.PlexRecordingRule
 import com.biskyt.myplexplayer.core.plex.PlexScheduledRecording
 import com.biskyt.myplexplayer.data.ChannelFilter
+import com.biskyt.myplexplayer.data.Notice
 import com.biskyt.myplexplayer.data.RecordingMark
 import com.biskyt.myplexplayer.data.RecordingState
 import com.biskyt.myplexplayer.data.Recordings
 import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.data.plexChannelId
+import com.biskyt.myplexplayer.ui.LocalNavigator
+import com.biskyt.myplexplayer.ui.Navigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
 import com.biskyt.myplexplayer.ui.common.ItemAction
@@ -54,6 +58,7 @@ import com.biskyt.myplexplayer.ui.common.formatTime
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.theme.Palette
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -61,20 +66,23 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /** A series recording ([rule]): its next airing to record, and how many are to come. */
 data class SeriesRow(val rule: PlexRecordingRule, val next: PlexScheduledRecording?, val toCome: Int)
 
 /**
- * What the DVR tab lists, from a server's [RecordingState]: airings recording [now] and [comingUp] (soonest first),
- * the [series] recordings, airings that weren't recorded ([problems]), and the [others]: rules for one programme with
- * no airing of it in the guide now (Plex's "other subscriptions"). Finished recordings are in the library.
+ * What the DVR tab lists, from a server's [RecordingState]: airings recording [now], those [recent]ly recorded (newest
+ * first, only those still in a library) and [comingUp] (soonest first), the [series] recordings, airings that weren't
+ * recorded ([problems]), and the [others]: rules for one programme with no airing of it in the guide now (Plex's
+ * "other subscriptions").
  */
 class DvrLists(state: RecordingState) {
     private val byStart = state.scheduled.sortedBy { it.airing?.beginsAt ?: Long.MAX_VALUE }
     val now = byStart.filter { it.isRecording }
     val comingUp = byStart.filter { it.isScheduled }
     val problems = byStart.filter { it.needsAttention }
+    val recent = state.scheduled.filter { it.recordedRatingKey != null }.sortedByDescending { it.airing?.beginsAt ?: 0 }.take(RECENT_MAX)
     private val byRule = comingUp.groupBy { it.mediaSubscriptionID }
     val series = state.rules.filter { it.isSeries }.map { rule ->
         val toCome = byRule[rule.key].orEmpty()
@@ -84,14 +92,23 @@ class DvrLists(state: RecordingState) {
     /** The rules of the airings listed above (one done or cancelled isn't): a rule with none is listed in [others]. */
     private val listed = (now + comingUp + problems).mapNotNullTo(HashSet()) { it.mediaSubscriptionID }
     val others = state.rules.filter { !it.isSeries && it.key !in listed }.sortedBy { it.subjectTitle }
-    val isEmpty get() = now.isEmpty() && comingUp.isEmpty() && problems.isEmpty() && series.isEmpty() && others.isEmpty()
+    val isEmpty get() = now.isEmpty() &&
+        recent.isEmpty() &&
+        comingUp.isEmpty() &&
+        problems.isEmpty() &&
+        series.isEmpty() &&
+        others.isEmpty()
+
+    private companion object {
+        const val RECENT_MAX = 20
+    }
 }
 
 /** A rule's row key. */
 private fun ruleKey(rule: PlexRecordingRule) = "r" + rule.key
 
 /** The DVR tab's data: the active source's recordings, read from the server on arrival, and their channels. */
-class DvrViewModel(c: AppContainer) : ViewModel() {
+class DvrViewModel(private val c: AppContainer) : ViewModel() {
     val recordings: Recordings = c.recordings
     val playlistId: StateFlow<Long> = c.settings.activePlaylistId.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
 
@@ -110,32 +127,70 @@ class DvrViewModel(c: AppContainer) : ViewModel() {
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_MS), emptyMap())
 
+    /**
+     * Opens what [airing] recorded, once its library item is read: with [page] its film's or series' page, else the
+     * player. Only if the user is still where they were ([nav]'s screen) by then.
+     */
+    fun openRecorded(airing: PlexScheduledRecording, page: Boolean, nav: Navigator) {
+        val pid = playlistId.value
+        val from = nav.current
+        viewModelScope.launch {
+            val item = recordings.recordedItem(pid, airing) ?: return@launch
+            val id = item.ratingKey.toLongOrNull() ?: return@launch
+            val series = item.grandparentRatingKey?.toLongOrNull()?.takeIf { item.type == "episode" }
+            // Recorded since the last sync: its film or series isn't here yet, and its screens need it.
+            if (!synced(pid, id, series)) {
+                // One sync for every press while it runs.
+                (vodSync?.takeIf { it.isActive } ?: c.sync.refreshVod(pid).also { vodSync = it }).join()
+                if (!synced(pid, id, series)) return@launch c.notices.post(Notice(appString(R.string.dvr_play_failed), null))
+            }
+            // A series' kept page can be from before this episode was recorded.
+            series?.let { c.vod.episodesAdded(pid, it) }
+            val screen = when {
+                !page -> Screen.VodPlayer(pid, id, series)
+                series != null -> Screen.SeriesDetails(pid, series, item.parentIndex, item.index)
+                else -> Screen.MovieDetails(pid, id)
+            }
+            if (nav.current === from) nav.push(screen)
+        }
+    }
+
+    /** The sync [openRecorded] started, while it runs. */
+    private var vodSync: Job? = null
+
+    /** Whether film [id], or (an episode's) [series], is in the app's own copy of the library. */
+    private suspend fun synced(pid: Long, id: Long, series: Long?) =
+        if (series != null) c.vod.series(pid, series) != null else c.vod.movie(pid, id) != null
+
     private companion object {
         const val STOP_MS = 5_000L
     }
 }
 
-/** The row whose options panel is open: an airing, or a rule (a series, or one of the others). */
+/** The row whose options panel is open: an airing, a recorded one, or a rule (a series, or one of the others). */
 private sealed interface Picked {
     data class Airing(val airing: PlexScheduledRecording) : Picked
+    data class Recorded(val airing: PlexScheduledRecording) : Picked
     data class Rule(val rule: PlexRecordingRule) : Picked
 }
 
 /**
- * The DVR tab (MyPlexPlayer's own, last in the menu): what's recording now, what's coming up, the series recordings,
- * what wasn't recorded and the other recordings. OK (or holding it) on a row opens its options: watch the channel,
- * cancel, and for a series, which episodes it records and stopping it.
+ * The DVR tab (MyPlexPlayer's own, last in the menu): what's recording now, what was recorded lately, what's coming
+ * up, the series recordings, what wasn't recorded and the other recordings. OK (or holding it) on a row opens its
+ * options: watch the channel (the player offers to watch a recording from its start), cancel, and for a series, which
+ * episodes it records and stopping it. OK on a recorded one plays it; holding OK opens its options.
  */
 @Composable
 fun DvrScreen() {
     val vm = appViewModel { DvrViewModel(it) }
+    val nav = LocalNavigator.current
     val pid by vm.playlistId.collectAsState()
     val state by vm.state.collectAsState()
     val channels by vm.channels.collectAsState()
     val lists = remember(state) { DvrLists(state) }
     var picked by remember { mutableStateOf<Picked?>(null) }
     // The focus starts on the first row; with none, on the tab.
-    val firstRow = (lists.now + lists.comingUp).firstOrNull()?.let(::rowKey)
+    val firstRow = (lists.now + lists.recent + lists.comingUp).firstOrNull()?.let(::rowKey)
         ?: lists.series.firstOrNull()?.let { ruleKey(it.rule) }
         ?: lists.problems.firstOrNull()?.let(::rowKey)
         ?: lists.others.firstOrNull()?.let { ruleKey(it) }
@@ -150,6 +205,7 @@ fun DvrScreen() {
         ) {
             if (lists.isEmpty) item { Muted(stringResource(R.string.dvr_nothing), maxLines = 3) }
             airings(R.string.dvr_now_title, lists.now, state, channels, ::focus) { picked = Picked.Airing(it) }
+            recorded(lists.recent, channels, ::focus, { picked = Picked.Recorded(it) }) { vm.openRecorded(it, page = false, nav) }
             airings(R.string.dvr_coming_up, lists.comingUp, state, channels, ::focus) { picked = Picked.Airing(it) }
             if (lists.series.isNotEmpty()) {
                 item { SectionTitle(stringResource(R.string.dvr_series_title), Modifier.padding(top = SECTION_GAP)) }
@@ -166,7 +222,7 @@ fun DvrScreen() {
             }
         }
     }
-    picked?.let { DvrOptions(it, pid, state, channels, vm.recordings) { picked = null } }
+    picked?.let { DvrOptions(it, pid, state, channels, vm) { picked = null } }
 }
 
 /** An airing's row key: its own key, or (an airing Plex gave none) the object itself. */
@@ -186,6 +242,31 @@ private fun LazyListScope.airings(
     items(airings, key = ::rowKey) { a -> AiringCard(a, state, channels, focus(rowKey(a))) { open(a) } }
 }
 
+/** The recently recorded section: OK plays one ([play]), holding OK opens its options ([options]). */
+private fun LazyListScope.recorded(
+    airings: List<PlexScheduledRecording>,
+    channels: Map<String, ChannelEntity>,
+    focus: (String) -> Modifier,
+    options: (PlexScheduledRecording) -> Unit,
+    play: (PlexScheduledRecording) -> Unit
+) {
+    if (airings.isEmpty()) return
+    item { SectionTitle(stringResource(R.string.dvr_recent_title), Modifier.padding(top = SECTION_GAP)) }
+    items(airings, key = ::rowKey) { a ->
+        Row2(null, a.title, listOfNotNull(episodeLine(a), whenAndWhere(a, channels)), focus(rowKey(a)), onClick = {
+            play(a)
+        }, onLongClick = { options(a) })
+    }
+}
+
+/** An episode's code and title ("S1 E2 · Low Tide"), or null for a film. */
+@Composable
+private fun episodeLine(a: PlexScheduledRecording): String? {
+    val e = a.programme?.takeIf { it.grandparentTitle != null }
+    val code = e?.parentIndex?.let { s -> e.index?.let { stringResource(R.string.home_episode_code, s, it) } }
+    return listOfNotNull(code, e?.title?.ifEmpty { null }).joinToString(" · ").ifEmpty { null }
+}
+
 @Composable
 private fun AiringCard(
     a: PlexScheduledRecording,
@@ -194,9 +275,7 @@ private fun AiringCard(
     modifier: Modifier,
     onClick: () -> Unit
 ) {
-    val e = a.programme?.takeIf { it.grandparentTitle != null }
-    val code = e?.parentIndex?.let { s -> e.index?.let { stringResource(R.string.home_episode_code, s, it) } }
-    val episode = listOfNotNull(code, e?.title?.ifEmpty { null }).joinToString(" · ").ifEmpty { null }
+    val episode = episodeLine(a)
     // Not recorded: no mark (it isn't set to record any more), and what Plex says instead.
     val problem = !a.isScheduled && !a.isRecording
     val status = if (problem) stringResource(R.string.dvr_status, a.status) else null
@@ -223,10 +302,17 @@ private fun OtherCard(rule: PlexRecordingRule, modifier: Modifier, onClick: () -
     Row2(RecordingMark.EPISODE, rule.subjectTitle, listOfNotNull(episode, stringResource(R.string.dvr_other_waiting)), modifier, onClick)
 }
 
-/** A row: its [mark] (if any), [title] and [lines] under it. */
+/** A row: its [mark] (if any), [title] and [lines] under it. Holding OK does as OK, unless it has [onLongClick]. */
 @Composable
-private fun Row2(mark: RecordingMark?, title: String, lines: List<String>, modifier: Modifier, onClick: () -> Unit) {
-    TvCard(onClick = onClick, onLongClick = onClick, modifier = modifier.fillMaxWidth(), color = Palette.surfaceLow) {
+private fun Row2(
+    mark: RecordingMark?,
+    title: String,
+    lines: List<String>,
+    modifier: Modifier,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null
+) {
+    TvCard(onClick = onClick, onLongClick = onLongClick ?: onClick, modifier = modifier.fillMaxWidth(), color = Palette.surfaceLow) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.width(DOT_SPACE)) { mark?.let { RecordingDot(it) } }
             Column {
@@ -245,16 +331,20 @@ private fun whenAndWhere(a: PlexScheduledRecording, channels: Map<String, Channe
     a.airing?.channelIdentifier?.let(channels::get)?.name
 ).joinToString(" · ")
 
-/** A row's options: watch its channel, cancel it, and for a series, its episodes setting and stopping it. */
+/**
+ * A row's options: watch its channel, cancel it, and for a series, its episodes setting and stopping it. A recorded
+ * one: play it, or open its film's or series' page.
+ */
 @Composable
 private fun DvrOptions(
     picked: Picked,
     pid: Long,
     state: RecordingState,
     channels: Map<String, ChannelEntity>,
-    recordings: Recordings,
+    vm: DvrViewModel,
     close: () -> Unit
 ) {
+    val recordings = vm.recordings
     val stopLabel = stringResource(R.string.dvr_stop_series)
     fun stop(rule: PlexRecordingRule, label: String = stopLabel) = ItemAction.Run(label) {
         close()
@@ -275,6 +365,7 @@ private fun DvrOptions(
                 rule?.takeIf { it.isSeries }?.let(::stop)
             )
         }
+        is Picked.Recorded -> picked.airing.title to recordedActions(picked.airing, vm, close)
         is Picked.Rule -> {
             // As the server has it now (the panel follows each change).
             val rule = state.rules.firstOrNull { it.key == picked.rule.key } ?: picked.rule
@@ -291,6 +382,20 @@ private fun DvrOptions(
         }
     }
     ItemActionsPanel(title, actions, close)
+}
+
+/** A recorded airing's options: play it, or open its film's or series' page (once its library item is read). */
+@Composable
+private fun recordedActions(a: PlexScheduledRecording, vm: DvrViewModel, close: () -> Unit): List<ItemAction> {
+    val nav = LocalNavigator.current
+    fun open(page: Boolean) {
+        close()
+        vm.openRecorded(a, page, nav)
+    }
+    return listOf(
+        ItemAction.Run(stringResource(R.string.common_play)) { open(page = false) },
+        ItemAction.Run(stringResource(R.string.vod_more_info)) { open(page = true) }
+    )
 }
 
 private val SECTION_GAP = 18.dp

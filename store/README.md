@@ -80,7 +80,7 @@ language, and in English (US) for Amazon.
 > • 4K, HDR10, HDR10+ and Dolby Vision, with Dolby Atmos and surround sound sent to your soundbar
 > • Subtitles and audio tracks, with forced subtitles in your language by default
 > • Live TV and an 8-day TV guide from your Plex server's tuner, with your Plex favourite channels
-> • DVR: record a programme or a whole series from the TV guide
+> • DVR: record a programme or a whole series from the TV guide, and watch a recording from its start while it records
 > • Search across films, series, channels and programmes
 > • Made for the remote: the Guide button, channel up and down, and number keys
 > • In English, Spanish, Portuguese (Brazil) and French

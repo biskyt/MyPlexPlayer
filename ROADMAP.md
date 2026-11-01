@@ -61,6 +61,10 @@ Each step is its own pull request.
      list: timers at each recording's start and end (the list read again every 15 minutes and after any change),
      each confirmed with one call; Plex's notification socket may replace the timers later. Only while the app is
      open.
+   - Done: watching recordings (S12, docs/plex-api.md 28). A channel that records now plays as usual. When its
+     picture starts, the player offers "Watch live" and "Watch from start", only when the capture buffer holds more
+     than a minute (also in More). There is no second tune. The tab also lists "Recently recorded": finished recordings still in a library, newest first.
+     OK plays one. Holding OK opens its options: Play, and More info (its film's or series' page).
 
 ## Near future (owner's priorities, 2026-10-25)
 - **Play state from the server:** done in 0.3.0 (see step 5).

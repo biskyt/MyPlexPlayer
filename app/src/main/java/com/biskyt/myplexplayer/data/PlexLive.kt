@@ -1,12 +1,15 @@
 package com.biskyt.myplexplayer.data
 
 import com.biskyt.myplexplayer.core.epg.ProgrammeKind
+import com.biskyt.myplexplayer.core.plex.PlexCaptureBuffer
 import com.biskyt.myplexplayer.core.plex.PlexChannel
 import com.biskyt.myplexplayer.core.plex.PlexClient
+import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.plex.PlexLiveTv
 import com.biskyt.myplexplayer.core.plex.PlexPlayState
 import com.biskyt.myplexplayer.core.plex.PlexProgramme
 import com.biskyt.myplexplayer.core.plex.PlexStream
+import com.biskyt.myplexplayer.core.plex.PlexTune
 import com.biskyt.myplexplayer.data.db.ProgrammeEntity
 import java.util.UUID
 import kotlinx.coroutines.NonCancellable
@@ -58,31 +61,46 @@ class PlexLineup(val live: PlexLiveTv, val channels: List<PlexChannel>)
 
 /**
  * One channel ([channelKey]) played from a Plex server's tuner: [start] tunes it (once: a tune is never sent again,
- * as a second can take a second tuner) and streams the live session as it is; [heartbeat] keeps the session going;
- * [close] lets the tuner go. Starting and closing go one at a time, so a close during a tune waits for it and stops
- * what it took.
+ * as a second can take a second tuner) and streams the live session as it is; [restream] streams the same session
+ * again, from the start of its capture buffer or live; [heartbeat] keeps the session going; [close] lets the tuner go.
+ * Starting and closing go one at a time, so a close during a tune waits for it and stops what it took.
  */
 class PlexLive(private val client: PlexClient, private val live: PlexLiveTv, private val channelKey: String) {
     private val session = UUID.randomUUID().toString()
     private val lock = Mutex()
-    private var tuned: PlexProgramme? = null
+
+    @Volatile private var tuned: PlexTune? = null
     private var startedAt = 0L
 
     private fun playedMs() = System.currentTimeMillis() - startedAt
+
+    /** The tune's capture buffer, once tuned (null: the server gave none). */
+    val buffer: PlexCaptureBuffer? get() = tuned?.buffer
 
     /** The live stream, its picture and sound copied. The server answers before the tuner has locked: it fills slowly. */
     suspend fun start(): PlexStream = lock.withLock {
         startedAt = System.currentTimeMillis()
         // Seen through even when the channel is left meanwhile: only its answer says which session to stop, which
         // lets the tuner go (stopping the stream alone isn't known to).
-        val programme = withContext(NonCancellable) { client.tune(live, channelKey, session) }
-        tuned = programme
-        client.liveStream(programme.key, session)
+        val t = withContext(NonCancellable) { client.tune(live, channelKey, session).also { tuned = it } }
+        client.liveStream(t.programme.key, session)
+    }
+
+    /**
+     * The same session's stream again: [fromStart], from the start of its capture buffer (on a channel that records
+     * now: where the recording started), else at the live edge. There is no new tune, and nothing is stopped
+     * (stopping the session lets the tuner go): as Plezy does, the same session asks for its stream again, with
+     * `offset=0` (the buffer's start as measured) for the start. Not one at a time with [close]: a slow answer
+     * mustn't hold up leaving the channel, and the player drops it if the channel was left meanwhile.
+     */
+    suspend fun restream(fromStart: Boolean): PlexStream {
+        val t = tuned ?: throw PlexException("Not tuned", reason = PlexException.Reason.UNEXPECTED_RESPONSE)
+        return client.liveStream(t.programme.key, session, fromS = if (fromStart) 0L else null)
     }
 
     /** Every 10 seconds while it plays: without it the server ends the session. */
     suspend fun heartbeat() {
-        val programme = tuned ?: return
+        val programme = tuned?.programme ?: return
         send { client.liveTimeline(programme, PlexPlayState.PLAYING, playedMs(), session) }
     }
 
@@ -90,7 +108,7 @@ class PlexLive(private val client: PlexClient, private val live: PlexLiveTv, pri
     suspend fun close() = lock.withLock {
         if (startedAt == 0L) return@withLock // never tuned
         coroutineScope {
-            tuned?.let { launch { send { client.liveTimeline(it, PlexPlayState.STOPPED, playedMs(), session) } } }
+            tuned?.let { launch { send { client.liveTimeline(it.programme, PlexPlayState.STOPPED, playedMs(), session) } } }
             launch { send { client.stopStream(session) } }
         }
     }

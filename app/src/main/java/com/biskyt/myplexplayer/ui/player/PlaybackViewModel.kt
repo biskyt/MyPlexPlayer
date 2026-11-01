@@ -186,7 +186,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
                 return
             }
             if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
-                player.seekToDefaultPosition()
+                if (keepsWindowStart) player.seekTo(0) else player.seekToDefaultPosition()
                 player.prepare()
                 return
             }
@@ -250,6 +250,9 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     private fun playedSinceFailure() = playedMs + if (playingSince > 0) System.currentTimeMillis() - playingSince else 0
 
     protected open fun onPlayingChanged(playing: Boolean) = Unit
+
+    /** A live stream played from the start of its window: fallen behind it, it goes to the window's start, not live. */
+    protected open val keepsWindowStart: Boolean get() = false
 
     /** A stream that keeps failing before it ever played may be tried another way (live TV: the other format); true if so. */
     protected open fun tryOtherFormat(): Boolean = false

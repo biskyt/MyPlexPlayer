@@ -256,7 +256,11 @@ class FakePlex : AutoCloseable {
             }
             path == "/photo/:/transcode" ->
                 MockResponse().setBody(okio.Buffer().write(request.requestUrl!!.queryParameter("url")?.let(images) ?: ByteArray(0)))
-            path == "/video/:/transcode/universal/decision" -> decision()
+            path == "/video/:/transcode/universal/decision" -> {
+                val url = request.requestUrl!!
+                if (url.queryParameter("path").orEmpty().startsWith("/livetv/sessions/")) liveOffsets += url.queryParameter("offset")
+                decision()
+            }
             // Reached only with the server's token (above), in a header now rather than the address.
             // A live session's stream: a tuner still locking, it doesn't answer yet.
             path == "/video/:/transcode/universal/start.m3u8" &&
@@ -385,6 +389,27 @@ class FakePlex : AutoCloseable {
     /** Airings recording now (their programme's guid): the server says `inprogress` for them. */
     val recordingNow: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
+    /**
+     * A finished recording: [title] (an episode of [show], when given), shown from [beginsAt] (seconds) for an hour on
+     * [channel]. [linkedKey] names its library item (`/library/metadata/{id}`); null: the item was deleted.
+     */
+    data class Recorded(
+        val title: String,
+        val beginsAt: Long,
+        val linkedKey: String?,
+        val show: String? = null,
+        val channel: String = "ch-1"
+    )
+
+    /** Finished recordings, listed as `complete` with the airings scheduled (see [recordedGrab]). */
+    val recorded: MutableList<Recorded> = java.util.Collections.synchronizedList(mutableListOf())
+
+    /** How many seconds a tune's capture buffer holds (null: the tune's answer has none). */
+    @Volatile var bufferHeldS: Double? = null
+
+    /** The offset each live session's stream was asked for from, in order (null: the live edge). */
+    val liveOffsets: MutableList<String?> = java.util.Collections.synchronizedList(mutableListOf())
+
     /** Refuses recording, as a server does for someone who isn't its admin. */
     @Volatile var recordingRefused = false
 
@@ -489,7 +514,10 @@ class FakePlex : AutoCloseable {
                 putJsonArray("MediaSubscription") { rules.toList().forEach { add(ruleJson(it)) } }
             }
             path == "/media/subscriptions/scheduled" -> container {
-                putJsonArray("MediaGrabOperation") { rules.toList().forEach { r -> airings(r).forEach { add(grab(r, it)) } } }
+                putJsonArray("MediaGrabOperation") {
+                    rules.toList().forEach { r -> airings(r).forEach { add(grab(r, it)) } }
+                    recorded.toList().forEachIndexed { i, r -> add(recordedGrab(i, r)) }
+                }
             }
             request.method == "PUT" && path.startsWith("/media/subscriptions/") -> {
                 val key = path.substringAfterLast('/')
@@ -551,6 +579,8 @@ class FakePlex : AutoCloseable {
                                         put("ratingKey", "plex://episode/$channel")
                                         put("key", "/livetv/sessions/${tuned.size}-$channel")
                                         put("duration", 3_600_000)
+                                        // In the tuned programme: one of the places Plezy reads it from.
+                                        bufferHeldS?.let { put("TranscodeSession", captureBuffer(it)) }
                                     }
                                 }
                             )
@@ -1001,6 +1031,39 @@ class FakePlex : AutoCloseable {
             )
         }
     }
+}
+
+/** A finished recording's grab: its programme in `Video` (one object), as Plex sends it. */
+private fun recordedGrab(i: Int, r: FakePlex.Recorded) = buildJsonObject {
+    put("key", "/media/grabbers/operations/r-$i")
+    put("status", "complete")
+    put("mediaSubscriptionID", 900 + i)
+    r.linkedKey?.let {
+        put("linkedKey", it)
+        put("linkedLibrarySectionID", 1)
+    }
+    putJsonObject("Video") {
+        put("guid", "plex://episode/recorded-$i")
+        put("title", r.title)
+        put("type", if (r.show != null) "episode" else "movie")
+        r.show?.let { put("grandparentTitle", it) }
+        putJsonArray("Media") {
+            add(
+                buildJsonObject {
+                    put("beginsAt", r.beginsAt)
+                    put("endsAt", r.beginsAt + 3600)
+                    put("channelIdentifier", r.channel)
+                }
+            )
+        }
+    }
+}
+
+/** A capture buffer that began [heldS] seconds ago and runs to now. */
+private fun captureBuffer(heldS: Double) = buildJsonObject {
+    put("timeStamp", System.currentTimeMillis() / 1000.0 - heldS)
+    put("minOffsetAvailable", 0.0)
+    put("maxOffsetAvailable", heldS)
 }
 
 /** Signs in to [plex] (as if code ABCD had been entered) and adds its servers: the id of Home Plex's source. */
