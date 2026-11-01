@@ -932,11 +932,13 @@ class FakePlex : AutoCloseable {
             title: String,
             duration: Long = 600_000,
             markers: List<Marker> = emptyList(),
-            summary: String? = null
+            summary: String? = null,
+            aired: String? = null
         ) = obj {
             put("ratingKey", key)
             put("type", "episode")
             summary?.let { put("summary", it) }
+            aired?.let { put("originallyAvailableAt", it) }
             put("title", title)
             put("parentIndex", season)
             put("index", index)

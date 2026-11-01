@@ -3,6 +3,7 @@ package com.biskyt.myplexplayer.core.vod
 import com.biskyt.myplexplayer.core.plex.PlexMediaInfo
 import com.biskyt.myplexplayer.core.plex.Score
 import com.biskyt.myplexplayer.core.plex.TitleLink
+import java.time.LocalDate
 
 /** What a details page shows for a movie or series. Any field may be missing: servers fill them unevenly. */
 data class VodDetails(
@@ -53,6 +54,8 @@ data class EpisodeInfo(
     val imageUrl: String?,
     /** What its file is ("1080p", "Dolby Digital 5.1"), shown while it has focus. */
     val badges: List<String> = emptyList(),
+    /** When it was first shown, if the server says. */
+    val airDate: LocalDate? = null,
 )
 
 data class SeriesDetails(val info: VodDetails, val seasons: List<SeasonInfo>, val episodes: List<EpisodeInfo>)

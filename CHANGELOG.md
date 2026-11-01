@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.19.1
+- An episode's options and the player's More menu now have "Episode description", which also says when the episode was first shown.
+- A long episode description no longer runs off the bottom of its panel: it ends with "…".
+
 ## 0.19.0
 - On the home screen, the film or series you have selected now shows its background picture faintly behind the rows.
 

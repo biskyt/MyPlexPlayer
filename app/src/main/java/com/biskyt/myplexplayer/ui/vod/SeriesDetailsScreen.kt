@@ -65,7 +65,6 @@ import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.Poster
 import com.biskyt.myplexplayer.ui.common.ProgressLine
-import com.biskyt.myplexplayer.ui.common.TextPanel
 import com.biskyt.myplexplayer.ui.common.TvCard
 import com.biskyt.myplexplayer.ui.common.formatDuration
 import com.biskyt.myplexplayer.ui.common.formatRuntime
@@ -74,6 +73,9 @@ import com.biskyt.myplexplayer.ui.common.onOptionsKey
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.restoreFocusIf
 import com.biskyt.myplexplayer.ui.common.titleActions
+import com.biskyt.myplexplayer.ui.player.DescribedEpisode
+import com.biskyt.myplexplayer.ui.player.EpisodeDescriptionPanel
+import com.biskyt.myplexplayer.ui.player.episodeDescriptionAction
 import com.biskyt.myplexplayer.ui.player.episodeName
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
 import com.biskyt.myplexplayer.ui.theme.Palette
@@ -256,7 +258,7 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
     }
     vm.optionsFor?.let { e -> EpisodeOptions(vm, show.title, d, e, progress[e.id], screen) }
     if (vm.castOpen) CastPanel(show.title, d?.info?.cast.orEmpty()) { vm.castOpen = false }
-    vm.describing?.let { e -> e.plot?.let { TextPanel(show.title, episodeName(e), it) { vm.describing = null } } }
+    vm.describing?.let { e -> EpisodeDescriptionPanel(DescribedEpisode(show.title, e)) { vm.describing = null } }
 }
 
 /** A series with no episodes: says so, and offers to delete it where the server allows it. */
@@ -353,11 +355,9 @@ private fun EpisodeOptions(
     // One partly watched can be counted as watched, or started again (its progress forgotten).
     val episode = listOfNotNull(
         ItemAction.Heading(appString(R.string.vod_this_episode)),
-        e.plot?.let {
-            ItemAction.Run(appString(R.string.player_description)) {
-                close()
-                vm.describing = e
-            }
+        episodeDescriptionAction(e) {
+            close()
+            vm.describing = e
         },
         resumable?.let { ItemAction.Run(appString(R.string.vod_resume_from, formatDuration(it.positionMs))) { play(false) } },
         resumable?.let { ItemAction.Run(appString(R.string.common_from_start)) { play(true) } },

@@ -100,4 +100,5 @@
     <string name="vod_score_rotten_tomatoes">Rotten Tomatoes critics</string>
     <string name="vod_score_rotten_tomatoes_audience">Rotten Tomatoes audience</string>
     <string name="vod_score_tmdb" translatable="false">TMDB</string>
+    <string name="vod_first_shown">First shown %1$s</string>
 </resources>

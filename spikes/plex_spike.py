@@ -929,9 +929,15 @@ def series_checks(http, rec, key):
 
 
 # ---------------------------------------------------------------- S12: recordings in progress and recent ones
+def grab_programme(grab):
+    """A recording's programme: in `Metadata` while scheduled or recording, in `Video` once complete (S12, first run)."""
+    return grab.get("Metadata") or grab.get("Video") or {}
+
+
 def library_match(http, rec, name, grab):
-    """The library item of a recording (grab): looked up by the programme's guid, as the library may list it."""
-    meta = grab.get("Metadata", {})
+    """The library item of a recording (grab): looked up by the programme's guid, as the library may list it, and by
+    its show's guid, then the episode's series and number."""
+    meta = grab_programme(grab)
     found = {}
     for label, endpoint, params in (
             ("by guid", "/library/all", {"guid": meta.get("guid")}),
@@ -944,6 +950,20 @@ def library_match(http, rec, name, grab):
                   f"HTTP {status}, {len(items)} match(es) of {mc(body).get('size')}")
         for m in items:
             found.setdefault(m.get("ratingKey"), m)
+    show_guid = meta.get("grandparentGuid")
+    if show_guid:
+        status, _, body = http.get("/library/all", type=2, guid=show_guid)
+        rec.save(f"{name}-library-show", body)
+        shows = [m for m in mc(body).get("Metadata", []) if m.get("guid") == show_guid]
+        rec.check(f"{name}: its show in the library, by guid", shows, f"HTTP {status}, {len(shows)} match(es) of {mc(body).get('size')}")
+        for show in shows[:1]:
+            _, _, leaves = http.get(f"/library/metadata/{show.get('ratingKey')}/allLeaves")
+            same = [m for m in mc(leaves).get("Metadata", []) if str(m.get("parentIndex")) == str(meta.get("parentIndex"))
+                    and str(m.get("index")) == str(meta.get("index"))]
+            rec.check(f"{name}: the episode in its show, by series and number", same,
+                      f"{len(same)} match(es); guids {[m.get('guid') for m in same]} (the recording's {meta.get('guid')})")
+            for m in same:
+                found.setdefault(m.get("ratingKey"), m)
     return list(found.values())
 
 
@@ -985,8 +1005,8 @@ def recordings(args, state):
     going = [g for g in grabs if g.get("status") in ("inprogress", "grabbing")]
     done = [g for g in grabs if g.get("status") == "complete"]
     if rec.check("a recording in progress (start one first, for this step)", going,
-                 "; ".join(f"started {round((now_s - first(g.get('Metadata', {}), 'Media').get('beginsAt', now_s)) / 60)} min ago, "
-                           f"fields {sorted(g)}, programme fields {sorted(g.get('Metadata', {}))}" for g in going[:2])):
+                 "; ".join(f"started {round((now_s - float(first(grab_programme(g), 'Media').get('beginsAt', now_s))) / 60)} min ago, "
+                           f"fields {sorted(g)}, programme fields {sorted(grab_programme(g))}" for g in going[:2])):
         for item in library_match(http, rec, "in-progress", going[0]):
             part_check(http, rec, "in-progress", item)
     if rec.check("a recent recording (complete)", done, f"{len(done)}"):

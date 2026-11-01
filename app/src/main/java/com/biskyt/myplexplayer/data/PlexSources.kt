@@ -39,6 +39,7 @@ import com.biskyt.myplexplayer.data.db.VOD_EPISODE
 import com.biskyt.myplexplayer.data.db.VOD_MOVIE
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import java.io.IOException
+import java.time.LocalDate
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.async
@@ -249,6 +250,7 @@ class PlexSources(
                 durationSec = e.durationSec,
                 imageUrl = image(client, e.thumb, STILL_WIDTH, STILL_HEIGHT),
                 badges = PlexMediaInfo.of(e)?.badges.orEmpty(),
+                airDate = airDateOf(e.originallyAvailableAt),
             )
         }
         // Each season's year and poster come with its episodes: no call of its own.
@@ -771,3 +773,8 @@ class PlexPlayback(
         sent
     }
 }
+
+/** A Plex date (`originallyAvailableAt`: "2023-01-15", or with a time) as a day; null when it isn't one. */
+internal fun airDateOf(text: String?): LocalDate? = text?.take(DATE_LENGTH)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
+private const val DATE_LENGTH = 10
