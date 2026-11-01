@@ -90,7 +90,7 @@
     <string name="settings_lib_coil">Channel logos and posters</string>
     <string name="settings_lib_okhttp">Downloads (with Okio)</string>
     <string name="settings_lib_coroutines">Background work</string>
-    <string name="settings_lib_serialization">Reading provider data and backups</string>
+    <string name="settings_lib_serialization">Reading server data and backups</string>
     <string name="settings_lib_zxing">QR codes</string>
     <string name="settings_lib_kotlin">The language the app is written in</string>
     <string name="settings_lib_guava">Used by Media3</string>

@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.0.0
+- MyPlexPlayer 1.0: a fast, lightweight and free player for your own Plex server, with no ads and no tracking.
+
 ## 0.20.1
 - "Warn if VPN is not connected" is now in the main Settings list, after Appearance.
 

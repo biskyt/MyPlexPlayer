@@ -18,9 +18,9 @@
     <string name="vod_no_episodes">No episodes are available for this series.</string>
     <!-- Next to an episode watched to the end. Short. -->
     <string name="vod_watched">Watched</string>
-    <!-- A season's button, when the provider gives it no name. %1$d: the season's number. Short. -->
+    <!-- A season's button, when the server gives it no name. %1$d: the season's number. Short. -->
     <string name="vod_season">Series %1$d</string>
-    <!-- An episode the provider gave no title. %1$d: its number. -->
+    <!-- An episode the server gave no title. %1$d: its number. -->
     <string name="vod_episode">Episode %1$d</string>
     <!-- Read out for the number on a series' poster: its episodes not yet watched. -->
     <plurals name="vod_unwatched_episodes">

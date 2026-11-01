@@ -71,7 +71,7 @@
     <string name="settings_lib_coil">Logos dos canais e pôsteres</string>
     <string name="settings_lib_okhttp">Downloads (com Okio)</string>
     <string name="settings_lib_coroutines">Tarefas em segundo plano</string>
-    <string name="settings_lib_serialization">Leitura de dados do provedor e de backups</string>
+    <string name="settings_lib_serialization">Leitura de dados do servidor e de backups</string>
     <string name="settings_lib_zxing">QR codes</string>
     <string name="settings_lib_kotlin">A linguagem em que o app é escrito</string>
     <string name="settings_lib_guava">Usado pelo Media3</string>

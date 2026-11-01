@@ -45,6 +45,7 @@ import com.biskyt.myplexplayer.AppText
 import com.biskyt.myplexplayer.InAppLanguage
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
+import com.biskyt.myplexplayer.core.plex.PlexRecordingOption
 import com.biskyt.myplexplayer.core.ui.AccentPalette
 import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.categoryLabel
@@ -211,15 +212,26 @@ class StoreAssetsTest {
         screenshot("1-home", Screen.Home, "Sintel")
     }
 
-    @Test fun liveTv() = screenshot("2-live-tv", Screen.Live(ChannelFilter.All), "Evening Bulletin")
+    // In the order the listings show them: the change people notice most first.
+    @Test fun movieDetails() = screenshot("2-movie-details", Screen.MovieDetails(playlistId, 805), "A giant, gentle rabbit")
 
-    @Test fun tvGuide() = screenshot("3-tv-guide", Screen.Live(ChannelFilter.All, guide = true), "World Tonight")
+    @Test fun seriesDetails() = screenshot("3-series-details", Screen.SeriesDetails(playlistId, 901), "Llamigos")
 
-    @Test fun movies() = screenshot("5-movies", Screen.Movies(), "Elephants Dream")
+    @Test fun movies() = screenshot("4-movies", Screen.Movies(), "Elephants Dream")
 
-    @Test fun movieDetails() = screenshot("7-movie-details", Screen.MovieDetails(playlistId, 805), "A giant, gentle rabbit")
+    @Test fun tvGuide() = screenshot("5-tv-guide", Screen.Live(ChannelFilter.All, guide = true), "World Tonight")
 
-    @Test fun seriesDetails() = screenshot("8-series-details", Screen.SeriesDetails(playlistId, 901), "Llamigos")
+    @Test fun liveTv() = screenshot("6-live-tv", Screen.Live(ChannelFilter.All), "Evening Bulletin")
+
+    // One programme recording now (The Lighthouse Keeper, on Lantern Drama), and two set to record later. (A series
+    // rule would show "Nothing to record yet": the demo guide has no later airing of any show.)
+    @Test fun dvr() {
+        plex.rules += FakePlex.Rule("1", PlexRecordingOption.EPISODE, "plex://episode/ch-6-0", emptyMap())
+        plex.rules += FakePlex.Rule("2", PlexRecordingOption.EPISODE, "plex://episode/ch-7-1", emptyMap())
+        plex.rules += FakePlex.Rule("3", PlexRecordingOption.EPISODE, "plex://episode/ch-1-1", emptyMap())
+        plex.recordingNow += "plex://episode/ch-6-0"
+        screenshot("7-dvr", Screen.Dvr, "Night Skies")
+    }
 
     // Not in the store listing: settings pages, whose long labels are the likeliest not to fit when translated.
     @Test fun settings() = translatedOnly { screenshot("9-settings", Screen.Settings, appString(R.string.settings_playlists_title)) }
@@ -292,8 +304,8 @@ class StoreAssetsTest {
             Box(Modifier.size(130.dp).clip(RoundedCornerShape(28.dp))) { Icon() }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Wordmark(34)
-                Text("Live TV and TV guide", color = Palette.text, fontSize = 15.sp, softWrap = false)
-                Text("Movies and series from your provider", color = Palette.textMuted, fontSize = 15.sp, softWrap = false)
+                Text("Films, TV, Live TV and DVR", color = Palette.text, fontSize = 15.sp, softWrap = false)
+                Text("From your own Plex server. Free, no ads", color = Palette.textMuted, fontSize = 15.sp, softWrap = false)
             }
         }
     }
