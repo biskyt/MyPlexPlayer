@@ -88,12 +88,23 @@ class PlexRecordingTest {
 
         val scheduled = client.scheduledRecordings()
         server.takeRequest()
-        assertEquals(listOf(true, false, false), scheduled.map { it.isScheduled })
-        assertEquals(listOf(false, true, false), scheduled.map { it.isRecording })
+        assertEquals(listOf(true, false, false, false), scheduled.map { it.isScheduled })
+        assertEquals(listOf(false, true, false, false), scheduled.map { it.isRecording })
         assertEquals("11", scheduled.first().mediaSubscriptionID)
         val first = scheduled.first().airing!!
         assertEquals(1_793_000_000L, first.beginsAt)
         assertEquals("5fc705db-ch1", first.channelIdentifier)
+    }
+
+    @Test
+    fun `a finished recording has its programme in Video and names its library item, until that is deleted`() = runTest {
+        val scheduled = client.scheduledRecordings()
+        val done = scheduled.last()
+        assertEquals("2995", done.recordedRatingKey)
+        assertEquals("High Tide", done.programme?.title)
+        assertEquals(1_792_900_000L, done.airing?.beginsAt)
+        // One with no linkedKey (its item deleted), and one not finished, name no item.
+        assertEquals(listOf(null, null, null), scheduled.dropLast(1).map { it.recordedRatingKey })
     }
 
     @Test

@@ -64,6 +64,9 @@ data class PlexProgramme(
     val duration: Long? = null,
     // Its `Channel` list isn't read: those are tags (a number and a name), not the channel's key.
     @SerialName("Media") @Serializable(with = SkippingList::class) val airings: List<PlexAiring> = emptyList(),
+    /** As a tune's result: the live session's capture buffer, when the server puts it here. */
+    @SerialName("TranscodeSession") @Serializable(with = SkippingList::class)
+    internal val buffers: List<PlexCaptureBuffer> = emptyList(),
 ) {
     /** Its show's title (an episode), else its own. */
     val showTitle: String get() = grandparentTitle ?: title
@@ -72,6 +75,37 @@ data class PlexProgramme(
 /** One showing of a programme: from [beginsAt] to [endsAt], in seconds since 1970, on the channel [channelIdentifier]. */
 @Serializable
 data class PlexAiring(val beginsAt: Long? = null, val endsAt: Long? = null, val channelIdentifier: String? = null)
+
+/**
+ * A live session's capture buffer (Plex's `TranscodeSession` for it): it holds from [minOffsetAvailable] to
+ * [maxOffsetAvailable] seconds after [timeStamp] (seconds since 1970). On a channel that records now, it starts when
+ * the recording started, never earlier (docs/plex-api.md, 28).
+ */
+@Serializable
+data class PlexCaptureBuffer(
+    val timeStamp: Double? = null,
+    val minOffsetAvailable: Double? = null,
+    val maxOffsetAvailable: Double? = null,
+) {
+    /** How many seconds it holds. */
+    val heldS: Double get() = ((maxOffsetAvailable ?: 0.0) - (minOffsetAvailable ?: 0.0)).coerceAtLeast(0.0)
+
+    /** Whether "Watch from start" is offered: only when it holds more than a minute. */
+    val offersStart: Boolean get() = heldS > FROM_START_MIN_S
+
+    companion object {
+        const val FROM_START_MIN_S = 60.0
+    }
+}
+
+/** A tune's result: what's on ([programme], whose key is the live session's path), and its capture [buffer], if any. */
+data class PlexTune(val programme: PlexProgramme, val buffer: PlexCaptureBuffer?)
+
+/** `CaptureBuffer`: one of the places a tune's answer can hold the capture buffer (see [PlexLiveContainer]). */
+@Serializable
+internal class PlexCaptureHolder(
+    @SerialName("TranscodeSession") @Serializable(with = SkippingList::class) val buffers: List<PlexCaptureBuffer> = emptyList(),
+)
 
 @Serializable
 internal class PlexDvr(val key: String = "", val lineup: String = "")
@@ -108,4 +142,8 @@ internal class PlexLiveContainer(
     @SerialName("Channel") val channels: List<PlexChannel> = emptyList(),
     @SerialName("Metadata") @Serializable(with = SkippingList::class) val programmes: List<PlexProgramme> = emptyList(),
     @SerialName("MediaSubscription") val subscriptions: List<PlexSubscription> = emptyList(),
+    // A tune's capture buffer: here, under CaptureBuffer, or in the tuned programme (Plezy reads all three). The
+    // owner's server sent one (docs/plex-api.md, 28), but the spike's notes do not say in which place.
+    @SerialName("TranscodeSession") @Serializable(with = SkippingList::class) val buffers: List<PlexCaptureBuffer> = emptyList(),
+    @SerialName("CaptureBuffer") @Serializable(with = SkippingList::class) val captureBuffers: List<PlexCaptureHolder> = emptyList(),
 )

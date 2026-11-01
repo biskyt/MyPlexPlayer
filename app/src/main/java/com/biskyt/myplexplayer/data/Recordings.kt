@@ -5,6 +5,7 @@ import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.plex.PlexClient
 import com.biskyt.myplexplayer.core.plex.PlexException
+import com.biskyt.myplexplayer.core.plex.PlexItem
 import com.biskyt.myplexplayer.core.plex.PlexRecordingRule
 import com.biskyt.myplexplayer.core.plex.PlexRecordingRule.Companion.ALL_AIRINGS
 import com.biskyt.myplexplayer.core.plex.PlexRecordingRule.Companion.NEW_ONLY
@@ -215,6 +216,25 @@ class Recordings(
         } catch (_: IOException) {
             // Shown as it was: the guide works without its marks.
         }
+    }
+
+    /**
+     * The library item (a film or an episode) that [airing] recorded to, read from the server; null when it can't be
+     * read (a notice says why, and the recordings are read again: the item may be deleted).
+     */
+    suspend fun recordedItem(playlistId: Long, airing: PlexScheduledRecording): PlexItem? {
+        val key = airing.recordedRatingKey ?: return null
+        val p = playlists.get(playlistId) ?: return null
+        val failed = try {
+            return plex.client(p).item(key)
+        } catch (e: PlexException) {
+            e.userMessage()
+        } catch (e: IOException) {
+            userMessage(e)
+        }
+        notices.post(Notice(appString(R.string.dvr_play_failed), failed))
+        refresh(playlistId)
+        return null
     }
 
     /** Sets programme [guid] to record: this airing, or (with [series]) every new airing of its show. */

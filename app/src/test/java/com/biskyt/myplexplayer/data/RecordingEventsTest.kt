@@ -14,7 +14,7 @@ class RecordingEventsTest {
         PlexScheduledRecording(
             key = key,
             status = status,
-            programme = PlexProgramme(
+            metadata = PlexProgramme(
                 guid = "plex://episode/$key",
                 grandparentTitle = show,
                 title = "Low Tide",

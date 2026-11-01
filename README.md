@@ -32,8 +32,8 @@ MyPlexPlayer is an independent app. It is not made or endorsed by Plex, Inc. You
 - **Subtitles and audio tracks:** forced subtitles in your language by default, and every track to choose from.
 - **Live TV and the TV guide** from your Plex server's tuner, 8 days ahead. Your favourite channels are your Plex
   favourites.
-- **DVR:** record a programme or a whole series from the TV guide, and see what's recording, what's coming up and your
-  series recordings.
+- **DVR:** record a programme or a whole series from the TV guide, watch a recording from its start while it records,
+  and see what's recording, what's recently recorded, what's coming up and your series recordings.
 - **Search** across films, series, channels and programmes.
 - **Languages:** English, Spanish, Portuguese (Brazil) and French.
 

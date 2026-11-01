@@ -191,9 +191,12 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
     suspend fun directStream(ratingKey: String, session: String, offsetMs: Long = 0, codecs: PlexCodecs = PlexCodecs()): PlexStream =
         streamAsItIs(session, codecs) { call -> directStreamUrl(call, "/library/metadata/$ratingKey", session, offsetMs) }
 
-    /** A [tune]'s live session ([sessionPath]) as HLS, its audio and video untouched, as [directStream]. */
-    suspend fun liveStream(sessionPath: String, session: String, codecs: PlexCodecs = PlexCodecs()): PlexStream =
-        streamAsItIs(session, codecs) { call -> directStreamUrl(call, sessionPath, session, offsetMs = null) }
+    /**
+     * A [tune]'s live session ([sessionPath]) as HLS, its audio and video untouched, as [directStream]: from the live
+     * edge, or with [fromS] from that offset into its capture buffer (0: its start, as measured, docs/plex-api.md 28).
+     */
+    suspend fun liveStream(sessionPath: String, session: String, fromS: Long? = null, codecs: PlexCodecs = PlexCodecs()): PlexStream =
+        streamAsItIs(session, codecs) { call -> directStreamUrl(call, sessionPath, session, offsetMs = null, liveFromS = fromS) }
 
     /** The server's decision on the stream at [url] (`decision`, then `start.m3u8`), refused unless all is copied. */
     private suspend fun streamAsItIs(session: String, codecs: PlexCodecs, url: (String) -> HttpUrl): PlexStream {
@@ -244,14 +247,19 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
     suspend fun stopStream(session: String) =
         send("GET", url("video/:/transcode/universal/stop") { addQueryParameter("session", session) }, session)
 
-    /** [offsetMs] null: a live session (no file, so no media or part either, and nothing to start into). */
-    private fun directStreamUrl(call: String, path: String, session: String, offsetMs: Long?): HttpUrl =
+    /**
+     * [offsetMs] null: a live session (no file, so no media or part either). It starts at the live edge, or with
+     * [liveFromS] at that offset into its capture buffer.
+     */
+    private fun directStreamUrl(call: String, path: String, session: String, offsetMs: Long?, liveFromS: Long? = null): HttpUrl =
         url("video/:/transcode/universal/$call") {
             addQueryParameter("path", path)
             if (offsetMs != null) {
                 addQueryParameter("mediaIndex", "0")
                 addQueryParameter("partIndex", "0")
                 addQueryParameter("offset", (offsetMs / 1000).toString())
+            } else if (liveFromS != null) {
+                addQueryParameter("offset", liveFromS.toString())
             }
             addQueryParameter("protocol", "hls")
             addQueryParameter("directPlay", "0")
@@ -322,18 +330,23 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
 
     /**
      * Takes a tuner for a channel (its [PlexChannel.tuneKey], [channelKey]) for this [session]: what's on, whose [PlexProgramme.key] is the live session's
-     * path (for [liveStream] and [liveTimeline]). The server answers before the tuner has locked, so the stream
-     * takes a while to start. Never call it again for a tune that timed out: a second tune can take a second tuner.
+     * path (for [liveStream] and [liveTimeline]), and its capture buffer if the server gives one. The server answers
+     * before the tuner has locked, so the stream takes a while to start. Never call it again for a tune that timed
+     * out: a second tune can take a second tuner. On a channel that records now, the tune joins the recording's own
+     * session, and takes no other tuner.
      */
-    suspend fun tune(live: PlexLiveTv, channelKey: String, session: String): PlexProgramme {
+    suspend fun tune(live: PlexLiveTv, channelKey: String, session: String): PlexTune {
         val reply = http.fetch<PlexLiveResponse>(
             "POST",
             url("livetv/dvrs/${live.dvrKey}/channels/$channelKey/tune") { addQueryParameter("X-Plex-Session-Identifier", session) },
             headers(session)
         ).container
         val tuned = reply.subscriptions.firstOrNull()?.grabs?.firstOrNull()?.programme ?: reply.programmes.firstOrNull()
-        return tuned?.takeIf { it.key.isNotEmpty() }
+        val programme = tuned?.takeIf { it.key.isNotEmpty() }
             ?: throw PlexException("No live session in the tune's reply", reason = Reason.UNEXPECTED_RESPONSE)
+        val buffer = (reply.buffers + reply.captureBuffers.flatMap { it.buffers } + programme.buffers)
+            .firstOrNull { it.maxOffsetAvailable != null }
+        return PlexTune(programme, buffer)
     }
 
     /** How a guide programme (its [PlexProgramme.guid]) can be recorded: this airing, and for an episode its series. */

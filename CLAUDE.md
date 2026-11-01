@@ -226,6 +226,12 @@ See also:
   remote rests on a choice (`AutoDeleteChoice`). Delete always asks first (`ItemAction.Confirmed`). A series' last episode deleted
   takes the series with it on the server (404 after it, docs/plex-api.md row 27), so the app then drops its own copy
   (`VodRepository.forgetSeries`); a whole series is deleted with one `DELETE` of the show (0.18.0).
+- **Watching a recording** (docs/plex-api.md row 28): a recording in progress is in no library. Its channel plays
+  as Live TV does, and the one tune joins the recording's session (no other tuner). The tune's answer has the capture
+  buffer (`PlexCaptureBuffer`, core). When the picture starts, the player offers "Watch live" and "Watch from start"
+  only if the channel records now and the buffer holds more than 60 s (`offersStart`). More offers "Watch from start"
+  too, and "Watch live" once from the start. "From start" plays the same session again with `offset` (the buffer's
+  start, 0), and "Watch live" with none: never a second tune (`PlexLive.restream`). A finished recording is a `complete` grab with `linkedKey`, and plays as a library item.
 - **Changing a setting's default:** `SettingsRepository.update` (and a backup) saves every setting, so a default
   already released is saved as if chosen. A new default needs a new preference key and `@SerialName`, as credits'
   automatic skip got in 0.8.1.

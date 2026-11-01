@@ -68,14 +68,25 @@ data class PlexRecordingRule(
  * One airing set to record (a grab), by the rule [mediaSubscriptionID]: its programme, with the showing's times and
  * channel in [PlexProgramme.airings]. [status] is `scheduled`, `inprogress` while recording, then `postprocessing`
  * and `complete`; or `error`, `cancelled`, `inactive` or `paused` (the spec's list). [key] cancels this airing alone.
+ * A complete one has its programme in `Video`, not `Metadata`, and [linkedKey] names its library item
+ * (`/library/metadata/{id}`), until that item is deleted (docs/plex-api.md, 28).
  */
 @Serializable
 data class PlexScheduledRecording(
     @Serializable(with = PlexIdText::class) val key: String = "",
     val status: String = "",
     @Serializable(with = PlexIdText::class) val mediaSubscriptionID: String? = null,
-    @SerialName("Metadata") val programme: PlexProgramme? = null,
+    @SerialName("Metadata") val metadata: PlexProgramme? = null,
+    @SerialName("Video") @Serializable(with = SkippingList::class) val video: List<PlexProgramme> = emptyList(),
+    val linkedKey: String? = null,
 ) {
+    /** What it records: its programme, in `Metadata` or (once complete) in `Video`. */
+    val programme: PlexProgramme? get() = metadata ?: video.firstOrNull()
+
+    /** The library item it recorded to (a film or an episode), if it is complete and the item is not deleted. */
+    val recordedRatingKey: String? get() =
+        linkedKey?.takeIf { status == COMPLETE }?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+
     /** When it starts and ends, in seconds since 1970, and on which channel. */
     val airing: PlexAiring? get() = programme?.airings?.firstOrNull()
 
@@ -93,6 +104,7 @@ data class PlexScheduledRecording(
 
     companion object {
         const val SCHEDULED = "scheduled"
+        const val COMPLETE = "complete"
         val NEEDS_ATTENTION = setOf("error", "inactive", "paused")
 
         /** The tune's own grab (docs/plex-api.md, 13) says `inprogress`; Plezy reads `grabbing` as recording too. */

@@ -1,8 +1,11 @@
-{"MediaContainer":{"size":3,"MediaGrabOperation":[
+{"MediaContainer":{"size":4,"MediaGrabOperation":[
 {"id":"g1","key":"/media/grabbers/operations/g1","status":"scheduled","mediaSubscriptionID":11,
  "Metadata":{"guid":"plex://episode/ep0001","grandparentGuid":"plex://show/show0001","grandparentTitle":"The Harbour","title":"Low Tide","type":"episode",
  "Media":[{"beginsAt":1793000000,"endsAt":1793003600,"channelIdentifier":"5fc705db-ch1","premiere":1}]}},
 {"id":"g2","key":"/media/grabbers/operations/g2","status":"inprogress","mediaSubscriptionID":12,
  "Metadata":{"guid":"plex://movie/film0001","title":"A Film","type":"movie",
  "Media":[{"beginsAt":1792990000,"endsAt":1792997200,"channelIdentifier":"5fc705db-ch2"}]}},
-{"id":"g0","status":"complete","mediaSubscriptionID":9,"Metadata":{}}]}}
+{"id":"g0","status":"complete","mediaSubscriptionID":9,"Metadata":{}},
+{"id":"g3","key":"/media/grabbers/operations/g3","status":"complete","mediaSubscriptionID":11,"linkedKey":"/library/metadata/2995","linkedLibrarySectionID":1,
+ "Video":{"guid":"plex://episode/ep0000","grandparentTitle":"The Harbour","title":"High Tide","type":"episode",
+ "Media":[{"beginsAt":1792900000,"endsAt":1792903600,"channelIdentifier":"5fc705db-ch1"}]}}]}}
