@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.17.4
+- The TV guide now fits the screen, so the selected programme no longer goes past the right edge when you move right.
+
 ## 0.17.3
 - The TV guide now marks every airing of a series that is set to record, also when no airing is scheduled yet.
 - The TV guide now goes 8 days ahead, as far as Plex's own guide.

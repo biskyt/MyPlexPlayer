@@ -25,7 +25,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   info (MyPlexPlayer's Playback info shows the rest), not its http/https buttons (no address to type here); from
   1.8.10 (`ecf5468`), Up and Down leaving a text box (`9456942`) and the focus back on a search result (`a17787f`),
   not its category line (a Plex title is in one library). In 0.17.1: 1.8.11 (`66ed289`, the server named once and
-  Back from Home leaving the recent apps). The plain-english skill (`7de1099`) is copied as it
+  Back from Home leaving the recent apps). In 0.17.4: 1.8.12 (`d3c96e4`, the guide fitted to the screen; its
+  catch-up parts left out). The plain-english skill (`7de1099`) is copied as it
   is. 1.8.7 (`fc738a8`) and 1.8.8 (`9cb696c`) change the XMLTV guide's reading and channel matching, which
   MyPlexPlayer removed in 0.6.0: they don't apply.
 - **Where a change is made first** (the owner, 2026-10-25): a feature or fix both apps need (the player, remote keys,
