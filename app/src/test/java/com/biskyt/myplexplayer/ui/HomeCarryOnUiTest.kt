@@ -119,8 +119,11 @@ class HomeCarryOnUiTest {
         }
         compose.runOnUiThread { navigator.pop() }
 
-        compose.waitAdvancingClock(50) { "Big Buck Bunny" in compose.focusedText() }
-        // At the start of the row, in view (the row had been scrolled along to it).
+        // At the start of the row, in view (the row had been scrolled along to it). The new order comes from the database
+        // on another thread: until it comes, the remote is still on the card where it was, far along the row.
+        compose.waitAdvancingClock(50) {
+            "Big Buck Bunny" in compose.focusedText() && compose.onAllNodes(hasText("Film 0")).fetchSemanticsNodes().isNotEmpty()
+        }
         compose.idleFrames()
         assertTrue(compose.focusedText(), "Big Buck Bunny" in compose.focusedText())
         assertEquals(1, compose.onAllNodes(hasText("Film 0")).fetchSemanticsNodes().size)
