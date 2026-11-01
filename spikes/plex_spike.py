@@ -21,7 +21,7 @@ addresses, account names, emails and file paths replaced, for test fixtures. rep
     python3 spikes/plex_spike.py cast                    # S10 (signing in first if needed), then spike-results.zip
     python3 spikes/plex_spike.py series_dvr [--server URL] [--record] # S11: series recordings: made, edited, removed
     python3 spikes/plex_spike.py test-dvr                # S11 with --record (signing in first if needed), then the zip
-    python3 spikes/plex_spike.py recordings [--server URL] # S12: a recording in progress and recent ones (only reads)
+    python3 spikes/plex_spike.py recordings [--server URL] # S12: recordings in progress and recent ones, and how each plays (only reads)
     python3 spikes/plex_spike.py test-recordings         # S12 (signing in first if needed), then the zip
 
 Without --server the first server from `servers` is used. --tune briefly uses a tuner; --record schedules a recording
@@ -990,9 +990,141 @@ def part_check(http, rec, name, item):
               f"size {part.get('size')} then {later.get('size')}, duration {part.get('duration')} then {later.get('duration')}")
 
 
+def linked_items(http, rec, name, grabs, limit=3):
+    """The library items of recordings (grabs) through their `linkedKey` (S12, second run: two complete grabs had one,
+    `/library/metadata/<id>`; the others, deleted, had none). Each one's file is checked once."""
+    linked = [g for g in grabs if g.get("linkedKey")]
+    rec.check(f"{name}: recordings with a linkedKey", linked,
+              f"{len(linked)} of {len(grabs)}; keys {[g.get('linkedKey') for g in linked[:limit]]}, "
+              f"sections {[g.get('linkedLibrarySectionID') for g in linked[:limit]]}")
+    for i, g in enumerate(linked[:limit]):
+        status, _, body = http.get(g["linkedKey"])
+        rec.save(f"{name}-linked-{i}", body)
+        meta = first(mc(body), "Metadata")
+        same = meta.get("guid") == grab_programme(g).get("guid")
+        rec.check(f"{name}: GET its linkedKey ({i})", status == 200 and meta,
+                  f"HTTP {status}, guid {'the same as' if same else 'not'} the programme's, type {meta.get('type')}, "
+                  f"ratingKey {meta.get('ratingKey')}")
+        if meta and i == 0:
+            part_check(http, rec, f"{name}-linked", meta)
+
+
+def newest_in_section(http, rec, name, grab):
+    """A recording in progress may be in its library before it ends: the section's newest items (by addedAt), matched
+    by guid (/library/recentlyAdded groups episodes into seasons, so it can't show this)."""
+    meta = grab_programme(grab)
+    section = meta.get("librarySectionID")
+    kind = 4 if meta.get("type") == "episode" else 1
+    status, _, body = http.get(f"/library/sections/{section}/all", type=kind, sort="addedAt:desc",
+                               **{"X-Plex-Container-Start": 0, "X-Plex-Container-Size": 20})
+    rec.save(f"{name}-section-newest", body)
+    items = mc(body).get("Metadata", [])
+    same = [m for m in items if m.get("guid") == meta.get("guid")]
+    rec.check(f"{name}: in its section's newest 20 (by guid)", same,
+              f"HTTP {status}, {len(same)} match(es); newest addedAt {[m.get('addedAt') for m in items[:3]]}")
+    return same
+
+
+def playlist_facts(text):
+    """What an HLS playlist says about where it starts: its type, first sequence, segments and first date-time."""
+    if not isinstance(text, str):
+        return {"not a playlist": str(text)[:80]}
+    lines = text.splitlines()
+    find = lambda tag: next((l.split(":", 1)[1] for l in lines if l.startswith(tag)), None)
+    return {"type": find("#EXT-X-PLAYLIST-TYPE"), "sequence": find("#EXT-X-MEDIA-SEQUENCE"),
+            "segments": sum(1 for l in lines if l.startswith("#EXTINF")), "first date-time": find("#EXT-X-PROGRAM-DATE-TIME"),
+            "variants": [l for l in lines if l and not l.startswith("#") and ".m3u8" in l][:2]}
+
+
+def session_playlists(http, rec, grabs):
+    """Each live session (a recording in progress is one) and its HLS playlist with offset -1 (as listed), 0 and none:
+    does one start at the recording's beginning? Compared with the recordings' start times. Only reads."""
+    status, _, body = http.get("/livetv/sessions")
+    rec.save("livetv-sessions", body)
+    sessions = mc(body).get("Metadata", [])
+    rec.check("GET /livetv/sessions", status == 200, f"HTTP {status}, {len(sessions)} session(s)")
+    starts = [first(grab_programme(g), "Media").get("beginsAt") for g in grabs]
+    rec.check("the recordings' start times (beginsAt)", True, f"{starts}")
+    for i, s in enumerate(sessions[:2]):
+        st, _, detail = http.get(s.get("key"))
+        rec.save(f"session-{i}", detail)
+        rec.check(f"session {i}: GET its key", st == 200, f"HTTP {st}, fields {sorted(first(mc(detail), 'Metadata'))}")
+        part_key = first(first(s, "Media"), "Part").get("key", "")
+        base = part_key.split("?", 1)[0]
+        for label, params in (("offset -1", {"offset": "-1.000000"}), ("offset 0", {"offset": "0"}), ("no offset", {})):
+            st, _, text = http.request("GET", base, raw=False, **params)
+            facts = playlist_facts(text)
+            for variant in facts.get("variants") or []:
+                url = variant if variant.startswith("/") else base.rsplit("/", 1)[0] + "/" + variant
+                st, _, text = http.request("GET", url, raw=False)
+                facts = {"variant": True, **playlist_facts(text)}
+                break
+            rec.save(f"session-{i}-playlist-{label.replace(' ', '')}", text if isinstance(text, str) else json.dumps(text))
+            rec.check(f"session {i}: its playlist, {label}", st == 200, f"HTTP {st}, {facts}")
+
+
+def transcode_sessions(m):
+    """The capture buffers a tune or live timeline answer carries (as Plezy reads them): under `CaptureBuffer`, at the
+    top level, or in the tuned programme."""
+    found = []
+    for holder in (first(m, "CaptureBuffer"), m, first(first(first(m, "MediaSubscription"), "MediaGrabOperation"), "Metadata")):
+        ts = holder.get("TranscodeSession") if isinstance(holder, dict) else None
+        found += ts if isinstance(ts, list) else [ts] if isinstance(ts, dict) else []
+    return found
+
+
+def recording_tune(http, rec, grab):
+    """"Watch from start" (as Plezy, which offers it on a programme being recorded): tune the recording's channel and
+    read the capture buffer Plex gives, then play from offset 0 and from the programme's start. The app must offer
+    "from start" only when the buffer reaches back to the programme's start (Plezy offers it whenever it has a buffer).
+    Tunes the channel already being recorded, then frees the session."""
+    media = first(grab_programme(grab), "Media")
+    channel, begins = media.get("channelIdentifier"), media.get("beginsAt")
+    _, _, dvrs = http.get("/livetv/dvrs")
+    dvr = first(mc(dvrs), "Dvr") or first(mc(dvrs), "DVR")
+    session = str(uuid.uuid4())
+    status, _, tuned = http.request("POST", f"/livetv/dvrs/{dvr.get('key')}/channels/{channel}/tune",
+                                    **{"X-Plex-Session-Identifier": session})
+    rec.save("recording-tune", tuned)
+    m = mc(tuned)
+    meta = first(first(first(m, "MediaSubscription"), "MediaGrabOperation"), "Metadata") or first(m, "Metadata")
+    buffers = transcode_sessions(m)
+    rec.check("tune the recording's channel (no new tuner: it is recording)", status == 200 and meta.get("key"),
+              f"HTTP {status}, session path {meta.get('key')}, grab status "
+              f"{first(first(m, 'MediaSubscription'), 'MediaGrabOperation').get('status')}")
+    rec.check("its capture buffer (TranscodeSession)", buffers,
+              f"{[{k: b.get(k) for k in sorted(b) if 'ffset' in k or 'ime' in k or k in ('key', 'progress', 'duration')} for b in buffers]}; "
+              f"the programme began at {begins}, now {int(time.time())}")
+    if not meta.get("key"):
+        return
+    status, _, timeline = http.request("POST", "/:/timeline", {"X-Plex-Session-Identifier": session},
+                                       ratingKey=meta.get("ratingKey"), key=meta["key"], state="playing", time=0,
+                                       duration=0, playbackTime=0, hasMDE=1)
+    rec.save("recording-timeline", timeline)
+    later = transcode_sessions(mc(timeline))
+    rec.check("a live timeline: the capture buffer", later,
+              f"HTTP {status}, {[{k: b.get(k) for k in sorted(b) if 'ffset' in k or 'ime' in k} for b in later]}")
+    sid = {"X-Plex-Session-Identifier": session, **DIRECT_STREAM}
+    for label, offset in (("offset 0", 0), ("no offset", None)):
+        params = dict(path=meta["key"], protocol="hls", directPlay=0, directStream=1, directStreamAudio=1,
+                      session=str(uuid.uuid4()), subtitles="none", location="lan", fastSeek=1, hasMDE=1, offset=offset)
+        status, _, decision = http.request("GET", "/video/:/transcode/universal/decision", sid, **params)
+        rec.save(f"recording-decision-{label.replace(' ', '')}", decision)
+        copied = stream_decisions(decision)
+        rec.check(f"{label}: the decision copies video and audio", status == 200 and copied and all(d == "copy" for _, _, d in copied),
+                  f"HTTP {status}, {copied}")
+        if check_hls(http, rec, f"recording-{label.replace(' ', '')}", "/video/:/transcode/universal/start.m3u8", sid, params):
+            text = (rec.clean / f"recording-{label.replace(' ', '')}-media-m3u8.txt").read_text()
+            rec.check(f"{label}: where its playlist starts", True, f"{playlist_facts(text)}")
+    status, _, _ = http.request("POST", "/:/timeline", {"X-Plex-Session-Identifier": session}, ratingKey=meta.get("ratingKey"),
+                                key=meta["key"], state="stopped", time=10000, duration=10000)
+    rec.check("a stopped timeline for the session (frees it)", status == 200, f"HTTP {status}")
+
+
 def recordings(args, state):
-    """S12: what the DVR tab and the guide need to play a recording that is still going, and recent ones: the
-    scheduled list's statuses, each one's library item, and whether its file plays while it grows. Only reads."""
+    """S12 (second run): what the DVR tab needs to play a recording that is still going, and recent ones. The
+    scheduled list (and the rules' own list of grabs), each finished recording's library item through its linkedKey,
+    a recording in progress in its library section, and the live sessions' playlists. Only reads."""
     rec = Recorder(args.out, "s12-recordings")
     http = server_http(args, state)
     note_server(rec, http)
@@ -1001,21 +1133,27 @@ def recordings(args, state):
     grabs = mc(body).get("MediaGrabOperation", [])
     rec.check(f"GET /media/subscriptions/scheduled (HTTP {status})", status == 200,
               str(Counter(g.get("status") for g in grabs)))
+    status, _, body = http.get("/media/subscriptions", includeGrabs=1, includeStorage=1)
+    rec.save("subscriptions-with-grabs", body)
+    rec.check("GET /media/subscriptions?includeGrabs=1", status == 200,
+              f"HTTP {status}, linkedKey {'found' if 'linkedKey' in json.dumps(body) else 'not found'}")
     now_s = time.time()
-    going = [g for g in grabs if g.get("status") in ("inprogress", "grabbing")]
+    going = [g for g in grabs if g.get("status") in ("inprogress", "grabbing", "postprocessing")]
     done = [g for g in grabs if g.get("status") == "complete"]
+    if rec.check("a recent recording (complete) that still exists", done, f"{len(done)} complete"):
+        linked_items(http, rec, "recent", done)
     if rec.check("a recording in progress (start one first, for this step)", going,
-                 "; ".join(f"started {round((now_s - float(first(grab_programme(g), 'Media').get('beginsAt', now_s))) / 60)} min ago, "
-                           f"fields {sorted(g)}, programme fields {sorted(grab_programme(g))}" for g in going[:2])):
-        for item in library_match(http, rec, "in-progress", going[0]):
+                 "; ".join(f"{g.get('status')}, started "
+                           f"{round((now_s - float(first(grab_programme(g), 'Media').get('beginsAt', now_s))) / 60)} min ago, "
+                           f"fields {sorted(g)}" for g in going[:2])):
+        linked_items(http, rec, "in-progress", going)
+        for item in newest_in_section(http, rec, "in-progress", going[0])[:1]:
             part_check(http, rec, "in-progress", item)
-    if rec.check("a recent recording (complete)", done, f"{len(done)}"):
-        for item in library_match(http, rec, "recent", done[0])[:1]:
-            part_check(http, rec, "recent", item)
-    for path in ("/livetv/sessions", "/status/sessions"):
-        status, _, body = http.get(path)
-        rec.save(path.strip("/").replace("/", "-"), body)
-        rec.check(f"GET {path}", status == 200, f"HTTP {status}, {mc(body).get('size')} item(s)")
+        session_playlists(http, rec, going)
+        try:  # last, and never in the way of the report
+            recording_tune(http, rec, going[0])
+        except Exception as e:  # noqa: BLE001 (a spike: say what failed)
+            rec.check("tune the recording's channel", False, f"{type(e).__name__}: {e}")
     rec.finish()
 
 
