@@ -1009,20 +1009,38 @@ def linked_items(http, rec, name, grabs, limit=3):
             part_check(http, rec, f"{name}-linked", meta)
 
 
+def same_programme(item, meta):
+    """Whether a library item is the recording's programme: by guid, else (Plex's library and the guide can give
+    different guids, S12 second run) a show's title, series and episode number, or a film's title and year."""
+    if item.get("guid") and item.get("guid") == meta.get("guid"):
+        return True
+    if meta.get("type") == "episode":
+        return (item.get("grandparentTitle") == meta.get("grandparentTitle")
+                and str(item.get("parentIndex")) == str(meta.get("parentIndex"))
+                and str(item.get("index")) == str(meta.get("index")))
+    return item.get("title") == meta.get("title") and str(item.get("year")) == str(meta.get("year"))
+
+
 def newest_in_section(http, rec, name, grab):
-    """A recording in progress may be in its library before it ends: the section's newest items (by addedAt), matched
-    by guid (/library/recentlyAdded groups episodes into seasons, so it can't show this)."""
+    """A recording in progress may be in its library before it ends: the newest items (by addedAt) of each library of
+    its kind, matched by [same_programme]. The grab's own librarySectionID is the guide service's, not the library's
+    (S12 second run: 404), so the sections are listed."""
     meta = grab_programme(grab)
-    section = meta.get("librarySectionID")
-    kind = 4 if meta.get("type") == "episode" else 1
-    status, _, body = http.get(f"/library/sections/{section}/all", type=kind, sort="addedAt:desc",
-                               **{"X-Plex-Container-Start": 0, "X-Plex-Container-Size": 20})
-    rec.save(f"{name}-section-newest", body)
-    items = mc(body).get("Metadata", [])
-    same = [m for m in items if m.get("guid") == meta.get("guid")]
-    rec.check(f"{name}: in its section's newest 20 (by guid)", same,
-              f"HTTP {status}, {len(same)} match(es); newest addedAt {[m.get('addedAt') for m in items[:3]]}")
-    return same
+    kind, section_type = (4, "show") if meta.get("type") == "episode" else (1, "movie")
+    _, _, body = http.get("/library/sections")
+    sections = [d.get("key") for d in mc(body).get("Directory", []) if d.get("type") == section_type]
+    found = []
+    for section in sections:
+        status, _, body = http.get(f"/library/sections/{section}/all", type=kind, sort="addedAt:desc",
+                                   **{"X-Plex-Container-Start": 0, "X-Plex-Container-Size": 20})
+        rec.save(f"{name}-section-{section}-newest", body)
+        items = mc(body).get("Metadata", [])
+        same = [m for m in items if same_programme(m, meta)]
+        rec.check(f"{name}: in library section {section}'s newest 20", same,
+                  f"HTTP {status}, {len(same)} match(es); newest addedAt {[m.get('addedAt') for m in items[:3]]}, "
+                  f"the recording began {first(meta, 'Media').get('beginsAt')}")
+        found += same
+    return found
 
 
 def playlist_facts(text):
