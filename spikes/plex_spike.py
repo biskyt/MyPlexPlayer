@@ -1022,15 +1022,16 @@ def same_programme(item, meta):
 
 
 def newest_in_section(http, rec, name, grab):
-    """A recording in progress may be in its library before it ends: the newest items (by addedAt) of each library of
-    its kind, matched by [same_programme]. The grab's own librarySectionID is the guide service's, not the library's
-    (S12 second run: 404), so the sections are listed."""
+    """A recording in progress may be in its library before it ends: the newest items (by addedAt) of every film and
+    TV library, matched by [same_programme]. Plex puts a recording in a TV or film library by its kind, or in one
+    library it is told to always use (the owner), and the grab's own librarySectionID is the guide service's, not the
+    library's (S12 second run: 404), so every library is looked in."""
     meta = grab_programme(grab)
-    kind, section_type = (4, "show") if meta.get("type") == "episode" else (1, "movie")
     _, _, body = http.get("/library/sections")
-    sections = [d.get("key") for d in mc(body).get("Directory", []) if d.get("type") == section_type]
+    sections = [(d.get("key"), 4 if d.get("type") == "show" else 1)
+                for d in mc(body).get("Directory", []) if d.get("type") in ("show", "movie")]
     found = []
-    for section in sections:
+    for section, kind in sections:
         status, _, body = http.get(f"/library/sections/{section}/all", type=kind, sort="addedAt:desc",
                                    **{"X-Plex-Container-Start": 0, "X-Plex-Container-Size": 20})
         rec.save(f"{name}-section-{section}-newest", body)
@@ -1123,7 +1124,17 @@ def recording_tune(http, rec, grab):
     rec.check("a live timeline: the capture buffer", later,
               f"HTTP {status}, {[{k: b.get(k) for k in sorted(b) if 'ffset' in k or 'ime' in k} for b in later]}")
     sid = {"X-Plex-Session-Identifier": session, **DIRECT_STREAM}
-    for label, offset in (("offset 0", 0), ("no offset", None)):
+    # Plezy's "from start" (playback_start.dart): offset = the programme's beginsAt minus the buffer's timeStamp, which
+    # is negative when the buffer began after the programme; Plezy then uses the buffer's start. The owner reports that
+    # Plezy reaches the recording's start, so the negative offset is tried as it is, and each playlist's first date-time
+    # says where it really starts.
+    origin = next((b.get("timeStamp") for b in buffers if b.get("timeStamp")), None)
+    from_start = round(float(begins) - float(origin)) if begins and origin else None
+    rec.check("the programme's start as an offset into the buffer (Plezy's way)", from_start is not None,
+              f"beginsAt {begins} minus timeStamp {origin} = {from_start} s")
+    for label, offset in (("offset 0", 0), ("no offset", None), ("offset to programme start", from_start)):
+        if label.startswith("offset to") and offset is None:
+            continue
         params = dict(path=meta["key"], protocol="hls", directPlay=0, directStream=1, directStreamAudio=1,
                       session=str(uuid.uuid4()), subtitles="none", location="lan", fastSeek=1, hasMDE=1, offset=offset)
         status, _, decision = http.request("GET", "/video/:/transcode/universal/decision", sid, **params)
