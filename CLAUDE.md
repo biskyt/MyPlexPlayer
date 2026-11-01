@@ -27,7 +27,7 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   not its category line (a Plex title is in one library). In 0.17.1: 1.8.11 (`66ed289`, the server named once and
   Back from Home leaving the recent apps). In 0.17.4: 1.8.12 (`d3c96e4`, the guide fitted to the screen; its
   catch-up parts left out). In 0.19.1: 1.8.13 (`897971c`, "Episode description" with the date first
-  shown, from Plex's `originallyAvailableAt`; its Xtream dates left out). In 0.20.0: 1.8.16 (`e899cac`, "Warn if VPN is not connected"), and from
+  shown, from Plex's `originallyAvailableAt`; its Xtream dates left out). In 0.20.0: 1.8.16 (`e899cac`, "Warn if VPN is not connected", moved to the main Settings list by 1.8.17 `0c83ec8` in 0.20.1), and from
   1.8.14 (`1a9dcc7`) only the server in use refreshed (a switch stops the old one's work) and the focus on the card now
   in a removed Carry on card's place (by hand, through `returnTo`: Home already opened on the top row's first card).
   1.8.15 (`c8933a5`, Xtream category languages) doesn't apply. The plain-english skill (`7de1099`) is copied as it
