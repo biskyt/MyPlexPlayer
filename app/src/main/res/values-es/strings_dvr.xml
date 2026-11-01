@@ -31,6 +31,9 @@
         <item quantity="other">%d emisiones pendientes</item>
     </plurals>
     <string name="dvr_episodes">Episodios</string>
+    <string name="dvr_series_episodes">Episodios: %1$s</string>
+    <string name="dvr_others_title">Otras grabaciones</string>
+    <string name="dvr_other_waiting">A la espera de que esté en la guía de TV</string>
     <string name="dvr_new_only">Solo nuevos</string>
     <string name="dvr_new_and_repeats">Nuevos y repeticiones</string>
     <string name="dvr_change_failed">No se pudo cambiar la grabación</string>

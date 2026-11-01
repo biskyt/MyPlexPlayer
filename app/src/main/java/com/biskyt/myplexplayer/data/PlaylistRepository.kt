@@ -12,6 +12,12 @@ import com.biskyt.myplexplayer.data.db.FavouriteEntity
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * How many days ahead the TV guide goes: as far as Plex's own guide. MyPlexPlayer's own (MyTVPlayer's guide goes
+ * three days), read by the guide's screen and its sync.
+ */
+const val GUIDE_DAYS = 8
+
 /** Sources (Plex servers) and their channels. */
 class PlaylistRepository(
     private val db: AppDatabase,
@@ -168,8 +174,11 @@ class PlaylistRepository(
         /** A Plex server's one channel list (its category id). */
         const val PLEX_CHANNELS = "plex-live"
 
-        /** The Plex guide is kept from an hour back (what's on now) for two days (four of PlexSources' requests). */
+        /**
+         * The Plex guide is kept from an hour back (what's on now) to as far ahead as the guide goes ([GUIDE_DAYS]),
+         * and its last window of 2.5 hours (three hours more): 17 of PlexSources' requests.
+         */
         private const val GUIDE_BEFORE_MS = 3_600_000L
-        private const val GUIDE_AHEAD_MS = 47 * 3_600_000L
+        private const val GUIDE_AHEAD_MS = (GUIDE_DAYS * 24 + 3) * 3_600_000L
     }
 }

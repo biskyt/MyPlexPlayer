@@ -67,7 +67,8 @@ data class SeriesRow(val rule: PlexRecordingRule, val next: PlexScheduledRecordi
 
 /**
  * What the DVR tab lists, from a server's [RecordingState]: airings recording [now] and [comingUp] (soonest first),
- * the [series] recordings, and airings that weren't recorded ([problems]). Finished recordings are in the library.
+ * the [series] recordings, airings that weren't recorded ([problems]), and the [others]: rules for one programme with
+ * no airing of it in the guide now (Plex's "other subscriptions"). Finished recordings are in the library.
  */
 class DvrLists(state: RecordingState) {
     private val byStart = state.scheduled.sortedBy { it.airing?.beginsAt ?: Long.MAX_VALUE }
@@ -78,9 +79,16 @@ class DvrLists(state: RecordingState) {
     val series = state.rules.filter { it.isSeries }.map { rule ->
         val toCome = byRule[rule.key].orEmpty()
         SeriesRow(rule, toCome.firstOrNull(), toCome.size)
-    }.sortedWith(compareBy({ it.next?.airing?.beginsAt ?: Long.MAX_VALUE }, { it.rule.subject?.title.orEmpty() }))
-    val isEmpty get() = now.isEmpty() && comingUp.isEmpty() && problems.isEmpty() && series.isEmpty()
+    }.sortedWith(compareBy({ it.next?.airing?.beginsAt ?: Long.MAX_VALUE }, { it.rule.subjectTitle }))
+
+    /** The rules of the airings listed above (one done or cancelled isn't): a rule with none is listed in [others]. */
+    private val listed = (now + comingUp + problems).mapNotNullTo(HashSet()) { it.mediaSubscriptionID }
+    val others = state.rules.filter { !it.isSeries && it.key !in listed }.sortedBy { it.subjectTitle }
+    val isEmpty get() = now.isEmpty() && comingUp.isEmpty() && problems.isEmpty() && series.isEmpty() && others.isEmpty()
 }
+
+/** A rule's row key. */
+private fun ruleKey(rule: PlexRecordingRule) = "r" + rule.key
 
 /** The DVR tab's data: the active source's recordings, read from the server on arrival, and their channels. */
 class DvrViewModel(c: AppContainer) : ViewModel() {
@@ -107,16 +115,16 @@ class DvrViewModel(c: AppContainer) : ViewModel() {
     }
 }
 
-/** The row whose options panel is open. */
+/** The row whose options panel is open: an airing, or a rule (a series, or one of the others). */
 private sealed interface Picked {
     data class Airing(val airing: PlexScheduledRecording) : Picked
-    data class Series(val rule: PlexRecordingRule) : Picked
+    data class Rule(val rule: PlexRecordingRule) : Picked
 }
 
 /**
- * The DVR tab (MyPlexPlayer's own, last in the menu): what's recording now, what's coming up, the series recordings
- * and what wasn't recorded. OK (or holding it) on a row opens its options: watch the channel, cancel, and for a
- * series, which episodes it records and stopping it.
+ * The DVR tab (MyPlexPlayer's own, last in the menu): what's recording now, what's coming up, the series recordings,
+ * what wasn't recorded and the other recordings. OK (or holding it) on a row opens its options: watch the channel,
+ * cancel, and for a series, which episodes it records and stopping it.
  */
 @Composable
 fun DvrScreen() {
@@ -128,8 +136,9 @@ fun DvrScreen() {
     var picked by remember { mutableStateOf<Picked?>(null) }
     // The focus starts on the first row; with none, on the tab.
     val firstRow = (lists.now + lists.comingUp).firstOrNull()?.let(::rowKey)
-        ?: lists.series.firstOrNull()?.let { "s" + it.rule.key }
+        ?: lists.series.firstOrNull()?.let { ruleKey(it.rule) }
         ?: lists.problems.firstOrNull()?.let(::rowKey)
+        ?: lists.others.firstOrNull()?.let { ruleKey(it) }
     val first = rememberFirstFocus(firstRow != null)
     val tabFocus = remember { FocusRequester() }
     if (firstRow == null) LaunchedEffect(Unit) { runCatching { tabFocus.requestFocus() } }
@@ -144,11 +153,17 @@ fun DvrScreen() {
             airings(R.string.dvr_coming_up, lists.comingUp, state, channels, ::focus) { picked = Picked.Airing(it) }
             if (lists.series.isNotEmpty()) {
                 item { SectionTitle(stringResource(R.string.dvr_series_title), Modifier.padding(top = SECTION_GAP)) }
-                items(lists.series, key = { "s" + it.rule.key }) { row ->
-                    SeriesCard(row, channels, focus("s" + row.rule.key)) { picked = Picked.Series(row.rule) }
+                items(lists.series, key = { ruleKey(it.rule) }) { row ->
+                    SeriesCard(row, channels, focus(ruleKey(row.rule))) { picked = Picked.Rule(row.rule) }
                 }
             }
             airings(R.string.dvr_problems, lists.problems, state, channels, ::focus) { picked = Picked.Airing(it) }
+            if (lists.others.isNotEmpty()) {
+                item { SectionTitle(stringResource(R.string.dvr_others_title), Modifier.padding(top = SECTION_GAP)) }
+                items(lists.others, key = { ruleKey(it) }) { rule ->
+                    OtherCard(rule, focus(ruleKey(rule))) { picked = Picked.Rule(rule) }
+                }
+            }
         }
     }
     picked?.let { DvrOptions(it, pid, state, channels, vm.recordings) { picked = null } }
@@ -193,7 +208,19 @@ private fun SeriesCard(row: SeriesRow, channels: Map<String, ChannelEntity>, mod
     val next = row.next?.let { stringResource(R.string.dvr_series_next, whenAndWhere(it, channels)) }
         ?: stringResource(R.string.dvr_series_none)
     val count = if (row.toCome > 0) pluralStringResource(R.plurals.dvr_to_come, row.toCome, row.toCome) else null
-    Row2(RecordingMark.SERIES, row.rule.subject?.title.orEmpty(), listOfNotNull(next, count), modifier, onClick)
+    val episodes = stringResource(R.string.dvr_series_episodes, stringResource(episodesLabel(row.rule)))
+    Row2(RecordingMark.SERIES, row.rule.subjectTitle, listOfNotNull(next, count, episodes), modifier, onClick)
+}
+
+/** Which episodes series [rule] records. */
+@StringRes
+private fun episodesLabel(rule: PlexRecordingRule) = if (rule.isNewOnly) R.string.dvr_new_only else R.string.dvr_new_and_repeats
+
+/** A rule for one programme with no airing of it in the guide now: its episode's title, if it's one, and why. */
+@Composable
+private fun OtherCard(rule: PlexRecordingRule, modifier: Modifier, onClick: () -> Unit) {
+    val episode = rule.subject?.takeIf { it.grandparentTitle != null }?.title?.ifEmpty { null }
+    Row2(RecordingMark.EPISODE, rule.subjectTitle, listOfNotNull(episode, stringResource(R.string.dvr_other_waiting)), modifier, onClick)
 }
 
 /** A row: its [mark] (if any), [title] and [lines] under it. */
@@ -229,9 +256,9 @@ private fun DvrOptions(
     close: () -> Unit
 ) {
     val stopLabel = stringResource(R.string.dvr_stop_series)
-    fun stop(rule: PlexRecordingRule) = ItemAction.Run(stopLabel) {
+    fun stop(rule: PlexRecordingRule, label: String = stopLabel) = ItemAction.Run(label) {
         close()
-        recordings.stopSeries(pid, rule)
+        recordings.remove(pid, rule)
     }
     val (title, actions) = when (picked) {
         is Picked.Airing -> {
@@ -248,17 +275,19 @@ private fun DvrOptions(
                 rule?.takeIf { it.isSeries }?.let(::stop)
             )
         }
-        is Picked.Series -> {
+        is Picked.Rule -> {
             // As the server has it now (the panel follows each change).
             val rule = state.rules.firstOrNull { it.key == picked.rule.key } ?: picked.rule
-            val newOnly = recordings.isNewOnly(rule)
-            rule.subject?.title.orEmpty() to listOf(
-                ItemAction.Cycle(
-                    stringResource(R.string.dvr_episodes),
-                    stringResource(if (newOnly) R.string.dvr_new_only else R.string.dvr_new_and_repeats)
-                ) { recordings.setNewOnly(pid, rule, !newOnly) },
-                stop(rule)
-            )
+            rule.subjectTitle to if (rule.isSeries) {
+                listOf(
+                    ItemAction.Cycle(stringResource(R.string.dvr_episodes), stringResource(episodesLabel(rule))) {
+                        recordings.setNewOnly(pid, rule, !rule.isNewOnly)
+                    },
+                    stop(rule)
+                )
+            } else {
+                listOf(stop(rule, stringResource(R.string.dvr_cancel)))
+            }
         }
     }
     ItemActionsPanel(title, actions, close)

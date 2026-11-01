@@ -31,6 +31,9 @@
         <item quantity="other">%d exibições a seguir</item>
     </plurals>
     <string name="dvr_episodes">Episódios</string>
+    <string name="dvr_series_episodes">Episódios: %1$s</string>
+    <string name="dvr_others_title">Outras gravações</string>
+    <string name="dvr_other_waiting">Aguardando entrar no guia de TV</string>
     <string name="dvr_new_only">Só novos</string>
     <string name="dvr_new_and_repeats">Novos e reprises</string>
     <string name="dvr_change_failed">Não foi possível alterar a gravação</string>

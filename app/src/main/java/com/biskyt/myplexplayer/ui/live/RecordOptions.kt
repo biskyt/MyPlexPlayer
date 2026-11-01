@@ -46,6 +46,6 @@ fun RecordOptions(playlistId: Long, guid: String?, showGuid: String?, startMs: L
         MenuOption(stringResource(R.string.dvr_cancel)) { act { cancel(playlistId, airing, state.ruleOf(airing)) } }
     }
     if (series != null) {
-        MenuOption(stringResource(R.string.dvr_stop_series)) { act { stopSeries(playlistId, series) } }
+        MenuOption(stringResource(R.string.dvr_stop_series)) { act { remove(playlistId, series) } }
     }
 }

@@ -65,9 +65,6 @@ class DvrUiTest {
         compose.onNode(hasText(option) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
     }
 
-    private fun shows(text: String) =
-        compose.onAllNodes(hasText(text, substring = true), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
-
     private fun left(text: String) = compose.onNode(hasText(text) and hasClickAction()).fetchSemanticsNode().boundsInRoot.left
 
     @Test
@@ -98,6 +95,17 @@ class DvrUiTest {
     }
 
     @Test
+    fun `a recording waiting for its programme to be in the guide is listed, says so, and cancels`() {
+        plex.rules += FakePlex.Rule("1", 4, "plex://episode/not-in-the-guide", emptyMap())
+        show()
+        compose.waitForText("Other recordings", stepMs = 50)
+        compose.waitForText("Waiting for it to be in the TV guide", stepMs = 50)
+        choose("Waiting for it", "Cancel this recording")
+        compose.waitAdvancingClock(50) { plex.rules.isEmpty() }
+        compose.waitForText("Nothing is set to record", stepMs = 50)
+    }
+
+    @Test
     fun `a series records new airings only or repeats too, and stops`() {
         plex.rules += FakePlex.Rule("1", 2, "plex://show/Show-0", mapOf("onlyNewAirings" to "1"))
         show()
@@ -106,13 +114,13 @@ class DvrUiTest {
         compose.onAllNodes(
             hasText("airing to come", substring = true) and hasClickAction()
         )[0].performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitAdvancingClock(50) { shows("New only") }
+        // As Plex's list of rules says (it has no settings, only the airings each records).
+        compose.waitAdvancingClock(50) { compose.focusedText().let { "Episodes" in it && "New only" in it } }
         // Right steps the choice on: new and repeats.
-        compose.waitAdvancingClock(50) { compose.focusedText().contains("Episodes") }
         compose.topRoot().performKeyInput { pressKey(Key.DirectionRight) }
         compose.idleFrames()
         compose.waitAdvancingClock(50) { plex.rules.single().prefs["onlyNewAirings"] == "0" }
-        compose.waitAdvancingClock(50) { shows("New and repeats") }
+        compose.waitAdvancingClock(50) { "New and repeats" in compose.focusedText() }
 
         compose.onNode(hasText("Stop recording the series") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitAdvancingClock(50) { plex.rules.isEmpty() }

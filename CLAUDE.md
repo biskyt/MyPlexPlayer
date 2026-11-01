@@ -33,6 +33,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   and ports apply cleanly. Plex-only work (sign-in, servers, play state, Live TV, DVR) is made here only.
   - Home's rows, the menu's order and search results' order differ from MyTVPlayer on purpose (Live TV last, 0.5.0):
     a port touching HomeScreen, TopBar's `Tab` or SearchScreen's results expects conflicts there.
+  - The TV guide goes 8 days ahead here (`GUIDE_DAYS` in `data/PlaylistRepository.kt`, 0.17.3: as far as Plex's own
+    guide; its sync reads it too), 3 in MyTVPlayer: a port touching GuideGrid's `nextWindow` expects a conflict there.
 - **The move to Plex is under way:** the plan, step by step, is in `ROADMAP.md`. M3U and the free playlist went in
   0.2.2, Catch-up in 0.4.2 (DVR replaces it), and Xtream, added guides and guide matching in 0.6.0: every source is a
   Plex server. The database still has a few things named for playlists and providers (`playlist`, `providerEpgId`,

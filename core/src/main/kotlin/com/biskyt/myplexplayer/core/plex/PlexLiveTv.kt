@@ -64,7 +64,10 @@ data class PlexProgramme(
     val duration: Long? = null,
     // Its `Channel` list isn't read: those are tags (a number and a name), not the channel's key.
     @SerialName("Media") @Serializable(with = SkippingList::class) val airings: List<PlexAiring> = emptyList(),
-)
+) {
+    /** Its show's title (an episode), else its own. */
+    val showTitle: String get() = grandparentTitle ?: title
+}
 
 /** One showing of a programme: from [beginsAt] to [endsAt], in seconds since 1970, on the channel [channelIdentifier]. */
 @Serializable

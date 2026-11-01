@@ -2,6 +2,13 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.17.3
+- The TV guide now marks every airing of a series that is set to record, also when no airing is scheduled yet.
+- The TV guide now goes 8 days ahead, as far as Plex's own guide.
+- The Episodes choice of a series recording (New only, or New and repeats) now shows the right choice and changes it.
+- The DVR tab now shows which episodes each series records, so you can see why a series has nothing to record yet.
+- The DVR tab now lists recordings that wait for their programme to be in the TV guide.
+
 ## 0.17.2
 - Recording no longer says it failed when it worked.
 - The DVR tab and the TV guide now show what is set to record.

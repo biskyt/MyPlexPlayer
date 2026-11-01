@@ -5,7 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The guide runs from the half hour it's in to three days ahead. */
+/** The guide runs from the half hour it's in to eight days ahead, as Plex's own guide. */
 class GuideWindowTest {
     private val halfHour = 30 * 60_000L
     private val hour = 2 * halfHour
@@ -45,12 +45,12 @@ class GuideWindowTest {
     }
 
     @Test
-    fun `the guide goes three days ahead`() {
+    fun `the guide goes eight days ahead`() {
         val clock = System.currentTimeMillis()
         val window = GuideWindow { clock }
         var moves = 0
         while (window.move(1, null)) moves++
-        assertEquals(clock / halfHour * halfHour + 3 * 24 * hour, window.start)
-        assertEquals(3 * 24, moves)
+        assertEquals(clock / halfHour * halfHour + 8 * 24 * hour, window.start)
+        assertEquals(8 * 24, moves)
     }
 }
