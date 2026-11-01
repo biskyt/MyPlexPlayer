@@ -47,6 +47,12 @@ Versions starting with `0.` are marked as pre-releases. From `1.0.0` they are fu
 Each release uploads its `.aab` to the closed testing track (**Closed testing - Alpha**), with its notes, cut to Play's 500-character limit, as "What's new". Play re-signs it with its own app-signing key, so Play installs and GitHub APK installs can't update each other. Pick one channel per device.
 
 ### One-time setup
+The step-by-step guide for the first listing (Play Console and Amazon, written for a browser agent) is the doc
+"Publish MyPlexPlayer on Google Play and the Amazon Appstore": https://claude.ai/artifact/3AU5C6o7G1BymmHm9AEQKA. The
+listing text and files are in `store/README.md`. Play can't make an app's first release through its API, so the first
+`.aab` is uploaded by hand; every release after that is uploaded by the steps below. MyTVPlayer's service account can
+be used here too: invite its email in MyPlexPlayer's Play Console (step 2) and use the same JSON key (step 3).
+
 1. **Google Cloud** (free, no billing needed): at [console.cloud.google.com](https://console.cloud.google.com/), create a project, enable the **Google Play Android Developer API**, create a service account (no roles) and download a **JSON key** for it.
 2. **Play Console** › *Users and permissions* › *Invite new users*: the service account's email, with MyPlexPlayer under *App permissions* and **Release apps to testing tracks**.
 3. **GitHub** › *Settings* › *Secrets and variables* › *Actions*: a secret `PLAY_SERVICE_ACCOUNT_JSON` holding the whole JSON file.
@@ -63,3 +69,9 @@ A release reaches testers once Google has reviewed it, usually within a few hour
 (or the app's page) makes it check for the update.
 
 Moving a release from closed testing to production is done in Play Console.
+
+## Amazon Appstore (Fire TV)
+Amazon takes the release's APK (`MyPlexPlayer-<version>.apk`, from the GitHub release), not the `.aab`. Nothing uploads
+it automatically yet: for each release, in the Amazon Developer Console, App Files › Add a new version, upload the APK
+with its notes, and submit. The first listing is in the guide above. Amazon re-signs the app, so an Amazon install and a
+GitHub or Play install can't update each other.

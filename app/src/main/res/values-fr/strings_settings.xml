@@ -71,7 +71,7 @@
     <string name="settings_lib_coil">Logos des chaînes et affiches</string>
     <string name="settings_lib_okhttp">Téléchargements (avec Okio)</string>
     <string name="settings_lib_coroutines">Tâches en arrière-plan</string>
-    <string name="settings_lib_serialization">Lecture des données du fournisseur et des sauvegardes</string>
+    <string name="settings_lib_serialization">Lecture des données du serveur et des sauvegardes</string>
     <string name="settings_lib_zxing">Codes QR</string>
     <string name="settings_lib_kotlin">Le langage dans lequel l\'appli est écrite</string>
     <string name="settings_lib_guava">Utilisé par Media3</string>
