@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,6 +32,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -40,13 +43,17 @@ import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.db.CAT_LIVE
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
+import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.data.db.ChannelEntity
+import com.biskyt.myplexplayer.data.db.VOD_MOVIE
 import com.biskyt.myplexplayer.data.db.VOD_TYPES
 import com.biskyt.myplexplayer.data.db.VodCard
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
+import com.biskyt.myplexplayer.ui.common.BackdropImage
+import com.biskyt.myplexplayer.ui.common.BackdropShade
 import com.biskyt.myplexplayer.ui.common.ChannelCard
 import com.biskyt.myplexplayer.ui.common.FavouriteMover
 import com.biskyt.myplexplayer.ui.common.ItemAction
@@ -82,6 +89,8 @@ import com.biskyt.myplexplayer.ui.common.vodActions
 import com.biskyt.myplexplayer.ui.common.vodDetails
 import com.biskyt.myplexplayer.ui.theme.Palette
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -95,9 +104,51 @@ private const val VOD_ROW_LIMIT = 20
 /** How many favourite channels, and recently watched ones, Home shows. */
 private const val CHANNEL_ROW_LIMIT = 12
 
+/** How long the remote rests on a card before its picture shows behind Home. */
+private const val BACKDROP_AFTER_MS = 500L
+
 class HomeViewModel(private val c: AppContainer) : ViewModel() {
     private val activePlaylist = c.settings.activePlaylistId
     val playlistId = activePlaylist.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
+
+    /** The picture behind Home: the film's or series' whose card has the remote, once it rests there; null for none. */
+    var backdrop by mutableStateOf<String?>(null)
+        private set
+    private var backdropFor: Job? = null
+    private var backdropTitle: Pair<String, Long>? = null
+
+    init {
+        // Another server's titles: the last one's picture goes.
+        viewModelScope.launch {
+            activePlaylist.collect {
+                backdropFor?.cancel()
+                backdropTitle = null
+                backdrop = null
+            }
+        }
+    }
+
+    /**
+     * A card got the remote: film or series [id] ([type] [CAT_MOVIE] or [CAT_SERIES]), or (null) a channel's. The picture
+     * follows once the remote rests on it, so moving along a row asks the server for none of those passed.
+     */
+    fun focusedTitle(type: String?, id: Long = 0) {
+        val title = type?.let { it to id }
+        if (title == backdropTitle) return
+        backdropTitle = title
+        backdropFor?.cancel()
+        backdropFor = viewModelScope.launch {
+            delay(BACKDROP_AFTER_MS)
+            backdrop = title?.let { (t, i) -> c.vod.backdropOf(playlistId.value, t, i) }
+        }
+    }
+
+    /** As [focusedTitle], for a film or episode carried on (an episode has its series' picture; none without one). */
+    fun focusedTitle(p: WatchProgressEntity) = when {
+        p.kind == VOD_MOVIE -> focusedTitle(CAT_MOVIE, p.itemId)
+        p.seriesId != null -> focusedTitle(CAT_SERIES, p.seriesId)
+        else -> focusedTitle(null)
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val favourites = activePlaylist.flatMapLatest {
@@ -221,52 +272,56 @@ fun HomeScreen() {
     }
 
     MoveBackHandler(vm.mover)
-    TabScaffold(
-        Tab.HOME,
-        Modifier.onFocusChanged { screenFocused = it.hasFocus }.onAnyKeyDown { vm.returnTo = null }.onAnyTouch { vm.returnTo = null }
-    ) {
-        // Carry on watching, recently added series and movies, favourite series and movies, then Live TV last.
-        LazyColumn(
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 56.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(28.dp)
+    // The picture of the film or series with the remote, faded, as on its page (and behind the top bar, as there).
+    Box(Modifier.fillMaxSize()) {
+        HomeBackdrop(vm)
+        TabScaffold(
+            Tab.HOME,
+            Modifier.onFocusChanged { screenFocused = it.hasFocus }.onAnyKeyDown { vm.returnTo = null }.onAnyTouch { vm.returnTo = null }
         ) {
-            val carryOnRow = carryOn.orEmpty()
-            if (carryOnRow.isNotEmpty()) {
-                item {
-                    Column {
-                        SectionTitle(stringResource(R.string.home_carry_on))
-                        // (Not while its options are open: they have the remote.)
-                        CarryOnRow(carryOnRow, vm.returnTo.takeIf { options == null }, focusOn(HomeRow.CarryOn), {
-                            vm.returnTo = it.cardKey()
-                            options = HomeTile.CarryOn(it)
-                        }) {
-                            vm.returnTo = it.cardKey()
-                            nav.push(Screen.VodPlayer(pid, it.itemId, it.seriesId, continueSeries = true))
+            // Carry on watching, recently added series and movies, favourite series and movies, then Live TV last.
+            LazyColumn(
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 56.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(28.dp)
+            ) {
+                val carryOnRow = carryOn.orEmpty()
+                if (carryOnRow.isNotEmpty()) {
+                    item {
+                        Column {
+                            SectionTitle(stringResource(R.string.home_carry_on))
+                            // (Not while its options are open: they have the remote.)
+                            CarryOnRow(carryOnRow, vm.returnTo.takeIf { options == null }, focusOn(HomeRow.CarryOn), {
+                                vm.returnTo = it.cardKey()
+                                options = HomeTile.CarryOn(it)
+                            }, onFocused = { vm.focusedTitle(it) }) {
+                                vm.returnTo = it.cardKey()
+                                nav.push(Screen.VodPlayer(pid, it.itemId, it.seriesId, continueSeries = true))
+                            }
                         }
                     }
                 }
-            }
-            newestVod.forEach { (type, cards) ->
-                val row = cards.value.orEmpty()
-                titledRow(newestRowTitle(type), row, { it.id }) { card ->
-                    val focus = if (card == row.first()) focusOn(HomeRow.Newest(type)) else Modifier
-                    PosterCard(card, focus, onLongClick = {
-                        options = HomeTile.New(type, card)
-                    }) { nav.push(vodDetails(pid, type, card.id)) }
-                }
-            }
-            favouriteVod.forEach { (type, cards) ->
-                val row = cards.value.orEmpty()
-                titledRow(favouriteRowTitle(type), row, { it.id }, move = MovableRow(vm.mover, type)) { card ->
-                    MovableTile(vm.mover, type, card.id, MoveLayout.ROW) {
-                        val focus = if (card == row.first()) focusOn(HomeRow.Favourites(type)) else Modifier
-                        PosterCard(card, focus, onLongClick = {
-                            options = HomeTile.Vod(type, card)
+                newestVod.forEach { (type, cards) ->
+                    val row = cards.value.orEmpty()
+                    titledRow(newestRowTitle(type), row, { it.id }) { card ->
+                        val focus = if (card == row.first()) focusOn(HomeRow.Newest(type)) else Modifier
+                        PosterCard(card, focus.showsBackdrop(vm, type, card.id), onLongClick = {
+                            options = HomeTile.New(type, card)
                         }) { nav.push(vodDetails(pid, type, card.id)) }
                     }
                 }
+                favouriteVod.forEach { (type, cards) ->
+                    val row = cards.value.orEmpty()
+                    titledRow(favouriteRowTitle(type), row, { it.id }, move = MovableRow(vm.mover, type)) { card ->
+                        MovableTile(vm.mover, type, card.id, MoveLayout.ROW) {
+                            val focus = if (card == row.first()) focusOn(HomeRow.Favourites(type)) else Modifier
+                            PosterCard(card, focus.showsBackdrop(vm, type, card.id), onLongClick = {
+                                options = HomeTile.Vod(type, card)
+                            }) { nav.push(vodDetails(pid, type, card.id)) }
+                        }
+                    }
+                }
+                channelRows(favourites, recent.orEmpty(), top, ::focusOn, vm) { options = it }
             }
-            channelRows(favourites, recent.orEmpty(), top, ::focusOn, vm) { options = it }
         }
     }
     options?.let { tile ->
@@ -275,6 +330,28 @@ fun HomeScreen() {
             if (removed) scope.launch { snapshotFlow { shown(tile) }.first { !it }.also { refocus++ } }
         }
     }
+}
+
+/** A film's or series' card ([type] and [id]): its picture goes behind Home while it has the remote. A channel's (null): none. */
+private fun Modifier.showsBackdrop(vm: HomeViewModel, type: String?, id: Long = 0) =
+    onFocusChanged { if (it.hasFocus) vm.focusedTitle(type, id) }
+
+/**
+ * Home's background ([HomeViewModel.backdrop]), under the art's fade. The last picture stays under a new one until that
+ * one shows, so the background doesn't blink between titles. Its own composable, so a new picture redraws only this.
+ */
+@Composable
+private fun HomeBackdrop(vm: HomeViewModel) {
+    val url = vm.backdrop
+    var shown by remember { mutableStateOf<String?>(null) }
+    var under by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(url) {
+        under = if (url == null) null else shown
+        shown = url
+    }
+    under?.let { BackdropImage(it) }
+    shown?.let { key(it) { BackdropImage(it, Modifier.testTag("backdrop")) { under = null } } }
+    if (shown != null) BackdropShade()
 }
 
 /**
@@ -332,7 +409,7 @@ private fun LazyListScope.channelRows(
     if (favs.isNotEmpty() || top == HomeRow.Channels) {
         item {
             val nav = LocalNavigator.current
-            Column {
+            Column(Modifier.showsBackdrop(vm, null)) {
                 SectionTitle(stringResource(R.string.home_on_now))
                 MoveHint(vm.mover, CAT_LIVE, MoveLayout.ROW)
                 val focus = focusOn(HomeRow.Channels)
@@ -349,7 +426,7 @@ private fun LazyListScope.channelRows(
     if (recent.isNotEmpty()) {
         item {
             val nav = LocalNavigator.current
-            Column {
+            Column(Modifier.showsBackdrop(vm, null)) {
                 SectionTitle(stringResource(R.string.common_recent))
                 val focus = focusOn(HomeRow.Recent)
                 ChannelCardRow(recent, vm.nowNext, { onOptions(HomeTile.Channel(it, ChannelFilter.Recent)) }, focus) {
@@ -478,6 +555,7 @@ private fun CarryOnRow(
     returnTo: String?,
     first: Modifier,
     onOptions: (WatchProgressEntity) -> Unit,
+    onFocused: (WatchProgressEntity) -> Unit,
     onPlay: (WatchProgressEntity) -> Unit
 ) {
     val state = rememberLazyListState()
@@ -490,7 +568,8 @@ private fun CarryOnRow(
             val returning = remember { FocusRequester() }
             // The remote goes to it once it's in view (and again wherever it moves to).
             if (back != null && p == focused) LaunchedEffect(back) { runCatching { returning.requestFocus() } }
-            CarryOnCard(p, if (p == focused) first.focusRequester(returning) else Modifier, { onOptions(p) }) { onPlay(p) }
+            val focus = if (p == focused) first.focusRequester(returning) else Modifier
+            CarryOnCard(p, focus.onFocusChanged { if (it.hasFocus) onFocused(p) }, { onOptions(p) }) { onPlay(p) }
         }
     }
 }

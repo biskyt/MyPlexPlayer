@@ -180,6 +180,7 @@ class PlexSources(
             position = position,
             syncStamp = stamp,
             durationSec = m.durationSec,
+            artUrl = backdrop(client, m.art),
         )
     }
 
@@ -212,6 +213,7 @@ class PlexSources(
             unwatched = unwatched(s),
             newest = newest[id],
             episodes = s.leafCount,
+            artUrl = backdrop(client, s.art),
         )
     }
 
@@ -281,7 +283,7 @@ class PlexSources(
         plot = item.summary.ifBlank { null },
         year = item.year,
         durationSec = item.durationSec,
-        backdropUrl = image(client, item.art, BACKDROP_WIDTH, BACKDROP_HEIGHT),
+        backdropUrl = backdrop(client, item.art),
         posterUrl = image(client, item.thumb),
         // Only where the server names no source for it: otherwise its scores show, with their logos.
         rating = (item.audienceRating ?: item.rating)?.takeIf { scores.isEmpty() },
@@ -597,6 +599,9 @@ class PlexSources(
         val show = client.item(seriesId.toString())
         db.vod().setEpisodeCounts(p.id, seriesId, unwatched(show), show.leafCount)
     }
+
+    /** A title's background picture, the same size wherever it shows (its page, Home), so the server sizes it once. */
+    private fun backdrop(client: PlexClient, art: String?) = image(client, art, BACKDROP_WIDTH, BACKDROP_HEIGHT)
 
     /** A series' episodes not yet watched; null when the server doesn't say. */
     fun unwatched(show: PlexItem): Int? = show.leafCount?.let { (it - (show.viewedLeafCount ?: 0)).coerceAtLeast(0) }

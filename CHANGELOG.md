@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 0.19.0
+- On the home screen, the film or series you have selected now shows its background picture faintly behind the rows.
+
 ## 0.18.0
 - You can now delete a whole series from its options, after a question that says how many episodes go with it.
 - A series with no episodes now offers to delete it from the Plex server.

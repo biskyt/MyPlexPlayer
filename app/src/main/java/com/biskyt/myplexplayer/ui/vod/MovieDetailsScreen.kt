@@ -1,6 +1,5 @@
 package com.biskyt.myplexplayer.ui.vod
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,13 +15,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -30,9 +24,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import coil3.compose.AsyncImage
-import coil3.request.ImageRequest
-import coil3.request.allowRgb565
 import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.AppText
 import com.biskyt.myplexplayer.R
@@ -43,6 +34,7 @@ import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
+import com.biskyt.myplexplayer.ui.common.Backdrop
 import com.biskyt.myplexplayer.ui.common.BadgeRow
 import com.biskyt.myplexplayer.ui.common.CastPanel
 import com.biskyt.myplexplayer.ui.common.CastRow
@@ -58,7 +50,6 @@ import com.biskyt.myplexplayer.ui.common.markWatched
 import com.biskyt.myplexplayer.ui.common.onOptionsKey
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.titleActions
-import com.biskyt.myplexplayer.ui.theme.Palette
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -225,22 +216,3 @@ internal fun DetailsLayout(
         }
     }
 }
-
-/** The title's art, faded behind a page. */
-@Composable
-internal fun Backdrop(backdropUrl: String?) {
-    if (backdropUrl != null) {
-        // Faded behind a gradient, so a third of the screen's resolution is plenty (and a ninth of the memory).
-        val context = LocalContext.current
-        val request = remember(backdropUrl) {
-            ImageRequest.Builder(context).data(backdropUrl).size(BACKDROP_WIDTH, BACKDROP_WIDTH * 9 / 16).allowRgb565(true).build()
-        }
-        AsyncImage(request, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().testTag("backdrop"), alpha = 0.35f)
-        Box(
-            Modifier.fillMaxSize()
-                .background(Brush.horizontalGradient(listOf(Palette.background, Palette.background.copy(alpha = 0.6f))))
-        )
-    }
-}
-
-private const val BACKDROP_WIDTH = 640

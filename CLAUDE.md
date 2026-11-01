@@ -267,6 +267,11 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
   series page redesign.
 - **Home rows:** Continue watching, recently added series, recently added movies, favourite series, favourite movies,
   favourite Live TV channels. Empty rows are hidden.
+- **Home's background** (0.19.0): the picture of the film or series whose card has the remote (an episode's is its
+  series'), as on its page (35%, `Backdrop`), once the remote rests there for half a second; none for channels. It is
+  the page's own size (`artUrl`, saved at each sync), so the server sizes each picture once. Every title's art loads
+  through `ui/common/Backdrop.kt` (`backdropRequest`), kept by its server, Plex's path and size, not the token (`backdropCacheKey`),
+  so the app keeps one copy of each picture.
 - **Favourites** for channels, films and series stay as in MyTVPlayer.
 - **Audio passthrough** (Dolby Atmos and other surround formats go to the soundbar or TV) is on by default, with a
   setting to turn it off.
