@@ -6,6 +6,9 @@ import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.plex.PlexClient
 import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.plex.PlexRecordingRule
+import com.biskyt.myplexplayer.core.plex.PlexRecordingRule.Companion.ALL_AIRINGS
+import com.biskyt.myplexplayer.core.plex.PlexRecordingRule.Companion.NEW_ONLY
+import com.biskyt.myplexplayer.core.plex.PlexRecordingRule.Companion.ONLY_NEW_AIRINGS
 import com.biskyt.myplexplayer.core.plex.PlexScheduledRecording
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
@@ -48,9 +51,13 @@ data class RecordingState(val rules: List<PlexRecordingRule> = emptyList(), val 
     /** The rule that set [airing] to record. */
     fun ruleOf(airing: PlexScheduledRecording): PlexRecordingRule? = airing.mediaSubscriptionID?.let(ruleByKey::get)
 
+    /** The series rules, by their show's id (a guide programme's `grandparentGuid`). */
+    private val seriesByShow: Map<String, PlexRecordingRule> = buildMap {
+        rules.forEach { r -> r.subject?.guid?.takeIf { r.isSeries }?.let { putIfAbsent(it, r) } } // the first, if two
+    }
+
     /** The series rule recording show [showGuid], if there is one. */
-    fun seriesRule(showGuid: String?): PlexRecordingRule? =
-        showGuid?.let { guid -> rules.firstOrNull { it.isSeries && it.subject?.guid == guid } }
+    fun seriesRule(showGuid: String?): PlexRecordingRule? = showGuid?.let(seriesByShow::get)
 
     /** The airings recording now (by their key), from the server's status. */
     val recordingNow: Map<String, PlexScheduledRecording> = scheduled.filter {
@@ -63,7 +70,13 @@ data class RecordingState(val rules: List<PlexRecordingRule> = emptyList(), val 
     /** What channel [channelKey] (its `providerEpgId`) is recording now, if anything. */
     fun recordingOn(channelKey: String?): PlexScheduledRecording? = channelKey?.let(recordingOnChannel::get)
 
-    fun mark(guid: String?, startMs: Long): RecordingMark? = airing(guid, startMs)?.let(::mark)
+    /**
+     * How programme [guid] (of show [showGuid]) starting at [startMs] is marked: as its airing is set to record, else
+     * as part of a series set to record. As in Plex's own guide, every airing of that show is marked, also one the
+     * rule won't record (a repeat, for new airings only).
+     */
+    fun mark(guid: String?, showGuid: String?, startMs: Long): RecordingMark? =
+        airing(guid, startMs)?.let(::mark) ?: seriesRule(showGuid)?.let { RecordingMark.SERIES }
 
     /** How [airing] is set to record: recording now, as part of its series, or alone. */
     fun mark(airing: PlexScheduledRecording): RecordingMark = when {
@@ -221,16 +234,13 @@ class Recordings(
             }
         }
 
-    /** Whether series [rule] records new airings only (else repeats too). */
-    fun isNewOnly(rule: PlexRecordingRule) = rule.setting(ONLY_NEW_AIRINGS) == NEW_ONLY
-
     /** Sets whether series [rule] records new airings only (Plex decides what's new), or repeats too. */
     fun setNewOnly(playlistId: Long, rule: PlexRecordingRule, newOnly: Boolean) = change(playlistId, R.string.dvr_change_failed) { client ->
         client.changeRecording(rule.key, mapOf(ONLY_NEW_AIRINGS to if (newOnly) NEW_ONLY else ALL_AIRINGS))
     }
 
-    /** Stops recording a series ([rule]): the rule and every airing it set to record go. */
-    fun stopSeries(playlistId: Long, rule: PlexRecordingRule) =
+    /** Removes [rule] (a series, or one waiting for its programme to air): the rule and every airing it set to record go. */
+    fun remove(playlistId: Long, rule: PlexRecordingRule) =
         change(playlistId, R.string.dvr_cancel_failed) { client -> client.removeRecording(rule.key) }
 
     private fun change(playlistId: Long, @StringRes failed: Int, action: suspend (PlexClient) -> Unit) {
@@ -256,10 +266,6 @@ class Recordings(
     }
 
     private companion object {
-        /** A series rule's setting: [NEW_ONLY] or [ALL_AIRINGS] (new and repeats). */
-        const val ONLY_NEW_AIRINGS = "onlyNewAirings"
-        const val NEW_ONLY = "1"
-        const val ALL_AIRINGS = "0"
         const val HTTP_CONFLICT = 409
         const val HTTP_FORBIDDEN = 403
         const val EVENTS = 8

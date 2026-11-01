@@ -62,6 +62,7 @@ import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.container
 import com.biskyt.myplexplayer.data.EpgRepository
+import com.biskyt.myplexplayer.data.GUIDE_DAYS
 import com.biskyt.myplexplayer.data.RecordingMark
 import com.biskyt.myplexplayer.data.RecordingState
 import com.biskyt.myplexplayer.data.db.ChannelEntity
@@ -585,7 +586,7 @@ private fun GuideRow(
                     cellTitle(p, noGuide = null),
                     { onTap(p) },
                     { onLongTap(p) },
-                    recordings.mark(p.guid, p.startMs)
+                    recordings.mark(p.guid, p.showGuid, p.startMs)
                 )
                 cursor = end
             }
@@ -647,7 +648,7 @@ internal class GuideWindow(private val now: () -> Long = System::currentTimeMill
 
 /**
  * The window after moving past its edge from [p] in direction [dir]: at least an hour, and far enough to show the
- * time just beyond [p]; with the time focus goes to. Null at the limits (the half hour [nowMs] is in, three days ahead).
+ * time just beyond [p]; with the time focus goes to. Null at the limits (the half hour [nowMs] is in, [GUIDE_DAYS] ahead).
  */
 private fun nextWindow(windowStart: Long, dir: Int, p: ChannelProgramme?, nowMs: Long): Pair<Long, Long>? {
     val target = if (dir > 0) p?.stopMs ?: (windowStart + WINDOW_MS) else (p?.startMs ?: windowStart) - 1
@@ -657,7 +658,7 @@ private fun nextWindow(windowStart: Long, dir: Int, p: ChannelProgramme?, nowMs:
         minOf(windowStart - HOUR, target / HALF_HOUR * HALF_HOUR)
     }
     val now = nowMs / HALF_HOUR * HALF_HOUR
-    val next = wanted.coerceIn(now, now + 3 * DAY_MS)
+    val next = wanted.coerceIn(now, now + GUIDE_DAYS * DAY_MS)
     // Back, never later (a window left open since an earlier half hour is already as early as it goes).
     if (next == windowStart || dir < 0 && next > windowStart) return null
     return next to target.coerceIn(next, next + WINDOW_MS - 1)

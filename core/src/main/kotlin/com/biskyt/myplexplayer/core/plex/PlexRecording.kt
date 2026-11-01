@@ -26,12 +26,14 @@ data class PlexRecordingOption(
 
 /**
  * A recording rule ("subscription"): one airing, or a series ([PlexRecordingOption.SERIES], its show in `Directory`;
- * an airing's programme is in `Video`). [key] is what it's removed and changed by; [settings] are as it records.
+ * an airing's programme is in `Video`). [key] is what it's removed and changed by. [settings] are as it records, but
+ * only when one rule is read: the list of rules has none, only [airingsType] (docs/plex-api.md, 26).
  */
 @Serializable
 data class PlexRecordingRule(
     @Serializable(with = PlexIdText::class) val key: String = "",
     val type: Int = 0,
+    val airingsType: String? = null,
     @SerialName("Directory") @Serializable(with = SkippingList::class) val shows: List<PlexProgramme> = emptyList(),
     @SerialName("Video") @Serializable(with = SkippingList::class) val programmes: List<PlexProgramme> = emptyList(),
     @SerialName("Setting") @Serializable(with = SkippingList::class) val settings: List<PlexSetting> = emptyList(),
@@ -41,8 +43,25 @@ data class PlexRecordingRule(
     /** Setting [id] as the rule records now (its value, else its default), or null if it has no such setting. */
     fun setting(id: String): String? = settings.firstOrNull { it.id == id }?.current
 
+    /** Whether it records new airings only (else repeats too): its setting, else (in the list of rules) [airingsType]. */
+    val isNewOnly: Boolean get() = setting(ONLY_NEW_AIRINGS)?.let { it == NEW_ONLY } ?: (airingsType == NEW_AIRINGS_ONLY)
+
     /** What it records: the show of a series, else the programme. */
     val subject: PlexProgramme? get() = shows.firstOrNull() ?: programmes.firstOrNull()
+
+    /** What it's called: its show's title (a series, or an episode's), else the programme's. */
+    val subjectTitle: String get() = subject?.showTitle.orEmpty()
+
+    companion object {
+        /** A series rule's setting: [NEW_ONLY] (`1`), or `0` for new and repeat airings. */
+        const val ONLY_NEW_AIRINGS = "onlyNewAirings"
+        const val NEW_ONLY = "1"
+        const val ALL_AIRINGS = "0"
+
+        /** [airingsType] for a rule that records new airings only, or repeats too, as Plex's spec lists them. */
+        const val NEW_AIRINGS_ONLY = "New Airings Only"
+        const val NEW_AND_REPEAT_AIRINGS = "New and Repeat Airings"
+    }
 }
 
 /**
@@ -70,7 +89,7 @@ data class PlexScheduledRecording(
     val needsAttention: Boolean get() = status in NEEDS_ATTENTION
 
     /** What it's called: its show's title (an episode), else the programme's. */
-    val title: String get() = programme?.grandparentTitle ?: programme?.title.orEmpty()
+    val title: String get() = programme?.showTitle.orEmpty()
 
     companion object {
         const val SCHEDULED = "scheduled"

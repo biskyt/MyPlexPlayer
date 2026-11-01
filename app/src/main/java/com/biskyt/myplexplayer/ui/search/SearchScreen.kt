@@ -230,7 +230,13 @@ fun SearchScreen(initialQuery: String = "") {
                             val key = programmeKey(p)
                             val options = { picked = Picked.Channel(p.streamId, p.channelName, p) }
                             // The remote's Record button opens its options too, which can record it.
-                            ProgrammeRow(p, now, recordings.mark(p.guid, p.startMs), returnFocus(key).onRecordKey(options), options) {
+                            ProgrammeRow(
+                                p,
+                                now,
+                                recordings.mark(p.guid, p.showGuid, p.startMs),
+                                returnFocus(key).onRecordKey(options),
+                                options
+                            ) {
                                 open(key, Screen.Player(pid, p.streamId, ChannelFilter.All))
                             }
                         }

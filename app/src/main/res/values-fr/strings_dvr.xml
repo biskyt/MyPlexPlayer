@@ -31,6 +31,9 @@
         <item quantity="other">%d diffusions à venir</item>
     </plurals>
     <string name="dvr_episodes">Épisodes</string>
+    <string name="dvr_series_episodes">Épisodes : %1$s</string>
+    <string name="dvr_others_title">Autres enregistrements</string>
+    <string name="dvr_other_waiting">En attente de son passage dans le guide TV</string>
     <string name="dvr_new_only">Nouveaux seulement</string>
     <string name="dvr_new_and_repeats">Nouveaux et rediffusions</string>
     <string name="dvr_change_failed">Impossible de modifier l\'enregistrement</string>

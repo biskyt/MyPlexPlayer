@@ -79,8 +79,10 @@ class PlexRecordingTest {
         assertTrue(series.isSeries)
         assertEquals("plex://show/show0001", series.subject?.guid)
         assertEquals("The Harbour", series.subject?.title)
-        assertEquals("1", series.setting("onlyNewAirings")) // new airings only, as set
-        assertEquals(null, rules.last().setting("onlyNewAirings"))
+        // The list of rules has no settings, only the airings each records (docs/plex-api.md, 26).
+        assertEquals(null, series.setting("onlyNewAirings"))
+        assertTrue(series.isNewOnly)
+        assertFalse(rules.last().isNewOnly)
         assertFalse(rules.last().isSeries)
         assertEquals("A Film", rules.last().subject?.title)
 

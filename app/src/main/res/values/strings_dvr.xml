@@ -31,6 +31,10 @@
         <item quantity="other">%d airings to come</item>
     </plurals>
     <string name="dvr_episodes">Episodes</string>
+    <!-- %1$s: dvr_new_only or dvr_new_and_repeats -->
+    <string name="dvr_series_episodes">Episodes: %1$s</string>
+    <string name="dvr_others_title">Other recordings</string>
+    <string name="dvr_other_waiting">Waiting for it to be in the TV guide</string>
     <string name="dvr_new_only">New only</string>
     <string name="dvr_new_and_repeats">New and repeats</string>
     <string name="dvr_change_failed">Couldn\'t change the recording</string>

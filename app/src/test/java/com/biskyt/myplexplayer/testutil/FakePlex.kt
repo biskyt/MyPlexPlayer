@@ -2,6 +2,7 @@ package com.biskyt.myplexplayer.testutil
 
 import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.core.plex.PlexRecordingOption
+import com.biskyt.myplexplayer.core.plex.PlexRecordingRule
 import com.biskyt.myplexplayer.data.PlexSources
 import com.biskyt.myplexplayer.data.db.AppDatabase
 import com.biskyt.myplexplayer.data.plexChannelId
@@ -432,18 +433,9 @@ class FakePlex : AutoCloseable {
     private fun ruleJson(rule: Rule) = obj {
         put("key", rule.key)
         put("type", rule.type)
-        putJsonArray("Setting") {
-            rule.prefs[ONLY_NEW]?.let {
-                add(
-                    obj {
-                        put("id", ONLY_NEW)
-                        put("type", "int")
-                        put("default", 0)
-                        put("value", it)
-                    }
-                )
-            }
-        }
+        // No settings, as in Plex's list of rules: only the airings it records (docs/plex-api.md, 26).
+        val newOnly = rule.prefs[PlexRecordingRule.ONLY_NEW_AIRINGS] == PlexRecordingRule.NEW_ONLY
+        put("airingsType", if (newOnly) PlexRecordingRule.NEW_AIRINGS_ONLY else PlexRecordingRule.NEW_AND_REPEAT_AIRINGS)
         val series = rule.type == PlexRecordingOption.SERIES
         // Its title, as Plex sends it: the show's, or the programme's.
         val title = showings().firstOrNull {
@@ -837,7 +829,6 @@ class FakePlex : AutoCloseable {
         const val SERVER_TOKEN = "server-token"
         const val MACHINE_ID = "home-plex"
         private const val DVR = "7"
-        private const val ONLY_NEW = "onlyNewAirings"
         private val LIBRARY = listOf("/library/sections", "/library/metadata/", "/library/parts/")
         private const val EPG = "tv.plex.providers.epg.cloud:12"
 
