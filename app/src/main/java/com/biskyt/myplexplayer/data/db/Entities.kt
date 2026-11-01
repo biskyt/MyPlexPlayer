@@ -84,7 +84,9 @@ data class MovieEntity(
     val position: Int,
     val syncStamp: Long,
     /** Running time, for its card (null until the first sync that brings it). */
-    @ColumnInfo(defaultValue = "NULL") val durationSec: Int? = null
+    @ColumnInfo(defaultValue = "NULL") val durationSec: Int? = null,
+    /** Its background picture, as its page shows it, for Home behind its card (null: none, or not synced since 0.19.0). */
+    @ColumnInfo(defaultValue = "NULL") val artUrl: String? = null
 )
 
 @Entity(
@@ -113,7 +115,9 @@ data class SeriesEntity(
     /** Plex: its place among the series with the newest episodes (0 first), for Home; null when not among them. */
     @ColumnInfo(defaultValue = "NULL") val newest: Int? = null,
     /** How many episodes it has, for its card (null until known). */
-    @ColumnInfo(defaultValue = "NULL") val episodes: Int? = null
+    @ColumnInfo(defaultValue = "NULL") val episodes: Int? = null,
+    /** Its background picture, as its page shows it, for Home behind its card (null: none, or not synced since 0.19.0). */
+    @ColumnInfo(defaultValue = "NULL") val artUrl: String? = null
 )
 
 const val VOD_MOVIE = "movie"

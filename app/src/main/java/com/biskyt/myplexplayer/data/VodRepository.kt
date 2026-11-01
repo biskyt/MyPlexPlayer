@@ -322,6 +322,10 @@ class VodRepository(
 
     // --- details (fetched when opened) ---
 
+    /** The background picture of film or series [id] ([type] [CAT_MOVIE] or [CAT_SERIES]), for Home; null without one. */
+    suspend fun backdropOf(playlistId: Long, type: String, id: Long): String? =
+        if (type == CAT_MOVIE) vod.movieArt(playlistId, id) else vod.seriesArt(playlistId, id)
+
     private val movieDetails = LruCache<String, VodDetails>(DETAILS_CACHE)
     private val seriesDetails = LruCache<String, SeriesDetails>(DETAILS_CACHE)
 

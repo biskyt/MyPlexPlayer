@@ -907,7 +907,8 @@ class FakePlex : AutoCloseable {
             library: String = "2",
             addedAt: Long = 1_700_000_200,
             summary: String? = null,
-            thumb: String? = null
+            thumb: String? = null,
+            art: String? = null
         ) = obj {
             put("ratingKey", key)
             put("type", "show")
@@ -916,6 +917,7 @@ class FakePlex : AutoCloseable {
             year?.let { put("year", it) }
             summary?.let { put("summary", it) }
             thumb?.let { put("thumb", it) }
+            art?.let { put("art", it) }
             put("addedAt", addedAt)
         }
 

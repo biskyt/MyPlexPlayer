@@ -480,6 +480,12 @@ interface VodDao {
     @Query("DELETE FROM series WHERE playlistId = :pid AND seriesId = :id")
     suspend fun deleteOneSeries(pid: Long, id: Long)
 
+    @Query("SELECT artUrl FROM movie WHERE playlistId = :pid AND streamId = :id")
+    suspend fun movieArt(pid: Long, id: Long): String?
+
+    @Query("SELECT artUrl FROM series WHERE playlistId = :pid AND seriesId = :id")
+    suspend fun seriesArt(pid: Long, id: Long): String?
+
     @Query("DELETE FROM movie WHERE playlistId = :pid AND syncStamp != :stamp")
     suspend fun deleteStaleMovies(pid: Long, stamp: Long)
 

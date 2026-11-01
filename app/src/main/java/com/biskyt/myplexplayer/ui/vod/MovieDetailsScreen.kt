@@ -230,17 +230,33 @@ internal fun DetailsLayout(
 @Composable
 internal fun Backdrop(backdropUrl: String?) {
     if (backdropUrl != null) {
-        // Faded behind a gradient, so a third of the screen's resolution is plenty (and a ninth of the memory).
-        val context = LocalContext.current
-        val request = remember(backdropUrl) {
-            ImageRequest.Builder(context).data(backdropUrl).size(BACKDROP_WIDTH, BACKDROP_WIDTH * 9 / 16).allowRgb565(true).build()
-        }
-        AsyncImage(request, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().testTag("backdrop"), alpha = 0.35f)
-        Box(
-            Modifier.fillMaxSize()
-                .background(Brush.horizontalGradient(listOf(Palette.background, Palette.background.copy(alpha = 0.6f))))
-        )
+        BackdropImage(backdropUrl, Modifier.testTag("backdrop"))
+        BackdropShade()
     }
 }
+
+/** A title's art at 35%, filling its space ([onLoaded] once it shows), for under [BackdropShade]. */
+@Composable
+internal fun BackdropImage(url: String, modifier: Modifier = Modifier, onLoaded: () -> Unit = {}) {
+    // Faded behind a gradient, so a third of the screen's resolution is plenty (and a ninth of the memory).
+    val context = LocalContext.current
+    val request = remember(url) {
+        ImageRequest.Builder(context).data(url).size(BACKDROP_WIDTH, BACKDROP_WIDTH * 9 / 16).allowRgb565(true).build()
+    }
+    AsyncImage(
+        request,
+        null,
+        contentScale = ContentScale.Crop,
+        modifier = modifier.fillMaxSize(),
+        alpha = 0.35f,
+        onSuccess = { onLoaded() }
+    )
+}
+
+/** The dark fade over a title's art: darkest where the page's text is. */
+@Composable
+internal fun BackdropShade() = Box(
+    Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Palette.background, Palette.background.copy(alpha = 0.6f))))
+)
 
 private const val BACKDROP_WIDTH = 640
