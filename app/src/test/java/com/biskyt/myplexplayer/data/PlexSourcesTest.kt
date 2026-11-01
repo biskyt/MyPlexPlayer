@@ -16,6 +16,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -229,6 +230,7 @@ class PlexSourcesTest {
         assertEquals(listOf("11"), fake.deleted)
         assertNull(db.vod().movie(source.id, 11))
         assertEquals(emptyList<Long>(), vod.favouriteOrder(source.id, CAT_MOVIE))
+        assertFalse("not on Home's recently added", vod.observeNewestCards(source.id, CAT_MOVIE, 10).first().any { it.id == 11L })
 
         vod.seriesDetails(source, 21)
         assertEquals(VodRepository.EpisodeDeleted.EPISODE, vod.deleteEpisode(source.id, 21, 212))
