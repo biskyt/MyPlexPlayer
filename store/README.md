@@ -112,7 +112,8 @@ language, and in English (US) for Amazon.
 - **Ads:** no ads.
 - **Data safety (Play) and privacy (Amazon):** *No data collected* and *No data shared*.
   - The app talks only to plex.tv and to the user's own Plex servers, which the user chose. Nothing reaches the
-    developer.
+    developer. If the user turns on "Show your external IP address" (off by default), it also asks ipinfo.io for the
+    device's public IP address and its country, to show next to the VPN badge.
   - Play doesn't count data that stays on the device, or that goes straight to a service the user chose, as
     "collected".
   - Data is encrypted in transit: plex.tv and remote connections use HTTPS. A connection on the home network can use

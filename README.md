@@ -35,6 +35,8 @@ MyPlexPlayer is an independent app. It is not made or endorsed by Plex, Inc. You
 - **DVR:** record a programme or a whole series from the TV guide, watch a recording from its start while it records,
   and see what's recording, what's recently recorded, what's coming up and your series recordings.
 - **Search** across films, series, channels and programmes.
+- **VPN check:** a badge in the top bar shows whether Android reports a VPN, and can also show your external IP address
+  and its country (from ipinfo.io, off by default).
 - **Languages:** English, Spanish, Portuguese (Brazil) and French.
 
 | | |

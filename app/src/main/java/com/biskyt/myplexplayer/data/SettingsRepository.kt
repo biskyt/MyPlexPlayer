@@ -47,7 +47,10 @@ data class Settings(
      */
     @SerialName("autoSkipCreditsAfterSec") val autoSkipCreditsSec: Int = AUTO_SKIP_OFF,
     /** Show in the top bar whether Android reports a VPN (see VpnMonitor). */
-    val warnVpn: Boolean = false
+    val warnVpn: Boolean = false,
+
+    /** With [warnVpn]: also show the public IP address (see ExternalIp). It asks ipinfo.io, so it is off by default. */
+    val showExternalIp: Boolean = false
 ) {
     val effectiveSubtitleLanguage: String get() = subtitleLanguage.ifEmpty { Locale.getDefault().language }
 
@@ -75,6 +78,7 @@ class SettingsRepository(private val context: Context) {
         val autoSkipIntro = intPreferencesKey("auto_skip_intro")
         val autoSkipCredits = intPreferencesKey("auto_skip_credits_after")
         val warnVpn = booleanPreferencesKey("warn_vpn")
+        val showIp = booleanPreferencesKey("show_external_ip")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings() }.distinctUntilChanged()
@@ -119,6 +123,7 @@ class SettingsRepository(private val context: Context) {
             autoSkipIntroSec = this[K.autoSkipIntro] ?: d.autoSkipIntroSec,
             autoSkipCreditsSec = this[K.autoSkipCredits] ?: d.autoSkipCreditsSec,
             warnVpn = this[K.warnVpn] ?: d.warnVpn,
+            showExternalIp = this[K.showIp] ?: d.showExternalIp,
         )
     }
 
@@ -146,6 +151,7 @@ class SettingsRepository(private val context: Context) {
             prefs[K.autoSkipIntro] = s.autoSkipIntroSec
             prefs[K.autoSkipCredits] = s.autoSkipCreditsSec
             prefs[K.warnVpn] = s.warnVpn
+            prefs[K.showIp] = s.showExternalIp
         }
     }
 
