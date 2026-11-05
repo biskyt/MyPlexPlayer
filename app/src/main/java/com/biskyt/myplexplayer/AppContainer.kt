@@ -20,12 +20,14 @@ import coil3.disk.directory
 import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
+import com.biskyt.myplexplayer.core.net.IpLookup
 import com.biskyt.myplexplayer.data.BackupFile
 import com.biskyt.myplexplayer.data.BackupRepository
 import com.biskyt.myplexplayer.data.CategoryStore
 import com.biskyt.myplexplayer.data.ChannelRepository
 import com.biskyt.myplexplayer.data.CrashLog
 import com.biskyt.myplexplayer.data.EpgRepository
+import com.biskyt.myplexplayer.data.ExternalIp
 import com.biskyt.myplexplayer.data.Favourites
 import com.biskyt.myplexplayer.data.Notices
 import com.biskyt.myplexplayer.data.PlaylistRepository
@@ -43,6 +45,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
 
 /**
@@ -81,6 +84,17 @@ class AppContainer(context: Context) {
     val sync = SyncManager(appScope, playlists, vod, epg, settings)
     val backup = BackupRepository(db, settings, sync, epg)
     val vpn = VpnMonitor(context, appScope)
+
+    // No pooled connection: one opened before a VPN started would still show the address without it. A short
+    // limit on the whole call: a stalled answer must not keep the address away for minutes (it tries again later).
+    val externalIp =
+        ExternalIp(
+            vpn.network,
+            IpLookup(
+                http.newBuilder().connectionPool(ConnectionPool(0, 1, TimeUnit.SECONDS)).callTimeout(IP_TIMEOUT_S, TimeUnit.SECONDS).build()
+            )::lookup,
+            appScope
+        )
     val backupFile = BackupFile(context)
     val crashLog = CrashLog(context.filesDir, BuildConfig.VERSION_NAME)
 
@@ -147,3 +161,6 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
         return Result.success()
     }
 }
+
+/** How long a lookup of the external IP address may take in all, before it is given up (and tried again later). */
+private const val IP_TIMEOUT_S = 10L

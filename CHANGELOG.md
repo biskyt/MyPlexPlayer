@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.1.1
+- A new setting can show your external IP address and its country next to the VPN badge.
+
 ## 1.1.0
 - When you watch a channel that records now, you can watch the recording from the start or carry on live.
 - The DVR tab has a new "Recently recorded" section. Press OK on a recording to play it.

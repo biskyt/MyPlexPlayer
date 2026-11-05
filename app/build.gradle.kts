@@ -13,10 +13,10 @@ android {
 
     defaultConfig {
         applicationId = "com.biskyt.myplexplayer"
-        minSdk = 28
+        minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = 36
-        versionCode = 57
-        versionName = "1.1.0"
+        versionCode = 58
+        versionName = "1.1.1"
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

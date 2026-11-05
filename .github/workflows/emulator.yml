@@ -82,6 +82,12 @@ jobs:
       - name: Run the smoke tests on ${{ matrix.name }}
         run: ./gradlew -PemulatorAbi=${{ matrix.arch }} :app:connectedDebugAndroidTest
 
+      # The test report has only the last crash's stack trace. The device's log also has what came before it (an
+      # earlier exception in composition, for example), which a failure needs for its cause to be found.
+      - name: Save the device log
+        if: failure()
+        run: adb logcat -d -v threadtime > logcat.txt || true
+
       - uses: actions/upload-artifact@v6
         if: failure()
         with:
@@ -89,3 +95,4 @@ jobs:
           path: |
             app/build/reports/androidTests/
             emulator.log
+            logcat.txt

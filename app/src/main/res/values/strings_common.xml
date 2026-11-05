@@ -124,4 +124,5 @@
     <string name="common_favourites_not_saved">Favourite channels not saved to Plex</string>
     <string name="common_vpn_on">VPN on</string>
     <string name="common_vpn_off">VPN not connected</string>
+    <string name="common_ip_country" translatable="false">%1$s · %2$s</string>
 </resources>

@@ -33,6 +33,10 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   1.8.15 (`c8933a5`, Xtream category languages) doesn't apply. The plain-english skill (`7de1099`) is copied as it
   is. 1.8.7 (`fc738a8`) and 1.8.8 (`9cb696c`) change the XMLTV guide's reading and channel matching, which
   MyPlexPlayer removed in 0.6.0: they don't apply.
+  - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
+    doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
+    Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
+    VPN badge is in 1.1.1 (`becbc56`, without its Drive sync part).
 - **Where a change is made first** (the owner, 2026-10-25): a feature or fix both apps need (the player, remote keys,
   menus, the guide's screens) is made in MyTVPlayer first, then cherry-picked here, so the shared code stays the same
   and ports apply cleanly. Plex-only work (sign-in, servers, play state, Live TV, DVR) is made here only.
@@ -157,6 +161,11 @@ See also:
 
 ## Gotchas learned the hard way
 - **Android regex is ICU, not Java.** A bare `}` in a regex passes on the JVM (where Robolectric runs) but crashes on devices. That crashed M3U setup in 0.9.5. `RegexPortabilityTest` (one in core, one in app, sharing core's `RegexPortability` test fixture) checks every `Regex(...)` literal. Escape braces.
+- **`core` is checked against the app's minSdk by Animal Sniffer, not by lint.** Lint does not check API levels in a
+  plain JVM module. So a Java API newer than minSdk compiles and passes the JVM tests, then crashes older devices
+  (`LocalDate.EPOCH` needs Android 14; issue 94). `:core:animalsnifferMain` checks core's classes against the
+  `gummy-bears-api-<minSdk>` signature, and `:core:test` runs it. `minSdk` is in `gradle/libs.versions.toml`, for the
+  app and the check. The check does not cover core's libraries (OkHttp, coroutines, serialization).
 - **Robolectric UI tests:**
   - **Compose rules:** use `createUiComposeRule()` / `createUiComposeRule<Activity>()` from `testutil/ComposeRules.kt`, not `createComposeRule()`.
     - The plain rule runs effects on an unconfined dispatcher. Room flows collected with `collectAsState` then resume on Room's `arch_disk_io` threads and race the main thread's recomposition, so updates get lost now and then.
