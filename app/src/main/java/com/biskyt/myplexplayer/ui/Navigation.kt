@@ -48,9 +48,6 @@ sealed interface Screen {
     ) : Screen
     data class MovieDetails(val playlistId: Long, val streamId: Long) : Screen
 
-    /** A film's or series' ([type] CAT_MOVIE or CAT_SERIES) details beyond its page: who made it, its file, links. */
-    data class MoreInfo(val playlistId: Long, val type: String, val id: Long) : Screen
-
     /** [season] and [episode] (from 1): open on that episode (found from the TV guide). */
     data class SeriesDetails(val playlistId: Long, val seriesId: Long, val season: Int? = null, val episode: Int? = null) : Screen
     data object Settings : Screen

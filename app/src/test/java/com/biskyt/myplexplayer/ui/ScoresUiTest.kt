@@ -1,11 +1,12 @@
 package com.biskyt.myplexplayer.ui
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
-import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.OnAppBackground
@@ -113,15 +114,16 @@ class ScoresUiTest {
     }
 
     @Test
-    fun `more info's links show their sites' logos`() {
-        val navigator = navigators.new(Screen.MoreInfo(source, CAT_MOVIE, 11))
+    fun `a film's More… links show their sites' logos`() {
+        val navigator = navigators.new(Screen.MovieDetails(source, 11))
         compose.setContent { MyPlexTheme { OnAppBackground { NavHost(navigator) { ScreenContent(it) } } } }
+        compose.waitAdvancingClock(stepMs = 50) { shown("7.6") > 0 }
+        compose.onNode(hasText("More…") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitAdvancingClock(stepMs = 50) { logos("TVDB") > 0 }
         assertEquals(
             listOf(1, 1),
             listOf(logos("TVDB"), compose.onAllNodes(hasContentDescription("IMDb") and hasClickAction()).fetchSemanticsNodes().size)
         )
-        compose.onRoot().captureRoboImage("build/scores/more-info.png")
     }
 
     @Test

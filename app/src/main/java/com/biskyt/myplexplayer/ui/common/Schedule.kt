@@ -5,6 +5,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -113,7 +114,13 @@ fun OnNowLabel() = Text(stringResource(R.string.common_on_now), style = Material
  * A panel sliding in from the right over a dimmed screen. Shown as a dialog so focus stays inside it and Back closes it.
  */
 @Composable
-fun SidePanel(onDismiss: () -> Unit, width: Dp = 430.dp, dim: Boolean = true, content: @Composable () -> Unit) {
+fun SidePanel(
+    onDismiss: () -> Unit,
+    width: Dp = 430.dp,
+    dim: Boolean = true,
+    padding: PaddingValues = PaddingValues(28.dp),
+    content: @Composable () -> Unit
+) {
     // A dialog is its own window, which resets the density to the system's and the context to the Activity's; keep
     // the app's scaling (see MyPlexTheme) and language (see InAppLanguage) so panels match everything else.
     val density = LocalDensity.current
@@ -136,7 +143,7 @@ fun SidePanel(onDismiss: () -> Unit, width: Dp = 430.dp, dim: Boolean = true, co
                 Box(
                     Modifier.fillMaxHeight().width(width)
                         .onPlainTap {} // taps on the panel itself don't close it
-                        .background(Palette.surface.copy(alpha = 0.97f)).padding(28.dp)
+                        .background(Palette.surface.copy(alpha = 0.97f)).padding(padding)
                 ) { content() }
             }
         }

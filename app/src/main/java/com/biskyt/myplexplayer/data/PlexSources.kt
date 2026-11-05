@@ -249,7 +249,7 @@ class PlexSources(
                 plot = e.summary.ifBlank { null },
                 durationSec = e.durationSec,
                 imageUrl = image(client, e.thumb, STILL_WIDTH, STILL_HEIGHT),
-                badges = PlexMediaInfo.of(e)?.badges.orEmpty(),
+                badges = PlexMediaInfo.badgesOf(e),
                 airDate = airDateOf(e.originallyAvailableAt),
             )
         }
@@ -662,7 +662,8 @@ val PlexItem.lastViewedMs: Long? get() = lastViewedAt?.times(1000)
 fun castOf(client: PlexClient, item: PlexItem): List<CastMember> = item.roles.filter { it.tag.isNotBlank() }
     .map { r -> CastMember(r.tag, r.role, r.thumb?.let { client.imageUrl(it, CAST_PHOTO, CAST_PHOTO) }) }
 
-private const val CAST_PHOTO = 120
+/** Cast photos' size in pixels: the film page's 92 board px on a 1080p screen, so its cast panel uses the same image. */
+private const val CAST_PHOTO = 184
 
 /** [block]'s result, or null when the server didn't answer it (out of reach, or a failure). */
 suspend fun <T> offlineOk(block: suspend () -> T): T? = try {
@@ -720,7 +721,7 @@ class PlexPlayback(
     val cast: List<CastMember> by lazy { castOf(client, item) }
 
     /** The file's container, as Playback info names it ("MKV"), if the server says. */
-    val container: String? by lazy { PlexMediaInfo.of(item)?.container }
+    val container: String? by lazy { PlexMediaInfo.containerOf(item) }
 
     /** Whether the server has been asked to stream the file ([directStream]), until [close]. */
     @Volatile var streaming = false

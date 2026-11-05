@@ -1,0 +1,133 @@
+package com.biskyt.myplexplayer.ui.vod
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
+import androidx.tv.material3.Border
+import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.LocalContentColor
+import androidx.tv.material3.Surface
+import androidx.tv.material3.Text
+import com.biskyt.myplexplayer.ui.common.FocusStroke
+import com.biskyt.myplexplayer.ui.common.onTap
+import com.biskyt.myplexplayer.ui.theme.BOLD
+import com.biskyt.myplexplayer.ui.theme.BoardStyle
+import com.biskyt.myplexplayer.ui.theme.EXTRA_BOLD
+import com.biskyt.myplexplayer.ui.theme.LocalAccent
+import com.biskyt.myplexplayer.ui.theme.Palette
+import com.biskyt.myplexplayer.ui.theme.bd
+
+// The film and series pages, as the design boards (2026-11-05) draw them. Sizes are the boards' (see Board.kt).
+
+/**
+ * A film or series page's button: [background] (#22262D), or filled with the accent colour while it has focus, with no
+ * ring. [strong] is the main one's heavier text. [progress] (0 to 1) runs along its bottom edge.
+ */
+@Composable
+fun DetailButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    strong: Boolean = false,
+    progress: Float? = null,
+    horizontal: Dp = 20.bd,
+    vertical: Dp = 10.bd,
+    style: TextStyle = if (strong) ButtonStrong.current else ButtonText.current,
+    background: Color = Palette.surfaceHigh,
+    /** Below the text, when it differs from [vertical] (the film's Resume keeps room for its progress). */
+    bottom: Dp = vertical,
+    /** Holding OK (or a long press): the page's options. */
+    onLongClick: (() -> Unit)? = null
+) {
+    val accent = LocalAccent.current
+    PillSurface(onClick, modifier, background, Palette.text, accent.color, accent.onAccent, ring = false, onLongClick = onLongClick) {
+        Row(
+            Modifier.padding(start = horizontal, end = horizontal, top = vertical, bottom = bottom),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.bd)
+        ) {
+            if (text.isNotEmpty()) Text(text, style = style, color = LocalContentColor.current, maxLines = 1)
+        }
+        if (progress != null) ButtonProgress(progress)
+    }
+}
+
+/** A season's pill: the one shown filled with the accent colour. It takes focus with the app's usual ring. */
+@Composable
+fun SeasonPill(name: String, current: Boolean, onClick: () -> Unit) {
+    val accent = LocalAccent.current
+    val bg = if (current) accent.color else Palette.surfaceHigh
+    val fg = if (current) accent.onAccent else Palette.text
+    PillSurface(onClick, Modifier, bg, fg, bg, fg, ring = true) {
+        Text(
+            name,
+            style = if (current) PillStrong.current else PillText.current,
+            color = fg,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 14.bd, vertical = 6.bd)
+        )
+    }
+}
+
+/** A pill-shaped surface for the pages' buttons, with these colours, and the app's focus [ring] or none. */
+@Composable
+private fun PillSurface(
+    onClick: () -> Unit,
+    modifier: Modifier,
+    background: Color,
+    content: Color,
+    focusedBackground: Color,
+    focusedContent: Color,
+    ring: Boolean,
+    onLongClick: (() -> Unit)? = null,
+    body: @Composable BoxScope.() -> Unit
+) = Surface(
+    onClick = onClick,
+    onLongClick = onLongClick,
+    modifier = modifier.onTap(onLongClick, onClick),
+    shape = ClickableSurfaceDefaults.shape(Pill),
+    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+    colors = ClickableSurfaceDefaults.colors(
+        containerColor = background,
+        focusedContainerColor = focusedBackground,
+        pressedContainerColor = focusedBackground,
+        contentColor = content,
+        focusedContentColor = focusedContent
+    ),
+    border = if (ring) ClickableSurfaceDefaults.border(focusedBorder = Border(FocusStroke)) else ClickableSurfaceDefaults.border()
+) {
+    // Centred: an icon-only button stretched to its neighbour's height keeps its icon in the middle.
+    Box(contentAlignment = Alignment.Center) { body() }
+}
+
+/**
+ * How far into the film: a 4 px bar along the bottom of its button, in the page's background at 45 %. It takes the
+ * button's size and does not set it.
+ */
+@Composable
+private fun BoxScope.ButtonProgress(fraction: Float) {
+    // matchParentSize: measured after the text, so the bar never makes the button larger.
+    Box(Modifier.matchParentSize(), contentAlignment = Alignment.BottomStart) {
+        Box(Modifier.fillMaxWidth(fraction.coerceIn(0f, 1f)).height(4.bd).background(Palette.background.copy(alpha = 0.45f)))
+    }
+}
+
+private val Pill = RoundedCornerShape(50)
+
+// The buttons' and pills' text (their colour comes from where they are).
+private val ButtonText = BoardStyle(15, BOLD)
+private val ButtonStrong = BoardStyle(15, EXTRA_BOLD)
+private val PillText = BoardStyle(14, BOLD)
+private val PillStrong = BoardStyle(14, EXTRA_BOLD)

@@ -3,26 +3,20 @@ package com.biskyt.myplexplayer.core.plex
 import java.util.Locale
 
 /**
- * What a film's or episode's file is, from its details: the badges shown while it has focus ([resolution], [hdr],
- * [audio]: "4K", "Dolby Vision", "Dolby Atmos 7.1") and the File info lines. Unknown parts are null.
+ * What a film's or episode's file is, from its details: the [badges] shown while it has focus ("4K", "Dolby Vision",
+ * "Dolby Atmos 7.1") and the facts that Technical info lists. Unknown parts are null.
  */
 data class PlexMediaInfo(
-    val resolution: String?,
-    val hdr: String?,
-    val audio: String?,
-    /** "3840 × 2160 · HEVC · Dolby Vision 8 · 23.976 fps". */
-    val picture: String?,
-    /** The main soundtrack as the server names it ("English (TRUEHD 7.1)"), and how many others there are. */
-    val sound: String?,
-    val otherSoundtracks: Int,
-    /** Subtitle languages (or names), and whether each is forced. */
-    val subtitles: List<Pair<String, Boolean>>,
+    val badges: List<String>,
+    val video: PlexVideoTrack?,
+    /** Every soundtrack, in the file's order. */
+    val audioTracks: List<PlexAudioTrack>,
+    /** Every subtitle track, in the file's order. */
+    val subtitleTracks: List<PlexSubtitleTrack>,
     val sizeBytes: Long?,
     val bitrateKbps: Int?,
     val container: String?,
 ) {
-    val badges: List<String> get() = listOfNotNull(resolution, hdr, audio)
-
     companion object {
         private const val VIDEO = 1
         private const val AUDIO = 2
@@ -32,21 +26,41 @@ data class PlexMediaInfo(
             val media = item.media.firstOrNull() ?: return null
             val part = media.parts.firstOrNull()
             val streams = part?.streams.orEmpty()
-            val video = streams.firstOrNull { it.streamType == VIDEO }
-            val audios = streams.filter { it.streamType == AUDIO }
-            val audio = audios.firstOrNull()
             return PlexMediaInfo(
-                resolution = resolution(media.videoResolution),
-                hdr = video?.let(::hdr),
-                audio = audioBadge(audio?.codec ?: media.audioCodec, audio?.channels ?: media.audioChannels, audio?.let(::isAtmos) == true),
-                picture = video?.let(::picture),
-                sound = audio?.displayTitle,
-                otherSoundtracks = (audios.size - 1).coerceAtLeast(0),
-                subtitles = streams.filter { it.streamType == SUBTITLES }
-                    .mapNotNull { s -> (s.language ?: s.displayTitle)?.let { it to s.forced } }.distinct(),
+                badges = badges(media, streams),
+                video = streams.firstOrNull { it.streamType == VIDEO }?.let(::videoTrack),
+                audioTracks = streams.filter { it.streamType == AUDIO }.map { a ->
+                    PlexAudioTrack(a.language ?: a.title, soundName(a.codec, isAtmos(a)), a.channels?.let(::layout), a.bitrate)
+                },
+                subtitleTracks = streams.filter { it.streamType == SUBTITLES }.map { s ->
+                    PlexSubtitleTrack(s.language ?: s.title ?: s.displayTitle, s.codec?.uppercase(Locale.ROOT), s.forced)
+                },
                 sizeBytes = part?.size,
                 bitrateKbps = media.bitrate,
-                container = (part?.container ?: media.container)?.uppercase(Locale.ROOT),
+                container = containerOf(item),
+            )
+        }
+
+        /** Only [item]'s badges ("4K", "HDR10", "Dolby Digital+ 5.1"), as an episode's row needs them. */
+        fun badgesOf(item: PlexItem): List<String> {
+            val media = item.media.firstOrNull() ?: return emptyList()
+            return badges(media, media.parts.firstOrNull()?.streams.orEmpty())
+        }
+
+        /** Only [item]'s container ("MKV"), as Playback info names it. */
+        fun containerOf(item: PlexItem): String? {
+            val media = item.media.firstOrNull() ?: return null
+            return (media.parts.firstOrNull()?.container ?: media.container)?.uppercase(Locale.ROOT)
+        }
+
+        private fun badges(media: PlexMedia, streams: List<PlexStreamInfo>): List<String> {
+            val video = streams.firstOrNull { it.streamType == VIDEO }
+            val audio = streams.firstOrNull { it.streamType == AUDIO }
+            val sound = if (audio?.let(::isAtmos) == true) "Dolby Atmos" else codecName(audio?.codec ?: media.audioCodec)
+            return listOfNotNull(
+                resolution(media.videoResolution),
+                video?.let { if (it.doviPresent) "Dolby Vision" else baseRange(it) },
+                sound?.let { listOfNotNull(it, (audio?.channels ?: media.audioChannels)?.let(::layout)).joinToString(" ") },
             )
         }
 
@@ -58,25 +72,25 @@ data class PlexMediaInfo(
             else -> if (v.all(Char::isDigit)) "${v}p" else value
         }
 
-        private fun hdr(video: PlexStreamInfo): String? {
-            val named = listOfNotNull(video.displayTitle, video.extendedDisplayTitle).joinToString(" ")
-            return when {
-                video.doviPresent -> "Dolby Vision"
-                named.contains("HDR10+", ignoreCase = true) -> "HDR10+"
-                video.colorTrc == "smpte2084" -> "HDR10"
-                video.colorTrc == "arib-std-b67" -> "HLG"
-                else -> null
-            }
+        /** The high dynamic range the picture's base layer has ("HDR10+", "HDR10", "HLG"), if any. */
+        private fun baseRange(video: PlexStreamInfo): String? = when {
+            listOfNotNull(video.displayTitle, video.extendedDisplayTitle).any { it.contains("HDR10+", ignoreCase = true) } -> "HDR10+"
+            video.colorTrc == "smpte2084" -> "HDR10"
+            video.colorTrc == "arib-std-b67" -> "HLG"
+            else -> null
         }
 
         private fun isAtmos(audio: PlexStreamInfo) =
             listOfNotNull(audio.displayTitle, audio.extendedDisplayTitle, audio.title).any { it.contains("Atmos", ignoreCase = true) }
 
-        private fun audioBadge(codec: String?, channels: Int?, atmos: Boolean): String? {
-            val name = if (atmos) "Dolby Atmos" else codecName(codec) ?: return null
-            return listOfNotNull(name, channels?.let(::layout)).joinToString(" ")
-        }
+        /**
+         * A soundtrack's format, by the same names as its badge ([codecName]): Atmos is added to its codec's name
+         * ("TrueHD Atmos"), where the badge says only "Dolby Atmos".
+         */
+        private fun soundName(codec: String?, atmos: Boolean): String? =
+            codecName(codec)?.let { if (atmos) "$it Atmos" else it } ?: if (atmos) "Dolby Atmos" else null
 
+        /** The one table of sound codecs' names, for the badges and Technical info alike. */
         private fun codecName(codec: String?): String? = when (codec?.lowercase(Locale.ROOT)) {
             null, "" -> null
             "truehd" -> "TrueHD"
@@ -90,11 +104,55 @@ data class PlexMediaInfo(
         /** "7.1", "5.1"; nothing for stereo or mono (words the app would have to translate, and the usual case). */
         private fun layout(channels: Int): String? = if (channels > 2) "${channels - 1}.1" else null
 
-        private fun picture(video: PlexStreamInfo): String? = listOfNotNull(
-            if (video.width != null && video.height != null) "${video.width} × ${video.height}" else null,
-            video.codec?.uppercase(Locale.ROOT)?.replace("H264", "H.264"),
-            hdr(video)?.let { name -> video.doviProfile?.takeIf { video.doviPresent }?.let { "$name $it" } ?: name },
-            video.frameRate?.let { "%s fps".format(Locale.ROOT, it.toBigDecimal().stripTrailingZeros().toPlainString()) },
-        ).takeIf { it.isNotEmpty() }?.joinToString(" · ")
+        private fun videoTrack(v: PlexStreamInfo) = PlexVideoTrack(
+            codec = listOfNotNull(v.codec?.let(::videoCodecName), v.profile?.let(::profileName)).joinToString(" ").ifEmpty { null },
+            width = v.width,
+            height = v.height,
+            frameRate = v.frameRate,
+            dynamicRange = dynamicRange(v),
+        )
+
+        /** The usual name of a video codec, as the player's Playback info writes it ("HEVC", "AVC"). */
+        private fun videoCodecName(codec: String): String = when (codec.lowercase(Locale.ROOT)) {
+            "h264" -> "AVC"
+            "h265" -> "HEVC"
+            "mpeg2video" -> "MPEG-2"
+            else -> codec.uppercase(Locale.ROOT)
+        }
+
+        /** "main 10" as "Main 10". */
+        private fun profileName(profile: String): String =
+            profile.split(' ').filter { it.isNotEmpty() }.joinToString(" ") { w -> w.replaceFirstChar { it.titlecase(Locale.ROOT) } }
+
+        /**
+         * Each high dynamic range the picture has: Dolby Vision with its profile ("Dolby Vision 8.1"), then what its
+         * base layer is ("HDR10"), or the one alone.
+         */
+        private fun dynamicRange(v: PlexStreamInfo): List<String> {
+            if (!v.doviPresent) return listOfNotNull(baseRange(v))
+            val profile = v.doviProfile?.let { p -> " $p" + (v.doviCompatId?.takeIf { it > 0 }?.let { ".$it" } ?: "") }.orEmpty()
+            return listOfNotNull("Dolby Vision$profile", baseRange(v))
+        }
     }
 }
+
+/**
+ * A file's picture: [codec] with its profile ("HEVC Main 10"), its size and frame rate, and each [dynamicRange] it has
+ * ("Dolby Vision 8.1", "HDR10").
+ */
+data class PlexVideoTrack(
+    val codec: String?,
+    val width: Int?,
+    val height: Int?,
+    val frameRate: Double?,
+    val dynamicRange: List<String>,
+)
+
+/**
+ * A soundtrack: its [language] as the server names it ("English"), its [format] by the badges' names ("TrueHD Atmos"),
+ * its [layout] ("7.1"; null for stereo or mono), and its [bitrateKbps].
+ */
+data class PlexAudioTrack(val language: String?, val format: String?, val layout: String?, val bitrateKbps: Int?)
+
+/** A subtitle track: its [language] ("English"), its [format] ("SRT", "PGS") and whether it is [forced]. */
+data class PlexSubtitleTrack(val language: String?, val format: String?, val forced: Boolean)

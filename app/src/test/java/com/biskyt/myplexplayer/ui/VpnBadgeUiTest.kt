@@ -15,6 +15,7 @@ import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
+import com.biskyt.myplexplayer.testutil.idleFrames
 import com.biskyt.myplexplayer.testutil.settle
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
@@ -116,6 +117,9 @@ class VpnBadgeUiTest {
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Warn if VPN is not connected"))
         assertFalse(shown("Show your external IP address"))
         compose.onNode(hasText("Warn if VPN is not connected") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        // The row comes only once the setting is saved and back on the screen: the save is not done on the click.
+        compose.waitAdvancingClock { runBlocking { app.container.settings.current().warnVpn } }
+        compose.idleFrames()
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Show your external IP address"))
         assertFalse(runBlocking { app.container.settings.current().showExternalIp })
         compose.onNode(hasText("Show your external IP address") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)

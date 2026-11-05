@@ -33,6 +33,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   1.8.15 (`c8933a5`, Xtream category languages) doesn't apply. The plain-english skill (`7de1099`) is copied as it
   is. 1.8.7 (`fc738a8`) and 1.8.8 (`9cb696c`) change the XMLTV guide's reading and channel matching, which
   MyPlexPlayer removed in 0.6.0: they don't apply.
+  - In 1.2.0: 1.13.0's film and series pages and top bar (`7d01e58`, see **Details pages**; its Xtream title
+    cleaning left out). 1.13.1's parental PIN fix (`9a36dba`) doesn't apply.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -299,9 +301,15 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
 - **Movies and TV Shows grids** (0.10.0): Category, Filter and Sort pills above the grid (no category column). The
   remote's routes off the top row are the owner's rule, tested in `GridRoutesUiTest`: up goes to the pills only from a
   poster under them, otherwise to the menu; right off the row's end goes to the pills only from a short row.
-- **Details pages** (0.10.0): picture size, HDR and sound show only for what has focus; More info holds the rest; the
-  options menu (hold OK, or Menu) is shared by a title's page and the player (`titleActions`); the cast loads its
-  photos only where shown.
+- **Details pages** (1.2.0, from the approved mockups at https://claude.ai/artifact/RruBkF5y3sz1DJ7u9Lyy8j): the shared
+  layout is MyTVPlayer 1.13.0's (`7d01e58`: `ui/theme/Board.kt` sizes in board px, `ui/vod/DetailsParts.kt`, the text
+  top bar); the Plex extras are in `ui/vod/PlexDetailsParts.kt`, `TitleInfoPanels.kt` and `ui/common/BoardPanel.kt`.
+  - Film: the scores, the age badge, "Directed by · Written by", the picture and sound labels above Resume, Restart and
+    More…, and a cast strip. More… (also hold OK, or Menu) holds watched, favourite, Cast and crew, About this film,
+    Technical info (read from Plex's metadata, named as Playback info names them), the links and Delete.
+  - Series: an episode's More… opens the options of "This episode" and "The show", as holding OK does.
+  - Keep `Board.kt`, `DetailsParts.kt` and `TopBar.kt` as MyTVPlayer has them, so ports apply; put Plex-only parts in
+    the Plex files above.
 - **Back stops playback.** There's no picture-in-picture.
 - **Text fields are built for a TV remote:**
   - Server addresses get no autocorrect or capitals.

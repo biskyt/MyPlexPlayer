@@ -6,7 +6,6 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ApplicationProvider
-import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
@@ -81,9 +80,6 @@ class TopBarScreensUiTest {
         assertEquals("the art starts at the top", 0f, art.top)
         assertTrue("the details start below the bar", title.top > bar.bottom)
     }
-
-    @Test
-    fun `more info has the top bar`() = hasTopBar(Screen.MoreInfo(playlistId, CAT_MOVIE, 11), "Big Buck Bunny")
 
     @Test
     fun `settings has the top bar`() = hasTopBar(Screen.Settings, "Playlists")

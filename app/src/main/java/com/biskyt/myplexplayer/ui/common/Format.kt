@@ -5,6 +5,7 @@ import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.data.db.ChannelProgramme
+import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import java.text.DateFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -121,3 +122,6 @@ fun <T> List<T>.cycle(current: T, step: Int = 1): T {
 
 /** "S1 E2". */
 fun shortEpisodeLabel(season: Int?, episode: Int?) = appString(R.string.player_short_episode_label, season.toString(), episode.toString())
+
+/** What is left of a film or an episode, in words: "38 min" (at least "1 min", never "0 min"). */
+fun timeLeft(p: WatchProgressEntity): String = formatRuntime((p.remainingMs / 1000).toInt().coerceAtLeast(60))

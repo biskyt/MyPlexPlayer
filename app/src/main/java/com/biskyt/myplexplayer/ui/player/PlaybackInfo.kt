@@ -32,11 +32,17 @@ fun playbackInfo(tracks: Tracks, how: String?, decoder: String?, audioOutput: St
 
 /** "3840×2160 · HEVC · Dolby Vision · 23.976 fps". */
 internal fun video(f: Format): String = listOfNotNull(
-    "${f.width}×${f.height}".takeIf { f.width > 0 && f.height > 0 },
+    pictureSize(f.width, f.height),
     codec(f),
     dynamicRange(f),
-    f.frameRate.takeIf { it > 0 }?.let { "%.3f".format(Locale.ROOT, it).trimEnd('0').trimEnd('.') + " fps" },
+    frameRate(f.frameRate),
 ).joinToString(" · ")
+
+/** "3840×2160", if both are known: here and in a film's Technical info, so the two read alike. */
+fun pictureSize(width: Int, height: Int): String? = "$width×$height".takeIf { width > 0 && height > 0 }
+
+/** "23.976 fps", "25 fps", if known: here and in a film's Technical info. */
+fun frameRate(fps: Float): String? = fps.takeIf { it > 0 }?.let { "%.3f".format(Locale.ROOT, it).trimEnd('0').trimEnd('.') + " fps" }
 
 /** "Dolby Digital Plus · 6ch · English". */
 internal fun audio(f: Format): String = listOfNotNull(

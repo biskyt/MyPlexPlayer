@@ -18,7 +18,6 @@ import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.plex.TitleLink
-import com.biskyt.myplexplayer.core.vod.VodDetails
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Navigator
@@ -99,26 +98,6 @@ fun vodActions(playlistId: Long, type: String, id: Long, favourite: Boolean?, se
         favourite?.let { f -> ItemAction.Run(favouriteLabel(f)) { setFavourite(!f) } }
     )
 
-/**
- * What a film's or show's options share wherever it's open (its page, the player): its cast ([showCast], where known),
- * More info, its links in one row, and favourites.
- */
-@Suppress("LongParameterList") // the title, what's known of it, and what its options do
-fun titleActions(
-    playlistId: Long,
-    type: String,
-    id: Long,
-    details: VodDetails?,
-    favourite: Boolean,
-    showCast: () -> Unit,
-    setFavourite: () -> Unit
-): List<ItemAction> = listOfNotNull(
-    details?.cast?.takeIf { it.isNotEmpty() }?.let { ItemAction.Run(appString(R.string.vod_cast_title), run = showCast) },
-    ItemAction.Open(appString(R.string.vod_more_info), Screen.MoreInfo(playlistId, type, id)),
-    details?.links?.takeIf { it.isNotEmpty() }?.let { ItemAction.Links(appString(R.string.vod_links), it) },
-    ItemAction.Run(favouriteLabel(favourite), run = setFavourite)
-)
-
 /** "Mark as watched", or for one [watched], "Mark as unwatched". */
 fun markWatched(watched: Boolean, setWatched: (Boolean) -> Unit) =
     ItemAction.Run(appString(if (watched) R.string.common_mark_unwatched else R.string.common_mark_watched)) { setWatched(!watched) }
@@ -141,12 +120,12 @@ fun ItemActionsPanel(title: String, actions: List<ItemAction>, onDismiss: () -> 
             Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 2, modifier = Modifier.padding(bottom = 8.dp))
             val confirm = asking
             if (confirm != null) {
-                Text(confirm.question, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(bottom = 8.dp))
-                MenuOption(stringResource(R.string.vod_delete_no), modifier = rememberFirstFocus(confirm)) { asking = null }
-                MenuOption(confirm.yes) {
-                    onDismiss()
-                    confirm.run()
-                }
+                ConfirmQuestion(
+                    confirm,
+                    onNo = { asking = null },
+                    onDismiss = onDismiss,
+                    question = { Text(it, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(bottom = 8.dp)) }
+                ) { label, modifier, _, click -> MenuOption(label, modifier = modifier, onClick = click) }
                 return@Column
             }
             val first = actions.indexOfFirst { it !is ItemAction.Heading }
@@ -162,5 +141,25 @@ fun ItemActionsPanel(title: String, actions: List<ItemAction>, onDismiss: () -> 
             }
             more?.invoke()
         }
+    }
+}
+
+/**
+ * [confirm]'s [question], then its "no" (focused, [onNo]) and its yes ([onDismiss], then it is done), each drawn by
+ * [option] (given whether it is the yes): what every options panel asks before a [ItemAction.Confirmed].
+ */
+@Composable
+fun ConfirmQuestion(
+    confirm: ItemAction.Confirmed,
+    onNo: () -> Unit,
+    onDismiss: () -> Unit,
+    question: @Composable (String) -> Unit,
+    option: @Composable (label: String, modifier: Modifier, yes: Boolean, onClick: () -> Unit) -> Unit
+) {
+    question(confirm.question)
+    option(stringResource(R.string.vod_delete_no), rememberFirstFocus(confirm), false, onNo)
+    option(confirm.yes, Modifier, true) {
+        onDismiss()
+        confirm.run()
     }
 }

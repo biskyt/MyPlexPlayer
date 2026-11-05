@@ -14,6 +14,10 @@
 
     <!-- Series page. -->
     <string name="vod_episodes_failed">Couldn\'t load the episodes</string>
+    <!-- Button. %1$s: the episode, written short, e.g. "S1 E2". -->
+    <string name="vod_continue_episode">Continue %1$s</string>
+    <!-- Button. %1$s: the episode, written short, e.g. "S1 E2". -->
+    <string name="vod_play_episode">Play %1$s</string>
     <string name="vod_loading_episodes">Loading episodes…</string>
     <string name="vod_no_episodes">No episodes are available for this series.</string>
     <!-- Next to an episode watched to the end. Short. -->
@@ -49,29 +53,20 @@
     <string name="vod_auto_delete_month">After a month</string>
     <string name="vod_auto_delete_refresh">On next refresh</string>
     <string name="vod_more_info">More info</string>
-    <string name="vod_about_film">About the film</string>
-    <string name="vod_about_show">About the show</string>
-    <string name="vod_file_info">File info</string>
     <string name="vod_links">Links</string>
     <string name="vod_original_title">Original title</string>
     <string name="vod_released">Released</string>
     <string name="vod_studio">Studio</string>
-    <string name="vod_countries">Country</string>
+    <string name="vod_countries">Countries</string>
     <string name="vod_producers">Producers</string>
-    <string name="vod_collections">Collection</string>
+    <string name="vod_collections">Collections</string>
     <string name="vod_added">Added</string>
     <string name="vod_picture">Picture</string>
-    <string name="vod_sound">Sound</string>
     <string name="vod_subtitles">Subtitles</string>
-    <string name="vod_size">Size</string>
     <string name="vod_container">Container</string>
-    <string name="vod_forced">%1$s (forced)</string>
-    <string name="vod_more_soundtracks">%1$s (+ %2$d more)</string>
     <string name="vod_cast_title">Cast</string>
     <string name="vod_directed_by">Directed by %1$s</string>
     <string name="vod_written_by">Written by %1$s</string>
-    <string name="vod_options_hint">Options (hold OK, or Menu): cast, more info and links</string>
-    <string name="vod_this_film">This film</string>
     <string name="vod_this_episode">This episode</string>
     <string name="vod_the_show">The show</string>
     <plurals name="vod_season_count">
@@ -101,4 +96,35 @@
     <string name="vod_score_rotten_tomatoes_audience">Rotten Tomatoes audience</string>
     <string name="vod_score_tmdb" translatable="false">TMDB</string>
     <string name="vod_first_shown">First shown %1$s</string>
+    <!-- Film page: the play button with progress. %1$s: the time left, e.g. "38 min". -->
+    <string name="vod_resume_left">Resume · %1$s left</string>
+    <!-- Film page: play from the start. -->
+    <string name="vod_restart">Restart</string>
+    <!-- Series page: carry on with a started episode. %1$s: the episode, e.g. "S2 E4"; %2$s: the time left, e.g. "21 min". -->
+    <string name="vod_continue_left">Continue %1$s · %2$s left</string>
+    <!-- Series page: the button that opens an episode's options. -->
+    <string name="vod_more">More…</string>
+    <!-- Film page, More…: what the panels opened from it are called, and the help line under each. -->
+    <string name="vod_cast_crew">Cast and crew</string>
+    <string name="vod_cast_crew_help">Everyone, with their photos</string>
+    <string name="vod_about_this_film">About this film</string>
+    <string name="vod_about_film_help">Original title, release, studio, collections</string>
+    <string name="vod_about_this_show">About this show</string>
+    <string name="vod_tech_info">Technical info</string>
+    <string name="vod_tech_help">File, video, audio and subtitles</string>
+    <!-- Technical info's headings and labels. -->
+    <string name="vod_tech_file">File</string>
+    <string name="vod_tech_video">Video</string>
+    <string name="vod_tech_audio">Audio</string>
+    <string name="vod_size">Size</string>
+    <string name="vod_tech_bitrate">Bitrate</string>
+    <string name="vod_tech_codec">Codec</string>
+    <string name="vod_tech_hdr" translatable="false">HDR</string>
+    <!-- After a subtitle track's format: "SRT · forced". -->
+    <string name="vod_tech_forced">forced</string>
+    <!-- A track the server gives no language. %1$d: its number. -->
+    <string name="vod_tech_track">Track %1$d</string>
+    <!-- Cast and crew: what a director and a writer did, under their names. -->
+    <string name="vod_role_director">Director</string>
+    <string name="vod_role_writer">Writer</string>
 </resources>

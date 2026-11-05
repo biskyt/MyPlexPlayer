@@ -163,7 +163,7 @@ class DeleteUiTest {
         show(Screen.Movies())
         compose.waitForText("Big Buck Bunny", stepMs = 50)
         click("Big Buck Bunny")
-        compose.waitForText("More info", stepMs = 50)
+        compose.waitForText("More…", stepMs = 50)
         compose.onAllNodes(hasText("Play") and hasClickAction())[0].performSemanticsAction(SemanticsActions.OnLongClick)
         compose.waitForText("Delete…", stepMs = 50)
         click("Delete…")
@@ -179,7 +179,7 @@ class DeleteUiTest {
         compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
         compose.waitForText("Big Buck Bunny", stepMs = 50)
         click("Big Buck Bunny")
-        compose.waitForText("More info", stepMs = 50)
+        compose.waitForText("More…", stepMs = 50)
         compose.runOnIdle { navigator.pop() }
         compose.waitAdvancingClock(stepMs = 50) { "Big Buck Bunny" in compose.focusedText() }
         // Gone once the remote is back on it, as when the grid catches up with a delete made on the film's page.
