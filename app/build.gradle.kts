@@ -13,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "com.biskyt.myplexplayer"
-        minSdk = 28
+        minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = 36
         versionCode = 57
         versionName = "1.1.0"
