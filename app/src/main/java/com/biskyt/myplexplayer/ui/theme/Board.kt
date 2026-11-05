@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.sp
 /**
  * Sizes copied from the design boards (the film and series pages, the top bar). A board is 960 x 540: a 1080p TV in
  * dp. The app lays out on a canvas 1280 wide (see MyPlexTheme), so each board size is 4/3 of its value here. The boards'
- * sizes are used as they are, so that the screens match them exactly.
+ * sizes are used as they are, so that the screens match them exactly, except text (see [BoardStyle]).
  */
 private const val BOARD = 1280f / 960f
 
@@ -43,12 +43,14 @@ internal fun boardText(
 )
 
 /**
- * A board's text style, in the text colour (give another colour on the Text), and a step larger when Settings › large
- * text is on: the boards' sizes are for normal text. Both are made once. [letterSpacing] is in em, as the boards give it.
+ * A board's text style, in the text colour (give another colour on the Text). Normal text is a step smaller than the
+ * board's size, and Settings › large text is the board's size: on a TV, the boards' sizes looked like large text, and
+ * a step larger again was far too large (the owner, 2026-11-05). Both are made once. [letterSpacing] is in em, as the
+ * boards give it.
  */
 class BoardStyle(size: Int, weight: Int, lineHeight: Float? = null, letterSpacing: TextUnit = TextUnit.Unspecified) {
-    private val normal = boardText(size, weight, lineHeight, letterSpacing = letterSpacing)
-    private val large = boardText(size, weight, lineHeight, LARGE_TEXT, letterSpacing)
+    private val normal = boardText(size, weight, lineHeight, 1f / LARGE_TEXT, letterSpacing)
+    private val large = boardText(size, weight, lineHeight, letterSpacing = letterSpacing)
 
     val current: TextStyle @Composable get() = if (LocalLargeText.current) large else normal
 }
@@ -65,10 +67,15 @@ private const val NUNITO_LINE = 1.364f
 /**
  * Text set at a board's [lineHeight] below Nunito's own (a title's 1.1): CSS makes the line that much shorter, with the
  * glyphs centred, and Compose keeps the font's height. This takes the difference off its first and last lines, so the
- * text sits where the board has it. [size] is the board's font size.
+ * text sits where the board has it. [size] is the board's font size, drawn as [BoardStyle] draws it (a step smaller
+ * without large text).
  */
-fun Modifier.boardLineBox(size: Int, lineHeight: Float): Modifier = layout { measurable, constraints ->
-    val trim = ((NUNITO_LINE - lineHeight) / 2 * size).bd.roundToPx().coerceAtLeast(0)
-    val p = measurable.measure(constraints)
-    layout(p.width, (p.height - 2 * trim).coerceAtLeast(0)) { p.place(0, -trim) }
+@Composable
+fun Modifier.boardLineBox(size: Int, lineHeight: Float): Modifier {
+    val drawn = if (LocalLargeText.current) size.toFloat() else size / LARGE_TEXT
+    return layout { measurable, constraints ->
+        val trim = ((NUNITO_LINE - lineHeight) / 2 * drawn).bd.roundToPx().coerceAtLeast(0)
+        val p = measurable.measure(constraints)
+        layout(p.width, (p.height - 2 * trim).coerceAtLeast(0)) { p.place(0, -trim) }
+    }
 }

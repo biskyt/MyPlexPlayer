@@ -20,6 +20,7 @@ import com.biskyt.myplexplayer.testutil.idleFrames
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForFilmPage
 import com.biskyt.myplexplayer.testutil.waitForText
+import com.biskyt.myplexplayer.ui.common.initials
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -66,7 +67,16 @@ class DetailPagesScreenshotTest {
     private fun filmPage(title: String = "The Long Harbour") {
         start({ Screen.MovieDetails(it, BoardTitles.FILM.toLong()) }, film = title)
         compose.waitForFilmPage()
+        waitForPictures(listOf(title, "Tom Hale", "Ines Moreau", "Kofi Mensah", "Ruth Lane", "Joe Park", "Ana Ruiz"))
         compose.idleFrames()
+    }
+
+    /**
+     * Pictures load in the background: waits until each of [names]' pictures (a poster, a cast photo) no longer shows
+     * its initials, so the screenshot has it (as MyTVPlayer's test waits for its poster).
+     */
+    private fun waitForPictures(names: List<String>) = compose.waitAdvancingClock(stepMs = 50) {
+        names.all { compose.onAllNodes(hasText(initials(it))).fetchSemanticsNodes().isEmpty() }
     }
 
     /** The whole screen: the panel's window over the page's. */
@@ -123,6 +133,7 @@ class DetailPagesScreenshotTest {
         compose.onNode(hasText(episode, substring = true) and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
         compose.waitForText("More…", stepMs = 50)
         compose.waitForText("54 min · 21 min left · First shown 14 Mar 2023", stepMs = 50)
+        waitForPictures(listOf(show))
         compose.idleFrames()
     }
 
