@@ -24,9 +24,9 @@ import com.biskyt.myplexplayer.data.airDateOf
 import com.biskyt.myplexplayer.ui.common.BoardFact
 import com.biskyt.myplexplayer.ui.common.BoardFactsHeading
 import com.biskyt.myplexplayer.ui.common.BoardPanel
+import com.biskyt.myplexplayer.ui.common.BoardPanelSubtitle
 import com.biskyt.myplexplayer.ui.common.BoardPanelTitle
 import com.biskyt.myplexplayer.ui.common.ErrorRetry
-import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.formatDate
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.player.frameRate
@@ -108,7 +108,7 @@ private fun ColumnScope.Loaded(
     }
     val r = result
     if (r == null) {
-        Muted(stringResource(R.string.common_loading))
+        BoardPanelSubtitle(stringResource(R.string.common_loading))
         return
     }
     r.onSuccess { content(it) }

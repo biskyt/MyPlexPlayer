@@ -115,6 +115,7 @@ fun MyPlexTheme(accentArgb: Int = AccentPalette.DEFAULT, largeText: Boolean = fa
         )
     }
     val type = remember(largeText) { typography(largeText) }
+    val onAccentType = remember(type, accent.onAccent) { type.inColor(accent.onAccent) }
     // Layouts are designed on a 1280-unit-wide canvas (like the mockups). TVs report ~960 dp (1080p at xhdpi, 720p at
     // tvdpi), so scale density to make 1280 units span the screen: identical look on every TV, no per-size layouts.
     val density = LocalDensity.current
@@ -128,8 +129,31 @@ fun MyPlexTheme(accentArgb: Int = AccentPalette.DEFAULT, largeText: Boolean = fa
         LocalAccent provides accent,
         LocalDensity provides scaled,
         LocalTouch provides touch,
-        LocalLargeText provides largeText
+        LocalLargeText provides largeText,
+        LocalOnAccentTypography provides onAccentType
     ) {
         MaterialTheme(colorScheme = colors, typography = type, content = content)
     }
 }
+
+/** The theme's text styles in the accent's text colour, for text on the accent fill (see FilledCardText): made once. */
+val LocalOnAccentTypography = staticCompositionLocalOf { Typography() }
+
+/** These styles in [color]. */
+private fun Typography.inColor(color: Color) = copy(
+    displayLarge = displayLarge.copy(color = color),
+    displayMedium = displayMedium.copy(color = color),
+    displaySmall = displaySmall.copy(color = color),
+    headlineLarge = headlineLarge.copy(color = color),
+    headlineMedium = headlineMedium.copy(color = color),
+    headlineSmall = headlineSmall.copy(color = color),
+    titleLarge = titleLarge.copy(color = color),
+    titleMedium = titleMedium.copy(color = color),
+    titleSmall = titleSmall.copy(color = color),
+    bodyLarge = bodyLarge.copy(color = color),
+    bodyMedium = bodyMedium.copy(color = color),
+    bodySmall = bodySmall.copy(color = color),
+    labelLarge = labelLarge.copy(color = color),
+    labelMedium = labelMedium.copy(color = color),
+    labelSmall = labelSmall.copy(color = color)
+)

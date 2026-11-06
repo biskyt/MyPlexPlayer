@@ -19,8 +19,9 @@ data class VodDetails(
     /** Review scores by source, in the order shown. */
     val scores: List<Score> = emptyList(),
     val genres: List<String> = emptyList(),
-    val directors: List<String> = emptyList(),
-    val writers: List<String> = emptyList(),
+    /** Who directed and wrote it, with no [CastMember.role] (the app names their job). */
+    val directors: List<CastMember> = emptyList(),
+    val writers: List<CastMember> = emptyList(),
     val producers: List<String> = emptyList(),
     val countries: List<String> = emptyList(),
     val collections: List<String> = emptyList(),
@@ -36,8 +37,11 @@ data class VodDetails(
     val media: PlexMediaInfo? = null,
 )
 
-/** An actor and the part played; [photoUrl] is loaded only where the cast is shown. */
-data class CastMember(val name: String, val role: String?, val photoUrl: String?)
+/**
+ * An actor and the part played, or someone of the crew. [photoUrl] is loaded only where the cast is shown. [id] is the
+ * person's id on the server and [tagKey] on Plex's Discover service: their page needs [id]. If [id] is null, the page does not open.
+ */
+data class CastMember(val name: String, val role: String?, val photoUrl: String?, val id: Long? = null, val tagKey: String? = null)
 
 /** A season; [name] is the server's, null when it gives none (the app then names it by [number]). */
 data class SeasonInfo(val number: Int, val name: String?, val year: Int? = null, val posterUrl: String? = null)

@@ -200,11 +200,13 @@ class DetailPanelsUiTest {
     }
 
     @Test
-    fun `the cast row shows each one's name and part, and OK on one opens Cast and crew`() {
+    fun `the cast row shows each one's name and part, and More…'s Cast and crew lists them all`() {
         filmPage()
         listOf("Tom Hale", "Elias", "Ines Moreau", "Marta").forEach { assertTrue(it, shown(it)) }
-        compose.click("Tom Hale")
+        // OK on one opens their page (PersonPageUiTest); Cast and crew is in More….
+        compose.click("More…")
         compose.waitForText("Cast and crew", stepMs = 50)
+        compose.click("Cast and crew")
         // Who directed and wrote it, after the cast.
         compose.waitForText("Paul Okafor", stepMs = 50)
         assertTrue(shown("Writer"))

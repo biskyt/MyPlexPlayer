@@ -59,6 +59,7 @@ import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
+import com.biskyt.myplexplayer.core.vod.CastMember
 import com.biskyt.myplexplayer.core.vod.EpisodeInfo
 import com.biskyt.myplexplayer.core.vod.SeriesDetails
 import com.biskyt.myplexplayer.data.VodRepository
@@ -79,6 +80,7 @@ import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.Poster
 import com.biskyt.myplexplayer.ui.common.ProgressLine
+import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.Thumbnail
 import com.biskyt.myplexplayer.ui.common.TvCard
 import com.biskyt.myplexplayer.ui.common.formatDate
@@ -129,6 +131,15 @@ class SeriesDetailsViewModel(
 
     /** What is open over the page: an episode's options (its More… button, holding OK, or Menu), or a panel from them. */
     var open by mutableStateOf<SeriesPanel?>(null)
+
+    /** Who has the remote in Cast and crew: back from their page, the panel opens on them again. */
+    var castFocus = 0
+
+    /** Cast and crew, on its first person. */
+    fun showCast() {
+        castFocus = 0
+        open = SeriesPanel.Cast
+    }
 
     /** An episode to give the remote to as the page opens (one asked for from the TV guide), until it has. */
     var focusEpisodePending = true
@@ -269,7 +280,11 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
             }
         }
     }
-    SeriesPanels(vm, show.title, progress, play)
+    SeriesPanels(vm, show.title, progress, play) { i, person ->
+        vm.castFocus = i
+        val acting = i < d?.info?.cast.orEmpty().size
+        personScreen(screen.playlistId, person, show.title, Tab.SERIES, acting)?.let(nav::push)
+    }
 }
 
 /** What is open over the series page ([SeriesDetailsViewModel.open]): its own composable, so the page does not recompose with it. */
@@ -278,14 +293,18 @@ private fun SeriesPanels(
     vm: SeriesDetailsViewModel,
     title: String,
     progress: Map<Long, WatchProgressEntity>,
-    play: (EpisodeInfo, Boolean) -> Unit
+    play: (EpisodeInfo, Boolean) -> Unit,
+    openPerson: (Int, CastMember) -> Unit
 ) {
     val d = vm.details
     val close = { vm.open = null }
     when (val p = vm.open) {
         null -> Unit
         is SeriesPanel.Options -> EpisodeOptions(vm, title, d, p.e, progress[p.e.id], play)
-        SeriesPanel.Cast -> CastPanel(title, remember(d) { castAndCrew(d?.info) }, stringResource(R.string.vod_cast_crew), close)
+        SeriesPanel.Cast -> {
+            val crew = remember(d) { castAndCrew(d?.info) }
+            CastPanel(title, crew, stringResource(R.string.vod_cast_crew), vm.castFocus, { openPerson(it, crew[it]) }, close)
+        }
         SeriesPanel.About -> AboutPanel(film = false, d?.info, close)
         is SeriesPanel.Describe -> EpisodeDescriptionPanel(DescribedEpisode(title, p.e), close)
     }
@@ -488,14 +507,14 @@ private fun EpisodeOptions(
         if (canDelete) deleteAction(episodeName(e)) { vm.delete(e) } else null,
     )
     val showActions = listOf(ItemAction.Heading(appString(R.string.vod_the_show))) +
-        titleActions(d?.info, showCast = { vm.open = SeriesPanel.Cast }, showAbout = { vm.open = SeriesPanel.About }) +
+        titleActions(d?.info, showCast = vm::showCast, showAbout = { vm.open = SeriesPanel.About }) +
         listOfNotNull(
             favouriteAction(favourite) { vm.toggleFavourite() },
             vm.autoDelete?.action(),
             if (canDelete) deleteSeriesAction(title, d?.episodes?.size) { vm.deleteSeries() } else null
         )
     val name = "${shortEpisodeLabel(e.season, e.number)} ${episodeName(e)}"
-    BoardActionsPanel("$title · $name", null, episode + showActions, close)
+    BoardActionsPanel("$title · $name", null, episode + showActions, close, smallTitle = true)
 }
 
 /**

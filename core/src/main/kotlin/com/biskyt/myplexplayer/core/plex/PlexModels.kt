@@ -58,9 +58,20 @@ internal class PlexRootResponse(@SerialName("MediaContainer") val container: Ple
 @Serializable
 internal class PlexRoot(val allowMediaDeletion: Boolean = false)
 
-/** A genre, person, country or collection; for the cast, [role] is the part played and [thumb] a photo. */
+/**
+ * A genre, person, country or collection; for the cast, [role] is the part played and [thumb] a photo. A person (cast,
+ * director or writer) also has [id], their id on this server (for [PlexClient.personMedia]), and [tagKey], their id on
+ * Plex's Discover service (for [PlexAccount.person]): docs/plex-api.md 29.
+ */
 @Serializable
-data class PlexTag(val tag: String = "", val role: String? = null, val thumb: String? = null)
+data class PlexTag(
+    val tag: String = "",
+    val role: String? = null,
+    val thumb: String? = null,
+    /** A number, but read as text first: a tag with an id of another form keeps its other fields, with no id. */
+    @Serializable(with = PlexIdNumber::class) val id: Long? = null,
+    val tagKey: String? = null,
+)
 
 @Serializable
 data class PlexGuid(val id: String = "")
@@ -83,6 +94,8 @@ internal class PlexHub(
 data class PlexItem(
     val ratingKey: String,
     val key: String = "",
+    /** Plex's own id for the title ("plex://movie/5d776…"), the same on every server. */
+    val guid: String? = null,
     val type: String = "",
     val title: String = "",
     val summary: String = "",
@@ -92,6 +105,8 @@ data class PlexItem(
     val parentRatingKey: String? = null,
     val parentTitle: String? = null,
     val grandparentRatingKey: String? = null,
+    /** An episode's show's [guid]. */
+    val grandparentGuid: String? = null,
     val grandparentTitle: String? = null,
     val thumb: String? = null,
     val art: String? = null,

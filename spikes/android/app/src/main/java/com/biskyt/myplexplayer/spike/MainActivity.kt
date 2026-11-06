@@ -135,7 +135,8 @@ class MainActivity : Activity() {
         column.addView(
             text(
                 "Test cast and similar titles: reads a show's cast, a cast member's biography and other films and " +
-                    "shows, and similar titles, from your server and from Plex (about a minute; only reads).",
+                    "shows, and similar titles, from your server and from Plex, then the parts of a cast member's page " +
+                    "(about two minutes; only reads).",
                 15f
             )
         )

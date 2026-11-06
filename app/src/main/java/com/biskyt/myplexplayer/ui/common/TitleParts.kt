@@ -1,15 +1,13 @@
 package com.biskyt.myplexplayer.ui.common
 
-import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,48 +20,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.Border
-import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.core.plex.TitleLink
 import com.biskyt.myplexplayer.core.vod.CastMember
-import com.biskyt.myplexplayer.ui.theme.Palette
-import com.biskyt.myplexplayer.ui.vod.SourceLogo
-import com.biskyt.myplexplayer.ui.vod.linkLogo
-
-/** A small heading over a group of options or details ("This episode", "File info"). */
-@Composable
-fun SectionLabel(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text.uppercase(),
-        style = MaterialTheme.typography.labelMedium,
-        color = Palette.textDim,
-        modifier = modifier.padding(top = 10.dp)
-    )
-}
-
-/**
- * [links] side by side after [label]: each opens its page here, or, where this device can't (no browser), shows it as a
- * QR code to open on a phone. [modifier] (e.g. first focus) goes on the first; [inset] lines the row up with menu options.
- */
-@Composable
-fun LinksRow(label: String?, links: List<TitleLink>, modifier: Modifier = Modifier, inset: Dp = 0.dp) {
-    val open = rememberLinkOpener()
-    Row(
-        Modifier.padding(horizontal = inset),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        label?.let { Text(it, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f)) }
-        links.forEachIndexed { i, link ->
-            val first = if (i == 0) modifier else Modifier
-            linkLogo(link.name)?.let { LogoPill(it, link.name, { open(link) }, first) } ?: PillButton(link.name, { open(link) }, first)
-        }
-    }
-}
+import com.biskyt.myplexplayer.ui.theme.bd
 
 /**
  * Opens a title's link here, or, where this device can't (no browser), shows it as a QR code to open on a phone: what
@@ -75,21 +37,6 @@ fun rememberLinkOpener(): (TitleLink) -> Unit {
     var shown by remember { mutableStateOf<TitleLink?>(null) }
     shown?.let { LinkPanel(it.name, it.url) { shown = null } }
     return remember(context) { { link -> if (openLink(context, link.url) != null) shown = link } }
-}
-
-/** A pill showing a site's [logo] (named [name] for screen readers) in place of its name, as [PillButton] otherwise. */
-@Composable
-private fun LogoPill(@DrawableRes logo: Int, name: String, onClick: () -> Unit, modifier: Modifier) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier.onTap(onClick = onClick),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-        colors = ClickableSurfaceDefaults.colors(containerColor = Palette.surfaceHigh, focusedContainerColor = Palette.surfaceHigh),
-        border = ClickableSurfaceDefaults.border(focusedBorder = Border(FocusStroke))
-    ) {
-        SourceLogo(logo, name, Modifier.padding(horizontal = 20.dp, vertical = 10.dp))
-    }
 }
 
 /** One of the cast: photo (loaded only when shown), name and part. */
@@ -106,21 +53,30 @@ fun CastPerson(person: CastMember, photo: Dp, modifier: Modifier = Modifier) {
 
 /**
  * The cast in a side panel: from a page's options, or over the player (which goes on behind it). [heading] is "Cast",
- * or "Cast and crew" where [cast] also lists who directed and wrote it.
+ * or "Cast and crew" where [cast] also lists who directed and wrote it. OK on someone the server gave an id to opens
+ * their page ([open], with their place in [cast]). [focus] is the place that has the remote as the panel opens (back
+ * from that page, the same person).
  */
 @Composable
-fun CastPanel(title: String, cast: List<CastMember>, heading: String = stringResource(R.string.vod_cast_title), onDismiss: () -> Unit) {
-    SidePanel(onDismiss, dim = false) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Muted(title)
-            Text(heading, style = MaterialTheme.typography.titleLarge)
-            if (cast.isEmpty()) Muted(stringResource(R.string.vod_no_cast))
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                itemsIndexed(cast) { i, person ->
-                    val focus = if (i == 0) rememberFirstFocus() else Modifier
-                    TvCard(onClick = {}, color = Palette.surface, modifier = focus.fillMaxWidth()) {
-                        CastPerson(person, 48.dp, Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
-                    }
+fun CastPanel(
+    title: String,
+    cast: List<CastMember>,
+    heading: String = stringResource(R.string.vod_cast_title),
+    focus: Int = 0,
+    open: (Int) -> Unit = {},
+    onDismiss: () -> Unit
+) {
+    // The cast is a list of its own, which does not go in a scrolling column.
+    BoardPanel(onDismiss, dim = false, scroll = false) {
+        BoardPanelSubtitle(title)
+        BoardPanelTitle(heading, Modifier.padding(bottom = 6.bd))
+        if (cast.isEmpty()) BoardPanelSubtitle(stringResource(R.string.vod_no_cast))
+        val first = focus.coerceIn(0, (cast.size - 1).coerceAtLeast(0))
+        LazyColumn(state = rememberLazyListState(first), verticalArrangement = Arrangement.spacedBy(BoardPanelGap)) {
+            itemsIndexed(cast) { i, person ->
+                val modifier = if (i == first) rememberFirstFocus() else Modifier
+                BoardRow({ if (person.id != null) open(i) }, modifier) {
+                    CastPerson(person, 48.dp, Modifier.padding(horizontal = 10.bd, vertical = 6.bd))
                 }
             }
         }

@@ -8,7 +8,7 @@ import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.container
 import com.biskyt.myplexplayer.data.Recordings
 import com.biskyt.myplexplayer.data.db.ChannelProgramme
-import com.biskyt.myplexplayer.ui.common.MenuOption
+import com.biskyt.myplexplayer.ui.common.BoardOption
 import com.biskyt.myplexplayer.ui.common.rememberRecordings
 
 /** [programme]'s recording options: see the other RecordOptions. */
@@ -34,18 +34,18 @@ fun RecordOptions(playlistId: Long, guid: String?, showGuid: String?, startMs: L
     val airing = state.airing(guid, startMs)
     val series = state.seriesRule(showGuid)
     if (airing == null) {
-        MenuOption(stringResource(R.string.dvr_record), stringResource(R.string.dvr_record_help)) {
+        BoardOption(stringResource(R.string.dvr_record), stringResource(R.string.dvr_record_help)) {
             act { record(playlistId, guid, series = false) }
         }
         if (showGuid != null && series == null) {
-            MenuOption(stringResource(R.string.dvr_record_series), stringResource(R.string.dvr_record_series_help)) {
+            BoardOption(stringResource(R.string.dvr_record_series), stringResource(R.string.dvr_record_series_help)) {
                 act { record(playlistId, guid, series = true) }
             }
         }
     } else {
-        MenuOption(stringResource(R.string.dvr_cancel)) { act { cancel(playlistId, airing, state.ruleOf(airing)) } }
+        BoardOption(stringResource(R.string.dvr_cancel)) { act { cancel(playlistId, airing, state.ruleOf(airing)) } }
     }
     if (series != null) {
-        MenuOption(stringResource(R.string.dvr_stop_series)) { act { remove(playlistId, series) } }
+        BoardOption(stringResource(R.string.dvr_stop_series)) { act { remove(playlistId, series) } }
     }
 }

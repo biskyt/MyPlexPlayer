@@ -1,0 +1,72 @@
+{
+  "MediaContainer": {
+    "size": 2,
+    "identifier": "com.plexapp.plugins.library",
+    "mediaTagPrefix": "/system/bundle/media/flags/",
+    "Metadata": [
+      {
+        "ratingKey": "301",
+        "key": "/library/metadata/301/children",
+        "skipChildren": true,
+        "guid": "plex://show/60000000000000000000a001",
+        "type": "show",
+        "title": "The Harbour",
+        "librarySectionTitle": "TV Programmes",
+        "librarySectionID": 2,
+        "year": 2023,
+        "thumb": "/library/metadata/301/thumb/1",
+        "childCount": 1,
+        "leafCount": 6,
+        "Role": [
+          {
+            "id": 4101,
+            "filter": "actor=4101",
+            "tag": "Mira Kell",
+            "tagKey": "5e0000000000000000000a01",
+            "role": "Mara",
+            "thumb": "https://metadata-static.plex.tv/a/people/person-a01.jpg"
+          },
+          {
+            "id": 4102,
+            "filter": "actor=4102",
+            "tag": "June Okafor",
+            "tagKey": "5e0000000000000000000a02",
+            "role": "DI Hale"
+          }
+        ]
+      },
+      {
+        "ratingKey": "302",
+        "key": "/library/metadata/302",
+        "guid": "plex://movie/60000000000000000000a002",
+        "type": "movie",
+        "title": "North Light",
+        "librarySectionTitle": "Films",
+        "librarySectionID": 1,
+        "year": 2019,
+        "thumb": "/library/metadata/302/thumb/1",
+        "Director": [
+          {
+            "id": 4201,
+            "filter": "director=4201",
+            "tag": "Rui Lopes",
+            "tagKey": "5e0000000000000000000c03"
+          }
+        ],
+        "Writer": [
+          {
+            "id": 4202,
+            "filter": "writer=4202",
+            "tag": "Tomas Brann",
+            "tagKey": "5e0000000000000000000b02"
+          }
+        ],
+        "Role": [
+          {
+            "tag": "Mira Kell"
+          }
+        ]
+      }
+    ]
+  }
+}

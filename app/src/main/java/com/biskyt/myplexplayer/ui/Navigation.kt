@@ -20,6 +20,7 @@ import com.biskyt.myplexplayer.data.VodView
 import com.biskyt.myplexplayer.ui.common.FocusVisit
 import com.biskyt.myplexplayer.ui.common.KeepsFocus
 import com.biskyt.myplexplayer.ui.common.LocalFocusVisit
+import com.biskyt.myplexplayer.ui.common.Tab
 
 /** Every screen in the app. Tab roots are [Home], [Live], [Movies], [Series], [Dvr]. */
 sealed interface Screen {
@@ -54,6 +55,22 @@ sealed interface Screen {
 
     /** [season] and [episode] (from 1): open on that episode (found from the TV guide). */
     data class SeriesDetails(val playlistId: Long, val seriesId: Long, val season: Int? = null, val episode: Int? = null) : Screen
+
+    /**
+     * A cast or crew member's page: [personId] is their id on server [playlistId], [tagKey] on Plex's Discover service.
+     * [name] and [photoUrl] show until the page loads. It was opened from [title] (where they play [role], if an actor),
+     * under top bar [tab].
+     */
+    data class Person(
+        val playlistId: Long,
+        val personId: Long,
+        val tagKey: String?,
+        val name: String,
+        val photoUrl: String?,
+        val role: String?,
+        val title: String,
+        val tab: Tab,
+    ) : Screen
     data object Settings : Screen
     data object Playlists : Screen
 
@@ -93,7 +110,16 @@ class Navigator(start: Screen) {
     internal val dropped = ArrayList<Int>()
     val current: NavEntry get() = stack.last()
 
+    /**
+     * Shows [screen] over this one. A new player closes any player left under the pages above it (the owner,
+     * 2026-11-06): one video at a time. That player saved its place when a page opened over it.
+     */
     fun push(screen: Screen) {
+        if (screen.isPlayback) {
+            val players = stack.filter { it.screen.isPlayback }
+            stack.removeAll(players)
+            players.forEach(::drop)
+        }
         stack += NavEntry(screen, nextId++)
     }
 

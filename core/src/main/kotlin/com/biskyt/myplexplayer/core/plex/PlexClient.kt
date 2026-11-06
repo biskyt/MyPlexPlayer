@@ -84,6 +84,12 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
         }
     ).items
 
+    /**
+     * The titles of this server that a person is in ([personId]: a cast or crew member's [PlexTag.id]), with their
+     * [PlexItem.guid] (docs/plex-api.md 29).
+     */
+    suspend fun personMedia(personId: Long): List<PlexItem> = container(url("library/people/$personId/media")).items
+
     /** A show's seasons, or a season's episodes. */
     suspend fun children(ratingKey: String): List<PlexItem> = container(url("library/metadata/$ratingKey/children")).items
 

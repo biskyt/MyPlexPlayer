@@ -44,6 +44,10 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   - In 1.3.1: 1.14.1 (`45333c6`): the ring on a filled choice in use, and titles that load late not taking focus.
   - In 1.3.2: 1.14.2 (`e3bfeb5`): the player closes at the end of every film and episode; here, skipping an
     episode's final credits closes it too.
+  - In 1.4.0: 1.15.0 (`a3e5465`): every side panel in the shared board style (`ui/common/BoardPanel.kt`, kept as
+    MyTVPlayer has it). Here, the Plex-only panels use it too: Cast and crew, About and Technical info, the full
+    biography, the recording options and every `ItemActionsPanel` (now a `BoardActionsPanel`). Left out: its PIN pad
+    and Add a guide (no such screens here) and its AppUiTest check.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -252,6 +256,10 @@ See also:
   only if the channel records now and the buffer holds more than 60 s (`offersStart`). More offers "Watch from start"
   too, and "Watch live" once from the start. "From start" plays the same session again with `offset` (the buffer's
   start, 0), and "Watch live" with none: never a second tune (`PlexLive.restream`). A finished recording is a `complete` grab with `linkedKey`, and plays as a library item.
+- **People** (S13, docs/plex-api.md row 29): the server's `/library/people/{id}/media` gives a person's titles
+  there. Discover (`PlexAccount.person` and `credits`, the account token) gives the biography and credits. Discover
+  sends all the credits in one reply and ignores paging. A credit's `ratingKey` is the id at the end of a server
+  title's `guid` (`plexGuidId`).
 - **Changing a setting's default:** `SettingsRepository.update` (and a backup) saves every setting, so a default
   already released is saved as if chosen. A new default needs a new preference key and `@SerialName`, as credits'
   automatic skip got in 0.8.1.
@@ -312,13 +320,27 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
   poster under them, otherwise to the menu; right off the row's end goes to the pills only from a short row.
 - **Details pages** (1.2.0, from the approved mockups at https://claude.ai/artifact/RruBkF5y3sz1DJ7u9Lyy8j): the shared
   layout is MyTVPlayer 1.13.0's (`7d01e58`: `ui/theme/Board.kt` sizes in board px, `ui/vod/DetailsParts.kt`, the text
-  top bar); the Plex extras are in `ui/vod/PlexDetailsParts.kt`, `TitleInfoPanels.kt` and `ui/common/BoardPanel.kt`.
+  top bar); the Plex extras are in `ui/vod/PlexDetailsParts.kt`, `TitleInfoPanels.kt` and `ui/common/PlexBoardPanel.kt`.
+  - Every side panel uses the shared parts in `ui/common/BoardPanel.kt` (the owner, 2026-11-06: MyTVPlayer 1.15.0), so
+    that no panel sets its own style. Keep that file as MyTVPlayer has it. Plex-only panel parts (`BoardActionsPanel`,
+    `BoardCycle`, `BoardLinksRow`) go in `PlexBoardPanel.kt`.
   - Film: the scores, the age badge, "Directed by · Written by", the picture and sound labels above Resume, Restart and
     More…, and a cast strip. More… (also hold OK, or Menu) holds watched, favourite, Cast and crew, About this film,
     Technical info (read from Plex's metadata, named as Playback info names them), the links and Delete.
   - Series: an episode's More… opens the options of "This episode" and "The show", as holding OK does.
-  - Keep `Board.kt`, `DetailsParts.kt` and `TopBar.kt` as MyTVPlayer has them, so ports apply; put Plex-only parts in
+  - Keep `Board.kt`, `BoardPanel.kt`, `DetailsParts.kt` and `TopBar.kt` as MyTVPlayer has them, so ports apply; put Plex-only parts in
     the Plex files above.
+- **Cast member's page** (1.4.0, board "Cast member's page"): OK on a cast photo, or on a row of Cast and crew or
+  of the player's Cast, opens `Screen.Person` (pushed, never replaced). A person with no server `id` does not open.
+  - It shows the photo, name, a line (kinds of work, birth, the part in the title it came from) and the biography
+    (3 lines, with "Full biography"). Then "In your library", "Also appears in" and "All credits". A part with no data
+    is left out.
+  - From the player, the video pauses (reported to Plex as paused). Back plays on from the same place, with the Cast
+    panel open on the same person. The film and series pages' Cast and crew also opens again on the same person.
+  - A new player closes any player left under the pages above it (`Navigator.push`, the owner, 2026-11-06): one video
+    at a time. Back from the new video goes through the pages to the screen under the old player.
+  - The board is 1280 wide, so its sizes are dp there, not `.bd`. Nothing is saved to Room: Discover's answers are
+    kept in memory (`PersonRepository`).
 - **Back stops playback.** There's no picture-in-picture.
 - **Text fields are built for a TV remote:**
   - Server addresses get no autocorrect or capitals.

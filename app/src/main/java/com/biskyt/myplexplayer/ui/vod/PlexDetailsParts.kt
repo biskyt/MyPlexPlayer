@@ -52,10 +52,10 @@ fun titleActions(details: VodDetails?, showCast: () -> Unit, showAbout: () -> Un
 /** "Add to favourites", or for a [favourite], "Remove from favourites". */
 fun favouriteAction(favourite: Boolean, setFavourite: () -> Unit) = ItemAction.Run(favouriteLabel(favourite), run = setFavourite)
 
-/** The cast, then who directed and wrote it: everyone Cast and crew lists. */
+/** The cast, then who directed and wrote it (named by their job): everyone Cast and crew lists. */
 fun castAndCrew(d: VodDetails?): List<CastMember> = d?.let {
-    it.cast + it.directors.map { name -> CastMember(name, appString(R.string.vod_role_director), null) } +
-        it.writers.map { name -> CastMember(name, appString(R.string.vod_role_writer), null) }
+    it.cast + it.directors.map { p -> p.copy(role = appString(R.string.vod_role_director)) } +
+        it.writers.map { p -> p.copy(role = appString(R.string.vod_role_writer)) }
 }.orEmpty()
 
 /** Two genres at most: "Drama, Mystery". */

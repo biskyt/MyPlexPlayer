@@ -4,7 +4,6 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,34 +22,35 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.C
 import androidx.media3.common.Tracks
-import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.data.programmeTitle
 import com.biskyt.myplexplayer.ui.LocalNavigator
+import com.biskyt.myplexplayer.ui.common.BoardOption
+import com.biskyt.myplexplayer.ui.common.BoardPanel
+import com.biskyt.myplexplayer.ui.common.BoardPanelGap
+import com.biskyt.myplexplayer.ui.common.BoardPanelSubtitle
+import com.biskyt.myplexplayer.ui.common.BoardPanelText
+import com.biskyt.myplexplayer.ui.common.BoardPanelTitle
 import com.biskyt.myplexplayer.ui.common.ChannelLogo
 import com.biskyt.myplexplayer.ui.common.LocalTouch
-import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.ProgrammeAbout
 import com.biskyt.myplexplayer.ui.common.ScheduleList
-import com.biskyt.myplexplayer.ui.common.SidePanel
 import com.biskyt.myplexplayer.ui.common.TouchStepButtons
-import com.biskyt.myplexplayer.ui.common.TvCard
 import com.biskyt.myplexplayer.ui.common.displayLanguage
 import com.biskyt.myplexplayer.ui.common.formatRange
 import com.biskyt.myplexplayer.ui.common.perform
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.rememberSchedule
-import com.biskyt.myplexplayer.ui.theme.LocalAccent
-import com.biskyt.myplexplayer.ui.theme.Palette
+import com.biskyt.myplexplayer.ui.theme.bd
 import kotlinx.coroutines.delay
 
 /** The channel guide beside the video (agreed side-overlay design); ◀ ▶ previews other channels' guides. */
 @Composable
 fun GuidePanel(vm: PlayerViewModel) {
     val ch = vm.guideChannel ?: return
-    SidePanel(onDismiss = vm::closeGuide, dim = false) {
+    BoardPanel(onDismiss = vm::closeGuide, dim = false, scroll = false) {
+        // Inside the panel's window: keys reach it there.
         Column(
             Modifier.panelKeys(vm).onPreviewKeyEvent { e ->
                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
@@ -66,13 +66,13 @@ fun GuidePanel(vm: PlayerViewModel) {
                     else -> false
                 }
             },
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(10.bd)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ChannelLogo(ch.logoUrl, ch.name, 64.dp, 40.dp)
                 Column(Modifier.padding(start = 12.dp)) {
-                    Text(ch.name, style = MaterialTheme.typography.titleMedium, maxLines = 1)
-                    if (!LocalTouch.current) Muted(stringResource(R.string.player_guide_hint))
+                    BoardPanelTitle(ch.name, small = true)
+                    if (!LocalTouch.current) BoardPanelSubtitle(stringResource(R.string.player_guide_hint))
                 }
             }
             TouchStepButtons(stringResource(R.string.player_guide_previous), stringResource(R.string.player_guide_next), vm::previewGuide)
@@ -86,10 +86,10 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
     val engine = vm.engine ?: return
     val nav = LocalNavigator.current
     val close = { vm.sheet = null }
-    SidePanel(onDismiss = close, dim = false) {
+    BoardPanel(onDismiss = close, dim = false, scroll = false) {
         // Again when More opens another sheet in its place (Playback info, Description).
         val first = rememberFirstFocus(sheet)
-        LazyColumn(Modifier.panelKeys(vm), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(Modifier.panelKeys(vm), verticalArrangement = Arrangement.spacedBy(BoardPanelGap)) {
             when (sheet) {
                 PlaybackViewModel.Sheet.AUDIO -> {
                     item { Header(stringResource(R.string.player_audio), vm.audioLabel) }
@@ -100,7 +100,7 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
                             vm.chooseTrack(C.TRACK_TYPE_AUDIO, o.group, o.index, o.label)
                         }
                     }
-                    if (options.isEmpty()) item { Muted(stringResource(R.string.player_no_audio_tracks)) }
+                    if (options.isEmpty()) item { BoardPanelSubtitle(stringResource(R.string.player_no_audio_tracks)) }
                 }
                 PlaybackViewModel.Sheet.SUBTITLES -> {
                     item { Header(stringResource(R.string.player_subtitles), null) }
@@ -149,8 +149,8 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
                                 value = value + 1
                             }
                         }
-                        Column(first.focusable(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            second.let { vm.info() }.forEach { Text(it, style = MaterialTheme.typography.bodyLarge) }
+                        Column(first.focusable(), verticalArrangement = Arrangement.spacedBy(6.bd)) {
+                            second.let { vm.info() }.forEach { BoardPanelText(it) }
                         }
                     }
                 }
@@ -170,18 +170,15 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
 
 @Composable
 private fun Header(title: String, subtitle: String?) {
-    Column(Modifier.padding(bottom = 8.dp)) {
-        Text(title, style = MaterialTheme.typography.headlineSmall)
-        if (!subtitle.isNullOrEmpty()) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = LocalAccent.current.soft)
+    Column(Modifier.padding(bottom = 6.bd)) {
+        BoardPanelTitle(title)
+        if (!subtitle.isNullOrEmpty()) BoardPanelSubtitle(subtitle)
     }
 }
 
 @Composable
-private fun Choice(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    TvCard(onClick = onClick, selected = selected, modifier = modifier.fillMaxWidth(), color = Palette.surface, fill = true) {
-        Text(label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
-    }
-}
+private fun Choice(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) =
+    BoardOption(label, modifier = modifier, selected = selected, onClick = onClick)
 
 private data class TrackOption(val label: String, val group: Tracks.Group, val index: Int, val selected: Boolean)
 

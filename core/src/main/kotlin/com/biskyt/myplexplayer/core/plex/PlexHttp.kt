@@ -18,6 +18,7 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.nullable
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
@@ -109,6 +110,16 @@ internal class SkippingList<T>(private val item: KSerializer<T>) : KSerializer<L
     }
 
     override fun serialize(encoder: Encoder, value: List<T>) = list.serialize(encoder, value)
+}
+
+/** An id that Plex sends as a number (or as a number in text), else null: a person's [PlexTag.id]. */
+internal object PlexIdNumber : KSerializer<Long?> {
+    override val descriptor = PrimitiveSerialDescriptor("PlexIdNumber", PrimitiveKind.LONG).nullable
+
+    override fun deserialize(decoder: Decoder): Long? =
+        ((decoder as JsonDecoder).decodeJsonElement() as? JsonPrimitive)?.contentOrNull?.toLongOrNull()
+
+    override fun serialize(encoder: Encoder, value: Long?) = if (value == null) encoder.encodeNull() else encoder.encodeLong(value)
 }
 
 /**

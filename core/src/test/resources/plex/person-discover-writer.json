@@ -1,0 +1,32 @@
+{
+  "MediaContainer": {
+    "librarySectionID": "home",
+    "librarySectionTitle": "Discover",
+    "totalSize": 1,
+    "identifier": "tv.plex.provider.discover",
+    "size": 1,
+    "Metadata": [
+      {
+        "key": "/library/people/5e0000000000000000000b02",
+        "knownFor": "Writing",
+        "metadataId": "5e0000000000000000000b02",
+        "ratingKey": "5e0000000000000000000b02",
+        "slug": "tomas-brann",
+        "title": "Tomas Brann",
+        "type": "person",
+        "CreditType": [
+          {
+            "type": "writer",
+            "count": 11,
+            "title": "Writer"
+          },
+          {
+            "type": "director",
+            "count": 3,
+            "title": "Director"
+          }
+        ]
+      }
+    ]
+  }
+}

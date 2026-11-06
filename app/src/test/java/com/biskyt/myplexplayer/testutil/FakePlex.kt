@@ -199,6 +199,12 @@ class FakePlex : AutoCloseable {
     val tuned: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
     val liveStopped: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
 
+    /** The people Discover and the server know (see FakeDiscover.kt). */
+    @Volatile var people: List<FakePerson> = emptyList()
+
+    /** The Discover requests (a person or their credits, by path), in order. */
+    val discovered: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+
     /** How many requests it has had. */
     val requestCount: Int get() = server.requestCount
 
@@ -228,8 +234,8 @@ class FakePlex : AutoCloseable {
     private fun answer(request: RecordedRequest): MockResponse {
         val path = request.requestUrl!!.encodedPath
         paths += path
-        liveTvAnswer(path, request)?.let { return it }
         val token = request.getHeader("X-Plex-Token") ?: request.requestUrl!!.queryParameter("X-Plex-Token")
+        servicesAnswer(path, request, token)?.let { return it }
         return when {
             path == "/api/v2/pins" && request.method == "POST" -> json(pin(), code = 201)
             path == "/api/v2/pins/$PIN_ID" && codeCheckFailures > 0 -> MockResponse().setResponseCode(503).also { codeCheckFailures-- }
@@ -302,6 +308,10 @@ class FakePlex : AutoCloseable {
             "movie" -> page(request, inLibrary(movies, request).filter { viewedSince(request, it) }.map(::withState))
             "show" -> shows(request)
             else -> MockResponse().setResponseCode(404)
+        }
+        path.startsWith("/library/people/") && path.endsWith("/media") -> {
+            val person = people.firstOrNull { it.id.toString() == path.split('/')[3] }
+            container { put("Metadata", JsonArray(person?.media.orEmpty().mapNotNull(::byKey))) }
         }
         path.startsWith("/library/metadata/") && path.endsWith("/allLeaves") ->
             container { put("Metadata", JsonArray(episodesOf(path.split('/')[3]).map(::withState))) }
@@ -861,6 +871,17 @@ class FakePlex : AutoCloseable {
         else -> container { put("FavoriteChannel", JsonArray(accountFavourites)) }
     }
 
+    /** Live TV's answer, or Discover's (which answers the account's token); null for anything else. */
+    private fun servicesAnswer(path: String, request: RecordedRequest, token: String?) =
+        liveTvAnswer(path, request) ?: discoverAnswer(path, token)
+
+    /** Discover's answer to [path], with [token]: null for anything not Discover's. */
+    private fun discoverAnswer(path: String, token: String?): MockResponse? {
+        if (!path.startsWith("/library/people/") || token != ACCOUNT_TOKEN) return null
+        discovered += path
+        return discover(path, people)?.let { json(it) } ?: MockResponse().setResponseCode(404)
+    }
+
     private fun container(body: JsonObjectBuilder.() -> Unit) = json(buildJsonObject { putJsonObject("MediaContainer", body) })
 
     private fun json(body: Any, code: Int = 200) = MockResponse().setResponseCode(code)
@@ -872,7 +893,10 @@ class FakePlex : AutoCloseable {
         const val SERVER_TOKEN = "server-token"
         const val MACHINE_ID = "home-plex"
         private const val DVR = "7"
-        private val LIBRARY = listOf("/library/sections", "/library/metadata/", "/library/parts/")
+        private val LIBRARY = listOf("/library/sections", "/library/metadata/", "/library/parts/", "/library/people/")
+
+        /** The id at the end of a title's guid (`plex://movie/{id}`), which Discover knows it by. */
+        fun guidId(ratingKey: String) = "g-$ratingKey"
         private const val EPG = "tv.plex.providers.epg.cloud:12"
 
         private fun obj(body: JsonObjectBuilder.() -> Unit) = buildJsonObject(body)
@@ -923,6 +947,7 @@ class FakePlex : AutoCloseable {
             art: String? = null
         ) = obj {
             put("ratingKey", key)
+            put("guid", "plex://movie/${guidId(key)}")
             put("type", "movie")
             put("title", title)
             put("librarySectionID", library.toInt())
@@ -948,6 +973,7 @@ class FakePlex : AutoCloseable {
             art: String? = null
         ) = obj {
             put("ratingKey", key)
+            put("guid", "plex://show/${guidId(key)}")
             put("type", "show")
             put("title", title)
             put("librarySectionID", library.toInt())
@@ -1070,6 +1096,7 @@ private fun captureBuffer(heldS: Double) = buildJsonObject {
 suspend fun AppContainer.addHomePlex(plex: FakePlex): Long {
     this.plex.plexTv = plex.url
     this.plex.plexGuide = plex.url
+    this.plex.plexDiscover = plex.url
     plex.claimed = true
     return this.plex.signInHome(db)
 }

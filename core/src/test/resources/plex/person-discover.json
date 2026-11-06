@@ -1,0 +1,61 @@
+{
+  "MediaContainer": {
+    "librarySectionID": "home",
+    "librarySectionTitle": "Discover",
+    "totalSize": 1,
+    "identifier": "tv.plex.provider.discover",
+    "size": 1,
+    "Metadata": [
+      {
+        "birthPlace": "Leeds, England",
+        "bornAt": "1984-05-03",
+        "key": "/library/people/5e0000000000000000000a01",
+        "knownFor": "Acting",
+        "metadataId": "5e0000000000000000000a01",
+        "ratingKey": "5e0000000000000000000a01",
+        "slug": "mira-kell",
+        "summary": "Mira Kell is an English actor and writer. She trained at a drama school in Glasgow.\nShe also wrote two episodes of the radio series Still Waters.",
+        "thumb": "https://metadata-static.plex.tv/a/people/person-a01.jpg",
+        "title": "Mira Kell",
+        "type": "person",
+        "External": [
+          {
+            "id": "mirakell",
+            "source": "instagram",
+            "sourceTitle": "Instagram",
+            "url": "https://www.instagram.com/mirakell"
+          }
+        ],
+        "Image": [
+          {
+            "alt": "Mira Kell",
+            "type": "avatar",
+            "url": "https://metadata-static.plex.tv/a/people/person-a01.jpg"
+          }
+        ],
+        "CreditType": [
+          {
+            "type": "writer",
+            "count": 3,
+            "title": "Writer"
+          },
+          {
+            "type": "actor",
+            "count": 12,
+            "title": "Actor"
+          },
+          {
+            "type": "appeared",
+            "count": 40,
+            "title": "Appeared"
+          },
+          {
+            "type": "producer",
+            "count": 1,
+            "title": "Producer"
+          }
+        ]
+      }
+    ]
+  }
+}
