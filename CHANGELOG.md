@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.3.1
+- The audio or subtitle track or the server in use has a ring inside its accent fill, so you can still see it when it has the remote.
+- If you move the remote on the Movies or TV Shows tab before its titles appear, the first title no longer takes the remote from where you went.
+
 ## 1.3.0
 - When you go back to a screen, the item you used last has the remote again, on every screen.
 - In Settings and in menus, the item with the remote is filled with your accent colour instead of a white border.
