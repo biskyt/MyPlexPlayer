@@ -335,9 +335,10 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
   earlier development-key builds: the owner uninstalls once (backing up first; play state is on the Plex server).
   Releases stay pre-releases while the version is 0.x.
 - **Google Play and Amazon** (1.0.0, 2026-11-01): the listings are set up by the owner, or a browser agent for them,
-  from the guide linked in RELEASING.md and the text and files in `store/`. Releases upload to Play's closed testing
-  once the `PLAY_SERVICE_ACCOUNT_JSON` secret is added (MyTVPlayer's service account, invited to this app); until
-  then the release skips the upload. Amazon updates are uploaded by hand. User-facing text never says "provider":
+  from the guide linked in RELEASING.md and the text and files in `store/`. Play upload is set up (the owner,
+  2026-11-06): the `PLAY_SERVICE_ACCOUNT_JSON` secret holds MyTVPlayer's service account, which has "Release apps to
+  testing tracks" for this app. Each release uploads to Play's closed testing; 1.3.1 was the first, with
+  `play-upload.yml`. Production is promoted by hand in Play Console. Amazon updates are uploaded by hand. User-facing text never says "provider":
   a Plex server is the user's own (the owner, 2026-11-01).
 - **Emulator smoke tests** on CI for pull requests (`.github/workflows/emulator.yml`: Android TV 9 and Google TV 16).
   Tests live in `app/src/androidTest`; the debug build adds an x86/x86_64 ABI only with `-PemulatorAbi=<arch>`.
