@@ -337,6 +337,8 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
     is left out.
   - From the player, the video pauses (reported to Plex as paused). Back plays on from the same place, with the Cast
     panel open on the same person. The film and series pages' Cast and crew also opens again on the same person.
+  - A new player closes any player left under the pages above it (`Navigator.push`, the owner, 2026-11-06): one video
+    at a time. Back from the new video goes through the pages to the screen under the old player.
   - The board is 1280 wide, so its sizes are dp there, not `.bd`. Nothing is saved to Room: Discover's answers are
     kept in memory (`PersonRepository`).
 - **Back stops playback.** There's no picture-in-picture.

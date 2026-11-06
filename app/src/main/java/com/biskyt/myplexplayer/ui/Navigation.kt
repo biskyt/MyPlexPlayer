@@ -110,7 +110,16 @@ class Navigator(start: Screen) {
     internal val dropped = ArrayList<Int>()
     val current: NavEntry get() = stack.last()
 
+    /**
+     * Shows [screen] over this one. A new player closes any player left under the pages above it (the owner,
+     * 2026-11-06): one video at a time. That player saved its place when a page opened over it.
+     */
     fun push(screen: Screen) {
+        if (screen.isPlayback) {
+            val players = stack.filter { it.screen.isPlayback }
+            stack.removeAll(players)
+            players.forEach(::drop)
+        }
         stack += NavEntry(screen, nextId++)
     }
 

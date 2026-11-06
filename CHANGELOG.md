@@ -8,6 +8,7 @@ Each version's section becomes its GitHub release notes, so it is written for th
 - The page also shows the other titles that the person is in, and a list of all their credits.
 - In Cast and crew and in the player's Cast panel, press OK on a person to open their page.
 - If you open the page of a person from the player, Back continues the video from the same place.
+- If you play another title from the page of a person, the first video closes and its place is saved.
 - All side panels now have the same design as the More… panel of the film page, with options that fill with your accent colour.
 
 ## 1.3.2

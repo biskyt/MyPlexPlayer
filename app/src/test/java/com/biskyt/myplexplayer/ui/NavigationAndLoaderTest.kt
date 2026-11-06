@@ -34,6 +34,18 @@ class NavigationAndLoaderTest {
     }
 
     @Test
+    fun `a new player closes the one left under the pages above it`() {
+        val nav = Navigator(Screen.Home)
+        nav.push(Screen.VodPlayer(1, 5))
+        nav.push(Screen.Settings)
+        nav.push(Screen.VodPlayer(1, 6))
+        assertEquals(listOf(Screen.Home, Screen.Settings, Screen.VodPlayer(1, 6)), nav.stack.map { it.screen })
+        assertEquals(listOf(1), nav.dropped)
+        assertTrue(nav.pop())
+        assertEquals(Screen.Settings, nav.current.screen)
+    }
+
+    @Test
     fun `open goes back to a screen already open rather than stacking a copy`() {
         val nav = Navigator(Screen.Home)
         nav.open(Screen.Playlists)
