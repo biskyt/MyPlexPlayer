@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.3.2
+- At the end of a film or episode, the player closes and goes back, as Stop does: the next episode no longer starts by itself.
+- When you skip the final credits of an episode, the player closes too.
+
 ## 1.3.1
 - The audio or subtitle track or the server in use has a ring inside its accent fill, so you can still see it when it has the remote.
 - If you move the remote on the Movies or TV Shows tab before its titles appear, the first title no longer takes the remote from where you went.

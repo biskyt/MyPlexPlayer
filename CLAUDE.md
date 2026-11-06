@@ -42,6 +42,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     used on every screen, the tabs open on a title and Right from Continue to the first unplayed episode. Left out:
     its guide sources and parental hunks (no such screens here) and `DetailButton`'s icon height (no icons here).
   - In 1.3.1: 1.14.1 (`45333c6`): the ring on a filled choice in use, and titles that load late not taking focus.
+  - In 1.3.2: 1.14.2 (`e3bfeb5`): the player closes at the end of every film and episode; here, skipping an
+    episode's final credits closes it too.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -335,9 +337,10 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
   earlier development-key builds: the owner uninstalls once (backing up first; play state is on the Plex server).
   Releases stay pre-releases while the version is 0.x.
 - **Google Play and Amazon** (1.0.0, 2026-11-01): the listings are set up by the owner, or a browser agent for them,
-  from the guide linked in RELEASING.md and the text and files in `store/`. Releases upload to Play's closed testing
-  once the `PLAY_SERVICE_ACCOUNT_JSON` secret is added (MyTVPlayer's service account, invited to this app); until
-  then the release skips the upload. Amazon updates are uploaded by hand. User-facing text never says "provider":
+  from the guide linked in RELEASING.md and the text and files in `store/`. Play upload is set up (the owner,
+  2026-11-06): the `PLAY_SERVICE_ACCOUNT_JSON` secret holds MyTVPlayer's service account, which has "Release apps to
+  testing tracks" for this app. Each release uploads to Play's closed testing; 1.3.1 was the first, with
+  `play-upload.yml`. Production is promoted by hand in Play Console. Amazon updates are uploaded by hand. User-facing text never says "provider":
   a Plex server is the user's own (the owner, 2026-11-01).
 - **Emulator smoke tests** on CI for pull requests (`.github/workflows/emulator.yml`: Android TV 9 and Google TV 16).
   Tests live in `app/src/androidTest`; the debug build adds an x86/x86_64 ABI only with `-PemulatorAbi=<arch>`.

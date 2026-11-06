@@ -37,8 +37,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
- * A movie or an episode: resumes where the user left off, saves progress as it plays, and moves on to the next episode
- * when one finishes.
+ * A movie or an episode: resumes where the user left off, saves progress as it plays, and closes at the end.
  */
 class VodPlayerViewModel(c: AppContainer, appContext: Context, private val screen: Screen.VodPlayer) : PlaybackViewModel(c, appContext) {
     var title by mutableStateOf("")
@@ -63,9 +62,6 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
 
     /** This title's markers skipped, or whose automatic skip was cancelled: offered only by hand from then on. */
     private val skipHandled = mutableSetOf<PlexMarker>()
-
-    /** On to the next episode ([playNext]) until it plays: nothing more is skipped, nor moved on from, meanwhile. */
-    private var movingOn = false
 
     /** Where playback was at the last tick (null: just started), to tell playing on from seeking. */
     private var lastTickMs: Long? = null
@@ -224,12 +220,8 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         // write it with the last one's place), nor between that and the controls coming up.
         val known = c.vod.progress(p.id, playing.kind, playing.itemId)
         current = playing
-        // The last episode's description, open as the next one starts, goes with it.
-        if (sheet == Sheet.DESCRIPTION) sheet = null
-        playedMs = 0
         // Something already started (here or elsewhere) counts at once: only a new start waits.
         onCarryOn = known != null && (known.carryOnAt != null || known.started && !known.finished)
-        movingOn = false
         lastTickMs = null
         skipHandled.clear()
         skip = null
@@ -318,29 +310,11 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         c.appScope.launch { c.vod.saveProgress(row, stream, playing, stopped, nextEpisode) }
     }
 
-    /** At the end: a movie closes; an episode is saved as watched and the next one starts. */
-    override fun onEnded() {
-        save(stopped = true)
-        if (nextEpisode == null) stop() else playNext()
-    }
-
-    private fun playNext() {
-        val p = playlist ?: return
-        val next = nextEpisode ?: return
-        val seriesId = screen.seriesId ?: return
-        if (movingOn) return
-        movingOn = true
-        skip = null
-        save(stopped = true)
-        viewModelScope.launch {
-            try {
-                startEpisode(p, seriesId, next.id, fromStart = true)
-            } catch (e: java.io.IOException) { // as at the start: the server didn't answer
-                movingOn = false
-                fail(e.message)
-            }
-        }
-    }
+    /**
+     * At the end, the player closes, as Stop does (the owner, 2026-11-06): the next episode never starts by itself. An
+     * episode is saved as watched, with the next one on Carry on watching (see [save]).
+     */
+    override fun onEnded() = stop()
 
     /**
      * The pill as playback stands now; a skip whose time has come happens, unless a panel is open or the user is
@@ -360,7 +334,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     private fun pillNow(fromMs: Long? = null): SkipPill? {
         val markers = current?.stream?.plex?.markers
         val player = engine?.player
-        if (markers.isNullOrEmpty() || player == null || movingOn || error != null) return null
+        if (markers.isNullOrEmpty() || player == null || error != null) return null
         return skipPill(markers, player.currentPosition, fromMs) { m ->
             val sec = if (m.type == PlexMarker.INTRO) settings.autoSkipIntroSec else settings.autoSkipCreditsSec
             sec.takeUnless { m in skipHandled || it == Settings.AUTO_SKIP_OFF }
@@ -387,12 +361,12 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         updateSkip()
     }
 
-    /** Past [marker]; the last credits of an episode go on to the next one, as at its end (and saved as there). */
+    /** Past [marker]; past the last credits is the end, so the player closes, as at the end. */
     private fun skip(marker: PlexMarker) {
         skipHandled += marker
         skip = null
         engine?.player?.seekTo(marker.endMs)
-        if (marker.final && nextEpisode != null) playNext()
+        if (marker.final) stop()
     }
 
     override fun stop() {

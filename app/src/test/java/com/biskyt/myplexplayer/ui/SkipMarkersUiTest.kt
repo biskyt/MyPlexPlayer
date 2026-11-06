@@ -151,11 +151,12 @@ class SkipMarkersUiTest {
     }
 
     @Test
-    fun `skipping an episode's last credits plays the next episode`() {
+    fun `skipping an episode's last credits closes the player, as its end does`() {
         playPilotWith("credits", endMs = 600_000, final = true, autoSec = 3)
         compose.waitForText("Skip credits (2)")
         ok()
-        compose.waitAdvancingClock(stepMs = 100) { vm.subtitle.contains("Second") }
+        compose.waitAdvancingClock(stepMs = 100) { vm.exit }
+        assertEquals("not on to the next episode", "Pilot", compose.runOnIdle { vm.subtitle }.substringAfterLast(" · "))
     }
 
     @Test
