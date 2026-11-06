@@ -1,9 +1,13 @@
 package com.biskyt.myplexplayer.ui
 
+import androidx.activity.ComponentDialog
 import androidx.compose.runtime.remember
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.testutil.FakePlex
@@ -11,6 +15,8 @@ import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
+import com.biskyt.myplexplayer.testutil.focusedText
+import com.biskyt.myplexplayer.testutil.idleFrames
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.ui.common.formatTime
 import com.biskyt.myplexplayer.ui.player.VodPlayerViewModel
@@ -24,6 +30,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowDialog
 
 /** A film's controls: the time of day in the corner; play/pause in the middle; no Restart or Next episode buttons, and no key hints. */
 @RunWith(RobolectricTestRunner::class)
@@ -64,5 +71,28 @@ class VodControlsUiTest {
         val play = compose.onNode(hasContentDescription("Pause") or hasContentDescription("Play")).fetchSemanticsNode().boundsInRoot
         val screen = compose.onRoot().fetchSemanticsNode().boundsInRoot
         assertEquals(screen.center.x, play.center.x, 1f)
+    }
+
+    @Test
+    fun `after a skip, back from the subtitles panel leaves focus on subtitles, not the video`() {
+        val navigator = navigators.new(Screen.VodPlayer(playlistId, 11))
+        compose.setContent { MyPlexTheme { NavHost(remember { navigator }) { ScreenContent(it) } } }
+        val vm = ViewModelProvider(navigator.current)[VodPlayerViewModel::class.java]
+        compose.waitAdvancingClock { vm.engine?.player?.currentMediaItem != null && shown("More") > 0 }
+        // The controls brought up by a skip: focus is left on the video.
+        compose.runOnUiThread {
+            vm.hideOverlay()
+            vm.showControls(forSkip = true)
+        }
+        compose.waitAdvancingClock { shown("Subtitles") > 0 }
+        compose.onNode(hasText("Subtitles") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
+        compose.waitAdvancingClock { compose.focusedText() == "Subtitles" }
+        compose.onNode(hasText("Subtitles") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitAdvancingClock { shown("Off") > 0 }
+        // The remote's Back, as the panel's window gets it.
+        compose.runOnUiThread { (ShadowDialog.getLatestDialog() as ComponentDialog).onBackPressedDispatcher.onBackPressed() }
+        compose.waitAdvancingClock { shown("Off") == 0 }
+        compose.idleFrames()
+        assertEquals("Subtitles", compose.focusedText())
     }
 }

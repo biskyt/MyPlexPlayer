@@ -48,6 +48,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     MyTVPlayer has it). Here, the Plex-only panels use it too: Cast and crew, About and Technical info, the full
     biography, the recording options and every `ItemActionsPanel` (now a `BoardActionsPanel`). Left out: its PIN pad
     and Add a guide (no such screens here) and its AppUiTest check.
+  - In 1.4.1: 1.15.1 (`6307ce8`): closing a player panel leaves focus on the button that opened it; the public
+    `BoardOptionText` and `BoardHelpText` (PlexBoardPanel's copy deleted).
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

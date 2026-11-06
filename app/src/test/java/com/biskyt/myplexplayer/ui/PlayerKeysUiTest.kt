@@ -1,5 +1,6 @@
 package com.biskyt.myplexplayer.ui
 
+import androidx.activity.ComponentDialog
 import androidx.compose.runtime.remember
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsActions
@@ -20,6 +21,7 @@ import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
+import com.biskyt.myplexplayer.testutil.idleFrames
 import com.biskyt.myplexplayer.testutil.topRoot
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
@@ -33,6 +35,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowDialog
 
 /** Remote buttons on the player and the live screen, through the app's own screens. */
 @OptIn(ExperimentalTestApi::class)
@@ -121,6 +124,37 @@ class PlayerKeysUiTest {
         waitFor("Channel guide")
         waitFor(" left")
         assertTrue(compose.onAllNodes(hasText("Back hides this", substring = true)).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun `back from the more panel, opened with the more button, puts focus back on more`() {
+        show(Screen.Player(source, one, ChannelFilter.All))
+        waitFor("Channel guide")
+        compose.waitAdvancingClock { focused().contains("Pause") || focused().contains("Play") }
+        repeat(MAX_KEYS) { if (!focused().contains("More")) press(Key.DirectionRight) }
+        waitForFocus("More")
+        press(Key.DirectionCenter)
+        waitFor("Picture:")
+        // The remote's Back, as the panel's window gets it.
+        compose.runOnUiThread { (ShadowDialog.getLatestDialog() as ComponentDialog).onBackPressedDispatcher.onBackPressed() }
+        waitGone("Picture:")
+        compose.idleFrames()
+        assertTrue("Focus is on: ${focused()}", focused().contains("More"))
+    }
+
+    @Test
+    fun `a choice in the subtitles panel puts focus back on subtitles`() {
+        show(Screen.Player(source, one, ChannelFilter.All))
+        waitFor("Channel guide")
+        compose.waitAdvancingClock { focused().contains("Pause") || focused().contains("Play") }
+        repeat(MAX_KEYS) { if (!focused().contains("Subtitles")) press(Key.DirectionRight) }
+        waitForFocus("Subtitles")
+        press(Key.DirectionCenter)
+        waitFor("Off")
+        press(Key.DirectionCenter) // Off, the first choice
+        waitGone("Off")
+        compose.idleFrames()
+        assertTrue("Focus is on: ${focused()}", focused().contains("Subtitles"))
     }
 
     @Test
@@ -254,5 +288,9 @@ class PlayerKeysUiTest {
         waitForFocus("on One") // back on the first row
         press(Key.DirectionUp)
         waitForFocus("Filter by name or number")
+    }
+
+    private companion object {
+        const val MAX_KEYS = 8
     }
 }
