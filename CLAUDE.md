@@ -41,6 +41,7 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     size, the plot's More… (here "Read more", as the film page has More… for its options), focus back on the item
     used on every screen, the tabs open on a title and Right from Continue to the first unplayed episode. Left out:
     its guide sources and parental hunks (no such screens here) and `DetailButton`'s icon height (no icons here).
+  - In 1.3.1: 1.14.1 (`45333c6`): the ring on a filled choice in use, and titles that load late not taking focus.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

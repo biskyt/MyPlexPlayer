@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.pluralStringResource
@@ -228,7 +229,11 @@ fun VodBrowseScreen(type: String, initialView: VodView?) {
     val pills = remember { FocusRequester() }
     // Where the pills start across the screen: posters reaching under them go up to them, not to the menu.
     var pillsLeft by remember { mutableFloatStateOf(Float.MAX_VALUE) }
-    TabScaffold(if (vm.isMovies) Tab.MOVIES else Tab.SERIES, tabFocus = tab) {
+    // Something on the screen given focus before the first title is shown (the remote moved, as there was none yet):
+    // the first title does not take it from there when it comes. With nothing focused again ("Load now" gone once
+    // the titles are in), it does. (The first title taking focus ends it too.)
+    val firstTitleWaits = Modifier.onFocusChanged { if (vm.focusId == null) vm.restoreFocusPending = !it.hasFocus }
+    TabScaffold(if (vm.isMovies) Tab.MOVIES else Tab.SERIES, firstTitleWaits, tabFocus = tab) {
         Column(Modifier.fillMaxSize().padding(horizontal = 56.dp)) {
             Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.End) {
                 Row(
