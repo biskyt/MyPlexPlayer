@@ -23,15 +23,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.AppText
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.core.plex.Score
 import com.biskyt.myplexplayer.core.plex.ScoreSource
-import com.biskyt.myplexplayer.ui.common.Muted
+import com.biskyt.myplexplayer.ui.theme.BOLD
+import com.biskyt.myplexplayer.ui.theme.BoardStyle
+import com.biskyt.myplexplayer.ui.theme.MEDIUM
 import com.biskyt.myplexplayer.ui.theme.Palette
+import com.biskyt.myplexplayer.ui.theme.bd
 import java.text.NumberFormat
 import kotlin.math.roundToInt
 
@@ -39,26 +42,12 @@ import kotlin.math.roundToInt
 private val LOGO_HEIGHT = 20.dp
 
 /**
- * A details page's line: [before] and [after] around the [ageRating] badge ("2021 · 1 h 52 min · [15] · Drama"), then
- * each review score with its source's logo, on as many lines as the width needs. Whatever is unknown is left out.
- */
-@Composable
-fun DetailsLine(before: List<String>, ageRating: String?, after: List<String> = emptyList(), scores: List<Score> = emptyList()) {
-    WrapRow {
-        if (before.isNotEmpty()) Muted(before.joinToString(" · "))
-        ageRating?.let { AgeBadge(it) }
-        if (after.isNotEmpty()) Muted(after.joinToString(" · "))
-        scores.forEach { ScoreItem(it) }
-    }
-}
-
-/**
- * Side by side, 12 dp apart, centred on each line, carried on to the next line when the width runs out: what a
+ * Side by side, [spacing] apart, centred on each line, carried on to the next line when the width runs out: what a
  * FlowRow does, without what that brings into the app.
  */
 @Composable
-private fun WrapRow(content: @Composable () -> Unit) = Layout(content) { measurables, constraints ->
-    val gap = WRAP_GAP.roundToPx()
+fun WrapRow(spacing: Dp, content: @Composable () -> Unit) = Layout(content) { measurables, constraints ->
+    val gap = spacing.roundToPx()
     val placeables = measurables.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
     val lines = mutableListOf<MutableList<Placeable>>()
     var x = 0
@@ -86,42 +75,55 @@ private fun WrapRow(content: @Composable () -> Unit) = Layout(content) { measura
     }
 }
 
-private val WRAP_GAP = 12.dp
-
 private const val PERCENT = 100.0
 
-/** An age rating in an outlined box ("15"), as a details page shows it. */
+/** The review scores side by side, as the film page's board draws them: 12 apart. */
 @Composable
-fun AgeBadge(rating: String, modifier: Modifier = Modifier) {
-    Text(
-        rating,
-        style = MaterialTheme.typography.labelMedium,
-        color = Palette.textMuted,
-        maxLines = 1,
-        modifier = modifier.border(1.dp, Palette.textMuted, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp)
-    )
-}
-
-/** One review score: its source's logo, then the score as that source writes it ("7.6", "94%"). */
-@Composable
-private fun ScoreItem(score: Score, modifier: Modifier = Modifier) {
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        SourceLogo(logoOf(score), stringResource(nameOf(score.source)))
-        Muted(valueOf(score))
-    }
+fun ScoresRow(scores: List<Score>) {
+    if (scores.isEmpty()) return
+    WrapRow(12.bd) { scores.forEach { BoardScore(it) } }
 }
 
 /**
- * A source's logo, as tall as it's drawn everywhere, named [name] for screen readers. Drawn by Android's own vector
- * drawables: Compose's reader of them would add more to the app than the logos themselves.
+ * One review score as the boards draw it: its source's logo, 20 high, then the score as that source writes it ("7.6",
+ * "94%"), 14 bold. Also for a line of facts that has its own layout (the series page's).
  */
 @Composable
-fun SourceLogo(@DrawableRes logo: Int, name: String, modifier: Modifier = Modifier) {
+fun BoardScore(score: Score) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.bd), verticalAlignment = Alignment.CenterVertically) {
+        SourceLogo(logoOf(score), stringResource(nameOf(score.source)), height = 20.bd)
+        Text(valueOf(score), style = ScoreText.current, color = Palette.textMuted, maxLines = 1)
+    }
+}
+
+private val ScoreText = BoardStyle(14, BOLD)
+
+/** An age rating as the boards draw it: in a box with a 1.5 px muted border, 13 on a film's page, [small] (12) on a series'. */
+@Composable
+fun BoardAgeBadge(rating: String, small: Boolean = false) {
+    Text(
+        rating,
+        style = if (small) AgeTextSmall.current else AgeText.current,
+        color = Palette.textMuted,
+        maxLines = 1,
+        modifier = Modifier.border(1.5f.bd, Palette.textDim, RoundedCornerShape(4.bd)).padding(horizontal = 5.bd)
+    )
+}
+
+private val AgeText = BoardStyle(13, MEDIUM)
+private val AgeTextSmall = BoardStyle(12, MEDIUM)
+
+/**
+ * A source's logo, [height] high (as tall as it's drawn everywhere, unless given), named [name] for screen readers.
+ * Drawn by Android's own vector drawables: Compose's reader of them would add more to the app than the logos themselves.
+ */
+@Composable
+fun SourceLogo(@DrawableRes logo: Int, name: String, modifier: Modifier = Modifier, height: Dp = LOGO_HEIGHT) {
     val context = LocalContext.current
     val drawable = remember(logo) { checkNotNull(context.getDrawable(logo)) }
-    val width = LOGO_HEIGHT * drawable.intrinsicWidth.toFloat() / drawable.intrinsicHeight
+    val width = height * drawable.intrinsicWidth.toFloat() / drawable.intrinsicHeight
     Box(
-        modifier.size(width, LOGO_HEIGHT).semantics { contentDescription = name }.drawBehind {
+        modifier.size(width, height).semantics { contentDescription = name }.drawBehind {
             drawable.setBounds(0, 0, size.width.roundToInt(), size.height.roundToInt())
             drawIntoCanvas { drawable.draw(it.nativeCanvas) }
         }

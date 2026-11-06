@@ -2,6 +2,14 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.2.0
+- Film and series pages have a new, cleaner design, with larger cast photos and a More… button for every option.
+- A film's More… menu has About this film and Technical info, which shows the file, video, audio and subtitle tracks before you play it.
+- On a series page, the episode with the remote opens out to show its picture, description and a More… button.
+- The menu bar at the top is simpler, with plain text tabs.
+- When you come back to a Settings page, the row you used last has the remote again.
+- Long category names in Live TV scroll when they have the remote.
+
 ## 1.1.1
 - A new setting can show your external IP address and its country next to the VPN badge.
 

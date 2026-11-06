@@ -27,27 +27,45 @@ class PlexMediaInfoTest {
         )
 
     @Test
-    fun `badges and file info for a dolby vision film with atmos`() {
+    fun `badges and technical info for a dolby vision film with atmos`() {
         val video =
             PlexStreamInfo(
                 streamType = 1,
                 codec = "hevc",
+                profile = "main 10",
                 width = 3840,
                 height = 2160,
                 frameRate = 23.976,
                 colorTrc = "smpte2084",
                 doviPresent = true,
-                doviProfile = 8
+                doviProfile = 8,
+                doviCompatId = 1
             )
-        val subs =
-            listOf(PlexStreamInfo(streamType = 3, language = "English"), PlexStreamInfo(streamType = 3, language = "French", forced = true))
-        val info = PlexMediaInfo.of(film(video, atmos, PlexStreamInfo(streamType = 2, codec = "ac3", channels = 6), *subs.toTypedArray()))!!
+        val subs = listOf(
+            PlexStreamInfo(streamType = 3, language = "English", codec = "pgs"),
+            PlexStreamInfo(streamType = 3, language = "French", codec = "srt", forced = true)
+        )
+        val ac3 = PlexStreamInfo(streamType = 2, codec = "ac3", channels = 6, language = "French", bitrate = 640)
+        val info = PlexMediaInfo.of(film(video, atmos.copy(bitrate = 4_200), ac3, *subs.toTypedArray()))!!
         assertEquals(listOf("4K", "Dolby Vision", "Dolby Atmos 7.1"), info.badges)
-        assertEquals("3840 × 2160 · HEVC · Dolby Vision 8 · 23.976 fps", info.picture)
-        assertEquals("English (TRUEHD 7.1)", info.sound)
-        assertEquals(1, info.otherSoundtracks)
-        assertEquals(listOf("English" to false, "French" to true), info.subtitles)
+        assertEquals(PlexVideoTrack("HEVC Main 10", 3840, 2160, 23.976, listOf("Dolby Vision 8.1", "HDR10")), info.video)
+        assertEquals(
+            listOf(PlexAudioTrack(null, "TrueHD Atmos", "7.1", 4_200), PlexAudioTrack("French", "Dolby Digital", "5.1", 640)),
+            info.audioTracks
+        )
+        assertEquals(listOf(PlexSubtitleTrack("English", "PGS", false), PlexSubtitleTrack("French", "SRT", true)), info.subtitleTracks)
         assertEquals("MKV", info.container)
+        assertEquals(38_600_000_000, info.sizeBytes)
+        assertEquals(46_000, info.bitrateKbps)
+    }
+
+    @Test
+    fun `a picture's dynamic range alone, and an avc codec by its usual name`() {
+        fun video(v: PlexStreamInfo) = PlexMediaInfo.of(film(v))!!.video!!
+        assertEquals(listOf("HLG"), video(PlexStreamInfo(streamType = 1, colorTrc = "arib-std-b67")).dynamicRange)
+        assertEquals(listOf("Dolby Vision 5"), video(PlexStreamInfo(streamType = 1, doviPresent = true, doviProfile = 5)).dynamicRange)
+        assertEquals("AVC High", video(PlexStreamInfo(streamType = 1, codec = "h264", profile = "high")).codec)
+        assertEquals(emptyList<String>(), video(PlexStreamInfo(streamType = 1)).dynamicRange)
     }
 
     @Test

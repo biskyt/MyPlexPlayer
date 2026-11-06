@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -46,6 +47,7 @@ import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
 import com.biskyt.myplexplayer.ui.common.CycleSettingRow
+import com.biskyt.myplexplayer.ui.common.LocalReturnFocus
 import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.SettingRow
 import com.biskyt.myplexplayer.ui.common.Toggle
@@ -54,6 +56,7 @@ import com.biskyt.myplexplayer.ui.common.cycle
 import com.biskyt.myplexplayer.ui.common.displayLanguage
 import com.biskyt.myplexplayer.ui.common.nativeLanguageName
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
+import com.biskyt.myplexplayer.ui.common.rememberReturnFocus
 import java.util.Locale
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -69,7 +72,10 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
 fun SettingsPage(title: String, content: LazyListScope.() -> Unit) {
     Column(Modifier.fillMaxSize().padding(horizontal = 96.dp, vertical = 40.dp)) {
         Text(title, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(bottom = 20.dp))
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 40.dp), content = content)
+        // Back from a screen a row opened, that row has focus again.
+        CompositionLocalProvider(LocalReturnFocus provides rememberReturnFocus()) {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 40.dp), content = content)
+        }
     }
 }
 
@@ -83,7 +89,7 @@ fun SettingsScreen() {
                 stringResource(R.string.settings_playlists_title),
                 stringResource(R.string.settings_playlists_help),
                 { nav.push(Screen.Playlists) },
-                rememberFirstFocus()
+                rememberFirstFocus(once = true)
             )
         }
         item { LanguageRow() }
@@ -148,7 +154,7 @@ fun PlaybackSettingsScreen() {
                 stringResource(R.string.settings_skip_back_help),
                 stringResource(R.string.settings_seconds, s.skipBackSec),
                 { d -> vm.update { it.copy(skipBackSec = skipSteps.cycle(it.skipBackSec, d)) } },
-                rememberFirstFocus()
+                rememberFirstFocus(once = true)
             )
         }
         item {
@@ -283,7 +289,7 @@ fun AppearanceScreen() {
                     modifier = if (argb ==
                         AccentPalette.presets.first().argb
                     ) {
-                        rememberFirstFocus()
+                        rememberFirstFocus(once = true)
                     } else {
                         Modifier
                     }
@@ -322,7 +328,7 @@ fun AboutScreen() {
                 stringResource(R.string.settings_licences_title),
                 stringResource(R.string.settings_licences_help),
                 { nav.push(Screen.Licences) },
-                rememberFirstFocus()
+                rememberFirstFocus(once = true)
             )
         }
         item {

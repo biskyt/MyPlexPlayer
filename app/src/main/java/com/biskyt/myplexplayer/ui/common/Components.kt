@@ -94,6 +94,8 @@ fun TvCard(
     shape: Shape = CardShape,
     color: Color = Palette.surface,
     focusedColor: Color = Palette.surfaceHigh,
+    /** Without it, what holds the card shows its focus (the series page's episode rows). */
+    ring: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val accent = LocalAccent.current
@@ -113,7 +115,7 @@ fun TvCard(
             contentColor = Palette.text,
             focusedContentColor = Palette.text
         ),
-        border = ClickableSurfaceDefaults.border(focusedBorder = FocusRing)
+        border = if (ring) ClickableSurfaceDefaults.border(focusedBorder = FocusRing) else ClickableSurfaceDefaults.border()
     ) { CompositionLocalProvider(LocalCardFocused provides focused) { content() } }
 }
 
@@ -236,16 +238,33 @@ fun StateFlow<Set<Long>?>.collectIds(): Set<Long> = collectAsState().value.orEmp
 
 /** A movie or series poster (2:3). Posters are opaque, so they're decoded at half the memory of logos. */
 @Composable
-fun Poster(url: String?, title: String, width: Dp, modifier: Modifier = Modifier) = ImageWithInitials(
-    url, title, width, width * 3 / 2, RoundedCornerShape(10.dp), ContentScale.Crop, 0.dp, MaterialTheme.typography.titleMedium, modifier,
+fun Poster(url: String?, title: String, width: Dp, modifier: Modifier = Modifier, radius: Dp = 10.dp) = ImageWithInitials(
+    url, title, width, width * 3 / 2, RoundedCornerShape(radius), ContentScale.Crop, 0.dp, MaterialTheme.typography.titleMedium, modifier,
     opaque = true
 )
 
 /** A person's photo in a circle, with their initials until (or unless) it loads. */
 @Composable
-fun CirclePhoto(url: String?, name: String, size: Dp) = ImageWithInitials(
-    url, name, size, size, CircleShape, ContentScale.Crop, 0.dp, MaterialTheme.typography.labelLarge, opaque = true
+fun CirclePhoto(url: String?, name: String, size: Dp, shape: Shape = CircleShape) = ImageWithInitials(
+    url, name, size, size, shape, ContentScale.Crop, 0.dp, MaterialTheme.typography.labelLarge, opaque = true
 )
+
+/**
+ * A picture [width] by [height] in [shape] (an episode's), decoded at its size on screen, with [name]'s initials until
+ * (or unless) it loads.
+ */
+@Composable
+fun Thumbnail(url: String?, name: String, width: Dp, height: Dp, shape: Shape) =
+    ImageWithInitials(url, name, width, height, shape, ContentScale.Crop, 0.dp, MaterialTheme.typography.labelLarge, opaque = true)
+
+/** Why something could not load ([message]), then Retry ([onRetry]), which has the remote. */
+@Composable
+fun ErrorRetry(message: String, onRetry: () -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Muted(message, Modifier.weight(1f, fill = false), maxLines = 3)
+        PillButton(stringResource(R.string.common_retry), onRetry, rememberFirstFocus())
+    }
+}
 
 /** Poster width in grids and rows of movies and series. */
 val POSTER_WIDTH = 124.dp
@@ -405,7 +424,7 @@ fun SettingRow(
     modifier: Modifier = Modifier,
     trailing: @Composable RowScope.() -> Unit = {}
 ) {
-    TvCard(onClick = onClick, modifier = modifier.fillMaxWidth(), color = Palette.surfaceLow) {
+    TvCard(onClick = onClick, modifier = modifier.returnsFocus(label).fillMaxWidth(), color = Palette.surfaceLow) {
         Row(
             Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -426,16 +445,18 @@ fun SettingRow(
  */
 @Composable
 fun CycleSettingRow(label: String, help: String?, value: String, onStep: (Int) -> Unit, modifier: Modifier = Modifier) {
-    val keys = Modifier.onPreviewKeyEvent { e ->
-        val step = when (e.key) {
-            Key.DirectionLeft -> -1
-            Key.DirectionRight -> 1
-            else -> return@onPreviewKeyEvent false
-        }
-        if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) onStep(step)
-        true
+    SettingRow(label, help, { onStep(1) }, modifier.cycleKeys(onStep)) { ValueChip(value) }
+}
+
+/** Left and right step a choice ([onStep] gets -1 or 1), once a press. */
+fun Modifier.cycleKeys(onStep: (Int) -> Unit): Modifier = onPreviewKeyEvent { e ->
+    val step = when (e.key) {
+        Key.DirectionLeft -> -1
+        Key.DirectionRight -> 1
+        else -> return@onPreviewKeyEvent false
     }
-    SettingRow(label, help, { onStep(1) }, modifier.then(keys)) { ValueChip(value) }
+    if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) onStep(step)
+    true
 }
 
 /** "◀ value ▶" chip for values changed with left/right (or OK to cycle). */

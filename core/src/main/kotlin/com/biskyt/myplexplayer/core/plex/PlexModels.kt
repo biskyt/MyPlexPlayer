@@ -241,6 +241,12 @@ data class PlexStreamInfo(
     val colorTrc: String? = null,
     @SerialName("DOVIPresent") val doviPresent: Boolean = false,
     @SerialName("DOVIProfile") val doviProfile: Int? = null,
+    /** Dolby Vision's base layer: with [doviProfile] 8, 1 is HDR10 ("8.1"), 4 HLG ("8.4"). */
+    @SerialName("DOVIBLCompatID") val doviCompatId: Int? = null,
+    /** The codec's profile, as the server writes it ("main 10", "high"). */
+    val profile: String? = null,
+    /** Kbit/s. */
+    val bitrate: Int? = null,
 )
 
 /** What a player reports in a timeline. */

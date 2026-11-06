@@ -2,6 +2,7 @@ package com.biskyt.myplexplayer.testutil
 
 import android.view.KeyEvent as NativeKeyEvent
 import androidx.annotation.StringRes
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -13,8 +14,11 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performKeyPress
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.printToString
 import com.biskyt.myplexplayer.appString
 import java.util.concurrent.TimeUnit
@@ -85,4 +89,12 @@ fun ComposeTestRule.scrollToHomeRow(@StringRes title: Int, @StringRes loaded: In
     val page = hasScrollToNodeAction() and SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange)
     waitAdvancingClock(stepMs = 50) { onNode(page).fetchSemanticsNode().config[SemanticsProperties.IndexForKey](loaded) >= 0 }
     onNode(page).performScrollToNode(hasText(appString(title)))
+}
+
+/** Presses [key] on the screen's root, runs the frames that follow, and returns the text of what has focus then. */
+@OptIn(ExperimentalTestApi::class)
+fun ComposeTestRule.pressAndRead(key: Key): String {
+    onRoot().performKeyInput { pressKey(key) }
+    idleFrames()
+    return focusedText()
 }

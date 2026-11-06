@@ -86,7 +86,7 @@ jobs:
       # earlier exception in composition, for example), which a failure needs for its cause to be found.
       - name: Save the device log
         if: failure()
-        run: adb logcat -d -v threadtime > logcat.txt || true
+        run: '"$ANDROID_HOME/platform-tools/adb" logcat -d -v threadtime > logcat.txt || true'
 
       - uses: actions/upload-artifact@v6
         if: failure()

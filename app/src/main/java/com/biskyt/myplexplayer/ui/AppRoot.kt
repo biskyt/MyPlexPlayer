@@ -57,7 +57,6 @@ import com.biskyt.myplexplayer.ui.settings.SettingsScreen
 import com.biskyt.myplexplayer.ui.settings.WelcomeScreen
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import com.biskyt.myplexplayer.ui.theme.Palette
-import com.biskyt.myplexplayer.ui.vod.MoreInfoScreen
 import com.biskyt.myplexplayer.ui.vod.MovieDetailsScreen
 import com.biskyt.myplexplayer.ui.vod.SeriesDetailsScreen
 import com.biskyt.myplexplayer.ui.vod.VodBrowseScreen
@@ -208,7 +207,7 @@ private val Screen.drawsBehindTopBar: Boolean
 private val Screen.drawsOwnTopBar: Boolean
     get() = when (this) {
         Screen.Home, is Screen.Live, is Screen.Movies, is Screen.Series, Screen.Dvr, is Screen.Search -> true
-        Screen.Welcome, is Screen.Player, is Screen.VodPlayer, is Screen.MovieDetails, is Screen.MoreInfo,
+        Screen.Welcome, is Screen.Player, is Screen.VodPlayer, is Screen.MovieDetails,
         is Screen.SeriesDetails, Screen.Settings, Screen.Playlists, is Screen.PlexSignIn, is Screen.Categories,
         Screen.PlaybackSettings, Screen.Appearance, Screen.Backup, Screen.About, Screen.Licences -> false
     }
@@ -218,7 +217,6 @@ private val Screen.tab: Tab?
     get() = when (this) {
         is Screen.MovieDetails -> Tab.MOVIES
         is Screen.SeriesDetails -> Tab.SERIES
-        is Screen.MoreInfo -> if (type == CAT_MOVIE) Tab.MOVIES else Tab.SERIES
         else -> null
     }
 
@@ -232,7 +230,6 @@ private fun ScreenBody(screen: Screen) {
         is Screen.Series -> VodBrowseScreen(CAT_SERIES, screen.view)
         Screen.Dvr -> DvrScreen()
         is Screen.MovieDetails -> MovieDetailsScreen(screen)
-        is Screen.MoreInfo -> MoreInfoScreen(screen)
         is Screen.SeriesDetails -> SeriesDetailsScreen(screen)
         is Screen.VodPlayer -> VodPlayerScreen(screen)
         is Screen.Search -> SearchScreen(screen.query)

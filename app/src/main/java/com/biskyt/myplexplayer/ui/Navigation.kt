@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
@@ -16,6 +17,8 @@ import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.container
 import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.VodView
+import com.biskyt.myplexplayer.ui.common.FocusVisit
+import com.biskyt.myplexplayer.ui.common.LocalFocusVisit
 
 /** Every screen in the app. Tab roots are [Home], [Live], [Movies], [Series], [Dvr]. */
 sealed interface Screen {
@@ -47,9 +50,6 @@ sealed interface Screen {
         val continueSeries: Boolean = false
     ) : Screen
     data class MovieDetails(val playlistId: Long, val streamId: Long) : Screen
-
-    /** A film's or series' ([type] CAT_MOVIE or CAT_SERIES) details beyond its page: who made it, its file, links. */
-    data class MoreInfo(val playlistId: Long, val type: String, val id: Long) : Screen
 
     /** [season] and [episode] (from 1): open on that episode (found from the TV guide). */
     data class SeriesDetails(val playlistId: Long, val seriesId: Long, val season: Int? = null, val episode: Int? = null) : Screen
@@ -146,7 +146,9 @@ fun NavHost(navigator: Navigator, content: @Composable (Screen) -> Unit) {
         navigator.dropped.forEach(holder::removeState)
         navigator.dropped.clear()
     }
-    CompositionLocalProvider(LocalNavigator provides navigator, LocalViewModelStoreOwner provides entry) {
+    // A new visit each time an entry is shown (see rememberFirstFocus's once).
+    val visit = remember(entry) { FocusVisit() }
+    CompositionLocalProvider(LocalNavigator provides navigator, LocalViewModelStoreOwner provides entry, LocalFocusVisit provides visit) {
         holder.SaveableStateProvider(entry.id) { content(entry.screen) }
     }
 }

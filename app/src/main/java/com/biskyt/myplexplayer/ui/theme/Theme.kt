@@ -42,6 +42,12 @@ object Palette {
     val danger = Color(0xFFE58080)
 }
 
+/**
+ * Settings › large text: the boards' pages (see Board.kt) show their text at the boards' sizes when it is on, and a
+ * step smaller when it is off.
+ */
+val LocalLargeText = staticCompositionLocalOf { false }
+
 @Immutable
 data class Accent(val color: Color, val tint: Color, val soft: Color, val onAccent: Color)
 
@@ -51,10 +57,12 @@ val LocalAccent = staticCompositionLocalOf { Accent(Color(AccentPalette.DEFAULT)
 private fun nunito(weight: Int) =
     Font(R.font.nunito, FontWeight(weight), variationSettings = FontVariation.Settings(FontVariation.weight(weight)))
 
-private const val BOLD = 700
-private const val MEDIUM = 500
+internal const val BOLD = 700
+internal const val MEDIUM = 500
+internal const val SEMI_BOLD = 600
+internal const val EXTRA_BOLD = 800
 
-val Nunito = FontFamily(nunito(MEDIUM), nunito(BOLD))
+val Nunito = FontFamily(nunito(MEDIUM), nunito(SEMI_BOLD), nunito(BOLD), nunito(EXTRA_BOLD))
 
 /** Text is drawn this much smaller than its nominal size (a lighter look than the first designs). */
 private const val TEXT_SCALE = 0.92f
@@ -116,7 +124,12 @@ fun MyPlexTheme(accentArgb: Int = AccentPalette.DEFAULT, largeText: Boolean = fa
     }
     val context = LocalContext.current
     val touch = remember { context.hasTouchScreen() }
-    CompositionLocalProvider(LocalAccent provides accent, LocalDensity provides scaled, LocalTouch provides touch) {
+    CompositionLocalProvider(
+        LocalAccent provides accent,
+        LocalDensity provides scaled,
+        LocalTouch provides touch,
+        LocalLargeText provides largeText
+    ) {
         MaterialTheme(colorScheme = colors, typography = type, content = content)
     }
 }

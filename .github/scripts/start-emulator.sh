@@ -18,7 +18,13 @@ export ANDROID_AVD_HOME=$HOME/.android/avd
 mkdir -p "$ANDROID_AVD_HOME"
 
 yes | "$tools/sdkmanager" --licenses > /dev/null || true
-"$tools/sdkmanager" --install emulator platform-tools "$image" > /dev/null
+# The download from Google is sometimes cut short ("Error reading Zip content"): a new try fetches it again.
+for try in 1 2 3; do
+    "$tools/sdkmanager" --install emulator platform-tools "$image" > /dev/null && break
+    if ((try == 3)); then exit 1; fi
+    echo "The SDK download failed (try $try of 3). Trying again." >&2
+    sleep 10
+done
 echo no | "$tools/avdmanager" create avd --force --name tv --package "$image" --device "$device"
 
 "$adb" start-server
