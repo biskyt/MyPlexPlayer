@@ -1,6 +1,9 @@
 package com.biskyt.myplexplayer.testutil
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.view.KeyEvent as NativeKeyEvent
+import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
@@ -13,6 +16,7 @@ import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
@@ -98,3 +102,18 @@ fun ComposeTestRule.pressAndRead(key: Key): String {
     idleFrames()
     return focusedText()
 }
+
+/**
+ * The screen as drawn now, after the test's frame clock moves on so focus changes are drawn. Drawn here, because
+ * captureToImage waits for a frame that the paused main looper never draws.
+ */
+fun AndroidComposeTestRule<*, out ComponentActivity>.drawScreen(): Bitmap {
+    mainClock.advanceTimeBy(DRAW_SETTLE_MS)
+    waitAdvancingClock { true }
+    val view = activity.window.decorView
+    val screen = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+    runOnUiThread { view.draw(Canvas(screen)) }
+    return screen
+}
+
+private const val DRAW_SETTLE_MS = 200L

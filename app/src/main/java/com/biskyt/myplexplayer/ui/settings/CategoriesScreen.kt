@@ -53,6 +53,7 @@ import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.Toggle
 import com.biskyt.myplexplayer.ui.common.TvCard
+import com.biskyt.myplexplayer.ui.common.cardColor
 import com.biskyt.myplexplayer.ui.common.formatCount
 import com.biskyt.myplexplayer.ui.common.matchesFilter
 import com.biskyt.myplexplayer.ui.common.restoreFocusIf
@@ -249,6 +250,7 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                         onClick = { vm.toggleGroup(g) },
                         selected = g.code == vm.selectedGroup,
                         color = Palette.surfaceLow,
+                        fill = true,
                         modifier = Modifier.restoreFocusIf(vm.firstFocusPending && g == groups.first()) { vm.firstFocusPending = false }
                             .fillMaxWidth()
                             .onFocusChanged { if (it.isFocused) vm.selectedGroup = g.code }
@@ -272,7 +274,7 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                         )
                     }
                     items(hiddenShown, key = { "h${it.streamId}" }) { ch ->
-                        TvCard(onClick = { vm.unhide(ch) }, color = Palette.surfaceLow, modifier = Modifier.fillMaxWidth()) {
+                        TvCard(onClick = { vm.unhide(ch) }, color = Palette.surfaceLow, modifier = Modifier.fillMaxWidth(), fill = true) {
                             Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                                 Text(
                                     ch.name,
@@ -284,7 +286,7 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                                 Text(
                                     stringResource(R.string.settings_categories_unhide),
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = LocalAccent.current.color
+                                    color = cardColor(LocalAccent.current.color)
                                 )
                             }
                         }
@@ -306,7 +308,7 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                     }
                 }
                 items(shown, key = { it.categoryId }) { cat ->
-                    TvCard(onClick = { vm.toggleCategory(cat) }, color = Palette.surface, modifier = Modifier.fillMaxWidth()) {
+                    TvCard(onClick = { vm.toggleCategory(cat) }, color = Palette.surface, modifier = Modifier.fillMaxWidth(), fill = true) {
                         Row(
                             Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -316,7 +318,7 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                             Text(
                                 cat.label,
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = if (cat.included) Palette.text else Palette.textDim,
+                                color = cardColor(if (cat.included) Palette.text else Palette.textDim),
                                 modifier = Modifier.weight(1f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis

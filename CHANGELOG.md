@@ -2,6 +2,14 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.3.0
+- When you go back to a screen, the item you used last has the remote again, on every screen.
+- In Settings and in menus, the item with the remote is filled with your accent colour instead of a white border.
+- The text on the film and series pages and in the top bar is the same size as on the other screens.
+- When a film's or series' description is cut short, a Read more button shows all of it.
+- The Movies and TV Shows tabs open with the remote on their first title.
+- On a series page, Right from Continue goes to the first episode that you did not watch.
+
 ## 1.2.0
 - Film and series pages have a new, cleaner design, with larger cast photos and a More… button for every option.
 - A film's More… menu has About this film and Technical info, which shows the file, video, audio and subtitle tracks before you play it.

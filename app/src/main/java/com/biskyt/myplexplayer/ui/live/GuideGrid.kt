@@ -93,6 +93,7 @@ import com.biskyt.myplexplayer.ui.common.onRecordKey
 import com.biskyt.myplexplayer.ui.common.onTap
 import com.biskyt.myplexplayer.ui.common.rememberDetails
 import com.biskyt.myplexplayer.ui.common.rememberMinuteClock
+import com.biskyt.myplexplayer.ui.common.returnsFocus
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
 import com.biskyt.myplexplayer.ui.theme.Palette
 import java.time.Instant
@@ -295,7 +296,8 @@ fun GuideGrid(
             TimeHeader(span, midnight, now) { dir -> window.move(dir, null) { cursor.time = it } }
             GridFocus(
                 label = { highlight.at()?.let { (ch, p) -> cellTitle(p, noGuide.takeIf { rows.hasProgrammes(ch) }) } },
-                modifier = Modifier.fillMaxSize()
+                // Back on its screen, the grid has focus again (it keeps its own highlighted programme).
+                modifier = Modifier.fillMaxSize().returnsFocus()
                     .focusRequester(entry)
                     .onFocusChanged { hasFocus = it.isFocused }
                     .ignoreHeldSelect()

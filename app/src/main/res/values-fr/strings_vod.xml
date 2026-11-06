@@ -88,6 +88,7 @@
     <string name="vod_restart">Recommencer</string>
     <string name="vod_continue_left">Continuer %1$s · %2$s restantes</string>
     <string name="vod_more">Plus…</string>
+    <string name="vod_read_more">Lire la suite</string>
     <string name="vod_cast_crew">Distribution et équipe</string>
     <string name="vod_cast_crew_help">Tout le monde, avec leurs photos</string>
     <string name="vod_about_this_film">À propos de ce film</string>

@@ -37,6 +37,10 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     cleaning left out). 1.13.1's parental PIN fix (`9a36dba`) doesn't apply. 1.13.2's top bar focus fill, smaller board text, scrolling
     category names, first focus once a visit and Settings' return focus (`46579f1`; its guide sources test left out), with 1.13.3's
     fix (`549ba2e`: first focus again whenever shown; once a visit only for the first rows of settings lists).
+  - In 1.3.0: 1.14.0 (`56a28ce`, `52ee1fd`): the accent fill for menus and settings, board text at the app's
+    size, the plot's More… (here "Read more", as the film page has More… for its options), focus back on the item
+    used on every screen, the tabs open on a title and Right from Continue to the first unplayed episode. Left out:
+    its guide sources and parental hunks (no such screens here) and `DetailButton`'s icon height (no icons here).
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

@@ -104,6 +104,8 @@
     <string name="vod_continue_left">Continue %1$s · %2$s left</string>
     <!-- Series page: the button that opens an episode's options. -->
     <string name="vod_more">More…</string>
+    <!-- Under a film's or series' plot cut short: opens the whole plot. -->
+    <string name="vod_read_more">Read more</string>
     <!-- Film page, More…: what the panels opened from it are called, and the help line under each. -->
     <string name="vod_cast_crew">Cast and crew</string>
     <string name="vod_cast_crew_help">Everyone, with their photos</string>

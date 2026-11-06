@@ -18,6 +18,7 @@ import com.biskyt.myplexplayer.container
 import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.VodView
 import com.biskyt.myplexplayer.ui.common.FocusVisit
+import com.biskyt.myplexplayer.ui.common.KeepsFocus
 import com.biskyt.myplexplayer.ui.common.LocalFocusVisit
 
 /** Every screen in the app. Tab roots are [Home], [Live], [Movies], [Series], [Dvr]. */
@@ -149,7 +150,8 @@ fun NavHost(navigator: Navigator, content: @Composable (Screen) -> Unit) {
     // A new visit each time an entry is shown (see rememberFirstFocus's once).
     val visit = remember(entry) { FocusVisit() }
     CompositionLocalProvider(LocalNavigator provides navigator, LocalViewModelStoreOwner provides entry, LocalFocusVisit provides visit) {
-        holder.SaveableStateProvider(entry.id) { content(entry.screen) }
+        // Inside the entry's saved state: the item last focused is kept with it (see KeepsFocus).
+        holder.SaveableStateProvider(entry.id) { KeepsFocus(entry) { content(entry.screen) } }
     }
 }
 
