@@ -185,7 +185,7 @@ fun FilmPage(
                 )
                 FilmFacts(movie, d)
                 d?.scores?.let { ScoresRow(it) }
-                d?.plot?.let { Text(it, style = FilmPlot.current, maxLines = 3, overflow = TextOverflow.Ellipsis) }
+                d?.plot?.let { PlotWithMore(movie.title, it, FilmPlot.current, maxLines = 3) }
                 d?.let {
                     people(it)
                 }?.let { Text(it, style = SmallMuted.current, color = Palette.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis) }

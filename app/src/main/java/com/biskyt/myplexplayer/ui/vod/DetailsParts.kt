@@ -1,27 +1,42 @@
 package com.biskyt.myplexplayer.ui.vod
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.LocalContentColor
+import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.ui.common.FocusStroke
+import com.biskyt.myplexplayer.ui.common.SidePanel
 import com.biskyt.myplexplayer.ui.common.onTap
+import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
+import com.biskyt.myplexplayer.ui.common.returnsFocus
+import com.biskyt.myplexplayer.ui.player.PLOT_LINES
 import com.biskyt.myplexplayer.ui.theme.BOLD
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
 import com.biskyt.myplexplayer.ui.theme.EXTRA_BOLD
@@ -96,7 +111,7 @@ private fun PillSurface(
 ) = Surface(
     onClick = onClick,
     onLongClick = onLongClick,
-    modifier = modifier.onTap(onLongClick, onClick),
+    modifier = modifier.returnsFocus().onTap(onLongClick, onClick),
     shape = ClickableSurfaceDefaults.shape(Pill),
     scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
     colors = ClickableSurfaceDefaults.colors(
@@ -131,3 +146,25 @@ private val ButtonText = BoardStyle(15, BOLD)
 private val ButtonStrong = BoardStyle(15, EXTRA_BOLD)
 private val PillText = BoardStyle(14, BOLD)
 private val PillStrong = BoardStyle(14, EXTRA_BOLD)
+
+/**
+ * A film's or series' plot, [maxLines] at most. When it is cut short, a Read more button under it opens the whole of it
+ * in a side panel, with [title] (the owner, 2026-11-06). MyTVPlayer calls the button More…: here, the film page has
+ * More… for its options already.
+ */
+@Composable
+fun PlotWithMore(title: String, plot: String, style: TextStyle, maxLines: Int, moreModifier: Modifier = Modifier) {
+    var cut by remember(plot) { mutableStateOf(false) }
+    var open by remember(plot) { mutableStateOf(false) }
+    Text(plot, style = style, maxLines = maxLines, overflow = TextOverflow.Ellipsis, onTextLayout = { cut = it.hasVisualOverflow })
+    if (cut) DetailButton(stringResource(R.string.vod_read_more), { open = true }, moreModifier, horizontal = 14.bd, vertical = 6.bd)
+    if (open) {
+        SidePanel({ open = false }, dim = false) {
+            // Focused, so that Back reaches the panel and closes it.
+            Column(rememberFirstFocus().focusable(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(title, style = MaterialTheme.typography.titleLarge)
+                Text(plot, style = MaterialTheme.typography.bodyLarge, maxLines = PLOT_LINES, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
