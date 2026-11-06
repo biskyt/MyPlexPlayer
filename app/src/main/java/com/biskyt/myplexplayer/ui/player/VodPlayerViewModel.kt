@@ -2,6 +2,7 @@ package com.biskyt.myplexplayer.ui.player
 
 import android.content.Context
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -28,9 +29,11 @@ import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import com.biskyt.myplexplayer.data.userMessage
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.common.ItemAction
+import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.favouriteFlash
 import com.biskyt.myplexplayer.ui.common.favouriteLabel
 import com.biskyt.myplexplayer.ui.common.formatDuration
+import com.biskyt.myplexplayer.ui.vod.personScreen
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -122,9 +125,14 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     /** The cast shown over the player (opened from More), and whose, once read; null while it's closed. */
     var cast by mutableStateOf<Pair<String, List<CastMember>>?>(null)
 
+    /** Who in [cast] has the remote as it opens: back from a person's page, that person. */
+    var castFocus by mutableIntStateOf(0)
+        private set
+
     /** The film's cast; for an episode its own, else its series' (read from the server only now). */
     private fun showCast() {
         sheet = null
+        castFocus = 0
         viewModelScope.launch {
             val playing = current ?: return@launch
             val own = playing.stream.plex?.cast.orEmpty()
@@ -145,6 +153,23 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         }
 
     override fun beforeLeaving() = save(stopped = true)
+
+    /**
+     * The page of person [i] of [cast], or null when the server gave them no id. Before it opens, playback pauses here,
+     * which reports the place to the server as paused (or, not playing, it is saved as it is). The player stays under
+     * the page: Back plays on from the same place, with the cast open on the same person.
+     */
+    fun personPage(i: Int): Screen.Person? {
+        val (title, people) = cast ?: return null
+        val page = people.getOrNull(i)?.let {
+            personScreen(screen.playlistId, it, title, if (series == null) Tab.MOVIES else Tab.SERIES, acting = true)
+        } ?: return null
+        castFocus = i
+        val player = engine?.player
+        // Pausing saves through onPlayingChanged.
+        if (player?.isPlaying == true) player.pause() else save()
+        return page
+    }
 
     init {
         viewModelScope.launch { c.vod.observeFavourite(screen.playlistId, favouriteType, favouriteId).collect { favourite = it } }

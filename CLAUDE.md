@@ -252,6 +252,10 @@ See also:
   only if the channel records now and the buffer holds more than 60 s (`offersStart`). More offers "Watch from start"
   too, and "Watch live" once from the start. "From start" plays the same session again with `offset` (the buffer's
   start, 0), and "Watch live" with none: never a second tune (`PlexLive.restream`). A finished recording is a `complete` grab with `linkedKey`, and plays as a library item.
+- **People** (S13, docs/plex-api.md row 29): the server's `/library/people/{id}/media` gives a person's titles
+  there. Discover (`PlexAccount.person` and `credits`, the account token) gives the biography and credits. Discover
+  sends all the credits in one reply and ignores paging. A credit's `ratingKey` is the id at the end of a server
+  title's `guid` (`plexGuidId`).
 - **Changing a setting's default:** `SettingsRepository.update` (and a backup) saves every setting, so a default
   already released is saved as if chosen. A new default needs a new preference key and `@SerialName`, as credits'
   automatic skip got in 0.8.1.
@@ -319,6 +323,15 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
   - Series: an episode's More… opens the options of "This episode" and "The show", as holding OK does.
   - Keep `Board.kt`, `DetailsParts.kt` and `TopBar.kt` as MyTVPlayer has them, so ports apply; put Plex-only parts in
     the Plex files above.
+- **Cast member's page** (1.4.0, board "Cast member's page"): OK on a cast photo, or on a row of Cast and crew or
+  of the player's Cast, opens `Screen.Person` (pushed, never replaced). A person with no server `id` does not open.
+  - It shows the photo, name, a line (kinds of work, birth, the part in the title it came from) and the biography
+    (3 lines, with "Full biography"). Then "In your library", "Also appears in" and "All credits". A part with no data
+    is left out.
+  - From the player, the video pauses (reported to Plex as paused). Back plays on from the same place, with the Cast
+    panel open on the same person. The film and series pages' Cast and crew also opens again on the same person.
+  - The board is 1280 wide, so its sizes are dp there, not `.bd`. Nothing is saved to Room: Discover's answers are
+    kept in memory (`PersonRepository`).
 - **Back stops playback.** There's no picture-in-picture.
 - **Text fields are built for a TV remote:**
   - Server addresses get no autocorrect or capitals.

@@ -31,6 +31,7 @@ import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.core.player.OverlayState
 import com.biskyt.myplexplayer.core.plex.PlexMarker
 import com.biskyt.myplexplayer.core.plex.SkipPill
+import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
 import com.biskyt.myplexplayer.ui.common.CastPanel
@@ -54,8 +55,11 @@ fun VodPlayerScreen(screen: Screen.VodPlayer) {
         // closes): while the pill counts down, it cancels the skip.
         BackHandler(enabled = vm.backCancelsSkip, onBack = vm::cancelAutoSkip)
     }
-    // The cast, from More: over the picture, which plays on.
-    vm.cast?.let { (title, cast) -> CastPanel(title, cast) { vm.cast = null } }
+    // The cast, from More: over the picture, which plays on. OK on someone opens their page over the player.
+    val nav = LocalNavigator.current
+    vm.cast?.let { (title, cast) ->
+        CastPanel(title, cast, focus = vm.castFocus, open = { i -> vm.personPage(i)?.let(nav::push) }) { vm.cast = null }
+    }
 }
 
 /**

@@ -2,6 +2,13 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.4.0
+- Press OK on a cast photo to open the page of that person.
+- The page of a person shows their photo, their biography and the titles of theirs in your library.
+- The page also shows the other titles that the person is in, and a list of all their credits.
+- In Cast and crew and in the player's Cast panel, press OK on a person to open their page.
+- If you open the page of a person from the player, Back continues the video from the same place.
+
 ## 1.3.2
 - At the end of a film or episode, the player closes and goes back, as Stop does: the next episode no longer starts by itself.
 - When you skip the final credits of an episode, the player closes too.

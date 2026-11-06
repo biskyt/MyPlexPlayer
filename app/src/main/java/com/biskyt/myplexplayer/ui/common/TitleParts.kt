@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -106,19 +107,29 @@ fun CastPerson(person: CastMember, photo: Dp, modifier: Modifier = Modifier) {
 
 /**
  * The cast in a side panel: from a page's options, or over the player (which goes on behind it). [heading] is "Cast",
- * or "Cast and crew" where [cast] also lists who directed and wrote it.
+ * or "Cast and crew" where [cast] also lists who directed and wrote it. OK on someone the server gave an id to opens
+ * their page ([open], with their place in [cast]). [focus] is the place that has the remote as the panel opens (back
+ * from that page, the same person).
  */
 @Composable
-fun CastPanel(title: String, cast: List<CastMember>, heading: String = stringResource(R.string.vod_cast_title), onDismiss: () -> Unit) {
+fun CastPanel(
+    title: String,
+    cast: List<CastMember>,
+    heading: String = stringResource(R.string.vod_cast_title),
+    focus: Int = 0,
+    open: (Int) -> Unit = {},
+    onDismiss: () -> Unit
+) {
     SidePanel(onDismiss, dim = false) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Muted(title)
             Text(heading, style = MaterialTheme.typography.titleLarge)
             if (cast.isEmpty()) Muted(stringResource(R.string.vod_no_cast))
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            val first = focus.coerceIn(0, (cast.size - 1).coerceAtLeast(0))
+            LazyColumn(state = rememberLazyListState(first), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 itemsIndexed(cast) { i, person ->
-                    val focus = if (i == 0) rememberFirstFocus() else Modifier
-                    TvCard(onClick = {}, color = Palette.surface, modifier = focus.fillMaxWidth()) {
+                    val modifier = if (i == first) rememberFirstFocus() else Modifier
+                    TvCard(onClick = { if (person.id != null) open(i) }, color = Palette.surface, modifier = modifier.fillMaxWidth()) {
                         CastPerson(person, 48.dp, Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
                     }
                 }

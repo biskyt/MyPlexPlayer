@@ -1,0 +1,214 @@
+{
+  "MediaContainer": {
+    "identifier": "tv.plex.provider.discover",
+    "size": 5,
+    "CreditGroup": [
+      {
+        "type": "actor",
+        "title": "Actor",
+        "Credit": [
+          {
+            "order": 1,
+            "role": "Mara",
+            "Metadata": {
+              "art": "https://image.tmdb.org/t/p/original/60000000000000000000a001-art.jpg",
+              "key": "/library/metadata/60000000000000000000a001/children",
+              "publicPagesURL": "https://watch.plex.tv/show/the-harbour",
+              "ratingKey": "60000000000000000000a001",
+              "slug": "the-harbour",
+              "thumb": "https://image.tmdb.org/t/p/original/60000000000000000000a001.jpg",
+              "title": "The Harbour",
+              "type": "show",
+              "year": 2023,
+              "originallyAvailableAt": "2023-01-10T00:00:00.000Z",
+              "skipChildren": true
+            }
+          },
+          {
+            "order": 2,
+            "role": "Iona",
+            "Metadata": {
+              "art": "https://image.tmdb.org/t/p/original/60000000000000000000a003-art.jpg",
+              "key": "/library/metadata/60000000000000000000a003",
+              "publicPagesURL": "https://watch.plex.tv/movie/glass-coast",
+              "ratingKey": "60000000000000000000a003",
+              "slug": "glass-coast",
+              "thumb": "https://image.tmdb.org/t/p/original/60000000000000000000a003.jpg",
+              "title": "Glass Coast",
+              "type": "movie",
+              "year": 2022,
+              "originallyAvailableAt": "2022-06-01T00:00:00.000Z"
+            }
+          },
+          {
+            "order": 3,
+            "role": "Ellen",
+            "Metadata": {
+              "art": "https://image.tmdb.org/t/p/original/60000000000000000000a002-art.jpg",
+              "key": "/library/metadata/60000000000000000000a002",
+              "publicPagesURL": "https://watch.plex.tv/movie/north-light",
+              "ratingKey": "60000000000000000000a002",
+              "slug": "north-light",
+              "thumb": "https://image.tmdb.org/t/p/original/60000000000000000000a002.jpg",
+              "title": "North Light",
+              "type": "movie",
+              "year": 2019,
+              "originallyAvailableAt": "2019-09-20T00:00:00.000Z"
+            }
+          },
+          {
+            "order": 4,
+            "role": "Kate",
+            "Metadata": {
+              "art": "https://image.tmdb.org/t/p/original/60000000000000000000a004-art.jpg",
+              "key": "/library/metadata/60000000000000000000a004/children",
+              "publicPagesURL": "https://watch.plex.tv/show/signal-hill",
+              "ratingKey": "60000000000000000000a004",
+              "slug": "signal-hill",
+              "thumb": "https://image.tmdb.org/t/p/original/60000000000000000000a004.jpg",
+              "title": "Signal Hill",
+              "type": "show",
+              "year": 2021,
+              "originallyAvailableAt": "2021-03-02T00:00:00.000Z",
+              "skipChildren": true
+            }
+          },
+          {
+            "order": 5,
+            "role": "Nurse",
+            "Metadata": {
+              "art": "https://image.tmdb.org/t/p/original/60000000000000000000a005-art.jpg",
+              "key": "/library/metadata/60000000000000000000a005",
+              "publicPagesURL": "https://watch.plex.tv/movie/first-frost",
+              "ratingKey": "60000000000000000000a005",
+              "slug": "first-frost",
+              "thumb": "https://image.tmdb.org/t/p/original/60000000000000000000a005.jpg",
+              "title": "First Frost",
+              "type": "movie"
+            }
+          },
+          {
+            "order": 6,
+            "role": "Iona",
+            "Metadata": {
+              "art": "https://image.tmdb.org/t/p/original/60000000000000000000a003-art.jpg",
+              "key": "/library/metadata/60000000000000000000a003",
+              "publicPagesURL": "https://watch.plex.tv/movie/glass-coast",
+              "ratingKey": "60000000000000000000a003",
+              "slug": "glass-coast",
+              "thumb": "https://image.tmdb.org/t/p/original/60000000000000000000a003.jpg",
+              "title": "Glass Coast",
+              "type": "movie",
+              "year": 2022,
+              "originallyAvailableAt": "2022-06-01T00:00:00.000Z"
+            }
+          }
+        ]
+      },
+      {
+        "type": "writer",
+        "title": "Writer",
+        "Credit": [
+          {
+            "order": 1,
+            "Metadata": {
+              "art": "https://image.tmdb.org/t/p/original/60000000000000000000a006-art.jpg",
+              "key": "/library/metadata/60000000000000000000a006/children",
+              "publicPagesURL": "https://watch.plex.tv/show/still-waters",
+              "ratingKey": "60000000000000000000a006",
+              "slug": "still-waters",
+              "thumb": "https://image.tmdb.org/t/p/original/60000000000000000000a006.jpg",
+              "title": "Still Waters",
+              "type": "show",
+              "year": 2024,
+              "originallyAvailableAt": "2024-02-14T00:00:00.000Z",
+              "skipChildren": true
+            }
+          },
+          {
+            "order": 2,
+            "role": "Screenplay",
+            "Metadata": {
+              "art": "https://image.tmdb.org/t/p/original/60000000000000000000a003-art.jpg",
+              "key": "/library/metadata/60000000000000000000a003",
+              "publicPagesURL": "https://watch.plex.tv/movie/glass-coast",
+              "ratingKey": "60000000000000000000a003",
+              "slug": "glass-coast",
+              "thumb": "https://image.tmdb.org/t/p/original/60000000000000000000a003.jpg",
+              "title": "Glass Coast",
+              "type": "movie",
+              "year": 2022,
+              "originallyAvailableAt": "2022-06-01T00:00:00.000Z"
+            }
+          }
+        ]
+      },
+      {
+        "type": "producer",
+        "title": "Producer",
+        "Credit": [
+          {
+            "order": 1,
+            "Metadata": {
+              "art": "https://image.tmdb.org/t/p/original/60000000000000000000a007-art.jpg",
+              "key": "/library/metadata/60000000000000000000a007",
+              "publicPagesURL": "https://watch.plex.tv/movie/paper-boats",
+              "ratingKey": "60000000000000000000a007",
+              "slug": "paper-boats",
+              "thumb": "https://image.tmdb.org/t/p/original/60000000000000000000a007.jpg",
+              "title": "Paper Boats",
+              "type": "movie",
+              "year": 2018,
+              "originallyAvailableAt": "2018-04-11T00:00:00.000Z"
+            }
+          }
+        ]
+      },
+      {
+        "type": "appeared",
+        "title": "Self",
+        "Credit": [
+          {
+            "order": 1,
+            "role": "Herself",
+            "Metadata": {
+              "art": "https://image.tmdb.org/t/p/original/60000000000000000000a008-art.jpg",
+              "key": "/library/metadata/60000000000000000000a008/children",
+              "publicPagesURL": "https://watch.plex.tv/show/evening-talk",
+              "ratingKey": "60000000000000000000a008",
+              "slug": "evening-talk",
+              "thumb": "https://image.tmdb.org/t/p/original/60000000000000000000a008.jpg",
+              "title": "Evening Talk",
+              "type": "show",
+              "year": 2025,
+              "originallyAvailableAt": "2025-01-01T00:00:00.000Z",
+              "skipChildren": true
+            }
+          }
+        ]
+      },
+      {
+        "type": "other",
+        "title": "Additional Credits",
+        "Credit": [
+          {
+            "order": 1,
+            "role": "Story",
+            "Metadata": {
+              "art": "https://image.tmdb.org/t/p/original/60000000000000000000a009-art.jpg",
+              "key": "/library/metadata/60000000000000000000a009",
+              "publicPagesURL": "https://watch.plex.tv/movie/low-country",
+              "ratingKey": "60000000000000000000a009",
+              "slug": "low-country",
+              "thumb": "https://image.tmdb.org/t/p/original/60000000000000000000a009.jpg",
+              "title": "Low Country",
+              "type": "movie",
+              "year": 2015,
+              "originallyAvailableAt": "2015-01-01T00:00:00.000Z"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -42,8 +42,8 @@ object BoardTitles {
             "originalTitle" to JsonPrimitive("El puerto largo"),
             "originallyAvailableAt" to JsonPrimitive("2021-03-12"),
             "Genre" to tags("Drama", "Mystery"),
-            "Director" to tags("Ana Ruiz"),
-            "Writer" to tags("Ana Ruiz", "Paul Okafor"),
+            "Director" to people("Ana Ruiz" to ANA),
+            "Writer" to people("Ana Ruiz" to ANA, "Paul Okafor" to ANA + 1),
             "Producer" to tags("Mia Ortega", "Sam Reid"),
             "Country" to tags("Spain", "United Kingdom"),
             "Collection" to tags("Island stories"),
@@ -61,6 +61,11 @@ object BoardTitles {
                             put("tag", name)
                             put("role", role)
                             put("thumb", "/people/$i.jpg")
+                            // Each one's ids, on the server and on Discover; the last as one with no id.
+                            if (i < 5) {
+                                put("id", CAST + i)
+                                put("tagKey", tagKey(CAST + i))
+                            }
                         }
                     )
                 }
@@ -136,6 +141,8 @@ object BoardTitles {
                     buildJsonObject {
                         put("tag", "Ines Moreau")
                         put("role", "Rose")
+                        put("id", CAST + 1)
+                        put("tagKey", tagKey(CAST + 1))
                     }
                 )
             },
@@ -248,6 +255,26 @@ object BoardTitles {
     }
 
     private fun tags(vararg names: String) = JsonArray(names.map { buildJsonObject { put("tag", it) } })
+
+    /** The film's cast's ids on the server, from Tom Hale's (and Ines Moreau's, next, is the show's too). */
+    const val CAST = 101L
+
+    /** Ana Ruiz's id, the film's director (Paul Okafor's is the next). */
+    const val ANA = 111L
+
+    /** A person's id on Discover, from their [id] on the server. */
+    fun tagKey(id: Long) = "5e00000000000000000$id"
+
+    /** People of the crew, with their ids, as the server lists them. */
+    private fun people(vararg named: Pair<String, Long>) = JsonArray(
+        named.map { (name, id) ->
+            buildJsonObject {
+                put("tag", name)
+                put("id", id)
+                put("tagKey", tagKey(id))
+            }
+        }
+    )
 
     private fun rating(image: String, type: String, value: Double) = buildJsonObject {
         put("image", image)

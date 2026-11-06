@@ -7,6 +7,7 @@ import com.biskyt.myplexplayer.BuildConfig
 import com.biskyt.myplexplayer.core.plex.PlexAccount
 import com.biskyt.myplexplayer.core.plex.PlexAutoDelete
 import com.biskyt.myplexplayer.core.plex.PlexClient
+import com.biskyt.myplexplayer.core.plex.PlexCreditGroup
 import com.biskyt.myplexplayer.core.plex.PlexDevice
 import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.plex.PlexFavouriteChannel
@@ -14,6 +15,7 @@ import com.biskyt.myplexplayer.core.plex.PlexItem
 import com.biskyt.myplexplayer.core.plex.PlexLiveTv
 import com.biskyt.myplexplayer.core.plex.PlexMarker
 import com.biskyt.myplexplayer.core.plex.PlexMediaInfo
+import com.biskyt.myplexplayer.core.plex.PlexPerson
 import com.biskyt.myplexplayer.core.plex.PlexPin
 import com.biskyt.myplexplayer.core.plex.PlexPlayState
 import com.biskyt.myplexplayer.core.plex.PlexProgramme
@@ -67,6 +69,10 @@ class PlexSources(
     @VisibleForTesting
     var plexGuide: String = PlexAccount.EPG_PROVIDER
 
+    /** Plex's Discover service, which knows people's biographies and credits (tests point it at a stand-in). */
+    @VisibleForTesting
+    var plexDiscover: String = PlexAccount.DISCOVER
+
     private val playlists = db.playlists()
 
     /** The server's play state, brought into the app's progress rows. */
@@ -84,7 +90,7 @@ class PlexSources(
         deviceName = Build.MODEL.orEmpty(),
     ).also { device = it }
 
-    private suspend fun account() = PlexAccount(http, device(), plexTv, plexGuide)
+    private suspend fun account() = PlexAccount(http, device(), plexTv, plexGuide, plexDiscover)
 
     /** A new code to enter at plex.tv/link. */
     suspend fun createPin(): PlexPin = account().createPin()
@@ -292,8 +298,8 @@ class PlexSources(
         contentRating = ageRating(item.contentRating),
         scores = scores,
         genres = item.genres.tags(),
-        directors = item.directors.tags(),
-        writers = item.writers.tags(),
+        directors = people(client, item.directors),
+        writers = people(client, item.writers),
         producers = item.producers.tags(),
         countries = item.countries.tags(),
         collections = item.collections.tags(),
@@ -388,6 +394,14 @@ class PlexSources(
 
     private suspend fun token(): String =
         settings.plexToken() ?: throw PlexException("Not signed in", reason = PlexException.Reason.UNAUTHORIZED)
+
+    // --- people ---
+
+    /** A person on Plex's Discover service, by their [tagKey], with the account's token (docs/plex-api.md 29). */
+    suspend fun person(tagKey: String): PlexPerson? = account().person(token(), tagKey)
+
+    /** A person's credits on Discover, all of them. */
+    suspend fun credits(tagKey: String): List<PlexCreditGroup> = account().credits(token(), tagKey)
 
     /** Each server's Live TV, as last found: tuning needs its DVR. */
     private val liveTv = java.util.concurrent.ConcurrentHashMap<Long, PlexLiveTv>()
@@ -659,8 +673,11 @@ fun PlexItem.playState() = PlexItem(
 val PlexItem.lastViewedMs: Long? get() = lastViewedAt?.times(1000)
 
 /** [item]'s cast, as the server lists them, with photos made small (loaded only where shown). */
-fun castOf(client: PlexClient, item: PlexItem): List<CastMember> = item.roles.filter { it.tag.isNotBlank() }
-    .map { r -> CastMember(r.tag, r.role, r.thumb?.let { client.imageUrl(it, CAST_PHOTO, CAST_PHOTO) }) }
+fun castOf(client: PlexClient, item: PlexItem): List<CastMember> = people(client, item.roles)
+
+/** These people (cast or crew), with their ids, for their pages, and photos made small (loaded only where shown). */
+private fun people(client: PlexClient, tags: List<PlexTag>): List<CastMember> = tags.filter { it.tag.isNotBlank() }
+    .map { r -> CastMember(r.tag, r.role, r.thumb?.let { client.imageUrl(it, CAST_PHOTO, CAST_PHOTO) }, r.id, r.tagKey) }
 
 /** Cast photos' size in pixels: the film page's 92 board px on a 1080p screen, so its cast panel uses the same image. */
 private const val CAST_PHOTO = 184

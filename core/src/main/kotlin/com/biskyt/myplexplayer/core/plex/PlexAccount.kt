@@ -99,10 +99,12 @@ class PlexAccount(
     private val device: PlexDevice,
     baseUrl: String = PLEX_TV,
     guideUrl: String = EPG_PROVIDER,
+    discoverUrl: String = DISCOVER,
 ) {
 
     private val base: HttpUrl = plexBase(baseUrl)
     private val guide: HttpUrl = plexBase(guideUrl)
+    private val discover: HttpUrl = plexBase(discoverUrl)
 
     /** A new short code for plex.tv/link ("strong" codes are longer, for a link the app opens itself). */
     suspend fun createPin(): PlexPin = call("POST", url("api/v2/pins"), token = null)
@@ -188,6 +190,23 @@ class PlexAccount(
         http.execute(request) { }
     }
 
+    /**
+     * A person on Plex's Discover service, by their [tagKey] ([PlexTag.tagKey]), with the account's [token] (a shared
+     * server's user has one too): biography, birth and kinds of work. Null if Discover has no such person.
+     */
+    suspend fun person(token: String, tagKey: String): PlexPerson? =
+        call<PlexPersonResponse>("GET", discover.at("library/people/$tagKey"), token).container.people.firstOrNull()
+
+    /**
+     * Every credit of a person on Discover, in groups by kind ([PlexCreditGroup.type]). Discover sends all of them in one
+     * reply: it does not page them (docs/plex-api.md 29).
+     */
+    suspend fun credits(token: String, tagKey: String): List<PlexCreditGroup> = call<PlexCreditsResponse>(
+        "GET",
+        discover.at("library/people/$tagKey/credits") { addQueryParameter("includeMeta", "1") },
+        token
+    ).container.groups
+
     private fun rank(connection: PlexConnection): Int = when {
         connection.relay -> 2
         connection.local -> 0
@@ -215,6 +234,9 @@ class PlexAccount(
 
         /** Plex's guide service, which keeps the account's favourite channels. */
         const val EPG_PROVIDER = "https://epg.provider.plex.tv/"
+
+        /** Plex's Discover service, which knows every person's biography and credits. */
+        const val DISCOVER = "https://discover.provider.plex.tv/"
 
         /** Without it the guide service answers with no favourites, not an error. */
         private val PROVIDER_HEADER = "X-Plex-Provider-Version" to "5.1"

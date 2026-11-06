@@ -30,6 +30,7 @@ import com.biskyt.myplexplayer.data.EpgRepository
 import com.biskyt.myplexplayer.data.ExternalIp
 import com.biskyt.myplexplayer.data.Favourites
 import com.biskyt.myplexplayer.data.Notices
+import com.biskyt.myplexplayer.data.PersonRepository
 import com.biskyt.myplexplayer.data.PlaylistRepository
 import com.biskyt.myplexplayer.data.PlexSources
 import com.biskyt.myplexplayer.data.Recordings
@@ -78,6 +79,7 @@ class AppContainer(context: Context) {
     val notices = Notices()
     val channels = ChannelRepository(db, plex, notices)
     val vod = VodRepository(db, playlists, categoryStore, plex, notices)
+    val people = PersonRepository(db, plex)
     val favourites = Favourites(appScope, settings, channels, vod)
     val recordings = Recordings(appScope, playlists, plex, notices)
     val search = SearchRepository(db)
