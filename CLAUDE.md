@@ -35,7 +35,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   MyPlexPlayer removed in 0.6.0: they don't apply.
   - In 1.2.0: 1.13.0's film and series pages and top bar (`7d01e58`, see **Details pages**; its Xtream title
     cleaning left out). 1.13.1's parental PIN fix (`9a36dba`) doesn't apply. 1.13.2's top bar focus fill, smaller board text, scrolling
-    category names, first focus once a visit and Settings' return focus (`46579f1`; its guide sources test left out).
+    category names, first focus once a visit and Settings' return focus (`46579f1`; its guide sources test left out), with 1.13.3's
+    fix (`549ba2e`: first focus again whenever shown; once a visit only for the first rows of settings lists).
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

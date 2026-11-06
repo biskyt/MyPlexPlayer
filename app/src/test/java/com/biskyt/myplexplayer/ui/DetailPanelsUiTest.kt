@@ -115,6 +115,18 @@ class DetailPanelsUiTest {
     }
 
     @Test
+    fun `after Delete then Keep it, the first option has the remote again`() {
+        // MyTVPlayer 1.13.2 gave first focus once a visit, so the list that came back had none (1.13.3 fixed it).
+        filmPage()
+        compose.click("More…")
+        moreListed()
+        compose.click("Delete…")
+        compose.waitForText("Keep it", stepMs = 50)
+        compose.click("Keep it")
+        compose.waitAdvancingClock(stepMs = 50) { "Mark as watched" in compose.focusedText() }
+    }
+
+    @Test
     fun `More…'s favourite and watched change the film`() {
         filmPage()
         compose.click("More…")

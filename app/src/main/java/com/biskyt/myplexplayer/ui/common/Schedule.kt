@@ -20,7 +20,6 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -128,14 +127,7 @@ fun SidePanel(
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        // Each opening is a new visit: its first focus is taken again (see rememberFirstFocus).
-        val visit = remember { FocusVisit() }
-        CompositionLocalProvider(
-            LocalDensity provides density,
-            LocalContext provides context,
-            LocalConfiguration provides configuration,
-            LocalFocusVisit provides visit
-        ) {
+        CompositionLocalProvider(LocalDensity provides density, LocalContext provides context, LocalConfiguration provides configuration) {
             // A dialog is its own window: on a phone its bars would come back over the app otherwise.
             if (LocalTouch.current) {
                 val dialogView = LocalView.current
