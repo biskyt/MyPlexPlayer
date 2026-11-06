@@ -1,25 +1,12 @@
 package com.biskyt.myplexplayer.ui.common
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.plex.TitleLink
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
-import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Navigator
 import com.biskyt.myplexplayer.ui.Screen
 
@@ -106,43 +93,10 @@ fun markWatched(watched: Boolean, setWatched: (Boolean) -> Unit) =
 fun vodDetails(playlistId: Long, type: String, id: Long): Screen =
     if (type == CAT_MOVIE) Screen.MovieDetails(playlistId, id) else Screen.SeriesDetails(playlistId, id)
 
-/**
- * A side panel of what can be done with something: [actions] in order, the first with focus, then any [more] options
- * (such as a programme's recording options). A [ItemAction.Confirmed] asks its question in the panel first, with "no"
- * focused.
- */
+/** A side panel of what can be done with something, with no line under its [title]: see [BoardActionsPanel]. */
 @Composable
-fun ItemActionsPanel(title: String, actions: List<ItemAction>, onDismiss: () -> Unit, more: (@Composable () -> Unit)? = null) {
-    val nav = LocalNavigator.current
-    var asking by remember { mutableStateOf<ItemAction.Confirmed?>(null) }
-    SidePanel(onDismiss) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
-            Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 2, modifier = Modifier.padding(bottom = 8.dp))
-            val confirm = asking
-            if (confirm != null) {
-                ConfirmQuestion(
-                    confirm,
-                    onNo = { asking = null },
-                    onDismiss = onDismiss,
-                    question = { Text(it, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(bottom = 8.dp)) }
-                ) { label, modifier, _, click -> MenuOption(label, modifier = modifier, onClick = click) }
-                return@Column
-            }
-            val first = actions.indexOfFirst { it !is ItemAction.Heading }
-            actions.forEachIndexed { i, a ->
-                val focus = if (i == first) rememberFirstFocus() else Modifier
-                when (a) {
-                    is ItemAction.Heading -> SectionLabel(a.label)
-                    is ItemAction.Links -> LinksRow(a.label, a.links, focus, inset = MENU_OPTION_INSET)
-                    is ItemAction.Cycle -> CycleSettingRow(a.label, null, a.value, a.step, focus)
-                    is ItemAction.Confirmed -> MenuOption(a.label, a.help, focus) { asking = a }
-                    else -> MenuOption(a.label, a.help, focus) { a.perform(nav, onDismiss) }
-                }
-            }
-            more?.invoke()
-        }
-    }
-}
+fun ItemActionsPanel(title: String, actions: List<ItemAction>, onDismiss: () -> Unit, more: (@Composable () -> Unit)? = null) =
+    BoardActionsPanel(title, null, actions, onDismiss, more = more)
 
 /**
  * [confirm]'s [question], then its "no" (focused, [onNo]) and its yes ([onDismiss], then it is done), each drawn by

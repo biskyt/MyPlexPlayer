@@ -4,8 +4,6 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -17,10 +15,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
+import com.biskyt.myplexplayer.ui.theme.bd
 
 /**
  * A web page as a QR code to scan with a phone (paying or reading on a TV isn't for everyone), with its address, an
@@ -30,16 +27,14 @@ import com.biskyt.myplexplayer.appString
 fun LinkPanel(title: String, url: String, note: String? = null, onDismiss: () -> Unit) {
     val context = LocalContext.current
     var problem by remember { mutableStateOf<String?>(null) }
-    SidePanel(onDismiss) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
-            Muted(stringResource(R.string.common_link_scan_hint), maxLines = 2)
-            QrCode(url, Modifier.size(240.dp))
-            Text(url.removePrefix("https://"), style = MaterialTheme.typography.titleSmall)
-            note?.let { Muted(it, maxLines = 2) }
-            PillButton(stringResource(R.string.common_link_open_here), { problem = openLink(context, url) }, rememberFirstFocus())
-            problem?.let { Muted(it, maxLines = 2) }
-        }
+    BoardPanel(onDismiss, gap = 10.bd) {
+        BoardPanelTitle(title)
+        BoardPanelSubtitle(stringResource(R.string.common_link_scan_hint))
+        QrCode(url, Modifier.size(240.dp).align(Alignment.CenterHorizontally))
+        BoardPanelText(url.removePrefix("https://"))
+        note?.let { BoardPanelSubtitle(it) }
+        PillButton(stringResource(R.string.common_link_open_here), { problem = openLink(context, url) }, rememberFirstFocus())
+        problem?.let { BoardPanelSubtitle(it) }
     }
 }
 

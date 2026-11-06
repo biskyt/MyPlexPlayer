@@ -514,7 +514,7 @@ private fun EpisodeOptions(
             if (canDelete) deleteSeriesAction(title, d?.episodes?.size) { vm.deleteSeries() } else null
         )
     val name = "${shortEpisodeLabel(e.season, e.number)} ${episodeName(e)}"
-    BoardActionsPanel("$title · $name", null, episode + showActions, close)
+    BoardActionsPanel("$title · $name", null, episode + showActions, close, smallTitle = true)
 }
 
 /**

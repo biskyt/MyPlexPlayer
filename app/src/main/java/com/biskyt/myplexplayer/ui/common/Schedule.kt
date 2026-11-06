@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -42,6 +41,7 @@ import com.biskyt.myplexplayer.data.db.ChannelProgramme
 import com.biskyt.myplexplayer.data.programmeTitle
 import com.biskyt.myplexplayer.hideSystemBars
 import com.biskyt.myplexplayer.ui.theme.Palette
+import com.biskyt.myplexplayer.ui.theme.bd
 
 /** Programmes for one channel from now until tomorrow, loaded from the local guide. */
 @Composable
@@ -65,16 +65,17 @@ fun ScheduleList(programmes: List<ChannelProgramme>?, modifier: Modifier = Modif
     val first = rememberFirstFocus(programmes?.let { it.firstOrNull()?.streamId ?: NO_PROGRAMMES })
     when {
         programmes == null -> Unit
-        programmes.isEmpty() -> Muted(stringResource(R.string.common_no_guide_for_channel), modifier.then(first).focusable(), maxLines = 2)
-        else -> LazyColumn(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        programmes.isEmpty() -> BoardPanelSubtitle(stringResource(R.string.common_no_guide_for_channel), modifier.then(first).focusable())
+        else -> LazyColumn(modifier, verticalArrangement = Arrangement.spacedBy(BoardPanelGap)) {
             itemsIndexed(programmes, key = { _, p -> p.startMs }) { i, p ->
                 val live = p.isLive(now)
-                TvCard(onClick = { onSelect(p) }, modifier = (if (i == 0) first else Modifier).fillMaxWidth(), color = Palette.surfaceLow) {
-                    Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // A panel's row (see BoardPanel): filled with the accent colour while it has focus.
+                BoardRow(onClick = { onSelect(p) }, modifier = if (i == 0) first else Modifier) {
+                    Row(Modifier.padding(horizontal = 14.bd, vertical = 8.bd), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
                             formatTime(p.startMs),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Palette.textMuted,
+                            color = cardColor(Palette.textMuted),
                             modifier = Modifier.width(52.dp)
                         )
                         Column(Modifier.weight(1f)) {
@@ -90,7 +91,7 @@ fun ScheduleList(programmes: List<ChannelProgramme>?, modifier: Modifier = Modif
                                 Text(
                                     detail,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Palette.textMuted,
+                                    color = cardColor(Palette.textMuted),
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -108,7 +109,8 @@ private const val NO_PROGRAMMES = -1L
 
 /** Marks a programme on now, wherever programmes are listed. */
 @Composable
-fun OnNowLabel() = Text(stringResource(R.string.common_on_now), style = MaterialTheme.typography.labelSmall, color = Palette.live)
+fun OnNowLabel() =
+    Text(stringResource(R.string.common_on_now), style = MaterialTheme.typography.labelSmall, color = cardColor(Palette.live))
 
 /**
  * A panel sliding in from the right over a dimmed screen. Shown as a dialog so focus stays inside it and Back closes it.

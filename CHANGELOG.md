@@ -8,6 +8,7 @@ Each version's section becomes its GitHub release notes, so it is written for th
 - The page also shows the other titles that the person is in, and a list of all their credits.
 - In Cast and crew and in the player's Cast panel, press OK on a person to open their page.
 - If you open the page of a person from the player, Back continues the video from the same place.
+- All side panels now have the same design as the More… panel of the film page, with options that fill with your accent colour.
 
 ## 1.3.2
 - At the end of a film or episode, the player closes and goes back, as Stop does: the next episode no longer starts by itself.

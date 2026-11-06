@@ -53,7 +53,6 @@ import com.biskyt.myplexplayer.ui.common.formatDuration
 import com.biskyt.myplexplayer.ui.common.markWatched
 import com.biskyt.myplexplayer.ui.common.onOptionsKey
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
-import com.biskyt.myplexplayer.ui.common.returnsFocus
 import com.biskyt.myplexplayer.ui.common.timeLeft
 import com.biskyt.myplexplayer.ui.theme.BOLD
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
@@ -304,8 +303,8 @@ private fun CastStrip(cast: List<CastMember>, open: (CastMember) -> Unit, modifi
 
 @Composable
 private fun CastCard(person: CastMember, onClick: () -> Unit) {
-    // Back from their page, the card has the remote again.
-    AccentFillSurface(onClick, CardShape, Modifier.returnsFocus()) {
+    // Back from their page, the card has the remote again (as every TvCard does).
+    AccentFillSurface(onClick, CardShape) {
         Column(Modifier.padding(CARD_PAD).width(92.bd), verticalArrangement = Arrangement.spacedBy(4.bd)) {
             CirclePhoto(person.photoUrl, person.name, 92.bd, shape = PhotoShape)
             // The surface's content colour: the text's, or the accent's while it has focus; the part is muted without.

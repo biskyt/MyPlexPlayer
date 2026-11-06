@@ -55,6 +55,7 @@ import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
 import com.biskyt.myplexplayer.ui.common.BoardPanel
+import com.biskyt.myplexplayer.ui.common.BoardPanelText
 import com.biskyt.myplexplayer.ui.common.BoardPanelTitle
 import com.biskyt.myplexplayer.ui.common.ErrorRetry
 import com.biskyt.myplexplayer.ui.common.Muted
@@ -68,6 +69,7 @@ import com.biskyt.myplexplayer.ui.theme.BoardStyle
 import com.biskyt.myplexplayer.ui.theme.MEDIUM
 import com.biskyt.myplexplayer.ui.theme.Palette
 import com.biskyt.myplexplayer.ui.theme.SEMI_BOLD
+import com.biskyt.myplexplayer.ui.theme.bd
 import com.biskyt.myplexplayer.ui.theme.boardLineBox
 import java.io.IOException
 import kotlinx.coroutines.launch
@@ -282,14 +284,13 @@ private fun Heading(text: String, modifier: Modifier = Modifier) = Text(text, st
  */
 @Composable
 private fun BiographyPanel(name: String, biography: String, onDismiss: () -> Unit) {
-    BoardPanel(onDismiss, gap = 10.dp) {
+    BoardPanel(onDismiss, gap = 10.bd) {
         BoardPanelTitle(name)
         remember(biography) { bioParts(biography) }.forEachIndexed { i, part ->
             var focused by remember { mutableStateOf(false) }
-            Text(
+            BoardPanelText(
                 part,
-                style = BioText.current,
-                modifier = (if (i == 0) rememberFirstFocus() else Modifier).onFocusChanged { focused = it.isFocused }.focusable()
+                (if (i == 0) rememberFirstFocus() else Modifier).onFocusChanged { focused = it.isFocused }.focusable()
                     .background(if (focused) Palette.surfaceHigh else Color.Transparent)
             )
         }
