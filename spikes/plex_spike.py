@@ -18,7 +18,8 @@ addresses, account names, emails and file paths replaced, for test fixtures. rep
     python3 spikes/plex_spike.py markers   [--server URL] # S8: intro and credits markers, for skip intro
     python3 spikes/plex_spike.py deletion  [--server URL] [--delete] # S9: deleting, and a show's automatic deletion
     python3 spikes/plex_spike.py people    [--server URL] # S10: cast members' biographies and credits, similar titles
-    python3 spikes/plex_spike.py cast                    # S10 (signing in first if needed), then spike-results.zip
+    python3 spikes/plex_spike.py person    [--server URL] # S13: a cast member's page: titles here, Discover credits, matching
+    python3 spikes/plex_spike.py cast                    # S10 and S13 (signing in first if needed), then spike-results.zip
     python3 spikes/plex_spike.py series_dvr [--server URL] [--record] # S11: series recordings: made, edited, removed
     python3 spikes/plex_spike.py test-dvr                # S11 with --record (signing in first if needed), then the zip
     python3 spikes/plex_spike.py recordings [--server URL] # S12: recordings in progress and recent ones, and how each plays (only reads)
@@ -150,6 +151,14 @@ class Recorder:
         self.results.append((name, bool(ok), detail))
         print(f"  [{'PASS' if ok else 'FAIL'}] {name}" + (f": {detail}" if detail else ""))
         return ok
+
+    def summary(self):
+        """Says plainly at the end which checks passed and which did not."""
+        passed = [name for name, ok, _ in self.results if ok]
+        failed = [name for name, ok, _ in self.results if not ok]
+        print(f"\n{self.step}: {len(passed)} of {len(self.results)} checks passed.")
+        print("Passed:\n" + "".join(f"  - {n}\n" for n in passed) + "Did not pass:\n" +
+              ("".join(f"  - {n}\n" for n in failed) or "  (none)\n"), end="")
 
     def finish(self):
         lines = [f"## {self.step} ({time.strftime('%Y-%m-%d %H:%M')})\n"]
@@ -1529,11 +1538,245 @@ def people(args, state):
     rec.finish()
 
 
+# ---------------------------------------------------------------- S13: a cast member's page
+
+MEDIA_FIELDS = ("type", "ratingKey", "guid", "title", "year", "thumb", "librarySectionID")
+PAGE = 50  # credits asked for in each page, as S10 did
+
+
+def full_titles(http, section, kind, count):
+    """The full metadata (cast, directors, writers) of the [count] newest titles of [kind] in [section]."""
+    _, _, page = http.get(f"/library/sections/{section}/all", type=kind, sort="addedAt:desc",
+                          **{"X-Plex-Container-Start": 0, "X-Plex-Container-Size": count})
+    for item in mc(page).get("Metadata", []):
+        _, _, body = http.get(f"/library/metadata/{item.get('ratingKey')}")
+        yield first(mc(body), "Metadata")
+
+
+def credit_groups(body):
+    return mc(body).get("CreditGroup", [])
+
+
+def credit_meta(credit):
+    """A credit's Metadata (a lone object or a list of one)."""
+    return first(credit, "Metadata") if credit.get("Metadata") else {}
+
+
+def credits_in(body):
+    return [c for g in credit_groups(body) for c in g.get("Credit", [])]
+
+
+def credit_id(credit):
+    meta = credit_meta(credit)
+    return meta.get("guid") or meta.get("ratingKey") or meta.get("key")
+
+
+def total_header(hdrs):
+    return {k: v for k, v in hdrs.items() if k.lower().startswith("x-plex-container")}
+
+
+def media_checks(http, rec, label, person):
+    """Item 1: the person's titles on this server, each item's fields, and whether an item names their role."""
+    status, _, body = http.get(f"/library/people/{person['id']}/media")
+    rec.save(f"{label}-media", body)
+    titles = mc(body).get("Metadata", [])
+    rec.check(f"{label}: GET /library/people/{{id}}/media (HTTP {status})", status == 200 and titles,
+              f"{len(titles)} titles; {size_of(body)} KB; container fields {sorted(k for k in mc(body) if k != 'Metadata')}")
+    for field in MEDIA_FIELDS:
+        have = sum(1 for t in titles if t.get(field) not in (None, ""))
+        rec.check(f"{label}: each /media item has `{field}`", titles and have == len(titles), f"{have} of {len(titles)}")
+    character = person.get("role")
+    if not character:
+        return titles  # a director or writer: no character to look for
+    named = [t for t in titles if character in json.dumps(t)]
+    role_fields = sorted({k for t in titles for k in t if "role" in k.lower()})
+    rec.check(f"{label}: a /media item names the person's role ({character!r})", named,
+              f"{len(named)} of {len(titles)} items hold it; role fields {role_fields}; "
+              f"all item fields {sorted({k for t in titles for k in t})}")
+    return titles
+
+
+def server_person(http, rec, label, person_id):
+    """Item 2: /library/people/{id} on the server."""
+    status, _, body = http.get(f"/library/people/{person_id}")
+    rec.save(f"{label}-person-on-server", body)
+    found = first(mc(body), "Directory") or first(mc(body), "Metadata")
+    rec.check(f"{label}: GET /library/people/{{id}} on the server (HTTP {status})", status == 200 and found,
+              f"fields {sorted(found)}; container fields {sorted(mc(body))}")
+    return found
+
+
+def discover_person(discover, rec, label, tag_key):
+    """Item 3: every top-level field of the Discover person."""
+    status, _, body = discover.get(f"/library/people/{tag_key}")
+    rec.save(f"{label}-discover-person", body)
+    who = first(mc(body), "Metadata")
+    rec.check(f"{label}: Discover GET /library/people/{{tagKey}} (HTTP {status})", status == 200 and who,
+              f"fields {sorted(who)}; {size_of(body)} KB")
+    rec.check(f"{label}: Discover has a summary", who.get("summary"), f"{len(who.get('summary') or '')} characters")
+    for field in ("bornAt", "birthPlace", "diedAt", "deathPlace", "knownFor"):
+        rec.check(f"{label}: Discover has `{field}`", field in who, repr(who.get(field)))
+    rec.check(f"{label}: Discover CreditType[]", who.get("CreditType"),
+              str([(c.get("type") or c.get("title"), c.get("count")) for c in who.get("CreditType", [])]))
+
+
+def discover_credits(discover, rec, label, tag_key):
+    """Item 4: the credits, how Plex pages them, their groups and each credit's Metadata; returns every credit."""
+    path = f"/library/people/{tag_key}/credits"
+    small = {"X-Plex-Container-Start": 0, "X-Plex-Container-Size": 10}
+    status, hdrs, by_query = discover.get(path, includeMeta=1, **small)
+    rec.save(f"{label}-credits-size10-query", by_query)
+    rec.check(f"{label}: paging by query (size 10, HTTP {status}) gives at most 10 credits",
+              0 < len(credits_in(by_query)) <= 10,
+              f"{len(credits_in(by_query))} credits; totalSize {mc(by_query).get('totalSize')}; headers {total_header(hdrs)}")
+    status, hdrs, by_header = discover.request("GET", path, extra_headers={k: str(v) for k, v in small.items()},
+                                               includeMeta=1)
+    rec.save(f"{label}-credits-size10-headers", by_header)
+    rec.check(f"{label}: paging by headers (size 10, HTTP {status}) gives at most 10 credits",
+              0 < len(credits_in(by_header)) <= 10,
+              f"{len(credits_in(by_header))} credits; totalSize {mc(by_header).get('totalSize')}; headers {total_header(hdrs)}")
+
+    pages = []
+    for n in range(10):  # 500 credits at most
+        status, hdrs, body = discover.get(path, includeMeta=1,
+                                          **{"X-Plex-Container-Start": n * PAGE, "X-Plex-Container-Size": PAGE})
+        if n < 2:
+            rec.save(f"{label}-credits-page{n + 1}", body)
+            m = mc(body)
+            rec.check(f"{label}: credits page {n + 1} (HTTP {status})", status == 200 and (n or credits_in(body)),
+                      f"{len(credits_in(body))} credits; container {({k: v for k, v in m.items() if k != 'CreditGroup'})}; "
+                      f"groups {[(g.get('type') or g.get('title'), len(g.get('Credit', []))) for g in credit_groups(body)]}; "
+                      f"group fields {sorted({k for g in credit_groups(body) for k in g})}; headers {total_header(hdrs)}; "
+                      f"{size_of(body)} KB")
+        if status != 200 or not credits_in(body):
+            break
+        pages.append(body)
+        if len(credits_in(body)) < PAGE:
+            break
+    if len(pages) > 1:
+        one, two = {credit_id(c) for c in credits_in(pages[0])}, {credit_id(c) for c in credits_in(pages[1])}
+        rec.check(f"{label}: page 2 holds other credits than page 1", two - one,
+                  f"{len(two - one)} new of {len(two)}")
+    else:
+        rec.check(f"{label}: one page holds every credit", pages, f"{len(credits_in(pages[0])) if pages else 0} credits")
+    every = [c for p in pages for c in credits_in(p)]
+    total = mc(pages[0]).get("totalSize") if pages else None
+    rec.check(f"{label}: credits read equal totalSize", total is not None and len(every) == int(total),
+              f"{len(every)} read in {len(pages)} page(s); totalSize {total}")
+    rec.check(f"{label}: each credit has Metadata", every and all(credit_meta(c) for c in every),
+              f"credit fields {sorted({k for c in every for k in c})}; "
+              f"Metadata fields {sorted({k for c in every for k in credit_meta(c)})}")
+    return every
+
+
+def match_credits(rec, label, titles, credits):
+    """Item 5: which server titles a Discover credit names, by guid or by ratingKey."""
+    by_guid = {credit_meta(c).get("guid") for c in credits} - {None}
+    by_key = {str(credit_meta(c).get("ratingKey")) for c in credits} - {"None"}
+    guids = [t.get("guid", "") for t in titles]
+    plex = [g for g in guids if g.startswith("plex://")]
+    guid_hits = sum(1 for g in guids if g in by_guid)
+    key_hits = sum(1 for g in guids if g.rsplit("/", 1)[-1] in by_key or g in by_key)
+    rec.check(f"{label}: server titles have a plex:// guid", guids and len(plex) == len(guids),
+              f"{len(plex)} of {len(guids)}; kinds {sorted({g.split('/')[2] for g in plex if g.count('/') > 2})}")
+    rec.check(f"{label}: a credit's Metadata guid equals a /media guid", guid_hits, f"{guid_hits} of {len(guids)} match")
+    rec.check(f"{label}: a credit's Metadata ratingKey equals a /media guid's id", key_hits,
+              f"{key_hits} of {len(guids)} match")
+    missing = [t.get("title") for t in titles
+               if t.get("guid") not in by_guid and t.get("guid", "").rsplit("/", 1)[-1] not in by_key]
+    rec.check(f"{label}: every /media title found among the credits", titles and not missing,
+              f"not found: {missing[:10]}")
+
+
+def person_checks(http, discover, rec, label, person):
+    """Items 1 to 5 for one person from a title's Role[], Director[] or Writer[]."""
+    rec.check(f"{label}: has id and tagKey", person.get("id") and person.get("tagKey"),
+              f"{person.get('tag')!r}; fields {sorted(person)}")
+    if not person.get("id"):
+        return
+    titles = media_checks(http, rec, label, person)
+    found = server_person(http, rec, label, person["id"])
+    tag_key = person.get("tagKey") or found.get("tagKey")
+    if not discover or not tag_key:
+        return
+    discover_person(discover, rec, label, tag_key)
+    match_credits(rec, label, titles, discover_credits(discover, rec, label, tag_key))
+
+
+def shared_server_discover(state, rec, tag_key):
+    """Item 7: Discover with a shared (friend's) server's token, status only; quietly skipped with none."""
+    _, _, res = Http(state, PLEX_TV, state["token"]).get("/api/v2/resources", includeHttps=1)
+    shared = [r for r in (res if isinstance(res, list) else [])
+              if "server" in r.get("provides", "") and not r.get("owned") and r.get("accessToken")]
+    if not shared:
+        print("  (no shared server on this account: Discover with a shared server's token not tried)")
+        return
+    rec.secret(shared[0]["accessToken"], "TOKEN")
+    rec.secret(shared[0].get("name"), "Shared server")
+    status, _, _ = Http(state, DISCOVER, shared[0]["accessToken"]).get(f"/library/people/{tag_key}")
+    rec.check(f"Discover GET /library/people/{{tagKey}} with a shared server's token (HTTP {status})", status == 200)
+
+
+def person_page(args, state):
+    """A cast member's page: for a film actor, a series actor, a director and a writer, their titles on this
+    server (/media, with each item's fields), the person on the server and on Plex Discover (every field), their
+    Discover credits page by page, and which server titles the credits name; a person with no tagKey; and Discover
+    with a shared server's token. Only reads."""
+    rec = Recorder(args.out, "s13-person")
+    http = server_http(args, state)
+    note_server(rec, http)
+    discover = Http(state, DISCOVER, state["token"]) if state.get("token") else None
+    rec.check("an account token for Discover (signed in)", discover, "" if discover else "sign in first: Discover parts skipped")
+    _, _, sections = http.get("/library/sections")
+    dirs = mc(sections).get("Directory", [])
+    films = [d["key"] for d in dirs if d.get("type") == "movie"]
+    shows = [d["key"] for d in dirs if d.get("type") == "show"]
+    rec.check("a film library and a TV library", films and shows, f"{len(films)} film, {len(shows)} TV")
+    film_titles = list(full_titles(http, films[0], 1, 10)) if films else []
+    show_titles = list(full_titles(http, shows[0], 2, 10)) if shows else []
+
+    def pick_person(titles, key):
+        """The first person in [key] with an id and a tagKey, else with an id, else any."""
+        people_in = [(t, p) for t in titles for p in t.get(key, [])]
+        return next(((t, p) for want in (("id", "tagKey"), ("id",), ()) for t, p in people_in
+                     if all(p.get(k) for k in want)), (None, None))
+
+    for label, titles, key in (("film-actor", film_titles, "Role"), ("series-actor", show_titles, "Role"),
+                               ("director", film_titles, "Director"), ("writer", film_titles, "Writer")):
+        title, person = pick_person(titles, key)
+        if not rec.check(f"{label}: a {key}[] person", person,
+                         f"from {title.get('title')!r} ({title.get('type')})" if title else
+                         f"none in the {len(titles)} newest titles"):
+            continue
+        print(f"\n  {label}: {person.get('tag')}")
+        person_checks(http, discover, rec, label, person)
+
+    every = [(t, p) for t in film_titles + show_titles for k in ("Role", "Director", "Writer") for p in t.get(k, [])]
+    rec.check("people's fields in Role[], Director[] and Writer[]", every,
+              str({k: sorted({f for t in film_titles + show_titles for p in t.get(k, []) for f in p})
+                   for k in ("Role", "Director", "Writer")}))
+    title, lone = next(((t, p) for t, p in every if not p.get("tagKey")), (None, None))
+    if rec.check("a person with no tagKey (item 6)", lone,
+                 f"{lone.get('tag')!r} in {title.get('title')!r}; fields {sorted(lone)}" if lone else
+                 f"every one of {len(every)} people has a tagKey"):
+        if lone.get("id"):
+            found = server_person(http, rec, "no-tagKey", lone["id"])
+            rec.check("no-tagKey: the server gives a tagKey", found.get("tagKey"), repr(found.get("tagKey")))
+            media_checks(http, rec, "no-tagKey", lone)
+
+    if discover:
+        _, actor = pick_person(film_titles + show_titles, "Role")
+        if actor and actor.get("tagKey"):
+            shared_server_discover(state, rec, actor["tagKey"])
+    rec.summary()
+    rec.finish()
+
+
 def run_all(args, state):
     """Every step in turn (signing in first if needed, tuning and recording included), carrying on past a step
     that fails, then the shareable results zipped into spike-results.zip."""
     args.tune = args.record = True
-    steps = ([] if state.get("token") else [signin]) + [servers, library, playback, livetv, dvr, favourites, markers, deletion, people, series_dvr]
+    steps = ([] if state.get("token") else [signin]) + [servers, library, playback, livetv, dvr, favourites, markers, deletion, people, person_page, series_dvr]
     for step in steps:
         print(f"\n=== {step.__name__} ===", flush=True)
         try:
@@ -1558,13 +1801,14 @@ def save_favourites(args, state):
 
 
 def cast(args, state):
-    """The spike app's "Test cast and similar titles": people (signing in and finding the servers first if needed),
+    """The spike app's "Test cast and similar titles": people and person_page (signing in and finding the servers first if needed),
     then the results zipped as `all` does."""
     if not state.get("token"):
         signin(args, state)
     if not state.get("servers") and not args.server:
         servers(args, state)
     people(args, state)
+    person_page(args, state)
     share_results(args)
 
 
@@ -1595,7 +1839,7 @@ def share_results(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("step", choices=["all", "signin", "servers", "library", "playback", "livetv", "dvr",
-                                             "favourites", "save-favourites", "markers", "deletion", "people", "cast", "series_dvr", "test-dvr",
+                                             "favourites", "save-favourites", "markers", "deletion", "people", "person", "cast", "series_dvr", "test-dvr",
                                              "recordings", "test-recordings"])
     parser.add_argument("--server", help="server URL, e.g. http://192.168.1.20:32400 (default: from `servers`)")
     parser.add_argument("--token", help="token for --server (not needed for a local unclaimed test server)")
@@ -1613,7 +1857,7 @@ def main():
     hide_known(state)
     if args.server and not args.token and state.get("servers"):
         args.token = next((s["token"] for s in state["servers"] if s["uri"] == args.server), None)
-    steps = {"all": run_all, "save-favourites": save_favourites, "cast": cast, "test-dvr": test_dvr,
+    steps = {"all": run_all, "save-favourites": save_favourites, "cast": cast, "person": person_page, "test-dvr": test_dvr,
              "test-recordings": test_recordings}
     (steps.get(args.step) or globals()[args.step])(args, state)
 
