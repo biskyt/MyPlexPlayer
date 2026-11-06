@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.4.1
+- When you close a panel in the player, the remote is back on the button that opened it.
+
 ## 1.4.0
 - Press OK on a cast photo to open the page of that person.
 - The page of a person shows their photo, their biography and the titles of theirs in your library.

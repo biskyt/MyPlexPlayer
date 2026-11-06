@@ -18,8 +18,6 @@ import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.core.plex.TitleLink
 import com.biskyt.myplexplayer.ui.LocalNavigator
-import com.biskyt.myplexplayer.ui.theme.BoardStyle
-import com.biskyt.myplexplayer.ui.theme.EXTRA_BOLD
 import com.biskyt.myplexplayer.ui.theme.Palette
 import com.biskyt.myplexplayer.ui.theme.bd
 import com.biskyt.myplexplayer.ui.vod.SourceLogo
@@ -36,8 +34,8 @@ import com.biskyt.myplexplayer.ui.vod.linkLogo
 fun BoardCycle(label: String, value: String, onStep: (Int) -> Unit, modifier: Modifier = Modifier) {
     BoardRow({ onStep(1) }, modifier.cycleKeys(onStep)) {
         Row(Modifier.padding(horizontal = 14.bd, vertical = 8.bd), horizontalArrangement = Arrangement.spacedBy(10.bd)) {
-            Text(label, style = OptionText.current, color = LocalContentColor.current, modifier = Modifier.weight(1f))
-            Text("◀ $value ▶", style = OptionText.current, color = LocalContentColor.current, maxLines = 1)
+            Text(label, style = BoardOptionText.current, color = LocalContentColor.current, modifier = Modifier.weight(1f))
+            Text("◀ $value ▶", style = BoardOptionText.current, color = LocalContentColor.current, maxLines = 1)
         }
     }
 }
@@ -54,13 +52,13 @@ fun BoardLinksRow(label: String, links: List<TitleLink>, modifier: Modifier = Mo
         horizontalArrangement = Arrangement.spacedBy(8.bd),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, style = OptionText.current, modifier = Modifier.weight(1f))
+        Text(label, style = BoardOptionText.current, modifier = Modifier.weight(1f))
         links.forEachIndexed { i, link ->
             Box(Modifier.clip(PillShape).background(Palette.surfaceHigh)) {
                 AccentFillSurface({ open(link) }, PillShape, if (i == 0) modifier else Modifier) {
                     val padding = Modifier.padding(horizontal = 14.bd, vertical = 8.bd)
                     linkLogo(link.name)?.let { SourceLogo(it, link.name, padding, height = LINK_LOGO) }
-                        ?: Text(link.name, style = OptionText.current, color = LocalContentColor.current, modifier = padding)
+                        ?: Text(link.name, style = BoardOptionText.current, color = LocalContentColor.current, modifier = padding)
                 }
             }
         }
@@ -116,6 +114,3 @@ private val PillShape = RoundedCornerShape(50)
 
 /** A link's logo in its pill: as tall as the board's IMDb logo there. */
 private val LINK_LOGO = 18.bd
-
-/** As a [BoardOption]'s label: 15, extra bold. */
-private val OptionText = BoardStyle(15, EXTRA_BOLD)
