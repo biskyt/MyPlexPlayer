@@ -2,6 +2,7 @@ package com.biskyt.myplexplayer.ui.player
 
 import android.content.Context
 import androidx.annotation.StringRes
+import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -260,7 +261,9 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     /** Whether a failure [e] that retrying can't mend is handled another way (true: the failure is left to that). */
     protected open fun playAnotherWay(e: PlaybackException): Boolean = false
 
-    protected open fun onEnded() = Unit
+    /** Playback reached the end of the stream. */
+    @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
+    internal open fun onEnded() = Unit
 
     // Live TV overrides these; on demand they do nothing.
     protected open fun zap(step: Int) = Unit
