@@ -246,6 +246,10 @@ See also:
     nothing Plex added is lost), a JSON array. Changes and the sync's copy take turns (`PlexSources.withFavourites`).
     When Plex doesn't take a change, nothing changes here and `Notices` says so. The favourite table is only the copy
     screens read.
+- **Sync order** (the owner, 2026-11-08, 1.4.3): `SyncManager.refreshSource` updates the channels and guide and the
+  films and series at the same time. Home's Continue watching and recently added rows must not wait for the guide,
+  which is slow on the owner's server. If one part fails, the other part continues to its end. Then the channels'
+  failure is reported, else the films'. `SyncOrderTest` holds the guide (`FakePlex.guideHeld`) to check this.
 - **Skip intro and credits** (0.8.0): markers come only with `includeMarkers=1` (`PlexClient.item(…, markers = true)`,
   asked for by playback only). When a pill shows and when a skip is due is core's `skipPill` (ROADMAP's rules); an
   automatic skip happens only when playback played on into it, so seeking into an intro offers the pill instead.

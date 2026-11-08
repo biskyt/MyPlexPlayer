@@ -5,6 +5,7 @@ import androidx.annotation.StringRes
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -15,8 +16,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -56,7 +60,7 @@ class SyncManager(
         scope.launch { settings.activePlaylistId.drop(1).collect { id -> running?.takeIf { it.playlistId != id }?.stop() } }
     }
 
-    /** Refreshes a source's channels (and its guide), then movies and series (the slowest, so last). */
+    /** Refreshes a source's channels (and its guide), and its movies and series at the same time. */
     fun refresh(playlistId: Long): Job = scope.launch { refreshNow(playlistId) }
 
     fun refreshAll(): Job = scope.launch { refreshAllNow() }
@@ -77,16 +81,35 @@ class SyncManager(
         ifInUse(playlistId) { refreshSource(playlistId) }
     }
 
-    private suspend fun refreshSource(playlistId: Long): String? {
+    /**
+     * The channels and guide, and the movies and series, at the same time: Home's Continue watching and recently added
+     * rows do not wait for the guide, which is slow on a low-powered server (the owner, 2026-11-08). The movies and
+     * series show their progress while they load. If one part fails, the other part continues to its end. Then the
+     * channels' failure is thrown, else the films'.
+     */
+    private suspend fun refreshSource(playlistId: Long): String? = supervisorScope {
         val name = playlists.get(playlistId)?.name.orEmpty()
-        _state.value = SyncState.Channels(name, 0)
-        playlists.syncChannels(playlistId) { _state.value = SyncState.Channels(name, it) }
-        epg.pruneProgrammes()
-        // The guide came with the channels: whether it loaded is kept with it.
-        val guideError = epg.plexGuideError(playlistId)
-        // Read again (by syncVod): updating the channels stores to the playlist (its account).
-        syncVod(playlistId)
-        return guideError
+        val loaded = AtomicInteger()
+        val showChannels = { _state.update { if (it is SyncState.Vod) it else SyncState.Channels(name, loaded.get()) } }
+        showChannels()
+        val channels = async {
+            playlists.syncChannels(playlistId) {
+                loaded.set(it)
+                showChannels()
+            }
+            epg.pruneProgrammes()
+            // The guide came with the channels: whether it loaded is kept with it.
+            epg.plexGuideError(playlistId)
+        }
+        val films = async {
+            try {
+                syncVod(playlistId)
+            } finally {
+                if (channels.isActive) _state.value = SyncState.Channels(name, loaded.get())
+            }
+        }
+        joinAll(channels, films)
+        channels.await().also { films.await() }
     }
 
     /**
