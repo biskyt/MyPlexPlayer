@@ -13,6 +13,7 @@ import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
+import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.plexChannelId
@@ -25,6 +26,7 @@ import com.biskyt.myplexplayer.testutil.idleFrames
 import com.biskyt.myplexplayer.testutil.topRoot
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
+import com.biskyt.myplexplayer.ui.player.PlayerViewModel
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -198,6 +200,9 @@ class PlayerKeysUiTest {
         runBlocking { app.container.sync.refreshNow(source).getOrThrow() }
         show(Screen.Player(source, one, ChannelFilter.All))
         waitFor("Channel guide")
+        // The channel list for ◀ ▶ loads after the tune starts: before it, Left does nothing.
+        val vm = ViewModelProvider(navigator.current)[PlayerViewModel::class.java]
+        compose.waitAdvancingClock { vm.channelListLoaded }
         press(Key.Guide)
         waitForFocus("Now on One")
         press(Key.DirectionLeft) // round to the last channel, Three

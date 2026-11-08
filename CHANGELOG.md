@@ -4,6 +4,7 @@ Each version's section becomes its GitHub release notes, so it is written for th
 
 ## 1.4.3
 - When the app starts, Continue watching and the recently added rows on Home no longer wait for the Live TV channels and the TV guide to update.
+- When a Live TV channel starts, the app tunes it only once, and the channel guide no longer closes if you open it during that time.
 
 ## 1.4.2
 - When you push Back on a TV, the remote goes back to the item that you opened, in Settings and on all other screens.
