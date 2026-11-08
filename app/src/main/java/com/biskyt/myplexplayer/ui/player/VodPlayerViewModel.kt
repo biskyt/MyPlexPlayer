@@ -193,7 +193,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         play(p, Playing(VOD_MOVIE, m.streamId, m.title, m.posterUrl, c.vod.movieStream(p, m)), screen.fromStart)
     }
 
-    /** [continueSeries]: coming from "Carry on watching", where [episodeId] may be one already finished: play the next. */
+    /** [continueSeries]: coming from "Continue watching", where [episodeId] may be one already finished: play the next. */
     private suspend fun startEpisode(
         p: PlaylistEntity,
         seriesId: Long,
@@ -209,7 +209,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         title = show?.title ?: episodeName(e)
         subtitle = episodeLabel(e)
         nextEpisode = episodes.getOrNull(index + 1)
-        // Saved for Carry on watching: the provider's words only, never the app's (they'd stay in today's language).
+        // Saved for Continue watching: the provider's words only, never the app's (they'd stay in today's language).
         val stream = c.vod.episodeStream(p, e.id)
         play(p, Playing(VOD_EPISODE, e.id, show?.title ?: e.title, show?.coverUrl ?: e.imageUrl, stream, e, show?.title), fromStart)
     }
@@ -320,7 +320,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     /** How long this title has played since it started (pauses not counted): see [countsAsWatching]. */
     private var playedMs = 0L
 
-    /** Whether it was started already, or is on Carry on watching (or has been saved since it started playing). */
+    /** Whether it was started already, or is on Continue watching (or has been saved since it started playing). */
     private var onCarryOn = false
 
     /** Taken now and written in the app's scope, so it completes even as the screen closes ([stopped]: playback ends). */
@@ -337,7 +337,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
 
     /**
      * At the end, the player closes, as Stop does (the owner, 2026-11-06): the next episode never starts by itself. An
-     * episode is saved as watched, with the next one on Carry on watching (see [save]).
+     * episode is saved as watched, with the next one on Continue watching (see [save]).
      */
     override fun onEnded() = stop()
 
@@ -413,7 +413,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
 }
 
 /**
- * Whether playback is saved (and so on Carry on watching): once it has played [COUNTS_AFTER_MS] (a look at the start
+ * Whether playback is saved (and so on Continue watching): once it has played [COUNTS_AFTER_MS] (a look at the start
  * of something isn't watching it), or it was on the row already ([onCarryOn]), or it has been played to the end.
  */
 internal fun countsAsWatching(playedMs: Long, onCarryOn: Boolean, finished: Boolean) = onCarryOn || finished || playedMs >= COUNTS_AFTER_MS

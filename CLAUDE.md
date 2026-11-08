@@ -50,6 +50,10 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     and Add a guide (no such screens here) and its AppUiTest check.
   - In 1.4.1: 1.15.1 (`6307ce8`): closing a player panel leaves focus on the button that opened it; the public
     `BoardOptionText` and `BoardHelpText` (PlexBoardPanel's copy deleted).
+  - In 1.4.2: 1.15.2 (`bd71720`, `f28d3cc`): Back to a list on a real TV gives focus back to the item used last
+    (`ReturnFocus` in `ui/common/Focus.kt`, and the check in SmokeTest), the TV guide's highlight filled with the
+    accent, `assertColourAcross`, and the row named "Continue watching". Left out: its guide matching parts
+    (`GuideScreens.kt`, `EpgRepository.readOnNow`, `GuideMatchingUiTest`: no guide matching here since 0.6.0).
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -222,7 +226,7 @@ See also:
 - **Plex play state** (0.3.0, `data/PlexProgress.kt`): the `watch_progress` rows mirror the server.
   - The server wins, except over a row marked `pending` (played here, not yet reported). Pending rows are sent again
     at the start of each sync, before the library is listed. A refusal (4xx) isn't retried.
-  - "Carry on watching" is the server's Continue Watching, ordered by `carryOnAt` (`updatedAt` means only "last
+  - "Continue watching" is the server's Continue Watching, ordered by `carryOnAt` (`updatedAt` means only "last
     watched"). Taking a title off Continue Watching keeps its resume point, so "has a point" isn't "on the row".
   - Plex times are whole seconds: two plays in the same second don't order (see `PlexServerTest`'s `nextSecond`).
   - Back in the app (`MainActivity.onStart`, 0.3.8), `SyncManager.refreshPlayState` brings what played elsewhere

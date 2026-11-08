@@ -201,7 +201,7 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
     val nowNext = guideNowNext(viewModelScope, c) { playlistId.value }
 
     /**
-     * The Carry on watching card last played or opened ([cardKey]): back on Home, it has the remote wherever it has
+     * The Continue watching card last played or opened ([cardKey]): back on Home, it has the remote wherever it has
      * moved to on the row (played last, it's usually first). Until a key is pressed on Home, or Home is touched.
      */
     var returnTo by mutableStateOf<String?>(null)
@@ -213,7 +213,7 @@ private fun Modifier.onAnyKeyDown(action: () -> Unit) = onPreviewKeyEvent { e ->
     false
 }
 
-/** A Carry on watching card's lasting identity: its series' (a series' card moves on to the next episode), or its movie's. */
+/** A Continue watching card's lasting identity: its series' (a series' card moves on to the next episode), or its movie's. */
 private fun WatchProgressEntity.cardKey() = seriesId?.let { "series$it" } ?: "$kind$itemId"
 
 @Composable
@@ -279,7 +279,7 @@ fun HomeScreen() {
             Tab.HOME,
             Modifier.onFocusChanged { screenFocused = it.hasFocus }.onAnyKeyDown { vm.returnTo = null }.onAnyTouch { vm.returnTo = null }
         ) {
-            // Carry on watching, recently added series and movies, favourite series and movies, then Live TV last.
+            // Continue watching, recently added series and movies, favourite series and movies, then Live TV last.
             LazyColumn(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 56.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(28.dp)
@@ -328,7 +328,7 @@ fun HomeScreen() {
         TileOptions(tile, vm, pid) { removed ->
             options = null
             if (!removed) return@TileOptions
-            // Taken off Carry on watching: the card now in its place has the remote (or its own, moved on to the
+            // Taken off Continue watching: the card now in its place has the remote (or its own, moved on to the
             // next episode). Else the row on top's first card.
             val key = (tile as? HomeTile.CarryOn)?.p?.cardKey()
             val place = carryOn.orEmpty().indexOfFirst { it.cardKey() == key }
@@ -341,7 +341,7 @@ fun HomeScreen() {
 }
 
 /**
- * After a card is taken off Home: the Carry on watching card ([key], at [place]) gives the remote to its own card, moved
+ * After a card is taken off Home: the Continue watching card ([key], at [place]) gives the remote to its own card, moved
  * on to the next episode, or else to the one now in its place on [now] ([HomeViewModel.returnTo]). Any other card, or
  * an empty row: [elsewhere].
  */

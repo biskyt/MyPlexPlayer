@@ -124,7 +124,7 @@ const val VOD_MOVIE = "movie"
 const val VOD_EPISODE = "episode"
 
 /**
- * How far into a movie or episode the user got, for resuming and "Carry on watching" (which shows [title] and
+ * How far into a movie or episode the user got, for resuming and "Continue watching" (which shows [title] and
  * [imageUrl] without another lookup). [kind] is [VOD_MOVIE] or [VOD_EPISODE].
  */
 @Entity(
@@ -147,10 +147,10 @@ data class WatchProgressEntity(
     val season: Int? = null,
     val episode: Int? = null,
     val episodeTitle: String? = null,
-    /** Episodes: whether another follows, so a finished one still leads "Carry on watching" to the next. */
+    /** Episodes: whether another follows, so a finished one still leads "Continue watching" to the next. */
     val hasNext: Boolean = false,
     /**
-     * Where it sorts in "Carry on watching" (newest first): when it was last played here, or for Plex, by the
+     * Where it sorts in "Continue watching" (newest first): when it was last played here, or for Plex, by the
      * server's Continue Watching. Null keeps it off the row (taken off it, there or here), with its resume point.
      */
     val carryOnAt: Long? = updatedAt,
@@ -159,7 +159,7 @@ data class WatchProgressEntity(
 ) {
     val finished: Boolean get() = isFinished(positionMs, durationMs)
 
-    /** Not yet, for the episode up next after one watched: its row is there for "Carry on watching". */
+    /** Not yet, for the episode up next after one watched: its row is there for "Continue watching". */
     val started: Boolean get() = positionMs > 0
     val fraction: Float get() = if (durationMs > 0) positionMs.toFloat() / durationMs else 0f
     val remainingMs: Long get() = (durationMs - positionMs).coerceAtLeast(0)

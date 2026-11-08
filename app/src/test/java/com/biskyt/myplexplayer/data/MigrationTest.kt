@@ -174,7 +174,7 @@ class MigrationTest {
     }
 
     @Test
-    fun `version 9 to 10 keeps progress on carry on watching in its order, and series' badges unknown`() {
+    fun `version 9 to 10 keeps progress on continue watching in its order, and series' badges unknown`() {
         helper.createDatabase("migration-test-10", 9).use { db ->
             db.execSQL(
                 "INSERT INTO watch_progress (playlistId, kind, itemId, positionMs, durationMs, updatedAt, title, hasNext) " +
@@ -187,7 +187,7 @@ class MigrationTest {
         helper.runMigrationsAndValidate("migration-test-10", 10, true).use { db ->
             db.query("SELECT carryOnAt, pending FROM watch_progress").use {
                 it.moveToFirst()
-                assertEquals("on Carry on watching, in the order last played", 3L, it.getLong(0))
+                assertEquals("on Continue watching, in the order last played", 3L, it.getLong(0))
                 assertEquals(0, it.getInt(1))
             }
             db.query("SELECT unwatched FROM series").use {
