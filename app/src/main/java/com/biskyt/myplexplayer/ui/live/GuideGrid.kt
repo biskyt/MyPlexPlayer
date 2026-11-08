@@ -1,7 +1,6 @@
 package com.biskyt.myplexplayer.ui.live
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
@@ -73,7 +72,6 @@ import com.biskyt.myplexplayer.data.programmeTitle
 import com.biskyt.myplexplayer.ui.common.BatchLoader
 import com.biskyt.myplexplayer.ui.common.CardShape
 import com.biskyt.myplexplayer.ui.common.ChannelLogo
-import com.biskyt.myplexplayer.ui.common.FocusStroke
 import com.biskyt.myplexplayer.ui.common.LocalTouch
 import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.RecordingDot
@@ -514,8 +512,17 @@ private fun midnightIn(span: Span): Long? {
 /** A line down the grid at the time [at] in the window: now, or where a day begins. */
 @Composable
 private fun DayLine(span: Span, at: Long, color: Color) {
-    Box(Modifier.offset(x = ChannelColumn + span.width(at - span.start)).width(2.dp).fillMaxHeight().background(color))
+    // With an edge in the background colour each side, so that the line shows on the highlighted programme too (it is
+    // filled with the accent colour, the now line's own).
+    Box(
+        Modifier.offset(x = ChannelColumn + span.width(at - span.start) - LINE_EDGE).width(LINE + LINE_EDGE * 2).fillMaxHeight()
+            .background(Palette.background).padding(horizontal = LINE_EDGE).background(color)
+    )
 }
+
+/** A day line's width, and the edge each side of it. */
+private val LINE = 2.dp
+private val LINE_EDGE = 1.dp
 
 @Composable
 private fun FocusedInfo(highlight: GuideHighlight, now: Long) {
@@ -624,7 +631,11 @@ private fun GuideRow(
     }
 }
 
-/** A programme: not focusable itself (the grid is, see [GuideGrid]); drawn as a focused card when [highlighted]. */
+/**
+ * A programme: not focusable itself (the grid is, see [GuideGrid]). When [highlighted], it is filled with the accent
+ * colour, with no ring, and its text takes the accent's text colour, as menus and Settings rows are (the owner,
+ * 2026-11-08).
+ */
 @Composable
 @Suppress("LongParameterList") // (MyPlexPlayer: its recording mark, last)
 private fun Cell(
@@ -636,17 +647,17 @@ private fun Cell(
     onLongTap: () -> Unit,
     mark: RecordingMark? = null
 ) {
+    val accent = LocalAccent.current
     Box(
         Modifier.width(width).fillMaxHeight().padding(horizontal = 2.dp)
             .clip(CardShape)
             .background(
                 when {
-                    highlighted -> Palette.surfaceHigh
+                    highlighted -> accent.color
                     live -> Palette.surface
                     else -> Palette.surfaceLow
                 }
             )
-            .then(if (highlighted) Modifier.border(FocusStroke, CardShape) else Modifier)
             .onTap(onLongTap, onTap)
             // (For accessibility services: a screen reader's double tap, and its long press.)
             .semantics {
@@ -657,7 +668,13 @@ private fun Cell(
     ) {
         Row(Modifier.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             mark?.let { RecordingDot(it, Modifier.padding(end = 6.dp)) }
-            Text(title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (highlighted) accent.onAccent else Palette.text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

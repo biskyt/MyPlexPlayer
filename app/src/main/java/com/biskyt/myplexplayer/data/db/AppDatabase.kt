@@ -94,7 +94,7 @@ abstract class AppDatabase : RoomDatabase() {
         }
     }
 
-    /** Every row already saved was on "Carry on watching", in the order it was last played. */
+    /** Every row already saved was on "Continue watching", in the order it was last played. */
     /**
      * The guide's rows had no Plex ids before 16, and recording needs them: each server's last sync is made long
      * ago, so the app's next start syncs again (as it does when one is due) and the guide comes back with them.

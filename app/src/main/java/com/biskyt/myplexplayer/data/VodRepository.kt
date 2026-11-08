@@ -37,7 +37,7 @@ data class VodView(val category: String? = null, val show: VodShow = VodShow.ALL
 
 enum class VodShow { ALL, UNWATCHED, FAVOURITES }
 
-/** Cards on Carry on watching: as many as the server's Continue Watching is asked for. */
+/** Cards on Continue watching: as many as the server's Continue Watching is asked for. */
 const val CARRY_ON_LIMIT = 20
 
 /** [NEWEST]: films by date added, series by their newest episode. Favourites keep the user's own order. */
@@ -172,7 +172,7 @@ class VodRepository(
 
     /**
      * Saves progress; [trim] (when playback stops) also drops the oldest rows beyond the cap, in the same write. A
-     * finished episode with [next] after it puts that one on "Carry on watching" in its place ([upNext]).
+     * finished episode with [next] after it puts that one on "Continue watching" in its place ([upNext]).
      */
     suspend fun saveProgress(p: WatchProgressEntity, trim: Boolean = false, next: EpisodeInfo? = null) {
         val up = next?.takeIf { p.finished }
@@ -185,7 +185,7 @@ class VodRepository(
     }
 
     /**
-     * After [watched], its series' card is [next]: placed just after it on "Carry on watching", not started (or, started
+     * After [watched], its series' card is [next]: placed just after it on "Continue watching", not started (or, started
      * already, where it got). Each later save of [watched] (the credits play on) places it again, so it stays after it.
      * Only its place moves: its [WatchProgressEntity.updatedAt] stays when it was last watched.
      */
@@ -224,7 +224,7 @@ class VodRepository(
     }
 
     /**
-     * Takes a movie, or a whole series, off "Carry on watching", keeping how far it got (the server does). It comes off
+     * Takes a movie, or a whole series, off "Continue watching", keeping how far it got (the server does). It comes off
      * the server's Continue Watching first: out of reach, it stays on (false), as it would come back with the next sync.
      */
     suspend fun forgetProgress(p: WatchProgressEntity): Boolean {

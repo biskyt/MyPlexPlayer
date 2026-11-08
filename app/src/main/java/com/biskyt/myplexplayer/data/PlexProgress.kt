@@ -8,7 +8,7 @@ import com.biskyt.myplexplayer.data.db.VOD_MOVIE
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 
 /**
- * The server's play state in the app's progress rows, so resume points, watched marks and "Carry on watching" match
+ * The server's play state in the app's progress rows, so resume points, watched marks and "Continue watching" match
  * the owner's other Plex apps, with every screen reading the rows as before. The server wins, except over a row
  * still [WatchProgressEntity.pending]: played here, and not yet reported to it (that is sent again first).
  */
@@ -17,7 +17,7 @@ class PlexProgress(private val db: AppDatabase) {
 
     /**
      * The server's state of [items] (films or episodes: [kind]), each made a row by [row] (null: unplayed). A row
-     * keeps its place in "Carry on watching": that's [carryOn]'s to set.
+     * keeps its place in "Continue watching": that's [carryOn]'s to set.
      */
     suspend fun positions(playlistId: Long, kind: String, items: List<PlexItem>, row: (PlexItem) -> WatchProgressEntity?) {
         val served = items.mapNotNull { item -> item.ratingKey.toLongOrNull()?.let { it to item } }
@@ -32,10 +32,10 @@ class PlexProgress(private val db: AppDatabase) {
             served.forEach { (id, item) ->
                 val local = existing[id]
                 if (local?.pending == true) return@forEach
-                // Its place in Carry on watching stays, and that another episode follows (known from its series' page).
+                // Its place in Continue watching stays, and that another episode follows (known from its series' page).
                 val server = row(item)?.let { it.copy(carryOnAt = local?.carryOnAt, hasNext = it.hasNext || local?.hasNext == true) }
                 if (server == null) {
-                    // Unplayed: its point goes, unless it's an episode Carry on watching suggests next (at its start).
+                    // Unplayed: its point goes, unless it's an episode Continue watching suggests next (at its start).
                     if (local != null && (local.carryOnAt == null || local.started)) unplayed += id
                 } else if (server != local) {
                     changed += server
@@ -47,7 +47,7 @@ class PlexProgress(private val db: AppDatabase) {
     }
 
     /**
-     * The server's Continue Watching ([hub], newest first) as "Carry on watching": its films and episodes (one it
+     * The server's Continue Watching ([hub], newest first) as "Continue watching": its films and episodes (one it
      * suggests next at its start), in its order; everything else leaves the row.
      */
     suspend fun carryOn(playlistId: Long, hub: List<WatchProgressEntity>) = db.withTransaction {
@@ -77,7 +77,7 @@ class PlexProgress(private val db: AppDatabase) {
         private const val BY_ID = 500
 
         /**
-         * The order of the server's Continue Watching (newest first) as times to sort "Carry on watching" by: when
+         * The order of the server's Continue Watching (newest first) as times to sort "Continue watching" by: when
          * each was last watched, or just before the one ahead of it for one never played (an episode it suggests
          * next), and never after [now].
          */

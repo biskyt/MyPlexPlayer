@@ -506,13 +506,13 @@ class PlexSources(
      */
     suspend fun syncPlayState(p: PlaylistEntity, client: PlexClient, films: List<PlexItem>, hub: List<PlexItem>? = null) {
         progress.positions(p.id, VOD_MOVIE, films, rowFor(client, p.id))
-        carryOn(p, client, hub) // the films are in; out of reach now, Carry on watching just waits for the next sync
+        carryOn(p, client, hub) // the films are in; out of reach now, Continue watching just waits for the next sync
     }
 
     /**
      * Play state changed on the server since [sinceMs] (in the owner's other Plex apps, say), brought here without a
      * library sync: first what played here and wasn't reported yet; then the films of [movieLibraries] and the
-     * series of [showLibraries] played since (a series: its episodes again), and those that were on Carry on watching
+     * series of [showLibraries] played since (a series: its episodes again), and those that were on Continue watching
      * here but have left the server's Continue Watching (marked unwatched elsewhere, a title's resume point goes, and
      * no date shows it); then Continue Watching itself.
      */
@@ -541,7 +541,7 @@ class PlexSources(
         syncPlayState(p, client, films + filmsLeft, hub)
     }
 
-    /** "Carry on watching" from the server's Continue Watching ([hub], when already fetched). */
+    /** "Continue watching" from the server's Continue Watching ([hub], when already fetched). */
     private suspend fun carryOn(p: PlaylistEntity, client: PlexClient, hub: List<PlexItem>? = null) {
         val row = rowFor(client, p.id)
         val hub = (hub ?: offlineOk { client.continueWatching(CARRY_ON_LIMIT) })?.filter { it.vodKind != null } ?: return
@@ -552,7 +552,7 @@ class PlexSources(
     /**
      * Marks a film, an episode or a whole series ([ratingKey]; [series]: the series it is or is in, null for a film)
      * watched or unwatched on the server (unwatched also drops its resume point), then brings its play state back,
-     * and Carry on watching, which changes with it. Its progress not yet reported (a series': all its episodes') is
+     * and Continue watching, which changes with it. Its progress not yet reported (a series': all its episodes') is
      * dropped: the choice made now wins. Out of reach after the mark, the state follows at the next sync.
      */
     suspend fun setWatched(p: PlaylistEntity, ratingKey: Long, series: Long?, watched: Boolean) {

@@ -517,7 +517,7 @@ interface VodDao {
     fun observeMovieProgress(pid: Long, id: Long): Flow<WatchProgressEntity?>
 
     /**
-     * "Carry on watching", newest first: unfinished movies, and per series its most recent episode, unless that was
+     * "Continue watching", newest first: unfinished movies, and per series its most recent episode, unless that was
      * finished and the last one; only rows on it ([WatchProgressEntity.carryOnAt]). [finished] is [WatchProgressEntity.FINISHED_FRACTION].
      */
     @Query(
@@ -556,11 +556,11 @@ interface VodDao {
     @Query("UPDATE watch_progress SET pending = 0 WHERE playlistId = :pid AND kind = :kind AND itemId = :id AND updatedAt = :updatedAt")
     suspend fun reported(pid: Long, kind: String, id: Long, updatedAt: Long)
 
-    /** Takes a movie off "Carry on watching", keeping how far it got. */
+    /** Takes a movie off "Continue watching", keeping how far it got. */
     @Query("UPDATE watch_progress SET carryOnAt = NULL WHERE playlistId = :pid AND kind = 'movie' AND itemId = :id")
     suspend fun leaveMovieCarryOn(pid: Long, id: Long)
 
-    /** Takes a series (every episode) off "Carry on watching", keeping how far each got. */
+    /** Takes a series (every episode) off "Continue watching", keeping how far each got. */
     @Query("UPDATE watch_progress SET carryOnAt = NULL WHERE playlistId = :pid AND kind = 'episode' AND seriesId = :seriesId")
     suspend fun leaveSeriesCarryOn(pid: Long, seriesId: Long)
 

@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.4.2
+- When you push Back on a TV, the remote goes back to the item that you opened, in Settings and on all other screens.
+- In the TV guide, the programme that you are on is filled with your accent colour, as in menus and Settings.
+- The "Carry on watching" row on Home is now called "Continue watching".
+
 ## 1.4.1
 - When you close a panel in the player, the remote is back on the button that opened it.
 

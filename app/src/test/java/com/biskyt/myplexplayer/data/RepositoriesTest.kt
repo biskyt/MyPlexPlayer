@@ -120,7 +120,7 @@ class RepositoriesTest {
     }
 
     @Test
-    fun `details, favourites and carry on watching`() = runBlocking {
+    fun `details, favourites and continue watching`() = runBlocking {
         fake.episodes = listOf(
             FakePlex.episode("21", "Test Show", "211", 1, 1, "Pilot"),
             FakePlex.episode("21", "Test Show", "212", 1, 2, "Second"),

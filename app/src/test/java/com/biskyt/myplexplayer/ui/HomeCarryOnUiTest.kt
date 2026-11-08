@@ -34,7 +34,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** Home's Carry on watching: back from playing a card, the remote is on it wherever it has moved to on the row. */
+/** Home's Continue watching: back from playing a card, the remote is on it wherever it has moved to on the row. */
 @OptIn(ExperimentalTestApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestApp::class, qualifiers = "+w960dp-h540dp-tvdpi")
@@ -138,8 +138,8 @@ class HomeCarryOnUiTest {
         compose.waitAdvancingClock(50) { "Film 0" in compose.focusedText() }
         compose.waitAdvancingClock(50) { ("Film 2" in compose.focusedText()).also { if (!it) press(Key.DirectionRight) } }
         compose.onNode(hasText("Film 2") and hasClickAction()).performSemanticsAction(SemanticsActions.OnLongClick)
-        compose.waitForText("Remove from Carry on watching")
-        compose.onNode(hasText("Remove from Carry on watching") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForText("Remove from Continue watching")
+        compose.onNode(hasText("Remove from Continue watching") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         // The card now in its place, not the first card of the row.
         compose.waitAdvancingClock(50) { "Film 3" in compose.focusedText() }
         compose.idleFrames()

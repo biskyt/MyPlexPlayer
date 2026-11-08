@@ -1,9 +1,13 @@
 package com.biskyt.myplexplayer
 
+import android.view.KeyEvent
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -63,6 +67,29 @@ class SmokeTest {
         val film = waitForFilm()
         assertEquals("Smoke Test Film", film.title)
         assertEquals(2020, film.year)
+        backInSettingsKeepsFocus()
+    }
+
+    /**
+     * Back with the remote from a screen that a Settings row opened: that row has focus again (the owner, 2026-11-08,
+     * on a real TV; the JVM tests passed).
+     */
+    private fun backInSettingsKeepsFocus() {
+        val playback = hasText("Playback") and hasClickAction()
+        click(hasContentDescription("Settings"))
+        waitFor(playback)
+        compose.onNode(playback).performSemanticsAction(SemanticsActions.RequestFocus)
+        waitFor(isFocused() and hasText("Playback", substring = true))
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_CENTER)
+        waitFor(hasText("Skip back", substring = true))
+        instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        // The Playback screen gone, Settings shown again.
+        compose.waitUntil(WAIT_MS) { compose.onAllNodes(hasText("Skip back", substring = true)).fetchSemanticsNodes().isEmpty() }
+        waitFor(playback)
+        waitFor(isFocused() and hasText("Playback", substring = true) and hasClickAction(), FOCUS_MS) {
+            "Back in Settings, focus is on: ${compose.onAllNodes(isFocused()).fetchSemanticsNodes().map { it.config }}"
+        }
     }
 
     /** The server's film once it's stored (films load in the background, after sign-in). */
@@ -95,8 +122,11 @@ class SmokeTest {
 
     private fun json(body: String) = MockResponse().setHeader("Content-Type", "application/json").setBody(body)
 
-    private fun waitFor(matcher: SemanticsMatcher) =
-        compose.waitUntil(WAIT_MS) { compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() }
+    private fun waitFor(matcher: SemanticsMatcher, timeoutMs: Long = WAIT_MS, failure: () -> String = { "Not shown: $matcher" }) = try {
+        compose.waitUntil(timeoutMs) { compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() }
+    } catch (e: ComposeTimeoutException) {
+        throw AssertionError(failure(), e)
+    }
 
     private fun click(matcher: SemanticsMatcher) {
         waitFor(matcher and hasClickAction())
@@ -106,5 +136,8 @@ class SmokeTest {
     private companion object {
         /** Generous: an emulator on a shared CI runner can be slow (and the code is checked every 2 seconds). */
         const val WAIT_MS = 60_000L
+
+        /** Focus is given back within a few frames: three seconds is plenty, even on a slow emulator. */
+        const val FOCUS_MS = 3_000L
     }
 }

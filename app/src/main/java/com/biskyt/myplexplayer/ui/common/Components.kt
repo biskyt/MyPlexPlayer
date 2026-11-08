@@ -75,7 +75,7 @@ import com.biskyt.myplexplayer.ui.theme.LocalOnAccentTypography
 import com.biskyt.myplexplayer.ui.theme.Palette
 import kotlinx.coroutines.flow.StateFlow
 
-/** The ring around what has focus (the guide draws it around its highlight, too). */
+/** The ring around what has focus. */
 val FocusStroke = BorderStroke(3.dp, Palette.text)
 private val FocusRing = Border(FocusStroke)
 

@@ -92,7 +92,7 @@ class PlexPlayStateTest {
     }
 
     @Test
-    fun `carry on watching is the server's continue watching, in its order, with the episode it suggests next`() = runBlocking {
+    fun `continue watching is the server's continue watching, in its order, with the episode it suggests next`() = runBlocking {
         fake.viewOffset["11"] = 120_000
         fake.lastViewedAt["11"] = minutesAgo(60)
         fake.watched += "211"
@@ -114,7 +114,7 @@ class PlexPlayStateTest {
     }
 
     @Test
-    fun `taken off carry on watching here, it comes off the server's too, and keeps how far it got`() = runBlocking {
+    fun `taken off continue watching here, it comes off the server's too, and keeps how far it got`() = runBlocking {
         fake.viewOffset["11"] = 120_000
         fake.lastViewedAt["11"] = minutesAgo(60)
         fake.continueWatching = listOf("11")
@@ -127,7 +127,7 @@ class PlexPlayStateTest {
     }
 
     @Test
-    fun `a series taken off carry on watching comes back when one of its episodes is played`() = runBlocking {
+    fun `a series taken off continue watching comes back when one of its episodes is played`() = runBlocking {
         fake.viewOffset["211"] = 120_000
         fake.lastViewedAt["211"] = minutesAgo(60)
         fake.continueWatching = listOf("211")
@@ -195,7 +195,7 @@ class PlexPlayStateTest {
     }
 
     @Test
-    fun `marked unwatched elsewhere, a title on carry on watching loses its point and its place at the next look`() = runBlocking {
+    fun `marked unwatched elsewhere, a title on continue watching loses its point and its place at the next look`() = runBlocking {
         fake.viewOffset["11"] = 200_000
         fake.lastViewedAt["11"] = minutesAgo(60)
         fake.continueWatching = listOf("11")
@@ -211,7 +211,7 @@ class PlexPlayStateTest {
     }
 
     @Test
-    fun `marked unwatched elsewhere, an episode on carry on watching loses its point, its series read again`() = runBlocking {
+    fun `marked unwatched elsewhere, an episode on continue watching loses its point, its series read again`() = runBlocking {
         fake.viewOffset["211"] = 200_000
         fake.lastViewedAt["211"] = minutesAgo(60)
         fake.continueWatching = listOf("211")
@@ -285,12 +285,12 @@ class PlexPlayStateTest {
         val second = progress(VOD_EPISODE, 212)!!
         assertEquals(90_000L, second.positionMs)
         assertEquals(21L, second.seriesId)
-        assertNull("only the server's list puts it on Carry on watching", second.carryOnAt)
+        assertNull("only the server's list puts it on Continue watching", second.carryOnAt)
         assertEquals(1, db.vod().searchSeries(source.id, "Test", 10).single().unwatched)
     }
 
     @Test
-    fun `marking a film watched tells the server, and its point and place in Carry on watching follow`() = runBlocking {
+    fun `marking a film watched tells the server, and its point and place in Continue watching follow`() = runBlocking {
         fake.viewOffset["11"] = 60_000
         fake.continueWatching = listOf("11")
         vod.sync(source)
@@ -300,7 +300,7 @@ class PlexPlayStateTest {
         assertTrue("11" in fake.watched)
         val row = db.vod().progressOf(source.id, VOD_MOVIE, listOf(11L)).single()
         assertTrue("at its end", row.finished)
-        assertNull("off Carry on watching", row.carryOnAt)
+        assertNull("off Continue watching", row.carryOnAt)
 
         assertTrue(vod.setWatched(source.id, 11, series = null, watched = false))
         assertTrue("unwatched: no point left", db.vod().progressOf(source.id, VOD_MOVIE, listOf(11L)).isEmpty())
@@ -389,7 +389,7 @@ class PlexPlayStateTest {
     }
 
     @Test
-    fun `a series' page keeps the episode suggested next on carry on watching, and what follows each`() = runBlocking {
+    fun `a series' page keeps the episode suggested next on continue watching, and what follows each`() = runBlocking {
         fake.watched += "211"
         fake.continueWatching = listOf("212")
         vod.sync(source)
