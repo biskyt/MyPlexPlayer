@@ -272,7 +272,13 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
         letTunerGo()
     }
 
-    override fun resume() = tuneTo(targetStreamId)
+    /**
+     * Back in the app: the channel is tuned again. The screen's first "shown" comes before init tunes, and does
+     * nothing: a second tune at the start can take a second tuner, and its controls closed a guide opened meanwhile.
+     */
+    override fun resume() {
+        if (tuneJob != null) tuneTo(targetStreamId)
+    }
 
     override fun stop() {
         tuneJob?.cancel() // a tune under way goes no further

@@ -6,6 +6,8 @@ import com.biskyt.myplexplayer.core.plex.PlexRecordingRule
 import com.biskyt.myplexplayer.data.PlexSources
 import com.biskyt.myplexplayer.data.db.AppDatabase
 import com.biskyt.myplexplayer.data.plexChannelId
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonArrayBuilder
@@ -213,6 +215,9 @@ class FakePlex : AutoCloseable {
 
     /** How long the library list (`/library/sections`) takes to come. Under 5 s: [close] waits that long at most. */
     @Volatile var sectionsDelayMs = 0L
+
+    /** Set, the guide answers only once counted down (a slow server building it), or after 30 s at most. */
+    @Volatile var guideHeld: CountDownLatch? = null
 
     init {
         server.dispatcher = object : Dispatcher() {
@@ -609,6 +614,7 @@ class FakePlex : AutoCloseable {
      * for (`endsAt>=` to `beginsAt<=`, in seconds), as the server answers.
      */
     private fun guide(request: RecordedRequest): List<JsonObject> {
+        guideHeld?.await(30, TimeUnit.SECONDS)
         val url = request.requestUrl!!
         val from = url.queryParameter("endsAt>")?.toLong() ?: 0
         val to = url.queryParameter("beginsAt<")?.toLong() ?: Long.MAX_VALUE
