@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.4.4
+- The channel up and channel down buttons on the remote move one page up or down in the Live TV channel list, the TV guide, Movies and TV Shows.
+
 ## 1.4.3
 - When the app starts, Continue watching and the recently added rows on Home no longer wait for the Live TV channels and the TV guide to update.
 - When a Live TV channel starts, the app tunes it only once, and the channel guide no longer closes if you open it during that time.

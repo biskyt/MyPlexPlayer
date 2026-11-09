@@ -54,6 +54,11 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     (`ReturnFocus` in `ui/common/Focus.kt`, and the check in SmokeTest), the TV guide's highlight filled with the
     accent, `assertColourAcross`, and the row named "Continue watching". Left out: its guide matching parts
     (`GuideScreens.kt`, `EpgRepository.readOnNow`, `GuideMatchingUiTest`: no guide matching here since 0.6.0).
+  - In 1.4.4: 1.15.3 (`da52328`): channel up and down (and Page Up and Page Down) move a page in the Live TV
+    channel list, the TV guide and the Movies and TV Shows grids (`ui/common/PageKeys.kt`, `PageKeysUiTest`,
+    `PageTargetTest`). Here, the grid's `PageFocus` is kept for each `VodView`. Left out: its `PlayerBackUiTest` fix
+    (MyPlexPlayer had the same wait already) and its `VodBrowseScreen.kt` hunk (this grid differs, so it is wired by
+    hand). The episode list, DVR, search and the person's page do not have it yet.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
