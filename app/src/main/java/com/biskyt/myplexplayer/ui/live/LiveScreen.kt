@@ -65,6 +65,7 @@ import com.biskyt.myplexplayer.ui.common.MoveHint
 import com.biskyt.myplexplayer.ui.common.MoveLayout
 import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.NowNext
+import com.biskyt.myplexplayer.ui.common.PageFocus
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.ProgressLine
 import com.biskyt.myplexplayer.ui.common.RecordingDot
@@ -78,9 +79,13 @@ import com.biskyt.myplexplayer.ui.common.formatTime
 import com.biskyt.myplexplayer.ui.common.isGuide
 import com.biskyt.myplexplayer.ui.common.numberLabel
 import com.biskyt.myplexplayer.ui.common.onRecordKey
+import com.biskyt.myplexplayer.ui.common.pageItem
+import com.biskyt.myplexplayer.ui.common.pageKeys
 import com.biskyt.myplexplayer.ui.common.rememberMinuteClock
 import com.biskyt.myplexplayer.ui.common.rememberRecordings
 import com.biskyt.myplexplayer.ui.common.restoreFocusIf
+import com.biskyt.myplexplayer.ui.common.reveal
+import com.biskyt.myplexplayer.ui.common.rowsInView
 import com.biskyt.myplexplayer.ui.theme.Palette
 
 @Composable
@@ -211,8 +216,19 @@ private fun ChannelList(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>
     // What's recording now (Plex's DVR), for the channels' marks.
     val pid by vm.playlistId.collectAsState()
     val recordings by rememberRecordings(pid)
+    val page = remember(filter, query) { PageFocus() } // a page not reached in another list is not taken in this one
 
-    LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
+    LazyColumn(
+        Modifier.pageKeys(
+            page,
+            { items.itemCount },
+            enabled = { vm.mover.movingId(CAT_LIVE) == null },
+            rows = { listState.rowsInView() }
+        ) { listState.reveal(it) },
+        state = listState,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        contentPadding = PaddingValues(bottom = 40.dp)
+    ) {
         items(count = items.itemCount, key = items.itemKey { it.streamId }) { index ->
             val ch = items[index]
             if (ch == null) {
@@ -234,6 +250,7 @@ private fun ChannelList(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>
                         modifier = Modifier.restoreFocusIf(wantsFocus) { vm.restoreFocusPending = false }
                             .onRecordKey { vm.openOptions(ch) }
                             .onFocusChanged { if (it.isFocused) vm.focusMoved(ch.streamId, index) }
+                            .pageItem(page, index)
                     )
                 }
             }

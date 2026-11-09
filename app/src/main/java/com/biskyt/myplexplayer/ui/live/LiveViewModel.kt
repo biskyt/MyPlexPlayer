@@ -25,6 +25,7 @@ import com.biskyt.myplexplayer.ui.common.FavouriteMover
 import com.biskyt.myplexplayer.ui.common.NumberEntry
 import com.biskyt.myplexplayer.ui.common.guideNowNext
 import com.biskyt.myplexplayer.ui.common.openOnShown
+import com.biskyt.myplexplayer.ui.common.reveal
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job

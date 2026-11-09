@@ -81,6 +81,7 @@ import com.biskyt.myplexplayer.ui.common.MoveHint
 import com.biskyt.myplexplayer.ui.common.MoveLayout
 import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.OneLine
+import com.biskyt.myplexplayer.ui.common.PageFocus
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.Poster
 import com.biskyt.myplexplayer.ui.common.ProgressLine
@@ -91,7 +92,11 @@ import com.biskyt.myplexplayer.ui.common.collectIds
 import com.biskyt.myplexplayer.ui.common.formatRuntime
 import com.biskyt.myplexplayer.ui.common.markWatched
 import com.biskyt.myplexplayer.ui.common.moveAction
+import com.biskyt.myplexplayer.ui.common.pageItem
+import com.biskyt.myplexplayer.ui.common.pageKeys
 import com.biskyt.myplexplayer.ui.common.restoreFocusIf
+import com.biskyt.myplexplayer.ui.common.reveal
+import com.biskyt.myplexplayer.ui.common.rowsInView
 import com.biskyt.myplexplayer.ui.common.vodActions
 import com.biskyt.myplexplayer.ui.common.vodDetails
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
@@ -377,6 +382,7 @@ private fun PosterGrid(vm: VodBrowseViewModel, pid: Long, routes: GridRoutes) {
         }
     }
     KeepInView(state) { vm.mover.movingId(vm.type)?.let { p -> items.itemSnapshotList.indexOfFirst { it?.id == p } } }
+    val page = remember(view) { PageFocus() } // a page not reached in another list is not taken in this one
     // Each poster's width, worked out once for the grid rather than measured in every cell.
     BoxWithConstraints {
         PosterGridCells(
@@ -384,6 +390,7 @@ private fun PosterGrid(vm: VodBrowseViewModel, pid: Long, routes: GridRoutes) {
             pid,
             routes,
             state,
+            page,
             items,
             favourites,
             (maxWidth - GAP * (COLUMNS - 1)) / COLUMNS - CARD_PADDING * 2
@@ -398,6 +405,7 @@ private fun PosterGridCells(
     pid: Long,
     routes: GridRoutes,
     state: androidx.compose.foundation.lazy.grid.LazyGridState,
+    page: PageFocus,
     items: androidx.paging.compose.LazyPagingItems<VodCard>,
     favourites: Set<Long>,
     posterWidth: androidx.compose.ui.unit.Dp
@@ -407,6 +415,13 @@ private fun PosterGridCells(
     val focusGone = vm.focusId.let { id -> id == null || items.itemSnapshotList.none { it?.id == id } }
     LazyVerticalGrid(
         columns = GridCells.Fixed(COLUMNS),
+        modifier = Modifier.pageKeys(
+            page,
+            { items.itemCount },
+            COLUMNS,
+            enabled = { vm.mover.movingId(vm.type) == null },
+            rows = { state.rowsInView() }
+        ) { state.reveal(it, COLUMNS) },
         state = state,
         horizontalArrangement = Arrangement.spacedBy(GAP),
         verticalArrangement = Arrangement.spacedBy(GAP),
@@ -426,7 +441,8 @@ private fun PosterGridCells(
                         vm.isMovies,
                         posterWidth,
                         Modifier.restoreFocusIf(wantsFocus) { vm.restoreFocusPending = false }
-                            .then(if (index < COLUMNS) topRow(routes, lastOfTopRow) else Modifier),
+                            .then(if (index < COLUMNS) topRow(routes, lastOfTopRow) else Modifier)
+                            .pageItem(page, index),
                         favourite = card.id in favourites,
                         onLongClick = { vm.optionsFor = card }
                     ) { nav.push(vm.open(card, pid)) }
