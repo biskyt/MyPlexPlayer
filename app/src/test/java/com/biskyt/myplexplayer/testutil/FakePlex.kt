@@ -59,6 +59,9 @@ class FakePlex : AutoCloseable {
 
     @Volatile var episodes: List<JsonObject> = EPISODES
 
+    /** Extras, such as a trailer ([trailer]): in no library, but each answers by its key, as on the server. */
+    @Volatile var extras: List<JsonObject> = emptyList()
+
     /** Images by their path on the server (a thumb's), served through the image service; none: an empty reply. */
     @Volatile var images: (String) -> ByteArray? = { null }
 
@@ -747,7 +750,7 @@ class FakePlex : AutoCloseable {
     private fun withMarkers(item: JsonObject, request: RecordedRequest) =
         if (request.requestUrl?.queryParameter("includeMarkers") == "1") item else JsonObject(item - "Marker")
 
-    private fun byKey(key: String) = (movies + shows + episodes).firstOrNull { it.string("ratingKey") == key }
+    private fun byKey(key: String) = (movies + shows + episodes + extras).firstOrNull { it.string("ratingKey") == key }
 
     private fun episodesOf(show: String) = episodes.filter { it.string("grandparentRatingKey") == show }
 
@@ -916,8 +919,13 @@ class FakePlex : AutoCloseable {
 
         private fun JsonObject.string(key: String) = (this[key] as? JsonPrimitive)?.content
 
-        /** A file's Media, its one Part with [streams] when given (as in the server's decisions). */
-        private fun media(id: Int, container: String, streams: (JsonArrayBuilder.() -> Unit)? = null) = buildJsonArray {
+        /** A file's Media, its one Part (at [key]) with [streams] when given (as in the server's decisions). */
+        private fun media(
+            id: Int,
+            container: String,
+            key: String = "/library/parts/$id/1/file.$container",
+            streams: (JsonArrayBuilder.() -> Unit)? = null
+        ) = buildJsonArray {
             add(
                 obj {
                     put("container", container)
@@ -925,7 +933,7 @@ class FakePlex : AutoCloseable {
                         add(
                             obj {
                                 put("id", id)
-                                put("key", "/library/parts/$id/1/file.$container")
+                                put("key", key)
                                 put("container", container)
                                 streams?.let { putJsonArray("Stream", it) }
                             }
@@ -965,6 +973,27 @@ class FakePlex : AutoCloseable {
             put("addedAt", addedAt)
             put("Media", media(key.toInt() * 10 + 1, container))
         }
+
+        /**
+         * Trailer [key], as the server sends one of Plex's online trailers (docs/plex-api.md row 30): an MP4 file at a
+         * server path.
+         */
+        fun trailer(key: String) = obj {
+            put("ratingKey", key)
+            put("key", "/library/metadata/$key")
+            put("type", "clip")
+            put("subtype", "trailer")
+            put("extraType", 1)
+            put("title", "Trailer")
+            put("duration", 96_000)
+            put("Media", media(key.toInt(), "mp4", key = trailerPath(key)))
+        }
+
+        /** Where trailer [key]'s file is on the server: with a query, as a real one has. */
+        fun trailerPath(key: String) = "/services/iva/assets/$key/video.mp4?fmt=4&bitrate=750"
+
+        /** [item] (a film or show) with trailer [key] as its main extra. */
+        fun withTrailer(item: JsonObject, key: String) = JsonObject(item + ("primaryExtraKey" to JsonPrimitive("/library/metadata/$key")))
 
         /** A show in [library]. */
         @Suppress("LongParameterList") // a show's fields, as the server lists them

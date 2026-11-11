@@ -183,8 +183,15 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
         url("library/metadata/$showRatingKey/prefs") { addQueryParameter(AUTO_DELETE_WATCHED, policy.value.toString()) }
     )
 
-    /** The file as it is: the first choice for every film and episode. */
-    fun directPlay(part: PlexPart): PlexStream = PlexStream(url(part.key.trimStart('/')).toString(), headers(null))
+    /**
+     * The file as it is: the first choice for every film and episode. A trailer's key has a query
+     * (docs/plex-api.md row 30), which stays a query: a path segment would encode its "?".
+     */
+    fun directPlay(part: PlexPart): PlexStream {
+        val path = part.key.substringBefore('?').trimStart('/')
+        val query = part.key.substringAfter('?', "").ifEmpty { null }
+        return PlexStream(url(path) { encodedQuery(query) }.toString(), headers(null))
+    }
 
     /**
      * The file repackaged as HLS from [offsetMs], with its audio and video untouched, for a file whose container

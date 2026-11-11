@@ -42,14 +42,16 @@ sealed interface Screen {
 
     /**
      * A movie ([seriesId] null) or an episode. [fromStart] ignores any saved position; [continueSeries] (from "Carry on
-     * watching") moves on to the next episode if this one was finished.
+     * watching") moves on to the next episode if this one was finished. With [trailer], it plays that trailer of film
+     * [itemId] (or of series [seriesId]) instead, from the start, with nothing saved or reported.
      */
     data class VodPlayer(
         val playlistId: Long,
         val itemId: Long,
         val seriesId: Long? = null,
         val fromStart: Boolean = false,
-        val continueSeries: Boolean = false
+        val continueSeries: Boolean = false,
+        val trailer: Long? = null
     ) : Screen
     data class MovieDetails(val playlistId: Long, val streamId: Long) : Screen
 

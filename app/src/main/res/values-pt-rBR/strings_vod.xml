@@ -95,6 +95,9 @@
     <string name="vod_about_film_help">Título original, lançamento, estúdio, coleções</string>
     <string name="vod_about_this_show">Sobre esta série</string>
     <string name="vod_tech_info">Informações técnicas</string>
+    <string name="vod_play_trailer">Assistir ao trailer</string>
+    <string name="vod_play_trailer_help">Uma breve prévia do filme</string>
+    <string name="vod_trailer">Trailer</string>
     <string name="vod_tech_help">Arquivo, vídeo, áudio e legendas</string>
     <string name="vod_tech_file">Arquivo</string>
     <string name="vod_tech_video">Vídeo</string>

@@ -346,6 +346,9 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
     More…, and a cast strip. More… (also hold OK, or Menu) holds watched, favourite, Cast and crew, About this film,
     Technical info (read from Plex's metadata, named as Playback info names them), the links and Delete.
   - Series: an episode's More… opens the options of "This episode" and "The show", as holding OK does.
+  - Trailers (1.5.0, docs/plex-api.md row 30): "Play trailer" in a film's More… and under "The show", only when the
+    title has `primaryExtraKey`. `Screen.VodPlayer(trailer = id)` direct plays the extra's file from the start, and
+    saves and reports nothing (it is not the title itself).
   - Keep `Board.kt`, `BoardPanel.kt`, `DetailsParts.kt` and `TopBar.kt` as MyTVPlayer has them, so ports apply; put Plex-only parts in
     the Plex files above.
 - **Cast member's page** (1.4.0, board "Cast member's page"): OK on a cast photo, or on a row of Cast and crew or

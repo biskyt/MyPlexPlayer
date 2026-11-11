@@ -158,6 +158,7 @@ private fun FilmPanels(
             val actions = listOf(markWatched(watched) { vm.setWatched(it) }, favouriteAction(favourite) { vm.toggleFavourite() }) +
                 titleActions(
                     d,
+                    trailer = { Screen.VodPlayer(movie.playlistId, movie.streamId, trailer = it) },
                     showCast = { show(FilmPanel.CAST) },
                     showAbout = { show(FilmPanel.ABOUT) },
                     showTech = { show(FilmPanel.TECH) }
