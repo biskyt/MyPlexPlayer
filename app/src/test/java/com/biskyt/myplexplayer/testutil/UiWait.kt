@@ -55,8 +55,11 @@ fun ComposeTestRule.waitForText(text: String, stepMs: Long = 0) = try {
     throw AssertionError("'$text' not shown. Screen:\n${screen()}", e)
 }
 
-/** What's on screen, for a wait that timed out: every window, as a side panel is one of its own. */
-fun ComposeTestRule.screen(): String = onAllNodes(isRoot(), useUnmergedTree = true).printToString()
+/**
+ * What's on screen, for a wait that timed out: every window, as a side panel is one of its own, to the last node (a
+ * collection prints only its roots by default).
+ */
+fun ComposeTestRule.screen(): String = onAllNodes(isRoot(), useUnmergedTree = true).printToString(maxDepth = Int.MAX_VALUE)
 
 /** What every other thread is doing (the top of its stack), for a wait that timed out. */
 fun otherThreads(): String = Thread.getAllStackTraces().filterKeys { it.isAlive && it != Thread.currentThread() }.entries

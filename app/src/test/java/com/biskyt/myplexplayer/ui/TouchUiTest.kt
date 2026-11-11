@@ -8,7 +8,6 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.printToString
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.plexChannelId
@@ -17,6 +16,7 @@ import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
+import com.biskyt.myplexplayer.testutil.screen
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import kotlinx.coroutines.runBlocking
@@ -61,7 +61,7 @@ class TouchUiTest {
     private fun waitFor(matcher: androidx.compose.ui.test.SemanticsMatcher, what: String) = try {
         compose.waitAdvancingClock(100) { compose.onAllNodes(matcher, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
     } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
-        throw AssertionError("$what not shown. Screen:\n" + compose.onRoot(useUnmergedTree = true).printToString(), e)
+        throw AssertionError("$what not shown. Screen:\n" + compose.screen(), e)
     }
 
     private fun gone(matcher: androidx.compose.ui.test.SemanticsMatcher) =
