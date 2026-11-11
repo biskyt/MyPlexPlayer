@@ -9,13 +9,18 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
@@ -44,6 +49,7 @@ sealed interface SyncState {
  * Runs channel and guide refreshes one at a time in the app's scope and reports progress.
  * Used both from the UI (e.g. after adding a playlist) and the daily background worker.
  */
+@OptIn(FlowPreview::class) // debounce
 class SyncManager(
     private val scope: CoroutineScope,
     private val playlists: PlaylistRepository,
@@ -58,6 +64,13 @@ class SyncManager(
     init {
         // A switch to another source (from any screen) stops the old one's running work.
         scope.launch { settings.activePlaylistId.drop(1).collect { id -> running?.takeIf { it.playlistId != id }?.stop() } }
+        // When the last player closes, a look brings what was played and any titles added meanwhile. The wait lets
+        // one player replace another (the old one closes before the new one opens) without a look between them.
+        scope.launch {
+            _playersOpen.map { it > 0 }.distinctUntilChanged().debounce(PLAYER_GAP_MS).drop(1).filter { !it }.collect {
+                refreshPlayState(settings.current().activePlaylistId, syncIfDue = false, whileOpen = true)
+            }
+        }
     }
 
     /** Refreshes a source's channels (and its guide), and its movies and series at the same time. */
@@ -118,8 +131,16 @@ class SyncManager(
      */
     private val playStateAt = ConcurrentHashMap<Long, Long>()
 
-    /** The films and series sync a look started for new titles (see [refreshPlayState]), while it runs. */
+    /** The films and series sync that a look started for new titles (see [refreshPlayState]), while it runs. */
     @Volatile private var placing: Job? = null
+
+    /** The number of players open now (a film, an episode, a trailer or a channel), paused or not. */
+    private val _playersOpen = MutableStateFlow(0)
+    val playersOpen: StateFlow<Int> = _playersOpen.asStateFlow()
+
+    fun playerOpened() = _playersOpen.update { it + 1 }
+
+    fun playerClosed() = _playersOpen.update { it - 1 }
 
     /**
      * Back in the app (from another app, or opened again): play state changed meanwhile on a Plex source (in the
@@ -142,9 +163,10 @@ class SyncManager(
             val since = playStateAt[p.id] ?: p.lastSyncAt
             if (now - since < PLAY_STATE_GAP_MS) return
             if (vod.refreshPlayState(p, since)) {
-                // The new titles in their places (once this lets go). The sync then sets the time of the last look:
-                // a sync that doesn't run, or fails, leaves it, so the next look finds the same titles again.
-                placing = refreshVod(p.id, markSynced = false)
+                // The new titles go in their places when this lets go. The sync then sets the time of the last look.
+                // A sync that does not run, or fails, leaves that time, so the next look finds the same titles again.
+                // While a player is open, no sync starts (the owner, 2026-11-11). The look when it closes starts it.
+                if (_playersOpen.value <= 0) placing = refreshVod(p.id, markSynced = false)
             } else {
                 playStateAt[p.id] = now
             }
@@ -234,5 +256,8 @@ class SyncManager(
 
         /** Back in the app sooner than this after the last look (or a sync), play state isn't asked for again. */
         const val PLAY_STATE_GAP_MS = 5_000L
+
+        /** How long no player must be open before the look after playback. */
+        const val PLAYER_GAP_MS = 1_000L
     }
 }

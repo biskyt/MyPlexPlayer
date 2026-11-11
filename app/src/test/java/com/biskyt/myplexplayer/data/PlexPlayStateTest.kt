@@ -271,6 +271,24 @@ class PlexPlayStateTest {
     }
 
     @Test
+    fun `a film added during playback comes in once the player closes`() = runBlocking {
+        vod.sync(source)
+        val lookedAt = System.currentTimeMillis()
+        db.playlists().setLastSync(source.id, lookedAt - 60_000)
+        fake.movies += FakePlex.film("13", "Elephants Dream", addedAt = lookedAt / 1000)
+        sync.playerOpened()
+
+        sync.refreshPlayState(source.id, syncIfDue = false, whileOpen = true)
+        delay(1_000)
+        assertNull("no sync while a player is open", db.vod().movie(source.id, 13))
+
+        sync.playerClosed() // the look when the last player closes starts it
+        withTimeout(10_000) {
+            while (db.vod().movie(source.id, 13) == null || sync.state.value != SyncState.Idle) delay(50)
+        }
+    }
+
+    @Test
     fun `due a sync while the app stays open, a later look still asks the server and starts no sync`() = runBlocking {
         vod.sync(source) // not through the sync manager, so its last look is the sync's (long ago)
         db.playlists().setLastSync(source.id, 1)

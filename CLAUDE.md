@@ -251,9 +251,14 @@ See also:
     to date from the server, not only at a sync): films added and shows with an episode added (`PlexClient.addedSince`,
     `addedAt>>` and `episode.addedAt>>`, relative seconds, docs/plex-api.md row 31). When one is not here yet, the
     films and series sync runs (`SyncManager.refreshVod`), so the new title gets its place in the server's order (the
-    owner: a new title must not wait for a later sync to get its place). A series already here with a new episode gets
-    its counts and Home's order of the newest series again (`VodRepository.addNew`). The look runs when the app comes
-    to the front and every 15 minutes while it stays open (`MainActivity.LOOK_AGAIN_MS`).
+    owner: a new title must not wait for a later sync to get its place).
+  - No such sync starts while a player is open (the owner, 2026-11-11). The player view models count the open players
+    (`SyncManager.playerOpened` and `playerClosed`). When the last player closes, a look runs. That look brings what
+    was played, and it starts the sync for any new titles.
+  - A series already here with a new episode gets its counts and Home's order of the newest series again
+    (`VodRepository.addNew`), with no sync.
+  - The look runs when the app comes to the front, and every 15 minutes while it stays open
+    (`MainActivity.LOOK_AGAIN_MS`).
 - **Plex Live TV** (0.4.0, `data/PlexLive.kt`): channels sync with the server (`PlaylistRepository.syncChannels`), each
   with a stable id from its key (`plexChannelId`, so favourites stay) and the key in `providerEpgId`. The guide is
   saved as the server's own guide source (`EpgRepository.savePlexGuide`, url `plex:<id>`), with why it last failed,

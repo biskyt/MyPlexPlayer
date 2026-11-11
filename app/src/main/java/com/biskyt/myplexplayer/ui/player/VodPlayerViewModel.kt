@@ -179,7 +179,14 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         return page
     }
 
+    // Counted here and in PlayerViewModel, not in PlaybackViewModel: that class is shared with MyTVPlayer.
+    override fun onCleared() {
+        c.sync.playerClosed()
+        super.onCleared()
+    }
+
     init {
+        c.sync.playerOpened()
         viewModelScope.launch { c.vod.observeFavourite(screen.playlistId, favouriteType, favouriteId).collect { favourite = it } }
         viewModelScope.launch {
             startEngine()

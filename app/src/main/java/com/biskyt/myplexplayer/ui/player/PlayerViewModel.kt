@@ -53,6 +53,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
     override val about: ChannelProgramme? get() = nowDetails
 
     init {
+        c.sync.playerOpened()
         viewModelScope.launch {
             // Read again after a guide update too (a description may be new).
             combine(snapshotFlow { channel?.let { nowNext.entries[it.streamId]?.now } }, c.epg.changes) { p, _ -> p }.collectLatest { p ->
@@ -287,6 +288,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
     }
 
     override fun onCleared() {
+        c.sync.playerClosed() // first: whatever happens after, the count is right
         letTunerGo()
         super.onCleared()
     }
