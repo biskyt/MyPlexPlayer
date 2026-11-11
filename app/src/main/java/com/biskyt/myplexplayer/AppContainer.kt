@@ -44,8 +44,14 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.stateIn
 import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
 
@@ -74,6 +80,15 @@ class AppContainer(context: Context) {
     private val categoryStore = CategoryStore(db)
     val plex = PlexSources(db, http, settings)
     val playlists = PlaylistRepository(db, settings, epg, categoryStore, plex)
+
+    /**
+     * Whether the server in use has Live TV: the Live TV and DVR tabs, and the Guide button, are there only then (the
+     * owner, 2026-11-11). True until known (also just after a switch), so that a server that has it never shows them late.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val liveTvShown: StateFlow<Boolean> = settings.activePlaylistId
+        .flatMapLatest { playlists.observeHasLiveTv(it).onStart { emit(true) } }
+        .stateIn(appScope, SharingStarted.Eagerly, true)
 
     /** Something that didn't work, said in the corner of the screen. */
     val notices = Notices()

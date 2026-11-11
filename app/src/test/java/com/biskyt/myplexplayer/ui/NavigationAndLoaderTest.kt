@@ -60,14 +60,16 @@ class NavigationAndLoaderTest {
 
     @Test
     fun `the guide button opens the guide except while watching or setting up`() {
-        assertTrue(guideButtonOpensGuide(Screen.Home))
-        assertTrue(guideButtonOpensGuide(Screen.Settings))
-        assertTrue(guideButtonOpensGuide(Screen.Movies()))
-        assertFalse(guideButtonOpensGuide(Screen.Player(1, 5, ChannelFilter.All)))
-        assertFalse(guideButtonOpensGuide(Screen.Welcome))
-        assertFalse(guideButtonOpensGuide(Screen.Live())) // the live screen switches list and guide itself
-        assertFalse(guideButtonOpensGuide(Screen.Categories(1, firstRun = true)))
-        assertTrue(guideButtonOpensGuide(Screen.Categories(1)))
+        assertTrue(guideButtonOpensGuide(Screen.Home, liveTv = true))
+        assertTrue(guideButtonOpensGuide(Screen.Settings, liveTv = true))
+        assertTrue(guideButtonOpensGuide(Screen.Movies(), liveTv = true))
+        assertFalse(guideButtonOpensGuide(Screen.Player(1, 5, ChannelFilter.All), liveTv = true))
+        assertFalse(guideButtonOpensGuide(Screen.Welcome, liveTv = true))
+        assertFalse(guideButtonOpensGuide(Screen.Live(), liveTv = true)) // the live screen switches list and guide itself
+        assertFalse(guideButtonOpensGuide(Screen.Categories(1, firstRun = true), liveTv = true))
+        assertTrue(guideButtonOpensGuide(Screen.Categories(1), liveTv = true))
+        // A server with no Live TV has no guide.
+        assertFalse(guideButtonOpensGuide(Screen.Home, liveTv = false))
     }
 
     @Test

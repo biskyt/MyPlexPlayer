@@ -11,6 +11,8 @@ import com.biskyt.myplexplayer.data.db.ChannelPrefs
 import com.biskyt.myplexplayer.data.db.FavouriteEntity
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
  * How many days ahead the TV guide goes: as far as Plex's own guide. MyPlexPlayer's own (MyTVPlayer's guide goes
@@ -73,6 +75,16 @@ class PlaylistRepository(
         val next = playlists.all().firstOrNull()?.id ?: 0
         if (settings.current().activePlaylistId == id) settings.update { it.copy(activePlaylistId = next) }
     }
+
+    /**
+     * Whether source [playlistId] has Live TV: its sync found its lineup, which it keeps as its Live TV category (see
+     * [syncChannels]). A server without Live TV, or one that refuses it, has none. Before its first sync, not known:
+     * true.
+     */
+    fun observeHasLiveTv(playlistId: Long): Flow<Boolean> =
+        combine(db.categories().observeAny(playlistId, CAT_LIVE), db.playlists().observeLastSync(playlistId)) { live, synced ->
+            live || (synced ?: 0L) == 0L
+        }.distinctUntilChanged()
 
     /**
      * Downloads a Plex server's Live TV channels, in one list (Plex has no channel groups), then its guide for the next

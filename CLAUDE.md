@@ -318,6 +318,11 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
   docs/plex-api.md). Show "Tuning…" until the picture starts, let the player wait for the live stream to fill,
   and never retry a tune that timed out (a second tune can take a second tuner).
 - **Live TV goes last:** on Home and in search results. In the menu, DVR is last, after Live TV (the owner, 2026-10-31).
+- **No Live TV, no Live TV tabs** (the owner, 2026-11-11, 1.5.0): with a server that has no Live TV (or refuses it),
+  the Live TV and DVR tabs, the Guide button, Home's "add channels" hint and Settings' Live TV categories are hidden.
+  The signal is the Live TV category that `syncChannels` keeps (`PlaylistRepository.observeHasLiveTv`; not known before
+  the first sync: shown), as `AppContainer.liveTvShown`. The tab list comes from `ui/common/PlexTabs.kt`: TopBar.kt's
+  one change from MyTVPlayer's is `shownTabs()` in place of `Tab.entries`.
 - **DVR replaces Catch-up.** Record series defaults to new airings only (the owner, 2026-10-31). DVR comes before the
   series page redesign.
 - **Home rows:** Continue watching, recently added series, recently added movies, favourite series, favourite movies,

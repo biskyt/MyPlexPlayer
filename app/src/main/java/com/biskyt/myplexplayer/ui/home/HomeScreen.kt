@@ -22,6 +22,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -79,6 +80,7 @@ import com.biskyt.myplexplayer.ui.common.TvCard
 import com.biskyt.myplexplayer.ui.common.channelActions
 import com.biskyt.myplexplayer.ui.common.collectIds
 import com.biskyt.myplexplayer.ui.common.guideNowNext
+import com.biskyt.myplexplayer.ui.common.liveTvShown
 import com.biskyt.myplexplayer.ui.common.markWatched
 import com.biskyt.myplexplayer.ui.common.moveAction
 import com.biskyt.myplexplayer.ui.common.onAnyTouch
@@ -207,11 +209,18 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
     var returnTo by mutableStateOf<String?>(null)
 }
 
-/** [action] on every key pressed within, which still goes where it's going. */
-private fun Modifier.onAnyKeyDown(action: () -> Unit) = onPreviewKeyEvent { e ->
-    if (e.type == KeyEventType.KeyDown) action()
+/** [action] on every key pressed within (and whether it is a held key's repeat), which still goes where it's going. */
+private fun Modifier.onAnyKeyDown(action: (repeat: Boolean) -> Unit) = onPreviewKeyEvent { e ->
+    if (e.type == KeyEventType.KeyDown) action(e.nativeKeyEvent.repeatCount > 0)
     false
 }
+
+/**
+ * Whether a new row on top takes focus: once every row is read and no options are open, when Home has no focus, or has
+ * it but has not been used yet (see HomeScreen).
+ */
+private fun takesTopFocus(ready: Boolean, optionsOpen: Boolean, focused: Boolean, used: Boolean) =
+    ready && !optionsOpen && !(focused && used)
 
 /** A Continue watching card's lasting identity: its series' (a series' card moves on to the next episode), or its movie's. */
 private fun WatchProgressEntity.cardKey() = seriesId?.let { "series$it" } ?: "$kind$itemId"
@@ -229,6 +238,7 @@ fun HomeScreen() {
     val favouriteVod = VOD_TYPES.associateWith { vm.favouriteVod.getValue(it).collectAsState() }
     val newestVod = VOD_TYPES.associateWith { vm.newestVod.getValue(it).collectAsState() }
     val pid = vm.playlistId.collectAsState().value
+    val liveTv = liveTvShown()
     val ready by remember {
         derivedStateOf {
             listOf(favourites, recent, carryOn).all { it != null } && (favouriteVod.values + newestVod.values).all { it.value != null }
@@ -251,7 +261,17 @@ fun HomeScreen() {
     var refocus by remember { mutableIntStateOf(0) }
     var screenFocused by remember { mutableStateOf(false) }
     val first = rememberFirstFocus(ready to refocus)
-    LaunchedEffect(top) { if (ready && !screenFocused && options == null) refocus++ }
+    // Until the remote or a touch is used on Home, a new row on top takes focus even from another row (or the top bar),
+    // with the page back at its top: a sync fills the rows at different times (the films before the series, Continue
+    // watching last), and Home starts on the first card of the first row (the owner, 2026-11-11: it "sometimes starts
+    // half-way down the page"). Once used, only when focus has nowhere to be, as above.
+    var used by rememberSaveable { mutableStateOf(false) }
+    val list = rememberLazyListState()
+    LaunchedEffect(top) {
+        if (!takesTopFocus(ready, options != null, screenFocused, used)) return@LaunchedEffect
+        if (!used) list.scrollToItem(0)
+        refocus++
+    }
 
     /** Focus for the first card of [row], when it's the row on top. */
     fun focusOn(row: HomeRow) = if (row == top) first else Modifier
@@ -277,10 +297,18 @@ fun HomeScreen() {
         HomeBackdrop(vm)
         TabScaffold(
             Tab.HOME,
-            Modifier.onFocusChanged { screenFocused = it.hasFocus }.onAnyKeyDown { vm.returnTo = null }.onAnyTouch { vm.returnTo = null }
+            Modifier.onFocusChanged { screenFocused = it.hasFocus }.onAnyKeyDown { repeat ->
+                vm.returnTo = null
+                // Not a key held from the screen before (its repeats arrive here): Home itself is not used yet.
+                if (!repeat) used = true
+            }.onAnyTouch {
+                vm.returnTo = null
+                used = true
+            }
         ) {
             // Continue watching, recently added series and movies, favourite series and movies, then Live TV last.
             LazyColumn(
+                state = list,
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 56.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(28.dp)
             ) {
@@ -320,7 +348,7 @@ fun HomeScreen() {
                         }
                     }
                 }
-                channelRows(favourites, recent.orEmpty(), top, ::focusOn, vm) { options = it }
+                channelRows(favourites, recent.orEmpty(), top, ::focusOn, vm, liveTv) { options = it }
             }
         }
     }
@@ -421,10 +449,12 @@ private fun LazyListScope.channelRows(
     top: HomeRow,
     focusOn: (HomeRow) -> Modifier,
     vm: HomeViewModel,
+    liveTv: Boolean,
     onOptions: (HomeTile) -> Unit,
 ) {
     val favs = favourites ?: return
-    if (favs.isNotEmpty() || top == HomeRow.Channels) {
+    // The empty row's hint says how to add channels: not with no Live TV to add them from.
+    if (favs.isNotEmpty() || top == HomeRow.Channels && liveTv) {
         item {
             val nav = LocalNavigator.current
             Column(Modifier.showsBackdrop(vm, null)) {

@@ -64,6 +64,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -98,6 +99,15 @@ class CategoriesViewModel(private val c: AppContainer, private val playlistId: L
         selectedGroup = UNSET // the first group shown
     }
     private val changed = HashSet<String>()
+
+    /** The types to choose from: Live TV only when the server has it (the owner, 2026-11-11), then films and series. */
+    val types = c.playlists.observeHasLiveTv(playlistId).map { live -> if (live) ALL_TYPES else VOD_TYPES }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ALL_TYPES)
+
+    init {
+        // On Live TV when it turns out the server has none: the first type it has.
+        viewModelScope.launch { types.collect { if (type.value !in it) showType(it.first()) } }
+    }
 
     fun showType(t: String) {
         if (t == type.value) return
@@ -217,7 +227,7 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            (listOf(CAT_LIVE) + VOD_TYPES).forEach { t ->
+            vm.types.collectAsState().value.forEach { t ->
                 PillButton(stringResource(typeLabel(t)), { vm.showType(t) }, selected = t == type)
             }
         }
@@ -354,3 +364,6 @@ private fun typeLabel(type: String) = when (type) {
     CAT_MOVIE -> Tab.MOVIES
     else -> Tab.SERIES
 }.label
+
+/** Every type of category, in the order chosen from. */
+private val ALL_TYPES = listOf(CAT_LIVE) + VOD_TYPES

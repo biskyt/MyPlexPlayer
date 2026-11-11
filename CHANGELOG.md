@@ -4,7 +4,9 @@ Each version's section becomes its GitHub release notes, so it is written for th
 
 ## 1.5.0
 - More… on a film or series page plays its trailer, when Plex has one.
+- Home starts on the first card at the top of the page, also when rows above fill in after it opens.
 - When playback is paused, the remote's Play or Play/Pause button also closes the player controls.
+- With a Plex server that has no Live TV, the Live TV and DVR tabs are hidden.
 
 ## 1.4.5
 - The recently added rows on Home no longer show films that you watched, or series with all their episodes watched.

@@ -3,7 +3,10 @@ package com.biskyt.myplexplayer.testutil
 import android.os.SystemClock
 import com.biskyt.myplexplayer.MyPlexApp
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.job
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import org.robolectric.shadows.ShadowLooper
 
 /** The real app wiring, minus the background scheduler (WorkManager isn't set up under Robolectric). */
@@ -27,8 +30,13 @@ class TestApp : MyPlexApp() {
         try {
             stopMainThreadEffects()
             runMainLooperDown()
-            container.appScope.cancel()
+            // Its calls first, so that no work waits on one; then the work, waited for (as long as is fair): a Room query
+            // still running (the Live TV flow reads the database all along) would otherwise meet the closed database,
+            // and fail the next test in this JVM.
             container.http.dispatcher.cancelAll()
+            val stopped = runBlocking { withTimeoutOrNull(APP_WORK_STOP_MS) { container.appScope.coroutineContext.job.cancelAndJoin() } }
+            // Said, so that a failure in the next test (the database closed under the work) has its cause in the log.
+            if (stopped == null) System.err.println("TestApp: the app's work did not stop in $APP_WORK_STOP_MS ms")
             // Again, for what stopping posted (before the database it may still use is closed).
             runMainLooperDown()
             container.db.close()
@@ -66,3 +74,6 @@ class TestApp : MyPlexApp() {
         const val MAX_FRAMES = 100
     }
 }
+
+/** How long a test's end waits for the app's own work to stop (see TestApp.onTerminate). */
+private const val APP_WORK_STOP_MS = 5_000L
