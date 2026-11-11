@@ -61,6 +61,10 @@ class SyncManager(
     private val _state = MutableStateFlow<SyncState>(SyncState.Idle)
     val state: StateFlow<SyncState> = _state.asStateFlow()
 
+    /** The number of players open now (a film, an episode, a trailer or a channel), paused or not. */
+    private val _playersOpen = MutableStateFlow(0)
+    val playersOpen: StateFlow<Int> = _playersOpen.asStateFlow() // before init, which reads it at once
+
     init {
         // A switch to another source (from any screen) stops the old one's running work.
         scope.launch { settings.activePlaylistId.drop(1).collect { id -> running?.takeIf { it.playlistId != id }?.stop() } }
@@ -133,10 +137,6 @@ class SyncManager(
 
     /** The films and series sync that a look started for new titles (see [refreshPlayState]), while it runs. */
     @Volatile private var placing: Job? = null
-
-    /** The number of players open now (a film, an episode, a trailer or a channel), paused or not. */
-    private val _playersOpen = MutableStateFlow(0)
-    val playersOpen: StateFlow<Int> = _playersOpen.asStateFlow()
 
     fun playerOpened() = _playersOpen.update { it + 1 }
 
