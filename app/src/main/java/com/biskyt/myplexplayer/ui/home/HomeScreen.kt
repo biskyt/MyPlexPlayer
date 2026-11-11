@@ -22,6 +22,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -37,6 +38,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.viewModelScope
 import androidx.tv.material3.MaterialTheme
 import com.biskyt.myplexplayer.AppContainer
@@ -222,6 +224,26 @@ private fun Modifier.onAnyKeyDown(action: (repeat: Boolean) -> Unit) = onPreview
 private fun takesTopFocus(ready: Boolean, optionsOpen: Boolean, focused: Boolean, used: Boolean) =
     ready && !optionsOpen && !(focused && used)
 
+/** Whether Home stays where it is: its rows are not read yet, the options of a card are open, or a card moves. */
+private fun busy(ready: Boolean, options: HomeTile?, mover: FavouriteMover) = !ready || options != null || mover.moving != null
+
+/**
+ * When the app comes back to the front (not its first start: Home's first focus does that), [toTop], unless [busy]
+ * (see [busy]).
+ */
+@Composable
+private fun OnBackToFront(busy: () -> Boolean, toTop: suspend () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val isBusy by rememberUpdatedState(busy)
+    val goToTop by rememberUpdatedState(toTop)
+    var stopped by remember { mutableStateOf(false) }
+    LifecycleStartEffect(Unit) {
+        if (stopped && !isBusy()) scope.launch { goToTop() }
+        stopped = false
+        onStopOrDispose { stopped = true }
+    }
+}
+
 /** A Continue watching card's lasting identity: its series' (a series' card moves on to the next episode), or its movie's. */
 private fun WatchProgressEntity.cardKey() = seriesId?.let { "series$it" } ?: "$kind$itemId"
 
@@ -270,6 +292,13 @@ fun HomeScreen() {
     LaunchedEffect(top) {
         if (!takesTopFocus(ready, options != null, screenFocused, used)) return@LaunchedEffect
         if (!used) list.scrollToItem(0)
+        refocus++
+    }
+    // Back to the front, Home is at its top again, on its first card (the owner, 2026-11-11; MyTVPlayer 1.15.5).
+    OnBackToFront(busy = { busy(ready, options, vm.mover) }) {
+        used = false
+        vm.returnTo = null
+        list.scrollToItem(0)
         refocus++
     }
 

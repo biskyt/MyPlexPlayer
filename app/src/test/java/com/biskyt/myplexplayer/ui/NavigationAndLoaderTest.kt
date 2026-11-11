@@ -21,6 +21,7 @@ class NavigationAndLoaderTest {
     @Test
     fun `back stack push pop reset`() {
         val nav = Navigator(Screen.Home)
+        val home = nav.current.id // each run numbers its entries from a start of its own
         nav.push(Screen.Live())
         nav.push(Screen.Player(1, 5, ChannelFilter.All))
         assertEquals(Screen.Player(1, 5, ChannelFilter.All), nav.current.screen)
@@ -29,18 +30,19 @@ class NavigationAndLoaderTest {
         nav.reset(Screen.Settings)
         assertEquals(1, nav.stack.size)
         assertFalse(nav.pop())
-        // Home (0), Live (1) and Player (2) were all removed; their saved state gets cleaned up.
-        assertEquals(setOf(0, 1, 2), nav.dropped.toSet())
+        // Home, Live and Player were all removed; their saved state gets cleaned up.
+        assertEquals(setOf(home, home + 1, home + 2), nav.dropped.toSet())
     }
 
     @Test
     fun `a new player closes the one left under the pages above it`() {
         val nav = Navigator(Screen.Home)
         nav.push(Screen.VodPlayer(1, 5))
+        val first = nav.current.id // ids start where each navigator's own count starts
         nav.push(Screen.Settings)
         nav.push(Screen.VodPlayer(1, 6))
         assertEquals(listOf(Screen.Home, Screen.Settings, Screen.VodPlayer(1, 6)), nav.stack.map { it.screen })
-        assertEquals(listOf(1), nav.dropped)
+        assertEquals(listOf(first), nav.dropped)
         assertTrue(nav.pop())
         assertEquals(Screen.Settings, nav.current.screen)
     }
