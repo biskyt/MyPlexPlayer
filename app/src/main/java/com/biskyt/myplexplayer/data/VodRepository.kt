@@ -364,6 +364,10 @@ class VodRepository(
 
     suspend fun episodeStream(p: PlaylistEntity, episodeId: Long): VodStream = plexStream(p, episodeId, VOD_EPISODE)
 
+    /** Trailer [id]: played as it is, and never reported to the server. */
+    suspend fun trailerStream(p: PlaylistEntity, id: Long): VodStream =
+        withUserPlexErrors { plex.trailer(p, id).let { VodStream(it.url, headers = it.headers) } }
+
     private suspend fun plexStream(p: PlaylistEntity, id: Long, kind: String) =
         withUserPlexErrors { plex.playback(p, id, kind).let { VodStream(it.stream.url, it) } }
 
@@ -482,7 +486,12 @@ class VodRepository(
 }
 
 /** Where a film or episode plays from, and for one from Plex, its [plex] playback (to report to). */
-data class VodStream(val url: String, val plex: PlexPlayback? = null)
+data class VodStream(
+    val url: String,
+    val plex: PlexPlayback? = null,
+    /** What the request sends (the token): [plex]'s, or a trailer's. */
+    val headers: Map<String, String> = plex?.stream?.headers.orEmpty(),
+)
 
 /**
  * How many series with new episodes each TV library ranks for Home's row. It is more than the row shows, so that the

@@ -24,6 +24,10 @@ interface PlaylistDao {
     @Query("UPDATE playlist SET lastSyncAt = :at WHERE id = :id")
     suspend fun setLastSync(id: Long, at: Long)
 
+    /** When source [id] last synced (0: never; null: no such source). */
+    @Query("SELECT lastSyncAt FROM playlist WHERE id = :id")
+    fun observeLastSync(id: Long): Flow<Long?>
+
     @Query("SELECT * FROM playlist ORDER BY id")
     suspend fun all(): List<PlaylistEntity>
 
@@ -77,6 +81,10 @@ interface CategoryDao {
 
     @Query("SELECT * FROM category WHERE playlistId = :pid AND type = :type AND included = 1 ORDER BY sortOrder")
     fun observeIncluded(pid: Long, type: String): Flow<List<CategoryEntity>>
+
+    /** Whether source [pid] has any category of [type]. */
+    @Query("SELECT EXISTS(SELECT 1 FROM category WHERE playlistId = :pid AND type = :type)")
+    fun observeAny(pid: Long, type: String): Flow<Boolean>
 
     @Query("SELECT * FROM category WHERE playlistId = :pid AND type = :type AND included = 1")
     suspend fun included(pid: Long, type: String): List<CategoryEntity>

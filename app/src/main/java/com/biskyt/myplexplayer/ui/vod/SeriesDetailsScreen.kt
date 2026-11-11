@@ -205,6 +205,9 @@ class SeriesDetailsViewModel(
         }
     }
 
+    /** The player for the show's trailer [id]. */
+    fun trailer(id: Long) = Screen.VodPlayer(playlistId, seriesId, seriesId, trailer = id)
+
     /** Deletes the series on the server, every episode with it; the page closes (refused or out of reach, a notice says so). */
     fun deleteSeries() = viewModelScope.launch { if (c.vod.deleteSeries(playlistId, seriesId)) gone = true }
 }
@@ -507,7 +510,7 @@ private fun EpisodeOptions(
         if (canDelete) deleteAction(episodeName(e)) { vm.delete(e) } else null,
     )
     val showActions = listOf(ItemAction.Heading(appString(R.string.vod_the_show))) +
-        titleActions(d?.info, showCast = vm::showCast, showAbout = { vm.open = SeriesPanel.About }) +
+        titleActions(d?.info, trailer = vm::trailer, showCast = vm::showCast, showAbout = { vm.open = SeriesPanel.About }) +
         listOfNotNull(
             favouriteAction(favourite) { vm.toggleFavourite() },
             vm.autoDelete?.action(),

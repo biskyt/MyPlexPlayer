@@ -310,6 +310,7 @@ class PlexSources(
         addedAt = item.addedAt,
         links = titleLinks(item),
         media = PlexMediaInfo.of(item),
+        trailer = item.trailer,
     )
 
     private fun List<PlexTag>.tags() = map { it.tag }.filter { it.isNotBlank() }
@@ -321,11 +322,21 @@ class PlexSources(
     suspend fun playback(p: PlaylistEntity, ratingKey: Long, kind: String): PlexPlayback {
         val client = client(p)
         val item = client.item(ratingKey.toString(), markers = true)
-        val part = item.part ?: throw PlexException("No file for $ratingKey", reason = PlexException.Reason.UNEXPECTED_RESPONSE)
+        val part = playablePart(item)
         progress.positions(p.id, kind, listOf(item), rowFor(client, p.id))
         // The token goes in the request headers, not the address, so it isn't in logs or error reports.
         return PlexPlayback(client.directPlay(part), item, client) { refreshUnwatched(p, client, it) }
     }
+
+    /** Where trailer [ratingKey] (an extra) plays from: its file as it is, with no play state to bring or report. */
+    suspend fun trailer(p: PlaylistEntity, ratingKey: Long): PlexStream {
+        val client = client(p)
+        return client.directPlay(playablePart(client.item(ratingKey.toString())))
+    }
+
+    /** The file [item] plays from. */
+    private fun playablePart(item: PlexItem) =
+        item.part ?: throw PlexException("No file for ${item.ratingKey}", reason = PlexException.Reason.UNEXPECTED_RESPONSE)
 
     // --- Live TV ---
 

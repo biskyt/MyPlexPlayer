@@ -31,6 +31,7 @@ import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.Settings
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
+import com.biskyt.myplexplayer.ui.common.LeaveLiveTvWithoutIt
 import com.biskyt.myplexplayer.ui.common.LocalTopBarInset
 import com.biskyt.myplexplayer.ui.common.NoticeToast
 import com.biskyt.myplexplayer.ui.common.RecordingToasts
@@ -61,6 +62,7 @@ import com.biskyt.myplexplayer.ui.vod.MovieDetailsScreen
 import com.biskyt.myplexplayer.ui.vod.PersonScreen
 import com.biskyt.myplexplayer.ui.vod.SeriesDetailsScreen
 import com.biskyt.myplexplayer.ui.vod.VodBrowseScreen
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
 
 @Composable
@@ -114,13 +116,14 @@ fun AppRoot() {
             Modifier.fillMaxSize().background(Palette.background)
                 // Clear of a phone's camera cutout (TVs have none).
                 .windowInsetsPadding(WindowInsets.displayCutout)
-                .guideButton(nav, hasPlaylist)
+                .guideButton(nav, hasPlaylist, container.liveTvShown)
         ) {
             NavHost(nav) { screen -> ScreenContent(screen, hasPlaylist) }
             SyncToast(nav, Modifier.align(Alignment.BottomEnd).padding(24.dp))
             NoticeToast(nav, Modifier.align(Alignment.BottomStart).padding(24.dp))
             RecordingToasts()
         }
+        LeaveLiveTvWithoutIt(nav)
     }
 }
 
@@ -153,16 +156,18 @@ private suspend fun firstScreen(container: AppContainer, s: Settings, safeStart:
 
 /**
  * The remote's Guide button opens the TV guide from anywhere a screen hasn't used it already (the channel player shows
- * the channel's schedule). Opened on top, so Back returns to whatever was there, unchanged.
+ * the channel's schedule), when the server has Live TV ([liveTv]). Opened on top, so Back returns to whatever was
+ * there, unchanged.
  */
-private fun Modifier.guideButton(nav: Navigator, hasPlaylist: Boolean) =
-    onGuideKey({ hasPlaylist && guideButtonOpensGuide(nav.current.screen) }) { nav.push(Screen.Live(guide = true)) }
+private fun Modifier.guideButton(nav: Navigator, hasPlaylist: Boolean, liveTv: StateFlow<Boolean>) =
+    onGuideKey({ hasPlaylist && guideButtonOpensGuide(nav.current.screen, liveTv.value) }) { nav.push(Screen.Live(guide = true)) }
 
 /**
  * Not while watching something (leaving would stop it), during set-up, or on the live screen (which switches between
- * list and guide itself, wherever focus is on it).
+ * list and guide itself, wherever focus is on it); nor with no Live TV ([liveTv] false).
  */
-internal fun guideButtonOpensGuide(screen: Screen) = !screen.isPlayback && !screen.isSetup && screen !is Screen.Live
+internal fun guideButtonOpensGuide(screen: Screen, liveTv: Boolean) =
+    liveTv && !screen.isPlayback && !screen.isSetup && screen !is Screen.Live
 
 /**
  * [screen], with the top bar: on every screen but playback and set-up (first launch, or anything before there is a

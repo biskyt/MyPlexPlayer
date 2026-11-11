@@ -59,6 +59,11 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     `PageTargetTest`). Here, the grid's `PageFocus` is kept for each `VodView`. Left out: its `PlayerBackUiTest` fix
     (MyPlexPlayer had the same wait already) and its `VodBrowseScreen.kt` hunk (this grid differs, so it is wired by
     hand). The episode list, DVR, search and the person's page do not have it yet.
+  - In 1.5.0: 1.15.4 (`8b6d61e`): the remote's Play or Play/Pause from paused also closes the player controls (the
+    button on screen keeps them). 1.15.5 (`2459e8b`): each navigator numbers its entries from a random start (an old
+    run's saved state no longer matches), `settleFor` in Focus.kt and `NavHostRestartUiTest`. Its HomeScreen `TopFocus`
+    and `HomeOpenFocusUiTest` left out: here Home's own `used` and `OnBackToFront` do the same (with a test of the same
+    name).
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -316,6 +321,11 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
   docs/plex-api.md). Show "Tuning…" until the picture starts, let the player wait for the live stream to fill,
   and never retry a tune that timed out (a second tune can take a second tuner).
 - **Live TV goes last:** on Home and in search results. In the menu, DVR is last, after Live TV (the owner, 2026-10-31).
+- **No Live TV, no Live TV tabs** (the owner, 2026-11-11, 1.5.0): with a server that has no Live TV (or refuses it),
+  the Live TV and DVR tabs, the Guide button, Home's "add channels" hint and Settings' Live TV categories are hidden.
+  The signal is the Live TV category that `syncChannels` keeps (`PlaylistRepository.observeHasLiveTv`; not known before
+  the first sync: shown), as `AppContainer.liveTvShown`. The tab list comes from `ui/common/PlexTabs.kt`: TopBar.kt's
+  one change from MyTVPlayer's is `shownTabs()` in place of `Tab.entries`.
 - **DVR replaces Catch-up.** Record series defaults to new airings only (the owner, 2026-10-31). DVR comes before the
   series page redesign.
 - **Home rows:** Continue watching, recently added series, recently added movies, favourite series, favourite movies,
@@ -346,6 +356,9 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
     More…, and a cast strip. More… (also hold OK, or Menu) holds watched, favourite, Cast and crew, About this film,
     Technical info (read from Plex's metadata, named as Playback info names them), the links and Delete.
   - Series: an episode's More… opens the options of "This episode" and "The show", as holding OK does.
+  - Trailers (1.5.0, docs/plex-api.md row 30): "Play trailer" in a film's More… and under "The show", only when the
+    title has `primaryExtraKey`. `Screen.VodPlayer(trailer = id)` direct plays the extra's file from the start, and
+    saves and reports nothing (it is not the title itself).
   - Keep `Board.kt`, `BoardPanel.kt`, `DetailsParts.kt` and `TopBar.kt` as MyTVPlayer has them, so ports apply; put Plex-only parts in
     the Plex files above.
 - **Cast member's page** (1.4.0, board "Cast member's page"): OK on a cast photo, or on a row of Cast and crew or

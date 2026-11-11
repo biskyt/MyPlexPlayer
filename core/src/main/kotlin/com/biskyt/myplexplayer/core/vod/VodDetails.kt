@@ -35,6 +35,8 @@ data class VodDetails(
     val links: List<TitleLink> = emptyList(),
     /** A film's file; null for a series (each episode has its own). */
     val media: PlexMediaInfo? = null,
+    /** The id of its trailer on the server, if it has one. */
+    val trailer: Long? = null,
 )
 
 /**

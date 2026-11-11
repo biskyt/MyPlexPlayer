@@ -21,6 +21,7 @@ import com.biskyt.myplexplayer.ui.common.FocusVisit
 import com.biskyt.myplexplayer.ui.common.KeepsFocus
 import com.biskyt.myplexplayer.ui.common.LocalFocusVisit
 import com.biskyt.myplexplayer.ui.common.Tab
+import kotlin.random.Random
 
 /** Every screen in the app. Tab roots are [Home], [Live], [Movies], [Series], [Dvr]. */
 sealed interface Screen {
@@ -42,14 +43,16 @@ sealed interface Screen {
 
     /**
      * A movie ([seriesId] null) or an episode. [fromStart] ignores any saved position; [continueSeries] (from "Carry on
-     * watching") moves on to the next episode if this one was finished.
+     * watching") moves on to the next episode if this one was finished. With [trailer], it plays that trailer of film
+     * [itemId] (or of series [seriesId]) instead, from the start, with nothing saved or reported.
      */
     data class VodPlayer(
         val playlistId: Long,
         val itemId: Long,
         val seriesId: Long? = null,
         val fromStart: Boolean = false,
-        val continueSeries: Boolean = false
+        val continueSeries: Boolean = false,
+        val trailer: Long? = null
     ) : Screen
     data class MovieDetails(val playlistId: Long, val streamId: Long) : Screen
 
@@ -103,7 +106,10 @@ class Navigator(start: Screen) {
     /** The lists picked on Live TV, Movies and Series while the app is open (as this navigator is). */
     val picked = PickedLists()
 
-    private var nextId = 0
+    // Each run of the app (each navigator) numbers its entries from a start of its own. An entry's saved state is kept
+    // by its number, and Android gives it back after it has stopped the app and starts it again: a new run's entries
+    // must not take the old run's (Home far down the page; the owner, 2026-11-11). The app opens again, fresh.
+    private var nextId = Random.nextInt(0, Int.MAX_VALUE / 2)
     val stack = mutableStateListOf(NavEntry(start, nextId++))
 
     /** Ids of entries removed since the host last cleaned up their saved state. */

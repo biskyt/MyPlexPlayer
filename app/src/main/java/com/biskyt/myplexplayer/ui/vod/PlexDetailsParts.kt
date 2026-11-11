@@ -17,6 +17,7 @@ import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.vod.CastMember
 import com.biskyt.myplexplayer.core.vod.VodDetails
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
+import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.favouriteLabel
 import com.biskyt.myplexplayer.ui.common.formatRuntime
@@ -29,15 +30,22 @@ import java.io.IOException
 // MyPlexPlayer's own parts of the film and series pages (the shared ones are in DetailsParts.kt, as in MyTVPlayer).
 
 /**
- * What a film's or show's More… shares: its cast and crew ([showCast], where known), About ([showAbout]), a film's
- * Technical info ([showTech]: a film has one, a show not) and its links in one row. A film's items have a help line
- * under them, as its board draws them.
+ * What a film's or show's More… shares: its trailer ([trailer] plays it, when it has one), its cast and crew
+ * ([showCast], where known), About ([showAbout]), a film's Technical info ([showTech]: a film has one, a show not) and
+ * its links in one row. A film's items have a help line under them, as its board draws them.
  */
-fun titleActions(details: VodDetails?, showCast: () -> Unit, showAbout: () -> Unit, showTech: (() -> Unit)? = null): List<ItemAction> {
+fun titleActions(
+    details: VodDetails?,
+    trailer: (Long) -> Screen,
+    showCast: () -> Unit,
+    showAbout: () -> Unit,
+    showTech: (() -> Unit)? = null
+): List<ItemAction> {
     val film = showTech != null
     fun help(id: Int) = if (film) appString(id) else null
     val crew = details != null && (details.cast.isNotEmpty() || details.directors.isNotEmpty() || details.writers.isNotEmpty())
     return listOfNotNull(
+        details?.trailer?.let { ItemAction.Open(appString(R.string.vod_play_trailer), trailer(it), help(R.string.vod_play_trailer_help)) },
         if (crew) ItemAction.Run(appString(R.string.vod_cast_crew), help(R.string.vod_cast_crew_help), showCast) else null,
         ItemAction.Run(
             appString(if (film) R.string.vod_about_this_film else R.string.vod_about_this_show),

@@ -371,6 +371,14 @@ class PlexClientTest {
     }
 
     @Test
+    fun `a trailer's file keeps its query (docs plex-api row 30)`() {
+        val url = client.directPlay(PlexPart(key = "/services/iva/assets/7851/video.mp4?fmt=4&bitrate=750")).url.toHttpUrl()
+        assertEquals("/services/iva/assets/7851/video.mp4", url.encodedPath)
+        assertEquals("4", url.queryParameter("fmt"))
+        assertEquals("750", url.queryParameter("bitrate"))
+    }
+
+    @Test
     fun `direct stream copies audio and video, after the server's decision`() = runTest {
         val stream = client.directStream("1", "session-2", offsetMs = 125_500)
         val decision = server.takeRequest()

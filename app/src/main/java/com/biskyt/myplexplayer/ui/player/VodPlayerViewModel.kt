@@ -99,28 +99,36 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
 
     override val described: DescribedEpisode? get() = current?.let { p -> p.episode?.let { DescribedEpisode(p.show, it) } }
 
-    override fun menuActions(): List<ItemAction> = listOfNotNull(
-        current?.episode?.let { episodeDescriptionAction(it) { sheet = Sheet.DESCRIPTION } },
-        ItemAction.Run(appString(R.string.vod_cast_title)) { showCast() },
-        ItemAction.Run(favouriteLabel(favourite)) {
-            val add = !favourite
-            viewModelScope.launch {
-                c.vod.setFavourite(screen.playlistId, favouriteType, favouriteId, add)
-                flash(favouriteFlash(add))
+    override fun menuActions(): List<ItemAction> {
+        // A trailer has none: its title's options are on the title's page.
+        if (screen.trailer != null) return emptyList()
+        return listOfNotNull(
+            current?.episode?.let { episodeDescriptionAction(it) { sheet = Sheet.DESCRIPTION } },
+            ItemAction.Run(appString(R.string.vod_cast_title)) { showCast() },
+            ItemAction.Run(favouriteLabel(favourite)) {
+                val add = !favourite
+                viewModelScope.launch {
+                    c.vod.setFavourite(screen.playlistId, favouriteType, favouriteId, add)
+                    flash(favouriteFlash(add))
+                }
+            },
+            // In place of the player: playing from there starts a new player, not a second one over this.
+            if (series == null) {
+                ItemAction.Open(
+                    appString(R.string.common_about_movie),
+                    Screen.MovieDetails(screen.playlistId, screen.itemId),
+                    replace = true
+                )
+            } else {
+                val episode = current?.episode
+                ItemAction.Open(
+                    appString(R.string.common_all_episodes),
+                    Screen.SeriesDetails(screen.playlistId, series, episode?.season, episode?.number),
+                    replace = true
+                )
             }
-        },
-        // In place of the player: playing from there starts a new player, not a second one over this.
-        if (series == null) {
-            ItemAction.Open(appString(R.string.common_about_movie), Screen.MovieDetails(screen.playlistId, screen.itemId), replace = true)
-        } else {
-            val episode = current?.episode
-            ItemAction.Open(
-                appString(R.string.common_all_episodes),
-                Screen.SeriesDetails(screen.playlistId, series, episode?.season, episode?.number),
-                replace = true
-            )
-        }
-    )
+        )
+    }
 
     /** The cast shown over the player (opened from More), and whose, once read; null while it's closed. */
     var cast by mutableStateOf<Pair<String, List<CastMember>>?>(null)
@@ -179,11 +187,23 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
             playlist = p
             try {
                 val seriesId = screen.seriesId
-                if (seriesId == null) startMovie(p) else startEpisode(p, seriesId, screen.itemId, screen.fromStart, screen.continueSeries)
+                when {
+                    screen.trailer != null -> startTrailer(p, screen.trailer)
+                    seriesId == null -> startMovie(p)
+                    else -> startEpisode(p, seriesId, screen.itemId, screen.fromStart, screen.continueSeries)
+                }
             } catch (e: java.io.IOException) {
                 fail(e.message)
             }
         }
+    }
+
+    /** Trailer [id] of the film (or of the series): its title, with "Trailer" over it. */
+    private suspend fun startTrailer(p: PlaylistEntity, id: Long) {
+        // Gone from the server meanwhile: closed, as a film or episode is.
+        title = screen.seriesId?.let { c.vod.series(p.id, it)?.title } ?: c.vod.movie(p.id, screen.itemId)?.title ?: return stop()
+        subtitle = appString(R.string.vod_trailer)
+        play(p, Playing(VOD_MOVIE, id, title, null, c.vod.trailerStream(p, id)), fromStart = true)
     }
 
     private suspend fun startMovie(p: PlaylistEntity) {
@@ -252,7 +272,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         skip = null
         resetForNewStream()
         val engine = engine ?: return
-        engine.play(playing.stream.url, hls = null, headers = playing.stream.plex?.stream?.headers.orEmpty())
+        engine.play(playing.stream.url, hls = null, headers = playing.stream.headers)
         // Resume unless it was nearly finished (or the user asked to start over). From Plex, the row has the server's point.
         val saved = if (fromStart) null else known
         if (saved != null && !saved.finished && saved.positionMs > RESUME_AFTER_MS) {
@@ -325,6 +345,8 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
 
     /** Taken now and written in the app's scope, so it completes even as the screen closes ([stopped]: playback ends). */
     private fun save(stopped: Boolean = false) {
+        // A trailer is never saved or reported: it isn't the title itself.
+        if (screen.trailer != null) return
         // The server's stream ends with playback, saved or not (before it has started, there's nothing to save).
         if (stopped) current?.stream?.plex?.let { plex -> c.appScope.launch { plex.close() } }
         val row = snapshot() ?: return

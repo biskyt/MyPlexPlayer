@@ -102,7 +102,7 @@ fun TopBar(selected: Tab?, selectedFocus: FocusRequester? = null) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(BAR_GAP)
     ) {
-        Tab.entries.forEach { tab ->
+        shownTabs().forEach { tab ->
             BarItem(
                 {
                     nav.reset(

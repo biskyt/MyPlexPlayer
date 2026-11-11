@@ -150,9 +150,17 @@ data class PlexItem(
     @SerialName("Marker") @Serializable(with = SkippingList::class) val markers: List<PlexMarker> = emptyList(),
     /** A show's own settings, sent only when asked for ([PlexClient.autoDeleteWatched] does). */
     @SerialName("Preferences") val preferences: PlexPreferences? = null,
+    /**
+     * A film's or show's main extra, its trailer ("/library/metadata/2641"), when it has extras (docs/plex-api.md
+     * row 30). With Plex Pass, it is one of Plex's online trailers, which the server sends as an MP4 file.
+     */
+    val primaryExtraKey: String? = null,
 ) {
     /** The first file of the first version, the one played. */
     val part: PlexPart? get() = media.firstOrNull()?.parts?.firstOrNull()
+
+    /** The id of its trailer ([primaryExtraKey]) on the server, if it has one. */
+    val trailer: Long? get() = primaryExtraKey?.substringAfterLast('/')?.toLongOrNull()
 }
 
 /** An item's own settings (`includePreferences=1`); a show's are what [PlexAutoDelete] is read from. */
