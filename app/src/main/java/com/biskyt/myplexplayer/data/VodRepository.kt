@@ -105,9 +105,12 @@ class VodRepository(
     fun observeFavouriteCards(playlistId: Long, type: String, limit: Int): Flow<List<VodCard>> =
         if (type == CAT_MOVIE) vod.observeMovieFavourites(playlistId, limit) else vod.observeSeriesFavourites(playlistId, limit)
 
-    /** The newest movies, or the series with the newest episodes (Plex), for Home. */
-    fun observeNewestCards(playlistId: Long, type: String, limit: Int): Flow<List<VodCard>> =
-        if (type == CAT_MOVIE) vod.observeNewestMovies(playlistId, limit) else vod.observeNewestSeries(playlistId, limit)
+    /** The newest movies not watched, or the series with the newest episodes and one not watched (Plex), for Home. */
+    fun observeNewestCards(playlistId: Long, type: String, limit: Int): Flow<List<VodCard>> = if (type == CAT_MOVIE) {
+        vod.observeNewestMovies(playlistId, limit, WatchProgressEntity.FINISHED_FRACTION)
+    } else {
+        vod.observeNewestSeries(playlistId, limit)
+    }
 
     /** A new favourite goes at the end of the user's order. */
     suspend fun setFavourite(playlistId: Long, type: String, id: Long, favourite: Boolean) {
@@ -481,8 +484,11 @@ class VodRepository(
 /** Where a film or episode plays from, and for one from Plex, its [plex] playback (to report to). */
 data class VodStream(val url: String, val plex: PlexPlayback? = null)
 
-/** How many series with new episodes Home's row is given. */
-private const val NEWEST_SERIES = 20
+/**
+ * How many series with new episodes each TV library ranks for Home's row. It is more than the row shows, so that the
+ * row stays full when it leaves out the series with every episode watched.
+ */
+private const val NEWEST_SERIES = 100
 
 /** TV libraries a server has, at most, for their places on Home's recently added row to take turns. */
 private const val MAX_TV_LIBRARIES = 1_000

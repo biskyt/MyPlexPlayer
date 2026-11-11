@@ -78,6 +78,7 @@ class SyncOrderTest {
         // Since then: a film added and played elsewhere, and a new series (the server lists the newest first).
         fake.movies = fake.movies + FakePlex.film("13", "Tears of Steel", 2012, addedAt = 1_700_000_900)
         fake.shows = listOf(FakePlex.show("22", "New Show", 2024)) + fake.shows
+        fake.episodes += FakePlex.episode("22", "New Show", "221", 1, 1, "Pilot") // not watched, so it is on the row
         fake.viewOffset["13"] = 120_000
         fake.lastViewedAt["13"] = System.currentTimeMillis() / 1000 - 60
         fake.continueWatching = listOf("13")

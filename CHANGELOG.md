@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.4.5
+- The recently added rows on Home no longer show films that you watched, or series with all their episodes watched.
+
 ## 1.4.4
 - The channel up and channel down buttons on the remote move one page up or down in the Live TV channel list, the TV guide, Movies and TV Shows.
 
