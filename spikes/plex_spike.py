@@ -19,7 +19,8 @@ addresses, account names, emails and file paths replaced, for test fixtures. rep
     python3 spikes/plex_spike.py deletion  [--server URL] [--delete] # S9: deleting, and a show's automatic deletion
     python3 spikes/plex_spike.py people    [--server URL] # S10: cast members' biographies and credits, similar titles
     python3 spikes/plex_spike.py person    [--server URL] # S13: a cast member's page: titles here, Discover credits, matching
-    python3 spikes/plex_spike.py cast                    # S10 and S13 (signing in first if needed), then spike-results.zip
+    python3 spikes/plex_spike.py trailers  [--server URL] # S14: trailers and other extras, where they come from, how they play
+    python3 spikes/plex_spike.py cast                    # S10, S13 and S14 (signing in first if needed), then spike-results.zip
     python3 spikes/plex_spike.py series_dvr [--server URL] [--record] # S11: series recordings: made, edited, removed
     python3 spikes/plex_spike.py test-dvr                # S11 with --record (signing in first if needed), then the zip
     python3 spikes/plex_spike.py recordings [--server URL] # S12: recordings in progress and recent ones, and how each plays (only reads)
@@ -130,6 +131,8 @@ class Recorder:
         text = re.sub(r'("(?:email|username|friendlyName|title)"\s*:\s*)"[^"]*@[^"]*"', r'\1"user@example.com"', text)
         # Server-side file and folder paths: keep only the last part ("/media/Film (2020).mkv").
         text = re.sub(r'("(?:file|path)"\s*:\s*)"[^"]*?([^"/\\]*)"', r'\1"/media/\2"', text)
+        # A local extra's guid is its file's address ("file:///home/…/Trailer.mp4"): keep only the file's name too.
+        text = re.sub(r'"file://[^"]*?([^"/\\]*)"', r'"file:///media/\1"', text)
         text = re.sub(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", "192.0.2.1", text)  # IPv4 -> documentation range
         text = re.sub(r"\b(?:\d{1,3}-){3}\d{1,3}\.[0-9a-f]{32}\.plex\.direct", "192-0-2-1.SERVERID.plex.direct", text)
         text = re.sub(r"\b[0-9a-f]{40}\b", "MACHINEID", text)
@@ -1772,11 +1775,228 @@ def person_page(args, state):
     rec.finish()
 
 
+# ---------------------------------------------------------------- S14: trailers and other extras
+
+EXTRA_FIELDS = ("type", "extraType", "subtype", "title", "duration", "key", "ratingKey", "guid")
+PEEK = {"Range": "bytes=0-1023"}  # the first bytes only, as a player's first request
+
+
+def is_trailer(extra):
+    return extra.get("extraType") == 1 or str(extra.get("subtype", "")).lower() == "trailer"
+
+
+def extra_source(extra):
+    """"local" (its first Part names a file on the server), "online" (a Part with no file: an address off the server,
+    or a server path to Plex's online extras) or "unknown" (no Part at all)."""
+    part = part_of(extra)
+    if part.get("file"):
+        return "local"
+    return "online" if part.get("key") else "unknown"
+
+
+def extra_facts(extra):
+    """What the app would read of one extra: its own fields, its first Media and Part, and where the Part is."""
+    media, part = first(extra, "Media"), part_of(extra)
+    key = str(part.get("key") or "")
+    return {**{k: extra.get(k) for k in EXTRA_FIELDS if k in extra},
+            "media": {k: media.get(k) for k in ("container", "videoCodec", "audioCodec", "videoResolution",
+                                                "audioChannels", "protocol", "indirect") if k in media},
+            "part": {k: part.get(k) for k in ("container", "file", "key", "size", "duration", "indirect") if k in part},
+            "partKey": "absolute URL" if key.startswith(("http://", "https://")) else "server path" if key else "none",
+            "guidScheme": str(extra.get("guid") or "").split(":", 1)[0] or None, "source": extra_source(extra)}
+
+
+def extras_of(http, rec, label, key):
+    """Item 1 and 2: /extras, and the item with includeExtras=1 (and as Plex Web asks), with any difference."""
+    status, _, body = http.get(f"/library/metadata/{key}/extras")
+    rec.save(f"{label}-extras", body)
+    extras = mc(body).get("Metadata", [])
+    facts = [extra_facts(e) for e in extras]
+    rec.save(f"{label}-extras-facts", facts)
+    rec.check(f"{label}: GET /library/metadata/{{id}}/extras (HTTP {status})", status == 200,
+              f"{len(extras)} extras; types {Counter((e.get('subtype'), e.get('extraType')) for e in extras)}; "
+              f"sources {Counter(f['source'] for f in facts)}; part keys {Counter(f['partKey'] for f in facts)}; "
+              f"fields {sorted({k for e in extras for k in e})}; {size_of(body)} KB")
+    item = {}
+    for name, params in (("includeExtras", {"includeExtras": 1}),
+                         ("includeExtras-external", {"includeExtras": 1, "includeExternalMedia": 1})):
+        status, _, body = http.get(f"/library/metadata/{key}", **params)
+        rec.save(f"{label}-{name}", body)
+        item = first(mc(body), "Metadata")
+        box = item.get("Extras") if isinstance(item.get("Extras"), dict) else {}
+        inline = box.get("Metadata", [])
+        mine, theirs = {e.get("key") for e in extras}, {e.get("key") for e in inline}
+        rec.check(f"{label}: GET /library/metadata/{{id}}?{urllib.parse.urlencode(params)} (HTTP {status})",
+                  status == 200, f"{len(inline)} extras inline (size {box.get('size')}); "
+                  f"only in /extras {len(mine - theirs)}, only inline {len(theirs - mine)}; "
+                  f"inline sources {Counter(extra_source(e) for e in inline)}")
+        extras += [e for e in inline if e.get("key") not in mine]  # an extra seen only inline is tried too
+    primary = item.get("primaryExtraKey")
+    named = [e for e in extras if primary in (e.get("key"), f"/library/metadata/{e.get('ratingKey')}")]
+    rec.check(f"{label}: primaryExtraKey given when, and only when, it has extras", bool(primary) == bool(extras),
+              f"{primary!r}; it names one of the extras: {bool(named)}"
+              + (f" ({named[0].get('subtype')}, trailer {is_trailer(named[0])})" if named else ""))
+    return item, extras
+
+
+def peek(http, rec, label, part_key):
+    """Item 3: the first bytes of a Part, with the server token for a server path, none for an address elsewhere."""
+    if part_key.startswith(("http://", "https://")):
+        url = part_key  # never send the server's token to another host
+    else:
+        url = http.url(part_key, **({"X-Plex-Token": http.token} if http.token else {}))
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers=PEEK), timeout=20) as r:
+            status, hdrs = r.status, dict(r.headers)
+    except urllib.error.HTTPError as e:
+        status, hdrs = e.code, dict(e.headers)
+    except (urllib.error.URLError, OSError) as e:
+        return rec.check(f"{label}: fetch its Part directly", False, f"{type(e).__name__}: {e}")
+    size = (hdrs.get("Content-Range") or "").rsplit("/", 1)[-1] or hdrs.get("Content-Length")
+    return rec.check(f"{label}: fetch its Part directly (Range GET of the first 1 KB)", status in (200, 206),
+                     f"HTTP {status}, {hdrs.get('Content-Type')}, size {size}, Accept-Ranges={hdrs.get('Accept-Ranges')}")
+
+
+def extra_decision(http, rec, label, extra):
+    """Item 3: the server's direct stream decision for the extra, as PlexClient.directStream asks it; then the session
+    the decision opened is stopped at once. No playlist is asked for, so nothing is ever streamed or re-encoded."""
+    path = extra.get("key") if str(extra.get("key", "")).startswith("/library/metadata/") else \
+        f"/library/metadata/{extra.get('ratingKey')}" if extra.get("ratingKey") else extra.get("key")
+    session = str(uuid.uuid4())
+    sid = {"X-Plex-Session-Identifier": session, **DIRECT_STREAM}
+    status, _, decision = http.request("GET", "/video/:/transcode/universal/decision", sid, path=path, mediaIndex=0,
+                                       partIndex=0, offset=0, protocol="hls", directPlay=0, directStream=1,
+                                       directStreamAudio=1, subtitles="none", session=session)
+    rec.save(f"{label}-decision", decision)
+    http.request("GET", "/video/:/transcode/universal/stop", sid, session=session)
+    m = mc(decision)
+    copied = stream_decisions(decision)
+    rec.check(f"{label}: direct stream decision (path {path}, HTTP {status}): video and audio copied",
+              status == 200 and copied and all(d == "copy" for _, _, d in copied) and any(t == 1 for t, _, _ in copied),
+              f"streams {copied}; general {m.get('generalDecisionCode')} {m.get('generalDecisionText')!r}; "
+              f"direct play {m.get('directPlayDecisionCode')} {m.get('directPlayDecisionText')!r}; "
+              f"transcode {m.get('transcodeDecisionCode')} {m.get('transcodeDecisionText')!r}")
+
+
+def newest_with_extras(http, rec, section, kind, label, count=2, tries=15):
+    """[count] titles of [kind] in [section], those with a primaryExtraKey (or with extras) first, else the newest."""
+    _, _, page = http.get(f"/library/sections/{section}/all", type=kind, sort="addedAt:desc",
+                          **{"X-Plex-Container-Start": 0, "X-Plex-Container-Size": 50})
+    titles = mc(page).get("Metadata", [])
+    flagged = [t for t in titles if t.get("primaryExtraKey")]
+    rec.check(f"{label}: the library list gives primaryExtraKey", True,
+              f"{len(flagged)} of the {len(titles)} newest have one")
+    chosen = flagged[:count]
+    for t in titles[:tries]:
+        if len(chosen) >= count:
+            break
+        if t in chosen:
+            continue
+        _, _, body = http.get(f"/library/metadata/{t.get('ratingKey')}/extras")
+        if mc(body).get("Metadata"):
+            chosen.append(t)
+    chosen += [t for t in titles if t not in chosen][:count - len(chosen)]
+    return chosen
+
+
+def show_extras(http, rec, show):
+    """Item 4: extras on the show itself and on its seasons."""
+    _, _, body = http.get(f"/library/metadata/{show.get('ratingKey')}/children")
+    seasons = mc(body).get("Metadata", [])
+    on_seasons = {}
+    for season in seasons[:4]:
+        _, _, extras = http.get(f"/library/metadata/{season.get('ratingKey')}/extras")
+        on_seasons[season.get("title")] = (len(mc(extras).get("Metadata", [])), season.get("primaryExtraKey"))
+    rec.check(f"show {show.get('title')!r}: extras on its seasons (first {min(len(seasons), 4)} of {len(seasons)})",
+              seasons, f"(extras, primaryExtraKey) per season: {on_seasons}")
+
+
+def discover_extras(http, discover, rec, titles):
+    """Item 5: Discover's extras, for a title not on this server (from Discover's related titles) and for one on it."""
+    ids = [(t.get("type"), t.get("guid", "").rsplit("/", 1)[-1]) for t in titles if t.get("guid", "").startswith("plex://")]
+    if not rec.check("a title with a Plex guid", ids, f"{len(ids)} of {len(titles)}"):
+        return
+    elsewhere = None
+    _, _, related = discover.get(f"/library/metadata/{ids[0][1]}/related")
+    for hub in mc(related).get("Hub", [])[:3]:
+        found = hub.get("Metadata") or (mc(discover.get(hub["key"], count=10)[2]).get("Metadata", []) if hub.get("key") else [])
+        for t in found:
+            guid = t.get("guid") or f"plex://{t.get('type')}/{t.get('ratingKey')}"
+            _, _, here = http.get("/library/all", guid=guid)
+            if t.get("ratingKey") and not mc(here).get("Metadata"):
+                elsewhere = (t.get("type"), t.get("ratingKey"), t.get("title"))
+                break
+        if elsewhere:
+            break
+    rec.check("a title on Discover that is not on this server", elsewhere, repr(elsewhere))
+    for label, (kind, plex_id) in (("discover-not-here", elsewhere[:2] if elsewhere else (None, None)),
+                                   ("discover-on-server", ids[0])):
+        if not plex_id:
+            continue
+        status, _, body = discover.get(f"/library/metadata/{plex_id}/extras")
+        rec.save(label, body)
+        extras = mc(body).get("Metadata", [])
+        rec.check(f"Discover: GET /library/metadata/{{guid id}}/extras for a {kind} {label[9:]} (HTTP {status})",
+                  status == 200 and any(is_trailer(e) for e in extras),
+                  f"{len(extras)} extras, {sum(1 for e in extras if is_trailer(e))} trailers; "
+                  f"fields {sorted({k for e in extras for k in e})}; "
+                  f"Media fields {sorted({k for e in extras for k in first(e, 'Media')})}; "
+                  f"Part fields {sorted({k for e in extras for k in part_of(e)})}; "
+                  f"part keys {Counter(extra_facts(e)['partKey'] for e in extras)}; {size_of(body)} KB")
+
+
+def trailers(args, state):
+    """A "Trailer" item for film and series pages: for 2 films and 2 shows (those with extras first), the item's
+    primaryExtraKey, its extras (/extras and includeExtras=1), which are files on the server and which come from
+    Plex's online extras; for one trailer of each kind, its first bytes fetched directly and the server's direct
+    stream decision (read only, its session stopped at once: nothing is streamed or re-encoded); a show's extras
+    against its seasons'; and Discover's extras for a title not on the server. Only reads."""
+    rec = Recorder(args.out, "s14-trailers")
+    http = server_http(args, state)
+    note_server(rec, http)
+    discover = Http(state, DISCOVER, state["token"]) if state.get("token") else None
+    rec.check("an account token for Discover (signed in)", discover, "" if discover else "sign in first: Discover part skipped")
+    _, _, ident = http.get("/")
+    rec.check("the server's Plex Pass (online extras need it)", True,
+              f"myPlexSubscription {mc(ident).get('myPlexSubscription')}")
+    _, _, sections = http.get("/library/sections")
+    dirs = mc(sections).get("Directory", [])
+    films = [d["key"] for d in dirs if d.get("type") == "movie"]
+    shows = [d["key"] for d in dirs if d.get("type") == "show"]
+    rec.check("a film library and a TV library", films and shows, f"{len(films)} film, {len(shows)} TV")
+    titles = (newest_with_extras(http, rec, films[0], 1, "films") if films else []) + \
+        (newest_with_extras(http, rec, shows[0], 2, "shows") if shows else [])
+    tried = {}
+    for n, title in enumerate(titles, 1):
+        label = f"{title.get('type')}-{n}"
+        print(f"\n  {label}: {title.get('title')}")
+        _, extras = extras_of(http, rec, label, title.get("ratingKey"))
+        for extra in extras:
+            kind = extra_source(extra)
+            if kind != "unknown" and (kind not in tried or not is_trailer(tried[kind]) and is_trailer(extra)):
+                tried[kind] = extra
+        if title.get("type") == "show":
+            show_extras(http, rec, title)
+    for kind in ("local", "online"):
+        extra = tried.get(kind)
+        if not rec.check(f"{'a local' if kind == 'local' else 'an online'} extra to play", extra,
+                         f"{extra.get('title')!r}, {extra.get('subtype')}, trailer {is_trailer(extra)}" if extra
+                         else "none in these titles"):
+            continue
+        rec.save(f"{kind}-extra", extra)
+        peek(http, rec, f"{kind} extra", str(part_of(extra).get("key") or ""))
+        extra_decision(http, rec, f"{kind}-extra", extra)
+    if discover:
+        discover_extras(http, discover, rec, titles)
+    rec.summary()
+    rec.finish()
+
+
 def run_all(args, state):
     """Every step in turn (signing in first if needed, tuning and recording included), carrying on past a step
     that fails, then the shareable results zipped into spike-results.zip."""
     args.tune = args.record = True
-    steps = ([] if state.get("token") else [signin]) + [servers, library, playback, livetv, dvr, favourites, markers, deletion, people, person_page, series_dvr]
+    steps = ([] if state.get("token") else [signin]) + [servers, library, playback, livetv, dvr, favourites, markers, deletion, people, person_page, trailers, series_dvr]
     for step in steps:
         print(f"\n=== {step.__name__} ===", flush=True)
         try:
@@ -1801,14 +2021,15 @@ def save_favourites(args, state):
 
 
 def cast(args, state):
-    """The spike app's "Test cast and similar titles": people and person_page (signing in and finding the servers first if needed),
-    then the results zipped as `all` does."""
+    """The spike app's "Test cast, similar titles and trailers": people, person_page and trailers (signing in and
+    finding the servers first if needed), then the results zipped as `all` does."""
     if not state.get("token"):
         signin(args, state)
     if not state.get("servers") and not args.server:
         servers(args, state)
     people(args, state)
     person_page(args, state)
+    trailers(args, state)
     share_results(args)
 
 
@@ -1839,7 +2060,7 @@ def share_results(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("step", choices=["all", "signin", "servers", "library", "playback", "livetv", "dvr",
-                                             "favourites", "save-favourites", "markers", "deletion", "people", "person", "cast", "series_dvr", "test-dvr",
+                                             "favourites", "save-favourites", "markers", "deletion", "people", "person", "trailers", "cast", "series_dvr", "test-dvr",
                                              "recordings", "test-recordings"])
     parser.add_argument("--server", help="server URL, e.g. http://192.168.1.20:32400 (default: from `servers`)")
     parser.add_argument("--token", help="token for --server (not needed for a local unclaimed test server)")

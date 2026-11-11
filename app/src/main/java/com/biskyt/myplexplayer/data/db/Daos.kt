@@ -412,13 +412,23 @@ interface VodDao {
     @Query("$MOVIE_CARD $MOVIE_FAVOURITES $FAVOURITE_ORDER LIMIT :limit")
     fun observeMovieFavourites(pid: Long, limit: Int): Flow<List<VodCard>>
 
-    @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid ORDER BY added DESC LIMIT :limit")
-    fun observeNewestMovies(pid: Long, limit: Int): Flow<List<VodCard>>
+    /** Home's recently added films, newest first: not those watched ([finished] is [WatchProgressEntity.FINISHED_FRACTION]). */
+    @Query(
+        """$MOVIE_CARD FROM movie m WHERE playlistId = :pid AND NOT EXISTS (SELECT 1 FROM watch_progress p
+           WHERE p.playlistId = m.playlistId AND p.kind = 'movie' AND p.itemId = m.streamId
+           AND p.durationMs > 0 AND p.positionMs >= p.durationMs * :finished)
+           ORDER BY added DESC LIMIT :limit"""
+    )
+    fun observeNewestMovies(pid: Long, limit: Int, finished: Double): Flow<List<VodCard>>
 
     @Query("$SERIES_CARD $SERIES_FAVOURITES $FAVOURITE_ORDER LIMIT :limit")
     fun observeSeriesFavourites(pid: Long, limit: Int): Flow<List<VodCard>>
 
-    @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND newest IS NOT NULL ORDER BY newest LIMIT :limit")
+    /** Home's series with the newest episodes: only those with an episode not watched (or not yet counted). */
+    @Query(
+        """$SERIES_CARD FROM series WHERE playlistId = :pid AND newest IS NOT NULL AND (unwatched IS NULL OR unwatched > 0)
+           ORDER BY newest LIMIT :limit"""
+    )
     fun observeNewestSeries(pid: Long, limit: Int): Flow<List<VodCard>>
 
     /** The favourite movies' ids, in order. */

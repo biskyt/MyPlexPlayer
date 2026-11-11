@@ -241,6 +241,28 @@ class PlexSourcesTest {
     }
 
     @Test
+    fun `recently added leaves out a watched film and a series with every episode watched`() = runBlocking {
+        fake.shows += FakePlex.show("22", "Watched Show")
+        fake.episodes += FakePlex.episode("22", "Watched Show", "221", 1, 1, "Only")
+        fake.watched += listOf("11", "221", "211") // Test Show's second episode is not watched
+        fake.viewOffset["12"] = 100_000 // Sintel part-watched
+        plex.signIn(FakePlex.ACCOUNT_TOKEN)
+        val source = homePlex()
+        vod.sync(source)
+        suspend fun newest(type: String) = vod.observeNewestCards(source.id, type, 10).first().map { it.id }
+
+        assertEquals(listOf(12L), newest(CAT_MOVIE))
+        assertEquals(listOf(21L), newest(CAT_SERIES))
+
+        // The last episode not watched, marked watched here: the series goes.
+        assertTrue(vod.setWatched(source.id, 212, 21, watched = true))
+        assertEquals(emptyList<Long>(), newest(CAT_SERIES))
+        // And a film marked watched here.
+        assertTrue(vod.setWatched(source.id, 12, null, watched = true))
+        assertEquals(emptyList<Long>(), newest(CAT_MOVIE))
+    }
+
+    @Test
     fun `a series' delete watched episodes is read from and saved to its server`() = runBlocking {
         plex.signIn(FakePlex.ACCOUNT_TOKEN)
         val source = homePlex()
