@@ -16,7 +16,10 @@ class Navigators : ExternalResource() {
 
     fun new(start: Screen): Navigator = Navigator(start).also { made += it }
 
-    override fun after() {
+    override fun after() = clear()
+
+    /** Clears the screens' ViewModels now, as at the end of the test (for a test that must stop their work sooner). */
+    fun clear() {
         made.forEach { it.clear() }
         made.clear()
     }
