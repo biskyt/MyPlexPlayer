@@ -134,13 +134,14 @@ class MainActivity : Activity() {
         column.addView(saveFavourites)
         column.addView(
             text(
-                "Test cast and similar titles: reads a show's cast, a cast member's biography and other films and " +
-                    "shows, and similar titles, from your server and from Plex, then the parts of a cast member's page " +
-                    "(about two minutes; only reads).",
+                "Test cast, similar titles and trailers: reads a show's cast, a cast member's biography and other " +
+                    "films and shows, and similar titles, from your server and from Plex, then the parts of a cast " +
+                    "member's page, then the trailers and other extras of films and shows and how each would play " +
+                    "(about three minutes; only reads).",
                 15f
             )
         )
-        cast = button("Test cast and similar titles") { SpikeRun.start(filesDir, "cast") }
+        cast = button("Test cast, similar titles and trailers") { SpikeRun.start(filesDir, "cast") }
         column.addView(cast)
         column.addView(
             text(
