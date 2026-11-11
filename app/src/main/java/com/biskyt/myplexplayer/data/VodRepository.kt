@@ -378,59 +378,48 @@ class VodRepository(
     // --- sync ---
 
     /**
-     * A Plex source brought up to date since [sinceMs] without a sync: the titles added since (see [addNew]), then play
-     * state (see [PlexSources.refreshPlayState]).
+     * A Plex source brought up to date since [sinceMs] without a sync: play state (see [PlexSources.refreshPlayState]),
+     * then the titles added since (see [addNew]). True when a title not here yet was added: the caller then syncs the
+     * films and series, which gives it its place in the server's order.
      */
-    suspend fun refreshPlayState(p: PlaylistEntity, sinceMs: Long) {
+    suspend fun refreshPlayState(p: PlaylistEntity, sinceMs: Long): Boolean {
         val films = includedLibraries(p.id, CAT_MOVIE)
         val shows = includedLibraries(p.id, CAT_SERIES)
         plex.refreshPlayState(p, films, shows, sinceMs)
         // After play state (what played here is reported first). Out of reach, the next look asks again from [sinceMs].
-        addNew(p, films, shows, sinceMs)
+        return addNew(p, films, shows, sinceMs)
     }
 
     /**
-     * Films added to [movieLibraries] since [sinceMs], and series of [showLibraries] with an episode added since, without
-     * a library sync (the owner, 2026-11-11: Home's recently added rows kept up to date from the server). A new one gets
-     * a row (its place in the server's order comes at the next sync); a series already here gets its episode counts
-     * and Home's order of the newest series again.
+     * Films added to [movieLibraries] since [sinceMs], and series of [showLibraries] with an episode added since (the
+     * owner, 2026-11-11: Home's recently added rows kept up to date from the server). True when one is not here yet.
+     * Otherwise, a series with a new episode gets its episode counts and Home's order of the newest series again.
      */
-    private suspend fun addNew(p: PlaylistEntity, movieLibraries: List<String>, showLibraries: List<String>, sinceMs: Long) {
+    private suspend fun addNew(p: PlaylistEntity, movieLibraries: List<String>, showLibraries: List<String>, sinceMs: Long): Boolean {
         val client = plex.client(p)
         val seconds = PlexSources.secondsSince(sinceMs)
-        val stamp = System.currentTimeMillis()
         fun CoroutineScope.added(libraries: List<String>, type: PlexType) =
-            libraries.map { library -> async { client.addedSince(library, type, seconds).map { library to it } } }
+            libraries.map { library -> async { client.addedSince(library, type, seconds) } }
         val (films, shows) = coroutineScope {
             added(movieLibraries, PlexType.MOVIE).awaitAll().flatten() to
                 added(showLibraries, PlexType.SHOW).awaitAll().flatten()
         }
-        val inserted = { ids: List<Long> -> ids.any { it != -1L } }
-        if (films.isNotEmpty()) {
-            db.withTransaction {
-                if (inserted(vod.insertNewMovies(films.mapNotNull { plex.movie(client, p.id, it, NEW_POSITION, stamp) }))) {
-                    categories.refreshCounts(p.id, CAT_MOVIE)
-                }
-            }
-        }
-        if (shows.isEmpty()) return
+        val ids = { items: List<PlexItem> -> items.mapNotNull { it.ratingKey.toLongOrNull() } }
+        if (ids(films).any { vod.movie(p.id, it) == null } || ids(shows).any { vod.series(p.id, it) == null }) return true
+        if (shows.isEmpty()) return false
         // Every TV library's order, or none changed: one that can't say would take its series off the row.
-        val ranks =
-            coroutineScope {
-                showLibraries.mapIndexed { i, library ->
-                    async { HashMap<Long, Int>().takeIf { rankNewest(client, library, i, it) } }
-                }.awaitAll()
-            }
+        val ranks = coroutineScope {
+            showLibraries.mapIndexed { i, library -> async { HashMap<Long, Int>().takeIf { rankNewest(client, library, i, it) } } }
+                .awaitAll()
+        }
         db.withTransaction {
-            if (inserted(vod.insertNewSeries(shows.mapNotNull { plex.series(client, p.id, it, NEW_POSITION, stamp) }))) {
-                categories.refreshCounts(p.id, CAT_SERIES)
-            }
-            shows.forEach { (_, show) -> show.ratingKey.toLongOrNull()?.let { plex.saveCounts(p.id, it, show) } }
+            shows.forEach { show -> show.ratingKey.toLongOrNull()?.let { plex.saveCounts(p.id, it, show) } }
             if (ranks.all { it != null }) {
                 vod.clearNewest(p.id)
                 ranks.forEach { r -> r!!.forEach { (id, rank) -> vod.setNewest(p.id, id, rank) } }
             }
         }
+        return false
     }
 
     /** A Plex source's libraries of films or series ([category]) included here. */
@@ -442,7 +431,7 @@ class VodRepository(
      * included to start with). A server that can't be reached at its address is looked for again (its address may
      * have changed), once.
      */
-    suspend fun sync(p: PlaylistEntity, onProgress: (Int) -> Unit = {}) {
+    suspend fun sync(p: PlaylistEntity, markSynced: Boolean = true, onProgress: (Int) -> Unit = {}) {
         try {
             plex.forgetDeletion(p.id)
             syncPlexAt(p, onProgress)
@@ -450,8 +439,8 @@ class VodRepository(
             val moved = e.reason == PlexException.Reason.UNREACHABLE
             syncPlexAt(plex.reconnect(p).takeIf { moved } ?: throw e, onProgress)
         }
-        // Films and series are all a Plex source has for now: loaded, it's up to date.
-        db.playlists().setLastSync(p.id, System.currentTimeMillis())
+        // Loaded, it's up to date; not for new titles only ([markSynced] false): its channels and guide wait still.
+        if (markSynced) db.playlists().setLastSync(p.id, System.currentTimeMillis())
     }
 
     private suspend fun syncPlexAt(p: PlaylistEntity, onProgress: (Int) -> Unit) {
@@ -555,9 +544,6 @@ data class VodStream(
  * row stays full when it leaves out the series with every episode watched.
  */
 private const val NEWEST_SERIES = 100
-
-/** A title added since the last sync: after the others in the server's order, until the next sync places it. */
-private const val NEW_POSITION = Int.MAX_VALUE
 
 /** TV libraries a server has, at most, for their places on Home's recently added row to take turns. */
 private const val MAX_TV_LIBRARIES = 1_000

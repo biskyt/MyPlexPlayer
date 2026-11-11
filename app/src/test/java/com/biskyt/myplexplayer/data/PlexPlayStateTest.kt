@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.core.plex.PlexPlayState
 import com.biskyt.myplexplayer.data.db.AppDatabase
+import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
 import com.biskyt.myplexplayer.data.db.VOD_EPISODE
 import com.biskyt.myplexplayer.data.db.VOD_MOVIE
@@ -247,6 +248,26 @@ class PlexPlayStateTest {
         withTimeout(10_000) {
             while (db.playlists().get(source.id)!!.lastSyncAt == 1L) delay(50)
         }
+    }
+
+    @Test
+    fun `a film added on the server comes in at the next look, in its place in the server's order`() = runBlocking {
+        vod.sync(source) // not through the sync manager, so its last look is the sync's
+        val lookedAt = System.currentTimeMillis()
+        val synced = lookedAt - 60_000
+        db.playlists().setLastSync(source.id, synced)
+        val added = FakePlex.film("13", "Elephants Dream", addedAt = lookedAt / 1000)
+        fake.movies = listOf(fake.movies.first(), added) + fake.movies.drop(1) // the server's order, by title
+        val order = fake.movies.map { it.getValue("ratingKey").toString().trim('"').toLong() }
+
+        sync.refreshPlayState(source.id, syncIfDue = false)
+
+        withTimeout(10_000) {
+            while (13L !in db.vod().moviesSnapshot(source.id).map { it.streamId } || sync.state.value != SyncState.Idle) delay(50)
+        }
+        assertEquals(order, db.vod().moviesSnapshot(source.id).map { it.streamId })
+        assertTrue(13L in vod.observeNewestCards(source.id, CAT_MOVIE, 10).first().map { it.id })
+        assertEquals("the channels and guide are still due their sync", synced, db.playlists().get(source.id)!!.lastSyncAt)
     }
 
     @Test

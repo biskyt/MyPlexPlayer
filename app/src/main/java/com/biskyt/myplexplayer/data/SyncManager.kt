@@ -118,16 +118,20 @@ class SyncManager(
      */
     private val playStateAt = ConcurrentHashMap<Long, Long>()
 
+    /** The films and series sync a look started for new titles (see [refreshPlayState]), while it runs. */
+    @Volatile private var placing: Job? = null
+
     /**
      * Back in the app (from another app, or opened again): play state changed meanwhile on a Plex source (in the
      * owner's other Plex apps) is brought here, quickly, without a sync. Not while a sync runs (it brings the same),
      * nor within seconds of the last; out of reach, it waits for next time. Due a sync, [syncIfDue] starts one (the
      * app opening starts its own). [whileOpen]: a later look while the app stays open, which looks even when a sync is
-     * due (one never starts from there, in the middle of a film).
+     * due (a full sync never starts from there, in the middle of a film; only the films and series one for new titles).
      */
     @Suppress("TooGenericExceptionCaught") // as a sync: whatever goes wrong (a full disk, say) mustn't end the app
     suspend fun refreshPlayState(playlistId: Long, syncIfDue: Boolean, whileOpen: Boolean = false) {
-        if (!mutex.tryLock()) return
+        // Not while new titles sync (they set the time of this look), nor alongside other work.
+        if (placing?.isActive == true || !mutex.tryLock()) return
         try {
             val p = playlists.get(playlistId)?.takeIf { it.lastSyncAt > 0 } ?: return
             if (p.isStale() && !whileOpen) {
@@ -137,8 +141,13 @@ class SyncManager(
             val now = System.currentTimeMillis()
             val since = playStateAt[p.id] ?: p.lastSyncAt
             if (now - since < PLAY_STATE_GAP_MS) return
-            vod.refreshPlayState(p, since)
-            playStateAt[p.id] = now
+            if (vod.refreshPlayState(p, since)) {
+                // The new titles in their places (once this lets go). The sync then sets the time of the last look:
+                // a sync that doesn't run, or fails, leaves it, so the next look finds the same titles again.
+                placing = refreshVod(p.id, markSynced = false)
+            } else {
+                playStateAt[p.id] = now
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -148,9 +157,9 @@ class SyncManager(
         }
     }
 
-    /** Only movies and series (after their categories change). */
-    fun refreshVod(playlistId: Long): Job = scope.launch {
-        guarded(R.string.data_vod_failed) { ifInUse(playlistId) { syncVod(playlistId) } }
+    /** Only movies and series (after their categories change; [markSynced] false: for new titles, see [refreshPlayState]). */
+    fun refreshVod(playlistId: Long, markSynced: Boolean = true): Job = scope.launch {
+        guarded(R.string.data_vod_failed) { ifInUse(playlistId) { syncVod(playlistId, markSynced) } }
     }
 
     /** The work running now, for a source: a switch to another source stops it. */
@@ -192,11 +201,11 @@ class SyncManager(
         }
     }
 
-    private suspend fun syncVod(playlistId: Long) {
+    private suspend fun syncVod(playlistId: Long, markSynced: Boolean = true) {
         val p = playlists.get(playlistId) ?: return
         _state.value = SyncState.Vod(p.name, 0)
         val started = System.currentTimeMillis()
-        vod.sync(p) { _state.value = SyncState.Vod(p.name, it) }
+        vod.sync(p, markSynced) { _state.value = SyncState.Vod(p.name, it) }
         playStateAt[p.id] = started
     }
 

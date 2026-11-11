@@ -263,24 +263,22 @@ class PlexSourcesTest {
     }
 
     @Test
-    fun `titles added since the last look come onto the recently added rows without a sync`() = runBlocking {
+    fun `a look finds titles added since, and a new episode updates its series without a sync`() = runBlocking {
         plex.signIn(FakePlex.ACCOUNT_TOKEN)
         val source = homePlex()
         vod.sync(source)
-        suspend fun newest(type: String) = vod.observeNewestCards(source.id, type, 10).first().map { it.id }
-        val sintel = db.vod().movie(source.id, 12)!!
         val lookedAt = System.currentTimeMillis()
-        // Added on the server since (the owner's other Plex apps, or the server's own scans).
         val now = lookedAt / 1000
+        // A new episode of a series already here: no sync needed, its counts come now.
+        val show = fake.shows.first().getValue("ratingKey").toString().trim('"')
+        val before = db.vod().series(source.id, show.toLong())!!.episodes
+        fake.episodes += FakePlex.episode(show, "x", "991", 9, 9, "New one", addedAt = now)
+        assertFalse(vod.refreshPlayState(db.playlists().get(source.id)!!, lookedAt))
+        assertEquals((before ?: 0) + 1, db.vod().series(source.id, show.toLong())!!.episodes)
+
+        // A film not here yet: the look says so, for the caller to sync the films and series.
         fake.movies += FakePlex.film("13", "New Film", addedAt = now)
-        fake.shows += FakePlex.show("23", "New Show", addedAt = now)
-        fake.episodes += FakePlex.episode("23", "New Show", "231", 1, 1, "First", addedAt = now)
-
-        vod.refreshPlayState(db.playlists().get(source.id)!!, lookedAt)
-
-        assertTrue(13L in newest(CAT_MOVIE))
-        assertTrue(23L in newest(CAT_SERIES))
-        assertEquals("a film already here keeps its row", sintel, db.vod().movie(source.id, 12))
+        assertTrue(vod.refreshPlayState(db.playlists().get(source.id)!!, lookedAt))
     }
 
     @Test

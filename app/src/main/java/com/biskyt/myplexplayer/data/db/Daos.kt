@@ -486,14 +486,6 @@ interface VodDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSeries(items: List<SeriesEntity>)
 
-    /** Films not here yet (one already here keeps its row, its place among them included); -1 for each one kept. */
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertNewMovies(items: List<MovieEntity>): List<Long>
-
-    /** Series not here yet (one already here keeps its row); -1 for each one kept. */
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertNewSeries(items: List<SeriesEntity>): List<Long>
-
     /** No series of source [pid] on Home's recently added row (before [setNewest] places those that are). */
     @Query("UPDATE series SET newest = NULL WHERE playlistId = :pid")
     suspend fun clearNewest(pid: Long)
