@@ -250,6 +250,16 @@ class PlexPlayStateTest {
     }
 
     @Test
+    fun `due a sync while the app stays open, a later look still asks the server and starts no sync`() = runBlocking {
+        vod.sync(source) // not through the sync manager, so its last look is the sync's (long ago)
+        db.playlists().setLastSync(source.id, 1)
+        val asked = fake.requestCount
+        sync.refreshPlayState(source.id, syncIfDue = false, whileOpen = true)
+        assertTrue(fake.requestCount > asked)
+        assertEquals(1L, db.playlists().get(source.id)!!.lastSyncAt)
+    }
+
+    @Test
     fun `progress that didn't reach the server is kept, and sent at the next sync`() = runBlocking {
         vod.sync(source)
         val stream = vod.movieStream(source, db.vod().movie(source.id, 11)!!)

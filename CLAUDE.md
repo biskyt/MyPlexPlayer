@@ -243,9 +243,17 @@ See also:
     watched"). Taking a title off Continue Watching keeps its resume point, so "has a point" isn't "on the row".
   - Plex times are whole seconds: two plays in the same second don't order (see `PlexServerTest`'s `nextSecond`).
   - Back in the app (`MainActivity.onStart`, 0.3.8), `SyncManager.refreshPlayState` brings what played elsewhere
-    without a sync: titles played since the last look (`viewedSince`, relative seconds, so clocks needn't agree),
+    without a sync: titles played since the last look (`viewedSince`, relative seconds with their unit, "-90s", so the
+    clocks need not agree. A bare "-90" matches every title: docs/plex-api.md row 31),
     those that left Continue Watching since (marked unwatched elsewhere, `lastViewedAt` is cleared, so no filter finds
     them: films by id, episodes with their series) and Continue Watching. Skipped when a sync is due.
+  - The same look also brings titles added since (the owner, 2026-11-11, 1.5.1: Home's recently added rows kept up to
+    date from the server, not only at a sync): films added and shows with an episode added (`PlexClient.addedSince`,
+    `addedAt>>` and `episode.addedAt>>`, relative seconds, docs/plex-api.md row 31) get a row if new
+    (`insertNewMovies` / `insertNewSeries` leave one already here as it is), and the series' counts and Home's order
+    of the newest series again (`VodRepository.addNew`). It runs when the app comes to the front and every 15 minutes
+    while it stays open (`MainActivity.LOOK_AGAIN_MS`). A new title goes last in its grid (`NEW_POSITION`) until the
+    next sync gives it its place in the server's order.
 - **Plex Live TV** (0.4.0, `data/PlexLive.kt`): channels sync with the server (`PlaylistRepository.syncChannels`), each
   with a stable id from its key (`plexChannelId`, so favourites stay) and the key in `providerEpgId`. The guide is
   saved as the server's own guide source (`EpgRepository.savePlexGuide`, url `plex:<id>`), with why it last failed,

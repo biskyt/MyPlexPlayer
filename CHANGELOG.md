@@ -3,6 +3,8 @@
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
 ## 1.5.1
+- The recently added rows on Home show new films and episodes from the server soon after they arrive, with no "Update now".
+- Coming back to the app asks the server for less: only what changed since the last look.
 - Home also starts on its first card after you move along its top row and then leave the app.
 
 ## 1.5.0

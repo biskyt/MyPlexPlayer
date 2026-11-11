@@ -263,6 +263,27 @@ class PlexSourcesTest {
     }
 
     @Test
+    fun `titles added since the last look come onto the recently added rows without a sync`() = runBlocking {
+        plex.signIn(FakePlex.ACCOUNT_TOKEN)
+        val source = homePlex()
+        vod.sync(source)
+        suspend fun newest(type: String) = vod.observeNewestCards(source.id, type, 10).first().map { it.id }
+        val sintel = db.vod().movie(source.id, 12)!!
+        val lookedAt = System.currentTimeMillis()
+        // Added on the server since (the owner's other Plex apps, or the server's own scans).
+        val now = lookedAt / 1000
+        fake.movies += FakePlex.film("13", "New Film", addedAt = now)
+        fake.shows += FakePlex.show("23", "New Show", addedAt = now)
+        fake.episodes += FakePlex.episode("23", "New Show", "231", 1, 1, "First", addedAt = now)
+
+        vod.refreshPlayState(db.playlists().get(source.id)!!, lookedAt)
+
+        assertTrue(13L in newest(CAT_MOVIE))
+        assertTrue(23L in newest(CAT_SERIES))
+        assertEquals("a film already here keeps its row", sintel, db.vod().movie(source.id, 12))
+    }
+
+    @Test
     fun `a series' delete watched episodes is read from and saved to its server`() = runBlocking {
         plex.signIn(FakePlex.ACCOUNT_TOKEN)
         val source = homePlex()

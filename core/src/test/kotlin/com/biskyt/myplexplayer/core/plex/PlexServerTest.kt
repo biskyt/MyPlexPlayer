@@ -48,6 +48,26 @@ class PlexServerTest {
     }
 
     @Test
+    fun `titles added in the last day, by the server's clock`() = runBlocking {
+        // The server's film and series were added as it started, minutes ago (docs/plex-api.md row 31).
+        val movie = client.recentlyAdded(section("movie"), PlexType.MOVIE, 1).single()
+        val show = client.recentlyAdded(section("show"), PlexType.SHOW, 1).single()
+        assertEquals(listOf(movie.ratingKey), client.addedSince(section("movie"), PlexType.MOVIE, DAY_S).map { it.ratingKey })
+        assertEquals(listOf(show.ratingKey), client.addedSince(section("show"), PlexType.SHOW, DAY_S).map { it.ratingKey })
+        // And not in the last second: the filter applies (a date without its unit matched every title).
+        assertEquals(emptyList<PlexItem>(), client.addedSince(section("movie"), PlexType.MOVIE, 1))
+        // The same for a film played (marked watched): found in the last day, not in the last second, once it is past.
+        client.setWatched(movie.ratingKey, true)
+        try {
+            delay(2_100)
+            assertEquals(listOf(movie.ratingKey), client.viewedSince(section("movie"), PlexType.MOVIE, DAY_S).map { it.ratingKey })
+            assertEquals(emptyList<PlexItem>(), client.viewedSince(section("movie"), PlexType.MOVIE, 1))
+        } finally {
+            client.setWatched(movie.ratingKey, false)
+        }
+    }
+
+    @Test
     fun `deletion allowed, and a show's delete episodes after playing`() = runBlocking {
         assertTrue(client.allowsDeletion()) // a new server allows it
         val show = client.recentlyAdded(section("show"), PlexType.SHOW, 1).single().ratingKey
@@ -207,5 +227,6 @@ class PlexServerTest {
 
     private companion object {
         const val TS_SYNC: Byte = 0x47
+        const val DAY_S = 86_400L
     }
 }

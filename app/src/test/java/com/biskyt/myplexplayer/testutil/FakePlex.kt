@@ -236,7 +236,7 @@ class FakePlex : AutoCloseable {
         if (newestFails && request.requestUrl!!.queryParameter("sort") == "episode.addedAt:desc") {
             MockResponse().setResponseCode(500)
         } else {
-            page(request, inLibrary(shows, request).filter { viewedSince(request, it) }.map(::withState))
+            page(request, inLibrary(shows, request).filter { passesDateFilters(request, it) }.map(::withState))
         }
 
     private fun answer(request: RecordedRequest): MockResponse {
@@ -248,7 +248,7 @@ class FakePlex : AutoCloseable {
             path == "/api/v2/pins" && request.method == "POST" -> json(pin(), code = 201)
             path == "/api/v2/pins/$PIN_ID" && codeCheckFailures > 0 -> MockResponse().setResponseCode(503).also { codeCheckFailures-- }
             path == "/api/v2/pins/$PIN_ID" -> json(pin())
-            path == "/api/v2/resources" && token == ACCOUNT_TOKEN && tokenAccepted -> json(resources())
+            path == "/api/v2/resources" && token == ACCOUNT_TOKEN && tokenAccepted -> json(plexResources(url))
             path == "/api/v2/resources" -> MockResponse().setResponseCode(401)
             path == "/settings/favoriteChannels" -> favourites(token, request)
             // Friend's Plex: not reachable from here.
@@ -313,7 +313,7 @@ class FakePlex : AutoCloseable {
             putJsonArray("Directory") { libraries.forEach { add(section(it.key, it.type, it.title)) } }
         }.setBodyDelay(sectionsDelayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
         path.startsWith("/library/sections/") && path.endsWith("/all") -> when (library(path)?.type) {
-            "movie" -> page(request, inLibrary(movies, request).filter { viewedSince(request, it) }.map(::withState))
+            "movie" -> page(request, inLibrary(movies, request).filter { passesDateFilters(request, it) }.map(::withState))
             "show" -> shows(request)
             else -> MockResponse().setResponseCode(404)
         }
@@ -704,16 +704,18 @@ class FakePlex : AutoCloseable {
     }
 
     /**
-     * Whether [item] passes the listing's "played in the last N seconds" filter, if it has one: a film by when it was
-     * last played, a show by its episodes.
+     * Whether [item] passes the listing's date filters, if it has them, as the server reads them: added (a show: one
+     * of its episodes) and played, each in seconds back from now ("-90s"; with no unit, a date in 1970: every title).
      */
-    private fun viewedSince(request: RecordedRequest, item: JsonObject): Boolean {
+    private fun passesDateFilters(request: RecordedRequest, item: JsonObject): Boolean {
         val url = request.requestUrl!!
-        val seconds = (url.queryParameter("lastViewedAt>>") ?: url.queryParameter("episode.lastViewedAt>>"))
-            ?.removePrefix("-")?.toLong() ?: return true
-        val keys = leaves(item.string("ratingKey")!!)
-        val after = System.currentTimeMillis() / 1000 - seconds
-        return keys.any { (lastViewedAt[it] ?: return@any false) >= after }
+        val now = System.currentTimeMillis() / 1000
+        fun after(filter: String) = (url.queryParameter(filter) ?: url.queryParameter("episode.$filter"))
+            ?.let { now - if (it.startsWith("-") && it.endsWith("s")) it.drop(1).dropLast(1).toLong() else now }
+        val key = item.string("ratingKey")!!
+        val added = after("addedAt>>")?.let { a -> leaves(key).any { (byKey(it)?.string("addedAt")?.toLong() ?: 0) >= a } }
+        val played = after("lastViewedAt>>")?.let { a -> leaves(key).any { (lastViewedAt[it] ?: return@any false) >= a } }
+        return added != false && played != false
     }
 
     private fun details(items: List<JsonObject>, request: RecordedRequest) =
@@ -824,35 +826,6 @@ class FakePlex : AutoCloseable {
         put("code", "ABCD")
         put("expiresIn", codeSeconds)
         if (claimed) put("authToken", ACCOUNT_TOKEN)
-    }
-
-    private fun resources() = buildJsonArray {
-        add(resource("Home Plex", MACHINE_ID, owned = true, url))
-        add(resource("Friend's Plex", "friend-plex", owned = false, "$url/friend"))
-        add(
-            obj {
-                put("name", "Phone")
-                put("clientIdentifier", "phone")
-                put("provides", "client,player")
-            }
-        )
-    }
-
-    private fun resource(name: String, id: String, owned: Boolean, uri: String) = obj {
-        put("name", name)
-        put("clientIdentifier", id)
-        put("provides", "server")
-        put("owned", owned)
-        put("accessToken", SERVER_TOKEN)
-        putJsonArray("connections") {
-            add(
-                obj {
-                    put("uri", uri)
-                    put("local", true)
-                    put("relay", false)
-                }
-            )
-        }
     }
 
     /** [items] from X-Plex-Container-Start, X-Plex-Container-Size at a time, with the total. */
@@ -1031,10 +1004,12 @@ class FakePlex : AutoCloseable {
             duration: Long = 600_000,
             markers: List<Marker> = emptyList(),
             summary: String? = null,
-            aired: String? = null
+            aired: String? = null,
+            addedAt: Long? = null
         ) = obj {
             put("ratingKey", key)
             put("type", "episode")
+            addedAt?.let { put("addedAt", it) }
             summary?.let { put("summary", it) }
             aired?.let { put("originallyAvailableAt", it) }
             put("title", title)

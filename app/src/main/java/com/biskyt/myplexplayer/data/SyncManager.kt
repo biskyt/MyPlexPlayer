@@ -122,14 +122,15 @@ class SyncManager(
      * Back in the app (from another app, or opened again): play state changed meanwhile on a Plex source (in the
      * owner's other Plex apps) is brought here, quickly, without a sync. Not while a sync runs (it brings the same),
      * nor within seconds of the last; out of reach, it waits for next time. Due a sync, [syncIfDue] starts one (the
-     * app opening starts its own).
+     * app opening starts its own). [whileOpen]: a later look while the app stays open, which looks even when a sync is
+     * due (one never starts from there, in the middle of a film).
      */
     @Suppress("TooGenericExceptionCaught") // as a sync: whatever goes wrong (a full disk, say) mustn't end the app
-    suspend fun refreshPlayState(playlistId: Long, syncIfDue: Boolean) {
+    suspend fun refreshPlayState(playlistId: Long, syncIfDue: Boolean, whileOpen: Boolean = false) {
         if (!mutex.tryLock()) return
         try {
             val p = playlists.get(playlistId)?.takeIf { it.lastSyncAt > 0 } ?: return
-            if (p.isStale()) {
+            if (p.isStale() && !whileOpen) {
                 if (syncIfDue) refresh(p.id) // once this lets go
                 return
             }
