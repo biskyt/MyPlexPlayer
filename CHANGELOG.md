@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.5.1
+- Home also starts on its first card after you move along its top row and then leave the app.
+
 ## 1.5.0
 - More… on a film or series page plays its trailer, when Plex has one.
 - Home starts on its first card, at the top of the page, each time the app opens or returns, also when rows above it load later.

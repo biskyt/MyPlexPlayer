@@ -64,6 +64,9 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     run's saved state no longer matches), `settleFor` in Focus.kt and `NavHostRestartUiTest`. Its HomeScreen `TopFocus`
     and `HomeOpenFocusUiTest` left out: here Home's own `used` and `OnBackToFront` do the same (with a test of the same
     name).
+  - In 1.5.1: 1.15.6 (`85ef323`): NavHost lets go of the saved state of entries no longer on the stack (an old run's
+    too), in place of `Navigator.dropped`. Its Home row part left out: here Home makes its rows again (`rowsMade`) when
+    the app comes back to the front, so every row starts at its first card.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
