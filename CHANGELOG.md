@@ -4,6 +4,7 @@ Each version's section becomes its GitHub release notes, so it is written for th
 
 ## 1.5.0
 - More… on a film or series page plays its trailer, when Plex has one.
+- When playback is paused, the remote's Play or Play/Pause button also closes the player controls.
 
 ## 1.4.5
 - The recently added rows on Home no longer show films that you watched, or series with all their episodes watched.
