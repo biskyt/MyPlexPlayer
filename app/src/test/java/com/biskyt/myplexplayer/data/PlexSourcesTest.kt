@@ -263,6 +263,25 @@ class PlexSourcesTest {
     }
 
     @Test
+    fun `a look finds titles added since, and a new episode updates its series without a sync`() = runBlocking {
+        plex.signIn(FakePlex.ACCOUNT_TOKEN)
+        val source = homePlex()
+        vod.sync(source)
+        val lookedAt = System.currentTimeMillis()
+        val now = lookedAt / 1000
+        // A new episode of a series already here: no sync needed, its counts come now.
+        val show = fake.shows.first().getValue("ratingKey").toString().trim('"')
+        val before = db.vod().series(source.id, show.toLong())!!.episodes
+        fake.episodes += FakePlex.episode(show, "x", "991", 9, 9, "New one", addedAt = now)
+        assertFalse(vod.refreshPlayState(db.playlists().get(source.id)!!, lookedAt))
+        assertEquals((before ?: 0) + 1, db.vod().series(source.id, show.toLong())!!.episodes)
+
+        // A film not here yet: the look says so, for the caller to sync the films and series.
+        fake.movies += FakePlex.film("13", "New Film", addedAt = now)
+        assertTrue(vod.refreshPlayState(db.playlists().get(source.id)!!, lookedAt))
+    }
+
+    @Test
     fun `a series' delete watched episodes is read from and saved to its server`() = runBlocking {
         plex.signIn(FakePlex.ACCOUNT_TOKEN)
         val source = homePlex()

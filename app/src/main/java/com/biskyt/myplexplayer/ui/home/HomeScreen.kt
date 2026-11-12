@@ -88,6 +88,7 @@ import com.biskyt.myplexplayer.ui.common.moveAction
 import com.biskyt.myplexplayer.ui.common.onAnyTouch
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.rememberMinuteClock
+import com.biskyt.myplexplayer.ui.common.settleFor
 import com.biskyt.myplexplayer.ui.common.titledRow
 import com.biskyt.myplexplayer.ui.common.vodActions
 import com.biskyt.myplexplayer.ui.common.vodDetails
@@ -295,11 +296,18 @@ fun HomeScreen() {
         refocus++
     }
     // Back to the front, Home is at its top again, on its first card (the owner, 2026-11-11; MyTVPlayer 1.15.5).
+    // Saved with Home: the cards' saved state and their return focus (see ReturnFocus) are kept by it.
+    var rowsMade by rememberSaveable { mutableIntStateOf(0) }
     OnBackToFront(busy = { busy(ready, options, vm.mover) }) {
         used = false
         vm.returnTo = null
+        rowsMade++
         list.scrollToItem(0)
-        refocus++
+        // Asked each frame until a card has it: the new rows are made as the next frames lay them out.
+        settleFor {
+            refocus++
+            screenFocused
+        }
     }
 
     /** Focus for the first card of [row], when it's the row on top. */
@@ -335,49 +343,53 @@ fun HomeScreen() {
                 used = true
             }
         ) {
-            // Continue watching, recently added series and movies, favourite series and movies, then Live TV last.
-            LazyColumn(
-                state = list,
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 56.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(28.dp)
-            ) {
-                val carryOnRow = carryOn.orEmpty()
-                if (carryOnRow.isNotEmpty()) {
-                    item {
-                        Column {
-                            SectionTitle(stringResource(R.string.home_carry_on))
-                            // (Not while its options are open: they have the remote.)
-                            CarryOnRow(carryOnRow, vm.returnTo.takeIf { options == null }, focusOn(HomeRow.CarryOn), {
-                                vm.returnTo = it.cardKey()
-                                options = HomeTile.CarryOn(it)
-                            }, onFocused = { vm.focusedTitle(it) }) {
-                                vm.returnTo = it.cardKey()
-                                nav.push(Screen.VodPlayer(pid, it.itemId, it.seriesId, continueSeries = true))
+            // Made again when the app comes back to the front: every row starts at its first card again (its own place is
+            // kept within the row), so that the top row's first card is there to take focus.
+            key(rowsMade) {
+                // Continue watching, recently added series and movies, favourite series and movies, then Live TV last.
+                LazyColumn(
+                    state = list,
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 56.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(28.dp)
+                ) {
+                    val carryOnRow = carryOn.orEmpty()
+                    if (carryOnRow.isNotEmpty()) {
+                        item {
+                            Column {
+                                SectionTitle(stringResource(R.string.home_carry_on))
+                                // (Not while its options are open: they have the remote.)
+                                CarryOnRow(carryOnRow, vm.returnTo.takeIf { options == null }, focusOn(HomeRow.CarryOn), {
+                                    vm.returnTo = it.cardKey()
+                                    options = HomeTile.CarryOn(it)
+                                }, onFocused = { vm.focusedTitle(it) }) {
+                                    vm.returnTo = it.cardKey()
+                                    nav.push(Screen.VodPlayer(pid, it.itemId, it.seriesId, continueSeries = true))
+                                }
                             }
                         }
                     }
-                }
-                newestVod.forEach { (type, cards) ->
-                    val row = cards.value.orEmpty()
-                    titledRow(newestRowTitle(type), row, { it.id }) { card ->
-                        val focus = if (card == row.first()) focusOn(HomeRow.Newest(type)) else Modifier
-                        PosterCard(card, focus.showsBackdrop(vm, type, card.id), onLongClick = {
-                            options = HomeTile.New(type, card)
-                        }) { nav.push(vodDetails(pid, type, card.id)) }
-                    }
-                }
-                favouriteVod.forEach { (type, cards) ->
-                    val row = cards.value.orEmpty()
-                    titledRow(favouriteRowTitle(type), row, { it.id }, move = MovableRow(vm.mover, type)) { card ->
-                        MovableTile(vm.mover, type, card.id, MoveLayout.ROW) {
-                            val focus = if (card == row.first()) focusOn(HomeRow.Favourites(type)) else Modifier
+                    newestVod.forEach { (type, cards) ->
+                        val row = cards.value.orEmpty()
+                        titledRow(newestRowTitle(type), row, { it.id }) { card ->
+                            val focus = if (card == row.first()) focusOn(HomeRow.Newest(type)) else Modifier
                             PosterCard(card, focus.showsBackdrop(vm, type, card.id), onLongClick = {
-                                options = HomeTile.Vod(type, card)
+                                options = HomeTile.New(type, card)
                             }) { nav.push(vodDetails(pid, type, card.id)) }
                         }
                     }
+                    favouriteVod.forEach { (type, cards) ->
+                        val row = cards.value.orEmpty()
+                        titledRow(favouriteRowTitle(type), row, { it.id }, move = MovableRow(vm.mover, type)) { card ->
+                            MovableTile(vm.mover, type, card.id, MoveLayout.ROW) {
+                                val focus = if (card == row.first()) focusOn(HomeRow.Favourites(type)) else Modifier
+                                PosterCard(card, focus.showsBackdrop(vm, type, card.id), onLongClick = {
+                                    options = HomeTile.Vod(type, card)
+                                }) { nav.push(vodDetails(pid, type, card.id)) }
+                            }
+                        }
+                    }
+                    channelRows(favourites, recent.orEmpty(), top, ::focusOn, vm, liveTv) { options = it }
                 }
-                channelRows(favourites, recent.orEmpty(), top, ::focusOn, vm, liveTv) { options = it }
             }
         }
     }

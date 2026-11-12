@@ -281,7 +281,7 @@ class PlexSources(
         }
         val last = leaves.lastOrNull()?.ratingKey
         progress.positions(p.id, VOD_EPISODE, leaves, rowFor(client, p.id, show = show) { it.ratingKey != last })
-        db.vod().setEpisodeCounts(p.id, ratingKey, unwatched(show), show.leafCount)
+        saveCounts(p.id, ratingKey, show)
         return Triple(client, show, leaves)
     }
 
@@ -530,7 +530,7 @@ class PlexSources(
     suspend fun refreshPlayState(p: PlaylistEntity, movieLibraries: List<String>, showLibraries: List<String>, sinceMs: Long) {
         val client = client(p)
         sendPending(p, client)
-        val seconds = (System.currentTimeMillis() - sinceMs).coerceAtLeast(0) / 1000 + SINCE_MARGIN_S
+        val seconds = secondsSince(sinceMs)
         val (films, shows, hub) = coroutineScope {
             val films = async { movieLibraries.flatMap { client.viewedSince(it, PlexType.MOVIE, seconds) } }
             val shows = async { showLibraries.flatMap { client.viewedSince(it, PlexType.SHOW, seconds) } }
@@ -623,9 +623,12 @@ class PlexSources(
     }
 
     private suspend fun refreshCounts(p: PlaylistEntity, client: PlexClient, seriesId: Long) {
-        val show = client.item(seriesId.toString())
-        db.vod().setEpisodeCounts(p.id, seriesId, unwatched(show), show.leafCount)
+        saveCounts(p.id, seriesId, client.item(seriesId.toString()))
     }
+
+    /** A series' episode counts, from [show] as the server lists it. */
+    suspend fun saveCounts(playlistId: Long, seriesId: Long, show: PlexItem) =
+        db.vod().setEpisodeCounts(playlistId, seriesId, unwatched(show), show.leafCount)
 
     /** A title's background picture, the same size wherever it shows (its page, Home), so the server sizes it once. */
     private fun backdrop(client: PlexClient, art: String?) = image(client, art, BACKDROP_WIDTH, BACKDROP_HEIGHT)
@@ -645,6 +648,12 @@ class PlexSources(
 
         /** Plex times are whole seconds, and the check takes a moment: titles played this long before it count too. */
         private const val SINCE_MARGIN_S = 60L
+
+        /**
+         * The seconds back from now to [sinceMs] (this device's time), with a margin, so that a change just as the last
+         * look ran is not missed: what the server's "since" filters take (by its own clock).
+         */
+        fun secondsSince(sinceMs: Long) = (System.currentTimeMillis() - sinceMs).coerceAtLeast(0) / 1000 + SINCE_MARGIN_S
         private const val POSTER_WIDTH = 240
         private const val POSTER_HEIGHT = 360
         private const val STILL_WIDTH = 400

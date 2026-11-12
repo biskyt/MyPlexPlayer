@@ -187,11 +187,11 @@ class PlexClientTest {
         assertEquals(listOf("Test Movie (2020)"), client.viewedSince("1", PlexType.MOVIE, 90).map { it.title })
         var url = server.takeRequest().requestUrl!!
         assertEquals("1", url.queryParameter("type"))
-        assertEquals("-90", url.queryParameter("lastViewedAt>>"))
+        assertEquals("-90s", url.queryParameter("lastViewedAt>>"))
         client.viewedSince("2", PlexType.SHOW, 90)
         url = server.takeRequest().requestUrl!!
         assertEquals("2", url.queryParameter("type"))
-        assertEquals("-90", url.queryParameter("episode.lastViewedAt>>"))
+        assertEquals("-90s", url.queryParameter("episode.lastViewedAt>>"))
 
         responses["library/metadata/1,4"] = responses.getValue("library/metadata/1")
         assertEquals(listOf("1"), client.items(listOf("1", "4")).map { it.ratingKey })

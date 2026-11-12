@@ -64,6 +64,12 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     run's saved state no longer matches), `settleFor` in Focus.kt and `NavHostRestartUiTest`. Its HomeScreen `TopFocus`
     and `HomeOpenFocusUiTest` left out: here Home's own `used` and `OnBackToFront` do the same (with a test of the same
     name).
+  - In 1.5.1: 1.15.6 (`85ef323`): NavHost lets go of the saved state of entries no longer on the stack (an old run's
+    too), in place of `Navigator.dropped`. Its Home row part left out: here Home makes its rows again (`rowsMade`) when
+    the app comes back to the front, so every row starts at its first card. Also 1.15.7 (`81a37b8`): the player's
+    buttons filled only while focused, and the error 416 text. Left out: its `CatchupPlayerScreen.kt` hunk (no
+    catch-up here) and `PillButton`'s `compact` (not here). The skip pill (`SkipPillButton`) keeps its accent fill:
+    it cannot take focus.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -240,9 +246,22 @@ See also:
     watched"). Taking a title off Continue Watching keeps its resume point, so "has a point" isn't "on the row".
   - Plex times are whole seconds: two plays in the same second don't order (see `PlexServerTest`'s `nextSecond`).
   - Back in the app (`MainActivity.onStart`, 0.3.8), `SyncManager.refreshPlayState` brings what played elsewhere
-    without a sync: titles played since the last look (`viewedSince`, relative seconds, so clocks needn't agree),
+    without a sync: titles played since the last look (`viewedSince`, relative seconds with their unit, "-90s", so the
+    clocks need not agree. A bare "-90" matches every title: docs/plex-api.md row 31),
     those that left Continue Watching since (marked unwatched elsewhere, `lastViewedAt` is cleared, so no filter finds
     them: films by id, episodes with their series) and Continue Watching. Skipped when a sync is due.
+  - The same look also asks for titles added since (the owner, 2026-11-11, 1.5.1: Home's recently added rows kept up
+    to date from the server, not only at a sync): films added and shows with an episode added (`PlexClient.addedSince`,
+    `addedAt>>` and `episode.addedAt>>`, relative seconds, docs/plex-api.md row 31). When one is not here yet, the
+    films and series sync runs (`SyncManager.refreshVod`), so the new title gets its place in the server's order (the
+    owner: a new title must not wait for a later sync to get its place).
+  - No such sync starts while a player is open (the owner, 2026-11-11). The player view models count the open players
+    (`SyncManager.playerOpened` and `playerClosed`). When the last player closes, a look runs. That look brings what
+    was played, and it starts the sync for any new titles.
+  - A series already here with a new episode gets its counts and Home's order of the newest series again
+    (`VodRepository.addNew`), with no sync.
+  - The look runs when the app comes to the front, and every 15 minutes while it stays open
+    (`MainActivity.LOOK_AGAIN_MS`).
 - **Plex Live TV** (0.4.0, `data/PlexLive.kt`): channels sync with the server (`PlaylistRepository.syncChannels`), each
   with a stable id from its key (`plexChannelId`, so favourites stay) and the key in `providerEpgId`. The guide is
   saved as the server's own guide source (`EpgRepository.savePlexGuide`, url `plex:<id>`), with why it last failed,

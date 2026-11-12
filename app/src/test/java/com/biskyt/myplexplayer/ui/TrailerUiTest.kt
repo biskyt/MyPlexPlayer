@@ -121,6 +121,7 @@ class TrailerUiTest {
             assertEquals(BoardTitles.film().getValue("title").toString().trim('"'), vm.title)
             assertEquals("Trailer", vm.subtitle)
             assertTrue(vm.menuActions().isEmpty())
+            assertEquals("an open player holds back the sync for new titles", 1, app.container.sync.playersOpen.value)
         } finally {
             vm.engine?.release()
         }

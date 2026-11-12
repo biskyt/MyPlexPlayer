@@ -47,8 +47,18 @@ class TopBarScreensUiTest {
         playlistId = app.container.addSyncedHomePlex(plex)
     }
 
+    /**
+     * The app's calls stop before the fake server closes. The sign-in screen asks the server for its code until its
+     * ViewModel is cleared (by the rule, after this). A connection that the server accepts while it shuts down is not
+     * closed, and the server then gives up waiting for it ("Gave up waiting for queue to shut down").
+     */
     @After
-    fun tearDown() = plex.close()
+    fun tearDown() {
+        navigators.clear()
+        app.container.http.dispatcher.cancelAll()
+        app.container.http.connectionPool.evictAll()
+        plex.close()
+    }
 
     private fun show(screen: Screen, hasPlaylist: Boolean = true): Navigator {
         val navigator = navigators.new(screen)

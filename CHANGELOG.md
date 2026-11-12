@@ -2,6 +2,13 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.5.1
+- The recently added rows on Home show new films and episodes from the server soon after they arrive, with no "Update now".
+- Coming back to the app asks the server for less: only what changed since the last look.
+- Home also starts on its first card after you move along its top row and then leave the app.
+- The player's buttons are filled with your accent colour only while they have focus, as in menus and Settings, so play/pause is no longer always coloured.
+- When a stream's server cannot send the part of a file that was asked for (error 416), the message says which part was asked for and how big the server says the file is.
+
 ## 1.5.0
 - More… on a film or series page plays its trailer, when Plex has one.
 - Home starts on its first card, at the top of the page, each time the app opens or returns, also when rows above it load later.

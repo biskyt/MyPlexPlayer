@@ -77,10 +77,19 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
      * the server's own clock, so this device's needn't agree. Progress and watched marks move when a title was last
      * played; marking it unwatched clears that, so it isn't found here.
      */
-    suspend fun viewedSince(section: String, type: PlexType, seconds: Long): List<PlexItem> = container(
+    suspend fun viewedSince(section: String, type: PlexType, seconds: Long) = since(section, type, "lastViewedAt", seconds)
+
+    /**
+     * A library's films ([type] MOVIE) added in the last [seconds], or its shows ([type] SHOW) with an episode added
+     * then: by the server's own clock, as [viewedSince].
+     */
+    suspend fun addedSince(section: String, type: PlexType, seconds: Long) = since(section, type, "addedAt", seconds)
+
+    /** A library's titles whose [field] (a show: one of its episodes') is in the last [seconds] (docs/plex-api.md 31). */
+    private suspend fun since(section: String, type: PlexType, field: String, seconds: Long): List<PlexItem> = container(
         url("library/sections/$section/all") {
             addQueryParameter("type", type.number.toString())
-            addQueryParameter(if (type == PlexType.SHOW) "episode.lastViewedAt>>" else "lastViewedAt>>", "-$seconds")
+            addQueryParameter(if (type == PlexType.SHOW) "episode.$field>>" else "$field>>", relativeSeconds(seconds))
         }
     ).items
 
@@ -446,3 +455,9 @@ data class PlexCodecs(
     internal fun profileExtra(): String = "add-transcode-target(type=videoProfile&context=streaming&protocol=hls" +
         "&container=mpegts&videoCodec=${video.joinToString(",")}&audioCodec=${audio.joinToString(",")})"
 }
+
+/**
+ * [seconds] back from now, as a library filter's date: "-90s". The unit is needed: a bare "-90" is read as a date in
+ * 1970, so the filter matches every title (docs/plex-api.md row 31).
+ */
+internal fun relativeSeconds(seconds: Long) = "-${seconds}s"

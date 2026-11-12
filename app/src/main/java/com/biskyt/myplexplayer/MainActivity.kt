@@ -18,6 +18,8 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.biskyt.myplexplayer.ui.AppRoot
 import com.biskyt.myplexplayer.ui.common.hasTouchScreen
 import com.biskyt.myplexplayer.ui.common.isActing
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -48,23 +50,35 @@ class MainActivity : ComponentActivity() {
         intent.openedFile()?.let { container.openedFile.value = it }
     }
 
-    // Back in the app, from another app or opened again: what played elsewhere meanwhile (another Plex app) shows here.
-    // The first start is the app opening (or this screen made again), which starts a sync if one is due.
+    // Back in the app, from another app or opened again: what played elsewhere meanwhile (another Plex app), and what
+    // was added to the server, shows here. The first start is the app opening (or this screen made again), which
+    // starts a sync if one is due. While the app stays open, the server is asked again every so often.
     override fun onStart() {
         super.onStart()
         val syncIfDue = started
         started = true
-        container.appScope.launch { container.sync.refreshPlayState(container.settings.current().activePlaylistId, syncIfDue) }
+        val c = container
+        lookAgain = c.appScope.launch {
+            c.sync.refreshPlayState(c.settings.current().activePlaylistId, syncIfDue)
+            while (true) {
+                delay(LOOK_AGAIN_MS)
+                c.sync.refreshPlayState(c.settings.current().activePlaylistId, syncIfDue = false, whileOpen = true)
+            }
+        }
         // While shown: recordings starting and stopping (toasts, see AppRoot).
         container.recordings.startWatching(container.settings.activePlaylistId)
     }
 
     override fun onStop() {
+        lookAgain?.cancel()
         container.recordings.stopWatching()
         super.onStop()
     }
 
     private var started = false
+
+    /** The server asked again while the app stays open (see [onStart]). */
+    private var lookAgain: Job? = null
 
     /** OK, Options and Guide presses that began in this window (see [dispatchKeyEvent]). */
     private val pressedHere = mutableSetOf<Int>()
@@ -111,3 +125,6 @@ fun Intent.openedFile(): Uri? = when (action) {
     Intent.ACTION_SEND -> IntentCompat.getParcelableExtra(this, Intent.EXTRA_STREAM, Uri::class.java)
     else -> null
 }
+
+/** How often the server is asked again for what changed while the app stays open (see MainActivity.onStart). */
+private const val LOOK_AGAIN_MS = 15 * 60_000L
