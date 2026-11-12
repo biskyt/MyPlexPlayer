@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.5.2
+- With "Warn if VPN is not connected" on, the player also shows whether a VPN is connected, next to its clock, with your external IP address if that setting is on too.
+
 ## 1.5.1
 - The recently added rows on Home show new films and episodes from the server soon after they arrive, with no "Update now".
 - Coming back to the app asks the server for less: only what changed since the last look.

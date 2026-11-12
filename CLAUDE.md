@@ -70,6 +70,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     buttons filled only while focused, and the error 416 text. Left out: its `CatchupPlayerScreen.kt` hunk (no
     catch-up here) and `PillButton`'s `compact` (not here). The skip pill (`SkipPillButton`) keeps its accent fill:
     it cannot take focus.
+  - In 1.5.2: 1.15.8 (`7605fd8`): the VPN status next to the player's clock (`rememberVpn`, `VpnLook`,
+    `ClockAndVpn`), `testutil/FakeNetwork.kt` and `PlayerVpnUiTest` (on FakePlex here).
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

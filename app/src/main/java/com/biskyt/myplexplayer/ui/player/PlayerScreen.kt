@@ -24,6 +24,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -65,10 +67,12 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
+import com.biskyt.myplexplayer.container
 import com.biskyt.myplexplayer.core.player.OverlayState
 import com.biskyt.myplexplayer.core.player.RemoteKey
 import com.biskyt.myplexplayer.core.player.isMedia
 import com.biskyt.myplexplayer.core.player.passedOnByPanels
+import com.biskyt.myplexplayer.data.Settings
 import com.biskyt.myplexplayer.data.programmeTitle
 import com.biskyt.myplexplayer.player.PlaybackError
 import com.biskyt.myplexplayer.player.displayAddress
@@ -88,6 +92,8 @@ import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.ProgrammeAbout
 import com.biskyt.myplexplayer.ui.common.ProgressLine
 import com.biskyt.myplexplayer.ui.common.TvCard
+import com.biskyt.myplexplayer.ui.common.VpnLook
+import com.biskyt.myplexplayer.ui.common.VpnStatus
 import com.biskyt.myplexplayer.ui.common.digit
 import com.biskyt.myplexplayer.ui.common.formatRuntime
 import com.biskyt.myplexplayer.ui.common.formatTime
@@ -99,6 +105,7 @@ import com.biskyt.myplexplayer.ui.common.onAnyTouch
 import com.biskyt.myplexplayer.ui.common.onPlainTap
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.rememberMinuteClock
+import com.biskyt.myplexplayer.ui.common.rememberVpn
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
 import com.biskyt.myplexplayer.ui.theme.Palette
 
@@ -148,6 +155,9 @@ internal fun PlayerFrame(
     val buttons = remember { FocusRequester() }
     var videoFocused by remember { mutableStateOf(false) }
     val acted = remember { arrayOfNulls<Key>(1) }
+    // Read only by the clock's row (as a State, so that a settings write recomposes only it, not the frame).
+    val container = LocalContext.current.container
+    val settings = remember { container.settings.settings }.collectAsState(initial = null)
 
     if (vm.exit) {
         LaunchedEffect(Unit) { nav.pop() }
@@ -212,12 +222,7 @@ internal fun PlayerFrame(
         if (vm.overlay == OverlayState.CONTROLS) {
             // With the video focused (Up from the buttons), left and right skip: the bar shows its handle (no remote: none).
             CompositionLocalProvider(LocalBarSelected provides (videoFocused && !LocalTouch.current)) { controls(buttons, root) }
-            Clock(
-                Modifier.align(Alignment.TopEnd).padding(top = 27.dp, end = 56.dp)
-                    .clip(RoundedCornerShape(9.dp)).background(PanelShade).padding(horizontal = 14.dp, vertical = 6.dp),
-                MaterialTheme.typography.headlineSmall,
-                Palette.text
-            )
+            ClockAndVpn(settings, Modifier.align(Alignment.TopEnd).padding(top = 27.dp, end = 56.dp))
             // A touch screen has no remote with a Back button in reach: this goes back to the list.
             if (LocalTouch.current) {
                 RoundButton(
@@ -246,6 +251,24 @@ private fun LoadingLabel(vm: PlaybackViewModel, modifier: Modifier) {
             style = MaterialTheme.typography.titleLarge,
             modifier = modifier
         )
+    }
+}
+
+/**
+ * The time over the video while the controls show, and before it, with the setting "Warn if VPN is not connected",
+ * whether a VPN is connected, as the top bar shows it (the owner, 2026-11-12).
+ */
+@Composable
+private fun ClockAndVpn(settings: State<Settings?>, modifier: Modifier) {
+    // Watched only while it shows, as in the top bar (VpnMonitor, ExternalIp).
+    val vpn = rememberVpn(settings.value)
+    Row(
+        modifier.clip(RoundedCornerShape(9.dp)).background(PanelShade).padding(horizontal = 14.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        vpn?.let { VpnStatus(it, VpnLook.Player) }
+        Clock(Modifier, MaterialTheme.typography.headlineSmall, Palette.text)
     }
 }
 
