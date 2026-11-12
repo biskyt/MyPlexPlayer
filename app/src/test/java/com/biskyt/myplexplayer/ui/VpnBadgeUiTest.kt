@@ -1,7 +1,6 @@
 package com.biskyt.myplexplayer.ui
 
 import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import androidx.compose.runtime.remember
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasClickAction
@@ -16,6 +15,7 @@ import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.idleFrames
+import com.biskyt.myplexplayer.testutil.reportNetwork
 import com.biskyt.myplexplayer.testutil.settle
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
@@ -31,8 +31,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
-import org.robolectric.shadows.ShadowNetwork
-import org.robolectric.shadows.ShadowNetworkCapabilities
 
 /** "Warn if VPN is not connected": the top bar says whether Android reports a VPN, as it changes; nothing when off. */
 @RunWith(RobolectricTestRunner::class)
@@ -63,20 +61,6 @@ class VpnBadgeUiTest {
 
     private fun shown(text: String) = compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()
 
-    /** What Android tells the app as the default network changes: [vpn], or the network gone. */
-    private fun network(vpn: Boolean?) {
-        val network = ShadowNetwork.newInstance(1)
-        shadowOf(connectivity).networkCallbacks.forEach { callback ->
-            if (vpn == null) {
-                callback.onLost(network)
-            } else {
-                val caps = ShadowNetworkCapabilities.newInstance()
-                if (vpn) shadowOf(caps).addTransportType(NetworkCapabilities.TRANSPORT_VPN)
-                callback.onCapabilitiesChanged(network, caps)
-            }
-        }
-    }
-
     @Test
     fun `off by default, with nothing in the top bar`() {
         show()
@@ -92,9 +76,9 @@ class VpnBadgeUiTest {
         show()
         compose.waitForText("VPN not connected")
         compose.waitAdvancingClock { shadowOf(connectivity).networkCallbacks.isNotEmpty() }
-        network(vpn = true)
+        connectivity.reportNetwork(vpn = true)
         compose.waitForText("VPN on")
-        network(vpn = null)
+        connectivity.reportNetwork(vpn = null)
         compose.waitForText("VPN not connected")
     }
 

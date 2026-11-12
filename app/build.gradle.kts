@@ -15,8 +15,8 @@ android {
         applicationId = "com.biskyt.myplexplayer"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = 36
-        versionCode = 70
-        versionName = "1.5.1"
+        versionCode = 71
+        versionName = "1.5.2"
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
