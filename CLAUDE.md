@@ -75,6 +75,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   - In 1.5.3, by hand: from 1.16.0 (`d5d107e`, `d5e96b5`), `StatusLook` (was `VpnLook`) with one `Status` drawing,
     the player's smaller status, `ClockRow` with its divider, and SmokeTest's `screen()` on a failed wait. Left out:
     its proxy warning (`ProxyStatus`, `ProxyMonitor`, `warnProxy`) and proxy port parts (no proxy here).
+  - In 1.5.4: 1.16.1 (`381b209`): Space plays and pauses and X stops on the player, a held play/pause or stop acts
+    once (`onceKeys`), and `PlayerKeyboardUiTest` (on FakePlex here).
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
