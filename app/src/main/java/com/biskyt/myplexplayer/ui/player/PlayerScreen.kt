@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -91,8 +92,9 @@ import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.ProgrammeAbout
 import com.biskyt.myplexplayer.ui.common.ProgressLine
+import com.biskyt.myplexplayer.ui.common.StatusLook
 import com.biskyt.myplexplayer.ui.common.TvCard
-import com.biskyt.myplexplayer.ui.common.VpnLook
+import com.biskyt.myplexplayer.ui.common.Vpn
 import com.biskyt.myplexplayer.ui.common.VpnStatus
 import com.biskyt.myplexplayer.ui.common.digit
 import com.biskyt.myplexplayer.ui.common.formatRuntime
@@ -222,7 +224,7 @@ internal fun PlayerFrame(
         if (vm.overlay == OverlayState.CONTROLS) {
             // With the video focused (Up from the buttons), left and right skip: the bar shows its handle (no remote: none).
             CompositionLocalProvider(LocalBarSelected provides (videoFocused && !LocalTouch.current)) { controls(buttons, root) }
-            ClockAndVpn(settings, Modifier.align(Alignment.TopEnd).padding(top = 27.dp, end = 56.dp))
+            ClockAndStatus(settings, Modifier.align(Alignment.TopEnd).padding(top = 27.dp, end = 56.dp))
             // A touch screen has no remote with a Back button in reach: this goes back to the list.
             if (LocalTouch.current) {
                 RoundButton(
@@ -255,22 +257,35 @@ private fun LoadingLabel(vm: PlaybackViewModel, modifier: Modifier) {
 }
 
 /**
- * The time over the video while the controls show, and before it, with the setting "Warn if VPN is not connected",
- * whether a VPN is connected, as the top bar shows it (the owner, 2026-11-12).
+ * The time over the video while the controls show, and before it, as the top bar shows it: with the setting "Warn if
+ * VPN is not connected", whether a VPN is connected (the owner, 2026-11-12).
  */
 @Composable
-private fun ClockAndVpn(settings: State<Settings?>, modifier: Modifier) {
+private fun ClockAndStatus(settings: State<Settings?>, modifier: Modifier) {
     // Watched only while it shows, as in the top bar (VpnMonitor, ExternalIp).
-    val vpn = rememberVpn(settings.value)
+    ClockRow(rememberVpn(settings.value), modifier)
+}
+
+/**
+ * The clock's panel: the status smaller and dimmer than the time, so the time stands out, with a thin line between
+ * them (the owner, 2026-11-13).
+ */
+@Composable
+internal fun ClockRow(vpn: Vpn?, modifier: Modifier = Modifier) {
     Row(
         modifier.clip(RoundedCornerShape(9.dp)).background(PanelShade).padding(horizontal = 14.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        vpn?.let { VpnStatus(it, VpnLook.Player) }
+        vpn?.let {
+            VpnStatus(it, StatusLook.Player)
+            Box(Modifier.width(1.dp).height(24.dp).background(Palette.text.copy(alpha = DIVIDER_ALPHA)))
+        }
         Clock(Modifier, MaterialTheme.typography.headlineSmall, Palette.text)
     }
 }
+
+private const val DIVIDER_ALPHA = 0.25f
 
 /** How dark the paused screen goes when it dims. */
 private const val DIM_ALPHA = 0.85f

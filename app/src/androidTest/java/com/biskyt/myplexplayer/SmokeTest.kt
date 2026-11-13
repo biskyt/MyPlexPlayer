@@ -8,8 +8,10 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.printToString
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.biskyt.myplexplayer.data.db.MovieEntity
@@ -82,7 +84,7 @@ class SmokeTest {
         waitFor(isFocused() and hasText("Playback", substring = true))
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_CENTER)
-        waitFor(hasText("Skip back", substring = true))
+        waitFor(hasText("Skip back", substring = true)) { "OK on Playback did not open it. ${screen()}" }
         instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
         // The Playback screen gone, Settings shown again.
         compose.waitUntil(WAIT_MS) { compose.onAllNodes(hasText("Skip back", substring = true)).fetchSemanticsNodes().isEmpty() }
@@ -122,7 +124,20 @@ class SmokeTest {
 
     private fun json(body: String) = MockResponse().setHeader("Content-Type", "application/json").setBody(body)
 
-    private fun waitFor(matcher: SemanticsMatcher, timeoutMs: Long = WAIT_MS, failure: () -> String = { "Not shown: $matcher" }) = try {
+    /**
+     * What a failed wait saw: the screen's tree, with its words and the item that has focus. If the screen cannot be read
+     * (the app crashed), a short note, so the wait's own failure is still reported.
+     */
+    private fun screen() = runCatching { "On screen: " + compose.onAllNodes(isRoot()).printToString() }
+        .getOrElse { "The screen could not be read: $it" }
+
+    private fun waitFor(
+        matcher: SemanticsMatcher,
+        timeoutMs: Long = WAIT_MS,
+        failure: () -> String = {
+            "Not shown: $matcher. ${screen()}"
+        }
+    ) = try {
         compose.waitUntil(timeoutMs) { compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() }
     } catch (e: ComposeTimeoutException) {
         throw AssertionError(failure(), e)

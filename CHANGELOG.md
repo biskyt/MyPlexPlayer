@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.5.3
+- The VPN status next to the player's clock is now smaller than the time, so the time stands out.
+
 ## 1.5.2
 - With "Warn if VPN is not connected" on, the player also shows whether a VPN is connected, next to its clock, with your external IP address if that setting is on too.
 
