@@ -106,6 +106,8 @@ fun TvCard(
     /** Without it, what holds the card shows its focus (the series page's episode rows). */
     ring: Boolean = true,
     fill: Boolean = false,
+    /** Its background while [selected] and without focus. */
+    selectedColor: Color = LocalAccent.current.tint,
     /** Its text's colour without focus (a panel's Delete is red). */
     contentColor: Color = Palette.text,
     content: @Composable BoxScope.() -> Unit
@@ -129,7 +131,7 @@ fun TvCard(
         shape = ClickableSurfaceDefaults.shape(shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) accent.tint else color,
+            containerColor = if (selected) selectedColor else color,
             focusedContainerColor = focusFill,
             pressedContainerColor = if (fill) accent.color else focusedColor,
             contentColor = contentColor,
@@ -181,8 +183,10 @@ fun cardColor(normal: Color, onAccentAlpha: Float = 1f): Color =
 val LocalCardFocused = compositionLocalOf { false }
 
 /**
- * Pill-shaped button. [primary] fills it with the accent colour. With [fill] (the player's buttons, the owner
- * 2026-11-11), it is filled with the accent colour only while it has focus, with no ring, as menus are. [onLongClick] as for [TvCard].
+ * Pill-shaped button. [primary] fills it with the accent colour; [selected] (a choice in use) with the text colour.
+ * With focus, every button is filled with the accent colour, with no white ring (the owner, 2026-11-11 for the player,
+ * 2026-11-13 for every button), and its text takes the accent's text colour. A primary or selected button has a thin
+ * ring inside the fill then, so that focus still shows on it. [onLongClick] as for [TvCard].
  */
 @Composable
 fun PillButton(
@@ -192,23 +196,8 @@ fun PillButton(
     primary: Boolean = false,
     selected: Boolean = false,
     onLongClick: (() -> Unit)? = null,
-    fill: Boolean = false,
     leading: (@Composable () -> Unit)? = null
 ) {
-    if (fill) {
-        TvCard(
-            onClick = onClick,
-            modifier = modifier,
-            onLongClick = onLongClick,
-            shape = RoundedCornerShape(50),
-            color = Palette.surfaceHigh,
-            fill = true
-        ) {
-            // (Its colour from the filled card's text style: the accent's text colour while filled.)
-            Text(text, Modifier.padding(horizontal = 20.dp, vertical = 10.dp), style = MaterialTheme.typography.labelLarge, maxLines = 1)
-        }
-        return
-    }
     val accent = LocalAccent.current
     val bg = when {
         primary -> accent.color
@@ -220,26 +209,29 @@ fun PillButton(
         selected -> Palette.background
         else -> Palette.text
     }
-    Surface(
+    // Filled with the accent colour while it has focus, as every button is: a primary or selected one has the in-use ring.
+    TvCard(
         onClick = onClick,
         onLongClick = onLongClick,
-        modifier = (if (onLongClick != null) modifier.onOptionsKey(onLongClick) else modifier).returnsFocus().onTap(onLongClick, onClick),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = bg,
-            focusedContainerColor = bg,
-            contentColor = fg,
-            focusedContentColor = fg
-        ),
-        border = ClickableSurfaceDefaults.border(focusedBorder = FocusRing)
+        modifier = modifier,
+        selected = primary || selected,
+        shape = RoundedCornerShape(50),
+        color = bg,
+        selectedColor = bg,
+        fill = true,
+        contentColor = fg
     ) {
         Row(Modifier.padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             if (leading != null) {
                 leading()
                 Box(Modifier.width(8.dp))
             }
-            Text(text, style = MaterialTheme.typography.labelLarge, color = fg, maxLines = 1)
+            Text(
+                text,
+                style = MaterialTheme.typography.labelLarge,
+                color = cardColor(fg),
+                maxLines = 1
+            )
         }
     }
 }
