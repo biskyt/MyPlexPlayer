@@ -122,7 +122,7 @@ fun TopBar(selected: Tab?, selectedFocus: FocusRequester? = null) {
             ) { TabLabel(stringResource(tab.label), tab == selected) }
         }
         Box(Modifier.weight(1f))
-        rememberVpn(settings)?.let { VpnStatus(it, VpnLook.Bar, Modifier.padding(horizontal = BAR_PAD_H, vertical = BAR_PAD_V)) }
+        rememberVpn(settings)?.let { VpnStatus(it, StatusLook.Bar, Modifier.padding(horizontal = BAR_PAD_H, vertical = BAR_PAD_V)) }
         Clock(Modifier.padding(horizontal = BAR_PAD_H, vertical = BAR_PAD_V), BarText.current, Palette.textDim)
         BarItem({ nav.open(Screen.Search()) }) { BarIcon(AppIcons.Search, stringResource(R.string.common_search)) }
         BarItem({ nav.open(Screen.Settings) }) { BarIcon(AppIcons.Settings, stringResource(R.string.common_settings)) }
@@ -201,10 +201,10 @@ fun rememberVpn(settings: Settings?): Vpn? {
 }
 
 /**
- * How [VpnStatus] is drawn: in the top bar, or larger over the video next to the player's clock. Not connected, it has
+ * How [VpnStatus] is drawn: in the top bar, or larger over the video next to the player's clock. As a warning, it has
  * its own label and icon sizes ([offLabel], [offIcon]), on a warning pill ([offPill]) or in the warning colour.
  */
-class VpnLook(
+class StatusLook(
     val label: @Composable () -> TextStyle,
     val offLabel: @Composable () -> TextStyle,
     val ipText: @Composable () -> TextStyle,
@@ -216,7 +216,7 @@ class VpnLook(
     val offPill: Boolean
 ) {
     companion object {
-        val Bar = VpnLook(
+        val Bar = StatusLook(
             label = { VpnText.current },
             offLabel = { MaterialTheme.typography.labelMedium },
             ipText = { MaterialTheme.typography.labelSmall },
@@ -229,34 +229,43 @@ class VpnLook(
             offPill = true
         )
 
-        /** Next to the player's clock (the owner, 2026-11-12). */
-        val Player = VpnLook(
-            label = { MaterialTheme.typography.titleMedium },
-            offLabel = { MaterialTheme.typography.titleMedium },
-            ipText = { MaterialTheme.typography.labelMedium },
-            connectedText = Palette.text,
-            icon = 22.dp,
-            offIcon = 22.dp,
+        /** Next to the player's clock (the owner, 2026-11-12): smaller and dimmer than the time (2026-11-13). */
+        val Player = StatusLook(
+            label = { MaterialTheme.typography.labelLarge },
+            offLabel = { MaterialTheme.typography.labelLarge },
+            ipText = { MaterialTheme.typography.labelSmall },
+            connectedText = Palette.textDim,
+            icon = 16.dp,
+            offIcon = 16.dp,
             gap = 6.dp,
-            ipWidth = 240.dp,
+            ipWidth = 200.dp,
             // Already on the clock's dark panel: a pill in it would be a frame in a frame.
             offPill = false
         )
     }
 }
 
+/** Whether a VPN is connected: a shield and "VPN on" when it is, the warning when not (see [Status]). */
+@Composable
+fun VpnStatus(vpn: Vpn, look: StatusLook, modifier: Modifier = Modifier) = Status(
+    vpn.connected,
+    stringResource(if (vpn.connected) R.string.common_vpn_on else R.string.common_vpn_off),
+    vpn.ip,
+    AppIcons.Shield,
+    look,
+    modifier
+)
+
 /**
- * Whether a VPN is connected: a shield and "VPN on" when it is, the warning pill when not. With the address, also it
- * and its country on a second line.
+ * A status in the top bar or by the player's clock: [ok] with its [icon] in the accent colour, else a warning. With the
+ * address, also it and its country on a second line.
  */
 @Composable
-fun VpnStatus(vpn: Vpn, look: VpnLook, modifier: Modifier = Modifier) {
-    val connected = vpn.connected
-    val ip = vpn.ip
+private fun Status(ok: Boolean, label: String, ip: PublicIp?, icon: ImageVector, look: StatusLook, modifier: Modifier) {
     val accent = LocalAccent.current.color
-    val pill = !connected && look.offPill
+    val pill = !ok && look.offPill
     val text = when {
-        connected -> look.connectedText
+        ok -> look.connectedText
         pill -> Palette.background
         else -> Palette.warning
     }
@@ -272,19 +281,15 @@ fun VpnStatus(vpn: Vpn, look: VpnLook, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(look.gap)
     ) {
-        // Connected: as the boards draw it. Not connected: the warning pill as before 1.12.2.
+        // OK: as the boards draw it. A warning: the warning pill as before 1.12.2.
         Icon(
-            AppIcons.Shield,
+            icon,
             contentDescription = null,
-            tint = if (connected) accent else text,
-            modifier = Modifier.size(if (connected) look.icon else look.offIcon)
+            tint = if (ok) accent else text,
+            modifier = Modifier.size(if (ok) look.icon else look.offIcon)
         )
         Column {
-            Text(
-                stringResource(if (connected) R.string.common_vpn_on else R.string.common_vpn_off),
-                style = if (connected) look.label() else look.offLabel(),
-                color = text
-            )
+            Text(label, style = if (ok) look.label() else look.offLabel(), color = text)
             ip?.let {
                 Text(
                     it.country?.let { country -> stringResource(R.string.common_ip_country, it.ip, country) } ?: it.ip,
