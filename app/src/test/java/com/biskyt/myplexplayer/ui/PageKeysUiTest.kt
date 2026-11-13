@@ -3,7 +3,11 @@ package com.biskyt.myplexplayer.ui
 import android.view.KeyEvent as NativeKeyEvent
 import androidx.compose.runtime.remember
 import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performKeyPress
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.testutil.FakePlex
@@ -15,9 +19,12 @@ import com.biskyt.myplexplayer.testutil.focusedText
 import com.biskyt.myplexplayer.testutil.settle
 import com.biskyt.myplexplayer.testutil.topRoot
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
+import com.biskyt.myplexplayer.ui.common.CategoryColumn
+import com.biskyt.myplexplayer.ui.common.CategoryEntry
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -28,7 +35,7 @@ import org.robolectric.annotation.Config
 
 /**
  * The remote's channel up and down buttons move a page up or down (the owner, 2026-11-08): in the channel list, the TV
- * guide and the film grid. Held, they go on a page at a time, and they stop at the first and last rows.
+ * guide, the film grid and the categories (2026-11-13). Held, they go on a page at a time, and they stop at the first and last rows.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestApp::class, qualifiers = "+w960dp-h540dp-tvdpi")
@@ -115,6 +122,36 @@ class PageKeysUiTest {
         press(NativeKeyEvent.KEYCODE_CHANNEL_UP, repeats = 10)
         compose.waitAdvancingClock(stepMs = 50) { "Film 01" in compose.focusedText() }
     }
+
+    /**
+     * The category column itself (Live TV here has one category for each server, so no screen needs a page of them):
+     * channel down and up move a page, and each entry they reach is reported, as for up and down.
+     */
+    @Test
+    fun `channel down and up move a page in the categories, and the channels shown follow`() {
+        val entries = (1..COUNT).map { CategoryEntry(it, "Group %02d".format(it)) }
+        var shown = 1
+        compose.setContent { MyPlexTheme { CategoryColumn(entries, selected = 1, onFocus = { shown = it }, onSelect = {}) } }
+        compose.waitAdvancingClock(stepMs = 50) {
+            compose.onAllNodes(hasText("Group 01") and hasClickAction()).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNode(hasText("Group 01") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
+        compose.waitAdvancingClock(stepMs = 50) { focusedGroup() == 1 }
+
+        press(NativeKeyEvent.KEYCODE_CHANNEL_DOWN)
+        val paged = focusedGroup()
+        assertTrue("A page down, more than one row: on ${compose.focusedText()}", paged > 2)
+        assertEquals("the category's channels shown, as with up and down", paged, shown)
+
+        press(NativeKeyEvent.KEYCODE_CHANNEL_DOWN, repeats = 10)
+        compose.waitAdvancingClock(stepMs = 50) { focusedGroup() == COUNT }
+        press(NativeKeyEvent.KEYCODE_CHANNEL_UP, repeats = 10)
+        compose.waitAdvancingClock(stepMs = 50) { focusedGroup() == 1 }
+        assertEquals(1, shown)
+    }
+
+    /** The number of the category that has focus ("Group 07"), or 0 for another entry. */
+    private fun focusedGroup(): Int = Regex("""Group (\d+)""").find(compose.focusedText())?.groupValues?.get(1)?.toInt() ?: 0
 
     private companion object {
         const val COUNT = 40

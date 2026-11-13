@@ -23,19 +23,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.tv.material3.Border
-import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.LocalContentColor
-import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.ui.common.BoardPanel
 import com.biskyt.myplexplayer.ui.common.BoardPanelText
 import com.biskyt.myplexplayer.ui.common.BoardPanelTitle
-import com.biskyt.myplexplayer.ui.common.FocusStroke
-import com.biskyt.myplexplayer.ui.common.onTap
+import com.biskyt.myplexplayer.ui.common.TvCard
+import com.biskyt.myplexplayer.ui.common.cardColor
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
-import com.biskyt.myplexplayer.ui.common.returnsFocus
 import com.biskyt.myplexplayer.ui.player.PLOT_LINES
 import com.biskyt.myplexplayer.ui.theme.BOLD
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
@@ -66,65 +62,46 @@ fun DetailButton(
     /** Holding OK (or a long press): the page's options. */
     onLongClick: (() -> Unit)? = null
 ) {
-    val accent = LocalAccent.current
-    PillSurface(onClick, modifier, background, Palette.text, accent.color, accent.onAccent, ring = false, onLongClick = onLongClick) {
-        Row(
-            Modifier.padding(start = horizontal, end = horizontal, top = vertical, bottom = bottom),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.bd)
-        ) {
-            if (text.isNotEmpty()) Text(text, style = style, color = LocalContentColor.current, maxLines = 1)
+    TvCard(onClick, modifier, onLongClick = onLongClick, shape = Pill, color = background, fill = true) {
+        Box(contentAlignment = Alignment.Center) {
+            Row(
+                Modifier.padding(start = horizontal, end = horizontal, top = vertical, bottom = bottom),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.bd)
+            ) {
+                // The card's content colour: the text's, or the accent's text colour while it has focus.
+                if (text.isNotEmpty()) Text(text, style = style, color = LocalContentColor.current, maxLines = 1)
+            }
+            if (progress != null) ButtonProgress(progress)
         }
-        if (progress != null) ButtonProgress(progress)
     }
 }
 
-/** A season's pill: the one shown filled with the accent colour. It takes focus with the app's usual ring. */
+/**
+ * A season's pill: the one shown filled with the accent colour. With focus, it is filled with the accent colour as every
+ * button is (the owner, 2026-11-13), and the one shown has the in-use ring inside the fill.
+ */
 @Composable
 fun SeasonPill(name: String, current: Boolean, onClick: () -> Unit) {
     val accent = LocalAccent.current
-    val bg = if (current) accent.color else Palette.surfaceHigh
     val fg = if (current) accent.onAccent else Palette.text
-    PillSurface(onClick, Modifier, bg, fg, bg, fg, ring = true) {
+    TvCard(
+        onClick,
+        selected = current,
+        shape = Pill,
+        color = Palette.surfaceHigh,
+        selectedColor = accent.color,
+        fill = true,
+        contentColor = fg
+    ) {
         Text(
             name,
             style = if (current) PillStrong.current else PillText.current,
-            color = fg,
+            color = cardColor(fg),
             maxLines = 1,
             modifier = Modifier.padding(horizontal = 14.bd, vertical = 6.bd)
         )
     }
-}
-
-/** A pill-shaped surface for the pages' buttons, with these colours, and the app's focus [ring] or none. */
-@Composable
-private fun PillSurface(
-    onClick: () -> Unit,
-    modifier: Modifier,
-    background: Color,
-    content: Color,
-    focusedBackground: Color,
-    focusedContent: Color,
-    ring: Boolean,
-    onLongClick: (() -> Unit)? = null,
-    body: @Composable BoxScope.() -> Unit
-) = Surface(
-    onClick = onClick,
-    onLongClick = onLongClick,
-    modifier = modifier.returnsFocus().onTap(onLongClick, onClick),
-    shape = ClickableSurfaceDefaults.shape(Pill),
-    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-    colors = ClickableSurfaceDefaults.colors(
-        containerColor = background,
-        focusedContainerColor = focusedBackground,
-        pressedContainerColor = focusedBackground,
-        contentColor = content,
-        focusedContentColor = focusedContent
-    ),
-    border = if (ring) ClickableSurfaceDefaults.border(focusedBorder = Border(FocusStroke)) else ClickableSurfaceDefaults.border()
-) {
-    // Centred: an icon-only button stretched to its neighbour's height keeps its icon in the middle.
-    Box(contentAlignment = Alignment.Center) { body() }
 }
 
 /**

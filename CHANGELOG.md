@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.5.5
+- Every button now fills with your accent colour when it has focus, with no white ring, as menus and Settings do.
+- Channel up and down on the remote move a page at a time in the list of channel categories.
+
 ## 1.5.4
 - With a keyboard, Space plays and pauses and X stops playback, whatever button has focus on the player, and a held play/pause or stop button acts only once.
 
