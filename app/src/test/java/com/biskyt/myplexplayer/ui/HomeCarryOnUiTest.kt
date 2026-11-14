@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
+import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.db.VOD_EPISODE
 import com.biskyt.myplexplayer.data.db.VOD_MOVIE
@@ -22,6 +23,8 @@ import com.biskyt.myplexplayer.testutil.focusedText
 import com.biskyt.myplexplayer.testutil.idleFrames
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
+import com.biskyt.myplexplayer.testutil.waitWithoutFrames
+import com.biskyt.myplexplayer.ui.home.HomeViewModel
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -155,13 +158,16 @@ class HomeCarryOnUiTest {
         compose.waitAdvancingClock(50) { "Big Buck Bunny" in compose.focusedText() }
         press(Key.DirectionCenter)
         closePlayer(navigator)
-        // Its card, still there. The clock is held from here: Home waits 5 s for the last save.
-        compose.waitAdvancingClock(0) { "Big Buck Bunny" in compose.focusedText() }
+        val home = ViewModelProvider(navigator.current)[HomeViewModel::class.java]
+        compose.waitAdvancingClock(0) { "Big Buck Bunny" in compose.focusedText() } // its card, still there
         focusTopBar()
         // The player's last save: watched to its end, so off the row.
         runBlocking {
             app.container.vod.saveProgress(movie(11, "Big Buck Bunny", ago = -60_000L).copy(positionMs = 6_000_000, pending = true))
         }
+        // Home's wait for that save (5 s) counts frame time, and each check of a compose wait moves it on: the database
+        // is waited for without frames, then frames run only for what the screen shows.
+        waitWithoutFrames { home.carryOn.value.orEmpty().none { it.itemId == 11L } }
         compose.waitAdvancingClock(0) { "Film 0" in compose.focusedText() }
         compose.idleFrames()
         assertTrue(compose.focusedText(), "Film 0" in compose.focusedText())
@@ -178,10 +184,7 @@ class HomeCarryOnUiTest {
         compose.runOnUiThread { if (navigator.current.screen is Screen.VodPlayer) navigator.pop() }
     }
 
-    /**
-     * A real TV gives the top bar's Home focus as the card with focus goes (Robolectric gives none): here at once. The
-     * clock is held: Home waits 5 s for the player's last save.
-     */
+    /** A real TV gives the top bar's Home focus as the card with focus goes (Robolectric gives none): here at once. */
     private fun focusTopBar() {
         compose.onNode(hasText("Home") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
         compose.waitAdvancingClock(0) { compose.focusedText() == "Home" }
