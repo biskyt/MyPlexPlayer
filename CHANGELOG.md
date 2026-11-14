@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.5.7
+- After a film plays to its end, Home selects the first card.
+
 ## 1.5.6
 - The rating logos on film and series pages are smaller.
 - Plex error messages also show what the server said.

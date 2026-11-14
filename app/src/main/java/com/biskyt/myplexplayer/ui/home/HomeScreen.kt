@@ -98,10 +98,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** How many favourite movies, and series, Home shows. */
 private const val VOD_ROW_LIMIT = 20
@@ -121,6 +123,12 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
         private set
     private var backdropFor: Job? = null
     private var backdropTitle: Pair<String, Long>? = null
+
+    /** The Continue watching card played last ([cardKey]), while it plays (see [PlayedCardEffect]). */
+    var played: String? = null
+
+    /** Each key press or touch on Home, counted (see [PlayedCardEffect]). */
+    var inputs = 0
 
     init {
         // Another server's titles: the last one's picture goes.
@@ -245,6 +253,28 @@ private fun OnBackToFront(busy: () -> Boolean, toTop: suspend () -> Unit) {
     }
 }
 
+/**
+ * Back from playing a Continue watching card: if the card goes from the row soon after (the player's last save, which it
+ * starts as it closes, takes off a film watched to its end), [toTop]: the first card of the row. A card still there
+ * keeps focus, as does a series' card moved on to the next episode (see [HomeViewModel.returnTo]). Not once the remote
+ * is used, nor while [busy]. The owner, 2026-11-14 (MyTVPlayer 1.17.3).
+ */
+@Composable
+private fun PlayedCardEffect(vm: HomeViewModel, rows: () -> List<WatchProgressEntity>?, busy: () -> Boolean, toTop: () -> Unit) {
+    LaunchedEffect(Unit) {
+        val played = vm.played ?: return@LaunchedEffect
+        vm.played = null
+        val inputs = vm.inputs
+        val gone = withTimeoutOrNull(PLAYED_SAVE_MS) {
+            snapshotFlow { rows() }.filterNotNull().first { list -> list.none { it.cardKey() == played } }
+        }
+        if (gone != null && vm.inputs == inputs && !busy()) toTop()
+    }
+}
+
+/** How long the player's last save can take to show on Home (a slow box's database included). */
+private const val PLAYED_SAVE_MS = 5_000L
+
 /** A Continue watching card's lasting identity: its series' (a series' card moves on to the next episode), or its movie's. */
 private fun WatchProgressEntity.cardKey() = seriesId?.let { "series$it" } ?: "$kind$itemId"
 
@@ -310,6 +340,11 @@ fun HomeScreen() {
         }
     }
 
+    PlayedCardEffect(vm, { carryOn }, { busy(ready, options, vm.mover) }) {
+        vm.returnTo = null
+        refocus++
+    }
+
     /** Focus for the first card of [row], when it's the row on top. */
     fun focusOn(row: HomeRow) = if (row == top) first else Modifier
     val scope = rememberCoroutineScope()
@@ -337,9 +372,13 @@ fun HomeScreen() {
             Modifier.onFocusChanged { screenFocused = it.hasFocus }.onAnyKeyDown { repeat ->
                 vm.returnTo = null
                 // Not a key held from the screen before (its repeats arrive here): Home itself is not used yet.
-                if (!repeat) used = true
+                if (!repeat) {
+                    used = true
+                    vm.inputs++
+                }
             }.onAnyTouch {
                 vm.returnTo = null
+                vm.inputs++
                 used = true
             }
         ) {
@@ -363,6 +402,7 @@ fun HomeScreen() {
                                     options = HomeTile.CarryOn(it)
                                 }, onFocused = { vm.focusedTitle(it) }) {
                                     vm.returnTo = it.cardKey()
+                                    vm.played = it.cardKey()
                                     nav.push(Screen.VodPlayer(pid, it.itemId, it.seriesId, continueSeries = true))
                                 }
                             }
