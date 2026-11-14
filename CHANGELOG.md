@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.6.0
+- A new setting shows Continue watching in the TV's Play Next row.
+- It also shows your favourite channels on the TV's home screen.
+
 ## 1.5.7
 - After a film plays to its end, Home selects the first card.
 

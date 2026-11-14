@@ -148,7 +148,8 @@ class BackupRepository(
             )
         }
         val active = backup.settings.activePlaylistId.takeIf { it in ids } ?: playlists.firstOrNull()?.id ?: 0
-        settings.update { backup.settings.copy(activePlaylistId = active) }
+        // Whether this TV shows its cards on its home screen stays (a phone has none, and it is off unless turned on here).
+        settings.update { backup.settings.copy(activePlaylistId = active, launcherRows = it.launcherRows) }
         // The guide went with the rest: open guides read it again.
         epg.reload()
         return ids.isNotEmpty()
