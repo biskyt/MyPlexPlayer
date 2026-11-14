@@ -84,6 +84,10 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   - In 1.5.6: from 1.17.2 (`8885d5d`), `core/net/ServerReply.kt` as it is and `withReply` in CoreText.kt. Here it is
     `PlexException.reply` (a `SERVER_ERROR` from `PlexHttp.execute`), with a Plex token repeated in the reply hidden
     (`withoutToken`). Its Xtream and M3U parts don't apply.
+  - In 1.5.7, by hand: 1.17.3 (`de3409d`): back from a Continue watching card whose card goes from the row within 5 s
+    (a film watched to its end), Home's first card takes focus (`PlayedCardEffect`, with `vm.inputs` in place of
+    `TopFocus.inputs`). Here an episode's card already keeps focus as its series' card moves on (`returnTo` is by
+    `cardKey`); `HomeCarryOnUiTest` has both cases.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

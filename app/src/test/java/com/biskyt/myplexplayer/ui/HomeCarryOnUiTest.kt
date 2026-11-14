@@ -103,6 +103,111 @@ class HomeCarryOnUiTest {
         assertEquals(0, compose.onAllNodes(hasText("Up next", substring = true)).fetchSemanticsNodes().size)
     }
 
+    /**
+     * Plays the episode's card (the newest on the row), then closes the player as at its end: Home is back, with the old
+     * card still there.
+     */
+    private fun playAndClose() {
+        runBlocking {
+            plex.episodes = listOf(
+                FakePlex.episode("21", "Test Show", "211", 1, 1, "Pilot"),
+                FakePlex.episode("21", "Test Show", "212", 1, 2, "Second"),
+            )
+            saveAt(120_000)
+        }
+        val navigator = navigators.new(Screen.Home)
+        compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
+        compose.waitAdvancingClock(50) { "S1E1" in compose.focusedText() }
+        compose.onNode(hasText("S1E1", substring = true) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        closePlayer(navigator)
+        compose.waitAdvancingClock(50) { "S1E1" in compose.focusedText() } // the old card, still there
+    }
+
+    @Test
+    fun `back from an episode played to its end, focus is on the next episode, the first card`() {
+        playAndClose()
+        focusTopBar()
+        // A save during playback came in first, then the last one: watched, with the next episode up.
+        runBlocking { saveAt(300_000) }
+        compose.idleFrames()
+        runBlocking { saveWatched() }
+        compose.waitAdvancingClock(50) { "S1E2" in compose.focusedText() }
+        compose.idleFrames()
+        assertTrue(compose.focusedText(), "S1E2" in compose.focusedText())
+    }
+
+    @Test
+    fun `back from an episode stopped part way, its card keeps focus`() {
+        playAndClose()
+        runBlocking { saveAt(300_000) }
+        compose.waitAdvancingClock(50) { "S1E1 5m" in compose.focusedText() }
+        compose.mainClock.advanceTimeBy(6_000) // past the wait for a last save
+        compose.idleFrames()
+        assertTrue(compose.focusedText(), "S1E1" in compose.focusedText())
+    }
+
+    @Test
+    fun `back from a film played to its end, focus is on the first card`() {
+        // Big Buck Bunny (on FakePlex) played last: the first card.
+        runBlocking { app.container.vod.saveProgress(movie(11, "Big Buck Bunny", ago = -60_000L).copy(pending = true)) }
+        val navigator = navigators.new(Screen.Home)
+        compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
+        compose.waitAdvancingClock(50) { "Big Buck Bunny" in compose.focusedText() }
+        press(Key.DirectionCenter)
+        closePlayer(navigator)
+        // Its card, still there. The clock is held from here: Home waits 5 s for the last save.
+        compose.waitAdvancingClock(0) { "Big Buck Bunny" in compose.focusedText() }
+        focusTopBar()
+        // The player's last save: watched to its end, so off the row.
+        runBlocking {
+            app.container.vod.saveProgress(movie(11, "Big Buck Bunny", ago = -60_000L).copy(positionMs = 6_000_000, pending = true))
+        }
+        compose.waitAdvancingClock(0) { "Film 0" in compose.focusedText() }
+        compose.idleFrames()
+        assertTrue(compose.focusedText(), "Film 0" in compose.focusedText())
+        assertEquals(0, compose.onAllNodes(hasText("Big Buck Bunny")).fetchSemanticsNodes().size)
+    }
+
+    /** The player shown (Home gone from the screen), then closed: at its end, as a film's does by itself here, or Back. */
+    private fun closePlayer(navigator: Navigator) {
+        compose.waitAdvancingClock(50) { navigator.current.screen is Screen.VodPlayer }
+        compose.waitAdvancingClock(50) {
+            navigator.current.screen !is Screen.VodPlayer ||
+                compose.onAllNodes(hasText("Continue watching")).fetchSemanticsNodes().isEmpty()
+        }
+        compose.runOnUiThread { if (navigator.current.screen is Screen.VodPlayer) navigator.pop() }
+    }
+
+    /**
+     * A real TV gives the top bar's Home focus as the card with focus goes (Robolectric gives none): here at once. The
+     * clock is held: Home waits 5 s for the player's last save.
+     */
+    private fun focusTopBar() {
+        compose.onNode(hasText("Home") and hasClickAction()).performSemanticsAction(SemanticsActions.RequestFocus)
+        compose.waitAdvancingClock(0) { compose.focusedText() == "Home" }
+    }
+
+    /** Episode 1 saved part way, at [positionMs] (newer than every film on the row). */
+    private suspend fun saveAt(positionMs: Long) = app.container.vod.saveProgress(
+        WatchProgressEntity(
+            source, VOD_EPISODE, 211, positionMs = positionMs, durationMs = 600_000, updatedAt = start + 2,
+            title = "Test Show", imageUrl = null, seriesId = 21, season = 1, episode = 1, episodeTitle = "Pilot", pending = true
+        )
+    )
+
+    /** Episode 1 watched to its end, with episode 2 up next. */
+    private suspend fun saveWatched() {
+        val p = app.container.db.playlists().get(source)!!
+        val next = app.container.vod.seriesDetails(p, 21).episodes.first { it.id == 212L }
+        app.container.vod.saveProgress(
+            WatchProgressEntity(
+                source, VOD_EPISODE, 211, positionMs = 600_000, durationMs = 600_000, updatedAt = start + 5,
+                title = "Test Show", imageUrl = null, seriesId = 21, season = 1, episode = 1, hasNext = true, pending = true
+            ),
+            next = next
+        )
+    }
+
     @Test
     fun `back from playing a card, the remote is on it at the start of the row`() {
         val navigator = navigators.new(Screen.Home)
