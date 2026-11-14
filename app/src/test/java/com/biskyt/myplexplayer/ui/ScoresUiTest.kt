@@ -16,6 +16,7 @@ import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForText
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
+import com.biskyt.myplexplayer.ui.theme.bd
 import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
@@ -92,6 +93,17 @@ class ScoresUiTest {
     private fun shown(text: String) = compose.onAllNodes(hasText(text)).fetchSemanticsNodes().size
 
     private fun logos(name: String) = compose.onAllNodes(hasContentDescription(name)).fetchSemanticsNodes().size
+
+    @Test
+    fun `a score's logo is 40 percent smaller than the boards draw it`() {
+        val navigator = navigators.new(Screen.MovieDetails(source, 11))
+        compose.setContent { MyPlexTheme { OnAppBackground { NavHost(navigator) { ScreenContent(it) } } } }
+        compose.waitAdvancingClock(stepMs = 50) { shown("7.6") > 0 }
+        val logo = compose.onAllNodes(hasContentDescription("IMDb")).fetchSemanticsNodes().first()
+        // MyPlexTheme lays out on its own 1280-wide canvas, so the logo's own density turns board px into pixels.
+        val expected = with(logo.layoutInfo.density) { 12.bd.roundToPx() }
+        assertEquals("12 board px high, not 20 (the owner, 2026-11-14)", expected, logo.size.height)
+    }
 
     @Test
     fun `a film's page shows its age rating in a badge and each score with its logo`() {

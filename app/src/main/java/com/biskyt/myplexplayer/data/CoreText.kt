@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import com.biskyt.myplexplayer.AppText
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
+import com.biskyt.myplexplayer.core.net.ServerReply
 import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.plex.PlexFormat
 import com.biskyt.myplexplayer.data.db.CategoryEntity
@@ -11,6 +12,19 @@ import java.io.IOException
 import java.util.Locale
 
 // The app's words for what the core module reports as codes (core has no Android resources).
+
+/**
+ * [error], then on one more line what the server said with it, as it said it: who refused, and perhaps why. One line,
+ * so that the panels that show two or three lines show all of it.
+ */
+fun withReply(error: String, reply: ServerReply?): String {
+    val said = listOfNotNull(
+        reply?.text?.let { appString(R.string.data_reply_text, it) },
+        reply?.server?.let { appString(R.string.data_reply_server, it) },
+        reply?.host?.let { appString(R.string.data_reply_host, it) },
+    )
+    return if (said.isEmpty()) error else error + "\n" + said.joinToString(" · ")
+}
 
 /** What [e] says to the user: a Plex failure in the app's language, anything else its own message. */
 fun userMessage(e: Throwable): String? = when (e) {
@@ -22,7 +36,7 @@ fun userMessage(e: Throwable): String? = when (e) {
 fun PlexException.userMessage(): String = when (reason) {
     PlexException.Reason.UNAUTHORIZED -> appString(R.string.data_plex_signed_out)
     PlexException.Reason.UNREACHABLE -> appString(R.string.data_plex_unreachable)
-    PlexException.Reason.SERVER_ERROR -> appString(R.string.data_server_error, code)
+    PlexException.Reason.SERVER_ERROR -> withReply(appString(R.string.data_server_error, code), reply)
     PlexException.Reason.UNEXPECTED_RESPONSE, PlexException.Reason.INVALID_ADDRESS -> appString(R.string.data_plex_unexpected)
     PlexException.Reason.NEEDS_TRANSCODE -> if (formats.isEmpty()) {
         appString(R.string.data_plex_needs_converting)
@@ -48,7 +62,7 @@ private fun PlexFormat.label(): String {
 internal inline fun <T> withUserPlexErrors(block: () -> T): T = try {
     block()
 } catch (e: PlexException) {
-    throw PlexException(e.userMessage(), e, e.reason, e.code, e.formats)
+    throw PlexException(e.userMessage(), e, e.reason, e.code, reply = e.reply, formats = e.formats)
 }
 
 /** The heading for a language/country group (as CategoryLanguageDetector gives them, null for none). */

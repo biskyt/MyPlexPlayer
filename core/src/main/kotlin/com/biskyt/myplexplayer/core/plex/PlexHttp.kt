@@ -1,5 +1,6 @@
 package com.biskyt.myplexplayer.core.plex
 
+import com.biskyt.myplexplayer.core.net.ServerReply
 import com.biskyt.myplexplayer.core.plex.PlexException.Reason
 import java.io.ByteArrayInputStream
 import java.io.IOException
@@ -49,6 +50,8 @@ class PlexException(
     val reason: Reason = Reason.OTHER,
     /** The server's HTTP status, for [Reason.SERVER_ERROR]. */
     val code: Int = 0,
+    /** What the server said with it, for [Reason.SERVER_ERROR] (the owner, 2026-11-14). */
+    val reply: ServerReply? = null,
     /** For [Reason.NEEDS_TRANSCODE]: the streams the server would have to convert, in their own formats. */
     val formats: List<PlexFormat> = emptyList(),
 ) : IOException(message, cause) {
@@ -160,6 +163,18 @@ internal fun plexRequest(method: String, url: HttpUrl, headers: Map<String, Stri
         )
         .build()
 
+/**
+ * This reply without a Plex token that it repeats (the request's [token] anywhere, or any token after its name): not
+ * shown, nor logged.
+ */
+internal fun ServerReply.withoutToken(token: String? = null): ServerReply {
+    fun String.hidden() = (if (token.isNullOrEmpty()) this else replace(token, "…")).replace(PLEX_TOKEN, "X-Plex-Token=…")
+    return copy(text = text?.hidden(), server = server?.hidden())
+}
+
+/** The token in an address (`X-Plex-Token=abc`), or in JSON or XML (`"X-Plex-Token": "abc"`, `X-Plex-Token="abc"`). */
+private val PLEX_TOKEN = Regex("X-Plex-Token[\"']?\\s*[:=]\\s*[\"']?[^&\\s\"'<,}]*", RegexOption.IGNORE_CASE)
+
 /** [address] as the base of calls, or a [Reason.INVALID_ADDRESS] failure. */
 internal fun plexBase(address: String): HttpUrl = address.trim().trimEnd('/').toHttpUrlOrNull()
     ?: throw PlexException("Invalid address: $address", reason = Reason.INVALID_ADDRESS)
@@ -205,7 +220,10 @@ internal suspend fun <T> OkHttpClient.execute(request: Request, read: (InputStre
                     !it.isSuccessful -> throw PlexException(
                         "Server returned error ${it.code}",
                         reason = Reason.SERVER_ERROR,
-                        code = it.code
+                        code = it.code,
+                        reply = ServerReply.of(it, request.url)?.withoutToken(
+                            request.header("X-Plex-Token") ?: request.url.queryParameter("X-Plex-Token")
+                        )
                     )
                     else -> try {
                         read(it.body?.byteStream() ?: ByteArrayInputStream(ByteArray(0)))

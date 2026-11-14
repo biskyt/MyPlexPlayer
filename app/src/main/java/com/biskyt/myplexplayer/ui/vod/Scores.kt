@@ -85,18 +85,21 @@ fun ScoresRow(scores: List<Score>) {
 }
 
 /**
- * One review score as the boards draw it: its source's logo, 20 high, then the score as that source writes it ("7.6",
- * "94%"), 14 bold. Also for a line of facts that has its own layout (the series page's).
+ * One review score: its source's logo, 12 high (40% smaller than the boards' 20: the owner, 2026-11-14), then the score
+ * as that source writes it ("7.6", "94%"), 14 bold. Also for a line of facts that has its own layout (the series page's).
  */
 @Composable
 fun BoardScore(score: Score) {
     Row(horizontalArrangement = Arrangement.spacedBy(6.bd), verticalAlignment = Alignment.CenterVertically) {
-        SourceLogo(logoOf(score), stringResource(nameOf(score.source)), height = 20.bd)
+        SourceLogo(logoOf(score), stringResource(nameOf(score.source)), height = SCORE_LOGO)
         Text(valueOf(score), style = ScoreText.current, color = Palette.textMuted, maxLines = 1)
     }
 }
 
 private val ScoreText = BoardStyle(14, BOLD)
+
+/** A score's logo height. */
+internal val SCORE_LOGO = 12.bd
 
 /** An age rating as the boards draw it: in a box with a 1.5 px muted border, 13 on a film's page, [small] (12) on a series'. */
 @Composable

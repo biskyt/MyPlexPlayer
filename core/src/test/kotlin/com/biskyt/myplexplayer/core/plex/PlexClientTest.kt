@@ -1,5 +1,6 @@
 package com.biskyt.myplexplayer.core.plex
 
+import com.biskyt.myplexplayer.core.net.ServerReply
 import kotlinx.coroutines.test.runTest
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -55,6 +56,30 @@ class PlexClientTest {
 
     @After
     fun tearDown() = server.shutdown()
+
+    @Test
+    fun `a refusal keeps what the server said, without the token it repeats`() = runTest {
+        otherwise = MockResponse().setResponseCode(403)
+            .setHeader("Server", "nginx")
+            .setHeader("Content-Type", "text/html")
+            .setBody("<html><head><title>403</title></head><body><h1>Forbidden: /library?X-Plex-Token=secret-token</h1></body></html>")
+        val e = runCatching { client.items(listOf("777")) }.exceptionOrNull() as PlexException
+        assertEquals(PlexException.Reason.SERVER_ERROR, e.reason)
+        assertEquals(403, e.code)
+        assertEquals("nginx", e.reply?.server)
+        assertEquals("Forbidden: /library?X-Plex-Token=…", e.reply?.text)
+        // As JSON or XML too: the token is gone, whatever surrounds it.
+        for (said in listOf(
+            """{"X-Plex-Token": "secret-token"}""",
+            """<Device X-Plex-Token="secret-token"/>""",
+            "x-plex-token=secret-token"
+        )) {
+            val text = ServerReply(text = said).withoutToken().text!!
+            assertFalse(text, "secret-token" in text)
+        }
+        // The request's own token, wherever the reply repeats it.
+        assertEquals("invalid token …", ServerReply(text = "invalid token secret-token").withoutToken("secret-token").text)
+    }
 
     @Test
     fun `every request asks for JSON and says who is asking`() = runTest {
