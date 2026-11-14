@@ -134,7 +134,7 @@ private fun LauncherRow() {
     LaunchedEffect(Unit) {
         val made = context.container.launcherSync.madeChannel
         made.filterNotNull().collect {
-            made.value = null
+            made.compareAndSet(it, null) // (not a newer one made meanwhile)
             TvLauncher.askToShow(context, it)
         }
     }

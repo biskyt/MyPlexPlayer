@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.6.1
+- Settings no longer misses asking the TV to show a new channel row.
+
 ## 1.6.0
 - A new setting shows Continue watching in the TV's Play Next row.
 - It also shows your favourite channels on the TV's home screen.
