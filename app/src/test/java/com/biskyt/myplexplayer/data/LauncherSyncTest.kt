@@ -8,7 +8,6 @@ import com.biskyt.myplexplayer.data.db.VOD_MOVIE
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import com.biskyt.myplexplayer.launcher.LauncherRows
 import com.biskyt.myplexplayer.launcher.LauncherWriter
-import com.biskyt.myplexplayer.launcher.TvLauncher
 import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addHomePlex
@@ -89,12 +88,8 @@ class LauncherSyncTest {
     }
 
     @After
-    fun tearDown() = runBlocking {
+    fun tearDown() {
         scope.cancel()
-        // The app's own LauncherSync (a real TvLauncher) took the setting too: off, and its clear done, before the next
-        // test (its clear deletes the launcher's pictures in the background).
-        c.settings.update { it.copy(launcherRows = false) }
-        eventually("the app's own launcher parts off") { !TvLauncher(app).isOn() }
         plex.close()
     }
 
@@ -116,8 +111,9 @@ class LauncherSyncTest {
         assertEquals("http://img/601.jpg", rows.playNext.first().posterUrl)
         val upNext = rows.playNext.last()
         assertTrue("a finished episode with another after it is up next", upNext.upNext && upNext.episode == null)
-        assertEquals(listOf("$pid:102"), rows.channel.map { it.key })
-        assertEquals("Favourite channels", rows.channelName)
+        val channel = checkNotNull(rows.channel) { "the favourites' row" }
+        assertEquals(listOf("$pid:102"), channel.cards.map { it.key })
+        assertEquals("Favourite channels", channel.name)
         eventually("the channel to show") { sync.madeChannel.value == CHANNEL }
 
         // A card opens the app on it, if it still may.
@@ -129,10 +125,21 @@ class LauncherSyncTest {
         assertFalse("a film taken off Continue watching does not open", sync.allows(LauncherTarget(VOD_MOVIE, pid, 501)))
         assertFalse("a channel no longer a favourite does not open", sync.allows(LauncherTarget(LauncherTarget.CHANNEL, pid, 101)))
         assertTrue(sync.allows(LauncherTarget(LauncherTarget.CHANNEL, pid, 102)))
-        assertNotNull(LauncherSync.target(app, rows.channel.single().open))
+        assertNotNull(LauncherSync.target(app, channel.cards.single().open))
 
         c.settings.update { it.copy(launcherRows = false) }
         eventually("cards taken off") { writer.cleared == 1 }
+    }
+
+    @Test
+    fun `with no favourite channels there is no row, not an empty one`() = runBlocking {
+        // None left (as on a server with no Live TV: it has no channels).
+        c.db.favourites().remove(pid, 102)
+        LauncherSync(app, scope, c.settings, c.db, writer)
+        c.settings.update { it.copy(launcherRows = true) }
+        eventually("cards written") { writer.published.isNotEmpty() }
+        assertEquals(null, writer.published.last().channel)
+        assertEquals(3, writer.published.last().playNext.size)
     }
 
     private companion object {

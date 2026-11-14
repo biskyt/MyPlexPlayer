@@ -44,6 +44,8 @@ import com.biskyt.myplexplayer.data.VpnMonitor
 import com.biskyt.myplexplayer.data.db.AppDatabase
 import com.biskyt.myplexplayer.launcher.LauncherHost
 import com.biskyt.myplexplayer.launcher.LauncherImages
+import com.biskyt.myplexplayer.launcher.LauncherWriter
+import com.biskyt.myplexplayer.launcher.TvLauncher
 import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
@@ -67,7 +69,8 @@ import okhttp3.Request
 val USER_AGENT = "MyPlexPlayer/${BuildConfig.VERSION_NAME} (+https://github.com/biskyt/MyPlexPlayer)"
 
 /** Hand-wired dependencies: small enough that a DI framework would only add start-up time. */
-class AppContainer(context: Context) {
+/** [launcherWriter]: what writes the cards to the TV's home screen (see LauncherSync); none in the JVM tests. */
+class AppContainer(context: Context, launcherWriter: LauncherWriter = TvLauncher(context)) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val db: AppDatabase = AppDatabase.create(context)
     val http: OkHttpClient = OkHttpClient.Builder()
@@ -124,7 +127,7 @@ class AppContainer(context: Context) {
     val openedFile = MutableStateFlow<Uri?>(null)
 
     /** Continue watching and the favourite channels on the TV's home screen: nothing runs while the setting is off. */
-    val launcherSync = LauncherSync(context, appScope, settings, db)
+    val launcherSync = LauncherSync(context, appScope, settings, db, launcherWriter)
 
     /** A card on the TV's home screen opened the app, until it's shown (see AppRoot). */
     val launcherTarget = MutableStateFlow<LauncherTarget?>(null)
@@ -140,7 +143,7 @@ open class MyPlexApp : Application(), SingletonImageLoader.Factory, LauncherHost
         installCrashLog()
         AppText.init(this)
         deviceLocales = resources.configuration.locales
-        container = AppContainer(this)
+        container = AppContainer(this, launcherWriter())
         scheduleDailyRefresh()
     }
 
@@ -152,6 +155,9 @@ open class MyPlexApp : Application(), SingletonImageLoader.Factory, LauncherHost
     }
 
     private var deviceLocales: LocaleList? = null
+
+    /** What writes the cards to the TV's home screen: the TV provider (the JVM tests have none). */
+    protected open fun launcherWriter(): LauncherWriter = TvLauncher(this)
 
     protected open fun installCrashLog() = CrashLog(filesDir, BuildConfig.VERSION_NAME).install()
 
