@@ -15,8 +15,8 @@ android {
         applicationId = "com.biskyt.myplexplayer"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = 36
-        versionCode = 76
-        versionName = "1.5.7"
+        versionCode = 77
+        versionName = "1.6.0"
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -143,6 +143,7 @@ dependencies {
     ksp(libs.room.compiler)
     implementation(libs.paging.compose)
     implementation(libs.work.runtime)
+    implementation(libs.tvprovider)
     implementation(libs.datastore.preferences)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)

@@ -161,6 +161,9 @@ data class WatchProgressEntity(
 
     /** Not yet, for the episode up next after one watched: its row is there for "Continue watching". */
     val started: Boolean get() = positionMs > 0
+
+    /** An episode watched, or the next one up after it (not started yet): what plays is the next episode. */
+    val upNext: Boolean get() = finished || seriesId != null && !started
     val fraction: Float get() = if (durationMs > 0) positionMs.toFloat() / durationMs else 0f
     val remainingMs: Long get() = (durationMs - positionMs).coerceAtLeast(0)
 

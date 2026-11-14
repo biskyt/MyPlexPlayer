@@ -88,6 +88,12 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     (a film watched to its end), Home's first card takes focus (`PlayedCardEffect`, with `vm.inputs` in place of
     `TopFocus.inputs`). Here an episode's card already keeps focus as its series' card moves on (`returnTo` is by
     `cardKey`); `HomeCarryOnUiTest` has both cases.
+  - In 1.6.0: 1.18.0 (`5e5438a5`, `7e42c086`): Continue watching in the TV's Play Next row and the favourite channels
+    as a preview channel ("Show on the TV's home screen", off by default, TVs only). `launcher/` is copied as it is.
+    Here `LauncherSync` reads Home's own `observeCarryOn` and `observeFavourites` (no parental controls), and orders the
+    cards by `carryOnAt`. A Plex picture's address holds the server's token: it stays in the app's own storage, and
+    the launcher gets only a hashed key (`LauncherImages`). A card for another server switches to it, with its update
+    if it is stale. Left out: its parental parts and `sync.switchTo` (not here).
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

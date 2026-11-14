@@ -37,6 +37,9 @@ MyPlexPlayer is an independent app. It is not made or endorsed by Plex, Inc. You
 - **Search** across films, series, channels and programmes.
 - **VPN check:** a badge in the top bar shows whether Android reports a VPN, and can also show your external IP address
   and its country (from ipinfo.io, off by default).
+- **The TV's home screen** (off by default): Continue watching in the home screen's Play Next row, with posters, and
+  your favourite channels as a row of their own. Android TV's own launcher and others that read the TV provider show
+  them. Google TV's home screen shows no app rows.
 - **Languages:** English, Spanish, Portuguese (Brazil) and French.
 
 | | |

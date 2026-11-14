@@ -28,6 +28,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.container
 import com.biskyt.myplexplayer.data.ChannelFilter
+import com.biskyt.myplexplayer.data.LauncherTarget
 import com.biskyt.myplexplayer.data.Settings
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
@@ -64,6 +65,7 @@ import com.biskyt.myplexplayer.ui.vod.SeriesDetailsScreen
 import com.biskyt.myplexplayer.ui.vod.VodBrowseScreen
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.launch
 
 @Composable
 fun AppRoot() {
@@ -101,6 +103,8 @@ fun AppRoot() {
         LaunchedEffect(nav) {
             container.openedFile.filterNotNull().collect { if (nav.current.screen != Screen.Backup) nav.push(Screen.Backup) }
         }
+        // A card on the TV's home screen: its film, episode or channel plays over Home, if it still may (see LauncherSync).
+        LaunchedEffect(nav) { container.launcherTarget.filterNotNull().collect { openFromLauncher(container, nav, it) } }
         val activity = LocalActivity.current
         BackHandler {
             when {
@@ -143,15 +147,39 @@ private suspend fun firstScreen(container: AppContainer, s: Settings, safeStart:
         // Movies and series not loaded yet (e.g. just updated from a version without them).
         !container.vod.hasTitles(playlist.id) -> container.sync.refreshVod(playlist.id)
     }
-    // Not when opened with a backup file: that's what to show (see MainActivity).
+    // Not when opened with a backup file or from a card on the TV's home screen: that's what to show (see MainActivity).
     if (s.startOnLastChannel &&
         container.openedFile.value == null &&
+        container.launcherTarget.value == null &&
         s.lastChannelId != 0L &&
         container.channels.get(playlist.id, s.lastChannelId) != null
     ) {
         nav.push(Screen.Player(playlist.id, s.lastChannelId, ChannelFilter.All))
     }
     return nav
+}
+
+/** Opens [t], a card on the TV's home screen, in its playlist; nothing if it may no longer open (see LauncherSync.allows). */
+private suspend fun openFromLauncher(container: AppContainer, nav: Navigator, t: LauncherTarget) {
+    container.launcherTarget.value = null
+    if (!container.launcherSync.allows(t)) return
+    // Another server: it is the one in use, with its update if it is due, or else a look at its play state, as when
+    // the app comes to the front (see MainActivity.onStart). In the background: the card plays at once.
+    if (container.settings.current().activePlaylistId != t.playlistId) {
+        container.settings.update { it.copy(activePlaylistId = t.playlistId) }
+        container.appScope.launch { container.sync.refreshPlayState(t.playlistId, syncIfDue = true) }
+    }
+    when (t.kind) {
+        LauncherTarget.FAVOURITES -> nav.reset(Screen.Live(ChannelFilter.Favourites))
+        LauncherTarget.CHANNEL -> {
+            nav.reset(Screen.Home)
+            nav.push(Screen.Player(t.playlistId, t.itemId, ChannelFilter.Favourites))
+        }
+        else -> {
+            nav.reset(Screen.Home)
+            nav.push(Screen.VodPlayer(t.playlistId, t.itemId, t.seriesId, continueSeries = true))
+        }
+    }
 }
 
 /**

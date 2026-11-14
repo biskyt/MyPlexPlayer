@@ -599,8 +599,7 @@ private fun TileOptions(tile: HomeTile, vm: HomeViewModel, pid: Long, onDismiss:
         is HomeTile.CarryOn -> {
             val p = tile.p
             val series = p.seriesId
-            // An episode watched, or the next one up after it.
-            val next = p.finished || series != null && !p.started
+            val next = p.upNext
             val actions = listOf(
                 ItemAction.Open(
                     stringResource(if (next) R.string.home_play_next_episode else R.string.home_resume),

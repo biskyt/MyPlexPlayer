@@ -185,6 +185,10 @@ interface ChannelDao {
     @Query("SELECT c.* $CHANNEL_FAVOURITES $CHANNEL_FAVOURITE_ORDER LIMIT :limit")
     fun observeFavourites(pid: Long, limit: Int): Flow<List<ChannelEntity>>
 
+    /** Whether channel [id] may open from the TV's home screen: still a favourite (see LauncherSync). */
+    @Query("SELECT EXISTS(SELECT 1 $CHANNEL_FAVOURITES AND c.streamId = :id)")
+    suspend fun launcherMayOpen(pid: Long, id: Long): Boolean
+
     @Query(
         "SELECT c.* FROM channel c JOIN recent r ON r.playlistId = c.playlistId AND r.streamId = c.streamId WHERE c.playlistId = :pid ORDER BY r.watchedAt DESC LIMIT :limit"
     )

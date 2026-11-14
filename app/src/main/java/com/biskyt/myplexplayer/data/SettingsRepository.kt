@@ -50,7 +50,9 @@ data class Settings(
     val warnVpn: Boolean = false,
 
     /** With [warnVpn]: also show the public IP address (see ExternalIp). It asks ipinfo.io, so it is off by default. */
-    val showExternalIp: Boolean = false
+    val showExternalIp: Boolean = false,
+    /** Continue watching and the favourite channels on the TV's home screen (see LauncherSync), the owner 2026-11-14. */
+    val launcherRows: Boolean = false
 ) {
     val effectiveSubtitleLanguage: String get() = subtitleLanguage.ifEmpty { Locale.getDefault().language }
 
@@ -78,6 +80,7 @@ class SettingsRepository(private val context: Context) {
         val autoSkipIntro = intPreferencesKey("auto_skip_intro")
         val autoSkipCredits = intPreferencesKey("auto_skip_credits_after")
         val warnVpn = booleanPreferencesKey("warn_vpn")
+        val launcherRows = booleanPreferencesKey("launcher_rows")
         val showIp = booleanPreferencesKey("show_external_ip")
     }
 
@@ -123,6 +126,7 @@ class SettingsRepository(private val context: Context) {
             autoSkipIntroSec = this[K.autoSkipIntro] ?: d.autoSkipIntroSec,
             autoSkipCreditsSec = this[K.autoSkipCredits] ?: d.autoSkipCreditsSec,
             warnVpn = this[K.warnVpn] ?: d.warnVpn,
+            launcherRows = this[K.launcherRows] ?: d.launcherRows,
             showExternalIp = this[K.showIp] ?: d.showExternalIp,
         )
     }
@@ -151,6 +155,7 @@ class SettingsRepository(private val context: Context) {
             prefs[K.autoSkipIntro] = s.autoSkipIntroSec
             prefs[K.autoSkipCredits] = s.autoSkipCreditsSec
             prefs[K.warnVpn] = s.warnVpn
+            prefs[K.launcherRows] = s.launcherRows
             prefs[K.showIp] = s.showExternalIp
         }
     }
