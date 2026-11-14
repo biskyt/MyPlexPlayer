@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.epg.CategoryLanguageDetector
+import com.biskyt.myplexplayer.core.net.ServerReply
 import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.ui.AccentPalette
 import com.biskyt.myplexplayer.testutil.PlainApp
@@ -51,6 +52,17 @@ class CoreTextTest {
         assertEquals("Couldn't reach the Plex server", userMessage(unreachable))
         val error = PlexException("HTTP 503", reason = PlexException.Reason.SERVER_ERROR, code = 503)
         assertEquals("Server returned error 503", userMessage(error))
+        // With what the server said, on one more line (the owner, 2026-11-14).
+        val refused = PlexException(
+            "Server returned error 403",
+            reason = PlexException.Reason.SERVER_ERROR,
+            code = 403,
+            reply = ServerReply(server = "nginx", host = "other.example", text = "Access denied")
+        )
+        assertEquals(
+            "Server returned error 403\nThe server said: “Access denied” · Server: nginx · Redirected to other.example",
+            userMessage(refused)
+        )
         // Shown once wrapped, the English kept with its cause.
         val wrapped = runCatching { withUserPlexErrors { throw unreachable } }.exceptionOrNull()
         assertEquals("Couldn't reach the Plex server", wrapped?.message)

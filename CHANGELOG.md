@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.5.6
+- The rating logos on film and series pages are smaller, so the scores stand out less.
+- When your Plex server refuses a request, the message also shows what the server said, its name and any other address it sent the app to.
+
 ## 1.5.5
 - Every button now fills with your accent colour when it has focus, with no white ring, as menus and Settings do.
 - Channel up and down on the remote move a page at a time in the list of channel categories.

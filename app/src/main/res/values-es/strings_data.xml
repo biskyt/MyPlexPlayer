@@ -4,6 +4,9 @@
     <string name="data_vod_failed">No se pudieron cargar las películas y series</string>
 
     <string name="data_server_error">El servidor devolvió el error %1$d</string>
+    <string name="data_reply_text">El servidor dijo: «%1$s»</string>
+    <string name="data_reply_server">Servidor: %1$s</string>
+    <string name="data_reply_host">Redirigido a %1$s</string>
     <string name="data_guide_save_failed">No se pudo guardar el archivo de la guía</string>
     <string name="data_guide_unreadable">No se pudo leer la guía</string>
 
