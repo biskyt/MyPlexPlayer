@@ -131,8 +131,8 @@ See also:
 - **When the owner says "don't release until X", don't merge or release** until they confirm.
 - **Only the app's own text is translated**: see **Languages** below.
 - **Release notes are English only**, on GitHub and in Play's "What's new" (translated Play notes: not worth the work).
-- **Release notes are short** (the owner, 2026-10-27): a bullet list, one sentence per change, no bold lead-ins or
-  explanations.
+- **Release notes are short** (the owner, 2026-10-27, again 2026-11-14): a bullet list, one brief sentence per change
+  (about 12 words at most), no bold lead-ins, explanations or "so that" clauses.
 
 ## Process for each change or release
 1. Make the change with tests. Check that a new test fails without the fix.

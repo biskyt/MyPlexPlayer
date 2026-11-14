@@ -3,34 +3,34 @@
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
 ## 1.5.6
-- The rating logos on film and series pages are smaller, so the scores stand out less.
-- When your Plex server refuses a request, the message also shows what the server said, its name and any other address it sent the app to.
+- The rating logos on film and series pages are smaller.
+- Plex error messages also show what the server said.
 
 ## 1.5.5
-- Every button now fills with your accent colour when it has focus, with no white ring, as menus and Settings do.
-- Channel up and down on the remote move a page at a time in the list of channel categories.
+- Every button fills with your accent colour when it has focus.
+- Channel up and down move a page at a time in channel categories.
 
 ## 1.5.4
-- With a keyboard, Space plays and pauses and X stops playback, whatever button has focus on the player, and a held play/pause or stop button acts only once.
+- With a keyboard, Space plays and pauses, and X stops playback.
 
 ## 1.5.3
-- The VPN status next to the player's clock is now smaller than the time, so the time stands out.
+- The VPN status next to the player's clock is smaller.
 
 ## 1.5.2
-- With "Warn if VPN is not connected" on, the player also shows whether a VPN is connected, next to its clock, with your external IP address if that setting is on too.
+- The player shows the VPN status next to its clock.
 
 ## 1.5.1
-- The recently added rows on Home show new films and episodes from the server soon after they arrive, with no "Update now".
-- Coming back to the app asks the server for less: only what changed since the last look.
-- Home also starts on its first card after you move along its top row and then leave the app.
-- The player's buttons are filled with your accent colour only while they have focus, as in menus and Settings, so play/pause is no longer always coloured.
-- When a stream's server cannot send the part of a file that was asked for (error 416), the message says which part was asked for and how big the server says the file is.
+- New films and episodes reach Home's recently added rows without "Update now".
+- Coming back to the app asks the server only for what changed.
+- Home starts on its first card when you come back to the app.
+- The player's buttons fill with your accent colour only when they have focus.
+- Error 416 now says which part of the file was asked for.
 
 ## 1.5.0
 - More… on a film or series page plays its trailer, when Plex has one.
-- Home starts on its first card, at the top of the page, each time the app opens or returns, also when rows above it load later.
-- When playback is paused, the remote's Play or Play/Pause button also closes the player controls.
-- With a Plex server that has no Live TV, the Live TV and DVR tabs are hidden.
+- Home starts on its first card each time the app opens.
+- The remote's Play button also closes the player controls when paused.
+- Live TV and DVR tabs are hidden when the server has no Live TV.
 
 ## 1.4.5
 - The recently added rows on Home no longer show films that you watched, or series with all their episodes watched.
