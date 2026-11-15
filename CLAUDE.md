@@ -112,6 +112,11 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     the hook runs after the local save of a stop (not after Plex answers), and after a forget, a mark as watched or
     unwatched, and a delete. Its catch-up test case is a player that replaces itself here. `askToShow` reads the TV
     provider off the main thread.
+  - In 1.8.0: 1.20.0 (`38249d5`): the card focus glow (`ui/common/FocusGlow.kt` as it is, from MyTVLauncher;
+    `TvCard(glow = true)`, `glowRoom`, `glowRoomPadding` and `raiseOnFocus`) on Home's rows, Search, and the films and
+    series grid (here `GridCard`), and here also the person's page's poster rows, `BoardOption`'s `icon`, every description in `ScheduleList`, and `LauncherSync`'s
+    debounced write reading its cards again under the lock. Left out: its channel options' More info, renamed options
+    and heart, and `currentGuideText` (MyTVPlayer's only).
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
