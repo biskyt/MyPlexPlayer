@@ -117,6 +117,11 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     series grid (here `GridCard`), and here also the person's page's poster rows, `BoardOption`'s `icon`, every description in `ScheduleList`, and `LauncherSync`'s
     debounced write reading its cards again under the lock. Left out: its channel options' More info, renamed options
     and heart, and `currentGuideText` (MyTVPlayer's only).
+  - In 1.8.1: 1.21.0 (`442b2cc`): `PosterTile` (only the poster glows; the text goes under it), `FocusGlow.kt`'s
+    fixes from this app's review (GLOW_ROOM 24 dp, `onReset` draws again), and the light tile behind dark channel logos
+    (core's `ui/LogoLook.kt`, app's `ui/common/LogoDark.kt`). Here `PosterTile` also takes a `width`, for the person's
+    page's 140 dp posters, and the films and series grid's own `GridCard` is a `PosterTile` too (MyTVPlayer is asked to
+    add `width`, so that the file is the same again). Left out: its shared `ChannelOptionsPanel`.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

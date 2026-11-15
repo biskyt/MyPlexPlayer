@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
@@ -36,6 +35,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.LifecycleStartEffect
@@ -75,11 +75,11 @@ import com.biskyt.myplexplayer.ui.common.POSTER_WIDTH
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.Poster
 import com.biskyt.myplexplayer.ui.common.PosterCard
+import com.biskyt.myplexplayer.ui.common.PosterTile
 import com.biskyt.myplexplayer.ui.common.ProgressLine
 import com.biskyt.myplexplayer.ui.common.SectionTitle
 import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.TabScaffold
-import com.biskyt.myplexplayer.ui.common.TvCard
 import com.biskyt.myplexplayer.ui.common.channelActions
 import com.biskyt.myplexplayer.ui.common.collectIds
 import com.biskyt.myplexplayer.ui.common.glowRoom
@@ -96,7 +96,6 @@ import com.biskyt.myplexplayer.ui.common.settleFor
 import com.biskyt.myplexplayer.ui.common.titledRow
 import com.biskyt.myplexplayer.ui.common.vodActions
 import com.biskyt.myplexplayer.ui.common.vodDetails
-import com.biskyt.myplexplayer.ui.theme.Palette
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -712,8 +711,11 @@ private fun CarryOnRow(
             val returning = remember { FocusRequester() }
             // The remote goes to it once it's in view (and again wherever it moves to).
             if (back != null && p == focused) LaunchedEffect(back) { runCatching { returning.requestFocus() } }
-            val focus = Modifier.raiseOnFocus().then(if (p == focused) first.focusRequester(returning) else Modifier)
-            CarryOnCard(p, focus.onFocusChanged { if (it.hasFocus) onFocused(p) }, { onOptions(p) }) { onPlay(p) }
+            val focus = if (p == focused) first.focusRequester(returning) else Modifier
+            // Drawn over the cards beside it while it has focus, as it grows and glows (see focusGlow).
+            Box(Modifier.raiseOnFocus()) {
+                CarryOnCard(p, focus.onFocusChanged { if (it.hasFocus) onFocused(p) }, { onOptions(p) }) { onPlay(p) }
+            }
         }
     }
 }
@@ -721,27 +723,32 @@ private fun CarryOnRow(
 /** A movie or episode carried on: its poster with how far it got, its title, and what's left or up next. */
 @Composable
 private fun CarryOnCard(p: WatchProgressEntity, modifier: Modifier, onLongClick: () -> Unit, onClick: () -> Unit) {
-    TvCard(onClick = onClick, onLongClick = onLongClick, color = Palette.background, modifier = modifier, glow = true) {
-        Column(Modifier.padding(6.dp).width(POSTER_WIDTH), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    val left = when {
+        // A finished episode with another after it that has no card of its own (saved before 0.16.0, or
+        // watched already): the card leads on to that one.
+        p.finished -> stringResource(R.string.home_up_next_after, episodeCode(p))
+        // (The next one up, its running time not known: no time.)
+        p.season != null && p.episode != null ->
+            if (p.durationMs > 0) "${episodeCode(p)} ${shortLeft(p.remainingMs)}" else episodeCode(p)
+        p.durationMs > 0 -> shortLeft(p.remainingMs)
+        else -> ""
+    }
+    PosterTile(
+        onClick,
+        onLongClick,
+        modifier,
+        listOf(p.title, left),
+        poster = {
             Box {
-                Poster(p.imageUrl, p.title, POSTER_WIDTH)
+                // (Its initials, shown until the picture loads, are not read: the card's texts are.)
+                Poster(p.imageUrl, p.title, POSTER_WIDTH, Modifier.clearAndSetSemantics {})
                 // (Not before it has been started: an episode up next.)
                 if (!p.finished && p.started) ProgressLine(p.fraction, Modifier.align(Alignment.BottomCenter).padding(6.dp))
             }
-            OneLine(p.title, MaterialTheme.typography.labelLarge)
-            Muted(
-                when {
-                    // A finished episode with another after it that has no card of its own (saved before 0.16.0, or
-                    // watched already): the card leads on to that one.
-                    p.finished -> stringResource(R.string.home_up_next_after, episodeCode(p))
-                    // (The next one up, its running time not known: no time.)
-                    p.season != null && p.episode != null ->
-                        if (p.durationMs > 0) "${episodeCode(p)} ${shortLeft(p.remainingMs)}" else episodeCode(p)
-                    p.durationMs > 0 -> shortLeft(p.remainingMs)
-                    else -> ""
-                }
-            )
         }
+    ) { focused ->
+        OneLine(p.title, MaterialTheme.typography.labelLarge, focused = focused)
+        Muted(left)
     }
 }
 
