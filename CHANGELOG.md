@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.9.2
+- A new test setting sends AAC sound unchanged to your amplifier.
+- The test setting Decode AAC in the app is removed.
+- To turn on the new test setting, go to Settings › Playback › Send AAC unchanged.
+
 ## 1.9.1
 - Android 12 and earlier now decode surround sound with all its channels.
 - The More panel's sound line shows the format and real channel count.

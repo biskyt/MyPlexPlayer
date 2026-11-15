@@ -155,13 +155,31 @@ class PlaybackEngineTest {
     }
 
     @Test
-    fun `with AAC decoded in the app, the TV's own decoders are left out for AAC only`() {
-        assertEquals(emptyList<Any>(), PlaybackEngine.WITHOUT_AAC.getDecoderInfos(androidx.media3.common.MimeTypes.AUDIO_AAC, false, false))
-        val ac3 = androidx.media3.common.MimeTypes.AUDIO_AC3
-        assertEquals(
-            androidx.media3.exoplayer.mediacodec.MediaCodecSelector.DEFAULT.getDecoderInfos(ac3, false, false).map { it.name },
-            PlaybackEngine.WITHOUT_AAC.getDecoderInfos(ac3, false, false).map { it.name }
-        )
+    fun `before its output starts, AAC the TV takes as it is says passthrough with the setting on, and decoded with passthrough off`() {
+        val aac51 = androidx.media3.common.Format.Builder().setSampleMimeType(androidx.media3.common.MimeTypes.AUDIO_AAC)
+            .setCodecs("mp4a.40.2").setChannelCount(6).setSampleRate(48_000).build()
+        val direct = android.media.AudioFormat.Builder().setEncoding(android.media.AudioFormat.ENCODING_AAC_LC)
+            .setSampleRate(48_000).setChannelMask(android.media.AudioFormat.CHANNEL_OUT_5POINT1).build()
+        org.robolectric.shadows.ShadowAudioTrack.addDirectPlaybackSupport(direct, PlaybackEngine.MOVIE.audioAttributesV21.audioAttributes)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val on = PlaybackEngine(context, Settings(aacUnchanged = true))
+        val off = PlaybackEngine(context, Settings(aacUnchanged = true, audioPassthrough = false))
+        try {
+            assertEquals("Passthrough · AAC", on.audioOutputLabel(playing = aac51, out = null))
+            assertEquals("AAC decoded · 6ch", off.audioOutputLabel(playing = aac51, out = null))
+        } finally {
+            on.release()
+            off.release()
+            org.robolectric.shadows.ShadowAudioTrack.clearDirectPlaybackSupportedFormats()
+            AacUnchanged.forget()
+        }
+    }
+
+    @Test
+    fun `AAC sent unchanged says so`() {
+        val aac51 = track(androidx.media3.common.MimeTypes.AUDIO_AAC, 6)
+        val sent = output(android.media.AudioFormat.ENCODING_AAC_LC, android.media.AudioFormat.CHANNEL_OUT_5POINT1)
+        assertEquals("Passthrough · AAC", engine.audioOutputLabel(playing = aac51, out = sent))
     }
 
     private companion object {
