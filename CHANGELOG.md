@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.9.0
+- MyTVLauncher can ask the app to update its TV home screen rows.
+- Turn on "Show on the TV's home screen" in Settings for this.
+- A selected poster comes into view with its title.
+
 ## 1.8.1
 - Only the poster glows now, not the text under it.
 - Dark channel logos get a light background.
