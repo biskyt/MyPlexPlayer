@@ -5,6 +5,7 @@ import com.biskyt.myplexplayer.MyPlexApp
 import com.biskyt.myplexplayer.launcher.LauncherRows
 import com.biskyt.myplexplayer.launcher.LauncherWriter
 import com.biskyt.myplexplayer.launcher.Published
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.job
@@ -28,10 +29,16 @@ class TestApp : MyPlexApp() {
     override fun launcherWriter(): LauncherWriter = object : LauncherWriter {
         override fun isOn() = false
 
-        override fun publish(rows: LauncherRows) = Published(emptySet(), emptySet())
+        override fun publish(rows: LauncherRows): Published {
+            launcherWrites += rows
+            return Published(emptySet(), emptySet())
+        }
 
         override fun clear() = Unit
     }
+
+    /** What the app's own launcher sync wrote (to nowhere): for a test of when it writes. */
+    val launcherWrites = CopyOnWriteArrayList<LauncherRows>()
 
     // A process-wide handler: each test's app would wrap the last one's (tests that need it install it themselves).
     override fun installCrashLog() = Unit

@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.7.2
+- Back from a TV home screen card returns to the TV's home screen.
+- Continue watching on the TV's home screen updates when playback stops.
+- Settings no longer pauses when it asks the TV to show a row.
+
 ## 1.7.1
 - Another app, such as a launcher, can open the TV guide.
 

@@ -32,6 +32,40 @@ class NavigationAndLoaderTest {
     }
 
     @Test
+    fun `closing what a launcher card opened goes back to the launcher, with Home under it`() {
+        val nav = Navigator(Screen.Home)
+        var left = 0
+        nav.onLeave = { left++ }
+        nav.push(Screen.MovieDetails(1, 5))
+        nav.launcherEntry = nav.current.id
+        // A screen over it closes as usual: back to the page.
+        nav.push(Screen.VodPlayer(1, 5))
+        assertTrue(nav.pop())
+        assertEquals(Screen.MovieDetails(1, 5), nav.current.screen)
+        assertEquals(0, left)
+        // The page closes: back to the launcher, and Home is there for the next time.
+        assertTrue(nav.pop())
+        assertEquals(1, left)
+        assertEquals(listOf(Screen.Home), nav.stack.map { it.screen })
+        assertEquals(null, nav.launcherEntry)
+
+        // A player that replaces itself (from its options, as "Play from the start"): still the launcher's entry.
+        nav.push(Screen.VodPlayer(1, 5))
+        nav.launcherEntry = nav.current.id
+        nav.replace(Screen.VodPlayer(1, 5, fromStart = true))
+        assertTrue(nav.pop())
+        assertEquals(2, left)
+
+        // Opened another way (the stack reset): closing it does not leave the app.
+        nav.push(Screen.Settings)
+        nav.launcherEntry = nav.current.id
+        nav.reset(Screen.Home)
+        nav.push(Screen.Settings)
+        assertTrue(nav.pop())
+        assertEquals(2, left)
+    }
+
+    @Test
     fun `a new player closes the one left under the pages above it`() {
         val nav = Navigator(Screen.Home)
         nav.push(Screen.VodPlayer(1, 5))

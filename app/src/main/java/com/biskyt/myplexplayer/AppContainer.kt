@@ -101,7 +101,10 @@ class AppContainer(context: Context, launcherWriter: LauncherWriter = TvLauncher
     /** Something that didn't work, said in the corner of the screen. */
     val notices = Notices()
     val channels = ChannelRepository(db, plex, notices)
-    val vod = VodRepository(db, playlists, categoryStore, plex, notices)
+
+    // When playback stops (or the user forgets something), Continue watching goes to the TV's home screen at once (the
+    // owner, 2026-11-15), not once changes settle. While that is off, only the setting is read.
+    val vod = VodRepository(db, playlists, categoryStore, plex, notices) { launcherSync.playbackStopped() }
     val people = PersonRepository(db, plex)
     val favourites = Favourites(appScope, settings, channels, vod)
     val recordings = Recordings(appScope, playlists, plex, notices)

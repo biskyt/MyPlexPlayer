@@ -133,12 +133,13 @@ private fun LauncherRow() {
     if (!remember { context.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) }) return
     val vm = appViewModel { SettingsViewModel(it) }
     val s = vm.settings.collectAsState().value ?: return
-    LaunchedEffect(Unit) {
+    LaunchedEffect(activity) {
+        activity ?: return@LaunchedEffect // (kept for later: no activity to ask from)
         val made = context.container.launcherSync.madeChannels
         made.collect { ids ->
-            if (ids.isEmpty() || activity == null) return@collect
-            made.update { it - ids } // (not those made meanwhile)
+            if (ids.isEmpty()) return@collect
             TvLauncher.askToShow(activity, ids)
+            made.update { it - ids } // (after asking: kept if Settings closes first; not those made meanwhile)
         }
     }
     SettingRow(stringResource(R.string.settings_launcher), stringResource(R.string.settings_launcher_help), {

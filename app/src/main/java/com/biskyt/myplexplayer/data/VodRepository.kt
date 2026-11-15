@@ -61,6 +61,11 @@ class VodRepository(
     private val categoryStore: CategoryStore,
     private val plex: PlexSources,
     private val notices: Notices,
+    /**
+     * Playback stopped, or Continue watching changed here (forgotten, marked, deleted): for the TV's home screen (see
+     * LauncherSync.playbackStopped). Called after the local write, not after the server's answer.
+     */
+    private val onStopped: () -> Unit = {},
 ) {
     private val vod = db.vod()
     private val categories = db.categories()
@@ -162,7 +167,14 @@ class VodRepository(
      * the oldest rows beyond the cap (Plex's mirror the server's, so aren't capped).
      */
     suspend fun saveProgress(row: WatchProgressEntity, stream: VodStream, playing: Boolean, stopped: Boolean, next: EpisodeInfo? = null) {
-        val plex = stream.plex ?: return saveProgress(row, trim = stopped, next = next)
+        val plex = stream.plex
+        if (plex != null) return report(plex, row, playing, stopped, next)
+        saveProgress(row, trim = stopped, next = next)
+        if (stopped) onStopped()
+    }
+
+    /** [row], reported to its Plex server ([plex]) as [saveProgress] says. */
+    private suspend fun report(plex: PlexPlayback, row: WatchProgressEntity, playing: Boolean, stopped: Boolean, next: EpisodeInfo?) {
         val state = when {
             stopped -> PlexPlayState.STOPPED
             playing -> PlexPlayState.PLAYING
@@ -176,6 +188,7 @@ class VodRepository(
                 vod.saveProgress(row.copy(pending = true))
                 up?.let { upNext(row, it) }
             }
+            if (stopped) onStopped()
         }
         if (sent != null && sent != Sent.NOT_YET) vod.reported(row.playlistId, row.kind, row.itemId, row.updatedAt)
     }
@@ -230,7 +243,7 @@ class VodRepository(
      */
     suspend fun setWatched(playlistId: Long, id: Long, series: Long?, watched: Boolean): Boolean {
         val source = playlists.get(playlistId) ?: return false
-        return send { plex.setWatched(source, id, series, watched) } == Sent.SENT
+        return (send { plex.setWatched(source, id, series, watched) } == Sent.SENT).also { if (it) onStopped() }
     }
 
     /**
@@ -242,6 +255,7 @@ class VodRepository(
         val source = playlists.get(p.playlistId) ?: return false
         if (send { plex.removeFromContinueWatching(source, p.itemId) } == Sent.NOT_YET) return false
         if (series == null) vod.leaveMovieCarryOn(p.playlistId, p.itemId) else vod.leaveSeriesCarryOn(p.playlistId, series)
+        onStopped()
         return true
     }
 
@@ -263,6 +277,7 @@ class VodRepository(
         }
         movieDetails.remove("$playlistId:$id")
         deleted.tryEmit(playlistId to id)
+        onStopped()
         return true
     }
 
@@ -277,7 +292,7 @@ class VodRepository(
         val source = deleteOnServer(playlistId, id) ?: return EpisodeDeleted.NOTHING
         vod.deleteProgress(playlistId, VOD_EPISODE, listOf(id))
         seriesDetails.remove("$playlistId:$seriesId")
-        if (!plex.seriesGone(source, seriesId)) return EpisodeDeleted.EPISODE
+        if (!plex.seriesGone(source, seriesId)) return EpisodeDeleted.EPISODE.also { onStopped() }
         forgetSeries(playlistId, seriesId)
         return EpisodeDeleted.SERIES
     }
@@ -301,6 +316,7 @@ class VodRepository(
         }
         seriesDetails.remove("$playlistId:$seriesId")
         deleted.tryEmit(playlistId to seriesId)
+        onStopped()
     }
 
     /** Deletes [id] on its source's server: the source, or null (with a notice) when it couldn't. */

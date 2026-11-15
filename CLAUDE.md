@@ -106,6 +106,12 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     that row is made again after the others: a launcher lists an app's rows in the order they were made).
   - In 1.7.1: 1.19.0's `.TvGuide` entry (the owner, 2026-11-15: offer the same option). Another app opens the TV guide
     over Home. If the server has no Live TV (`liveTvShown`), Home opens.
+  - In 1.7.2: 1.19.1 (`dd20dd7`): closing what a launcher card opened (or the guide another app opened) goes back to
+    the launcher (`Navigator.launcherEntry`, `onLeave`, AppRoot's `openCard`), and the cards are written when playback
+    stops (`VodRepository`'s `onStopped`, `LauncherSync.playbackStopped`; the same cards are not written twice). Here
+    the hook runs after the local save of a stop (not after Plex answers), and after a forget, a mark as watched or
+    unwatched, and a delete. Its catch-up test case is a player that replaces itself here. `askToShow` reads the TV
+    provider off the main thread.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

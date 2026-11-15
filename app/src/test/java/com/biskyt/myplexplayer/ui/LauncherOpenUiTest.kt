@@ -61,8 +61,10 @@ class LauncherOpenUiTest {
     @After
     fun tearDown() = plex.close()
 
+    private fun navigator() = ViewModelProvider(compose.activity)[RootViewModel::class.java].navigator
+
     /** The screens open now, from the first. */
-    private fun screens() = ViewModelProvider(compose.activity)[RootViewModel::class.java].navigator?.stack?.map { it.screen }
+    private fun screens() = navigator()?.stack?.map { it.screen }
 
     /** The app, opened from [target]: [screens] are open, and the card is taken. */
     private fun opens(target: LauncherTarget, vararg screens: Screen) {
@@ -75,6 +77,21 @@ class LauncherOpenUiTest {
     @Test
     fun `a recently added film's card opens its page over Home`() =
         opens(LauncherTarget(LauncherTarget.MOVIE_PAGE, pid, 11), Screen.Home, Screen.MovieDetails(pid, 11))
+
+    @Test
+    fun `Back from a card's page goes back to the launcher, with Home under it`() {
+        opens(LauncherTarget(LauncherTarget.MOVIE_PAGE, pid, 11), Screen.Home, Screen.MovieDetails(pid, 11))
+        val nav = checkNotNull(navigator())
+        val leave = checkNotNull(nav.onLeave) { "AppRoot takes the app back to the launcher" }
+        var left = false
+        nav.onLeave = {
+            left = true
+            leave()
+        }
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitAdvancingClock(50) { left }
+        assertEquals(listOf<Screen>(Screen.Home), screens())
+    }
 
     @Test
     fun `a series' card opens its page over Home`() =
@@ -150,6 +167,8 @@ class LauncherOpenUiTest {
         compose.setContent { AppRoot() }
         compose.waitAdvancingClock(50) { screens() == listOf(Screen.Home, Screen.Live(guide = true)) }
         assertFalse("taken", app.container.openGuide.value)
+        val nav = checkNotNull(navigator())
+        assertEquals("Back goes back to the launcher", nav.current.id, nav.launcherEntry)
     }
 
     @Test
