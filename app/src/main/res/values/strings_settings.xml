@@ -86,7 +86,7 @@
     <string name="settings_lib_room">The channels, guide and progress database</string>
     <string name="settings_lib_paging">Long channel lists</string>
     <string name="settings_lib_work">Refreshing playlists and guides in the background</string>
-    <string name="settings_lib_tvprovider">Continue watching and favourite channels on the TV\'s home screen</string>
+    <string name="settings_lib_tvprovider">Continue watching and Home\'s rows on the TV\'s home screen</string>
     <string name="settings_lib_datastore">Settings</string>
     <string name="settings_lib_coil">Channel logos and posters</string>
     <string name="settings_lib_okhttp">Downloads (with Okio)</string>
@@ -206,7 +206,7 @@
     <string name="settings_external_ip">Show your external IP address</string>
     <string name="settings_external_ip_help">Shows next to the VPN badge the address that websites see, and its country. To find it, MyPlexPlayer asks ipinfo.io when the network or the VPN changes.</string>
     <string name="settings_launcher">Show on the TV\'s home screen</string>
-    <string name="settings_launcher_help">Continue watching in the home screen\'s Play Next row, and your favourite channels as a row of their own.</string>
+    <string name="settings_launcher_help">Continue watching in the home screen\'s Play Next row, and Home\'s other rows as rows of their own.</string>
     <!-- The name of the app\'s row of favourite channels on the TV\'s home screen. -->
     <string name="launcher_favourites">Favourite channels</string>
 </resources>

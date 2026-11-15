@@ -1,6 +1,8 @@
 package com.biskyt.myplexplayer.data
 
 import androidx.test.core.app.ApplicationProvider
+import com.biskyt.myplexplayer.data.db.CAT_MOVIE
+import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.data.db.FavouriteEntity
 import com.biskyt.myplexplayer.data.db.VOD_EPISODE
@@ -8,10 +10,13 @@ import com.biskyt.myplexplayer.data.db.VOD_MOVIE
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import com.biskyt.myplexplayer.launcher.LauncherRows
 import com.biskyt.myplexplayer.launcher.LauncherWriter
+import com.biskyt.myplexplayer.launcher.Published
+import com.biskyt.myplexplayer.launcher.RowCard
 import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addHomePlex
 import com.biskyt.myplexplayer.testutil.eventually
+import com.biskyt.myplexplayer.testutil.plexChannel
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,14 +51,22 @@ class LauncherSyncTest {
 
         override fun isOn() = on
 
-        override fun publish(rows: LauncherRows): Long? {
+        /** The rows on the launcher now, by key, as the TV provider keeps them. */
+        private val present = mutableSetOf<String>()
+
+        override fun publish(rows: LauncherRows): Published {
             on = true
             published += rows
-            return if (published.size == 1) CHANNEL else null
+            val keys = rows.channels.map { it.key }
+            val made = keys - present
+            present.clear()
+            present += keys
+            return Published(keys.map(ID::getValue).toSet(), made.map(ID::getValue).toSet())
         }
 
         override fun clear() {
             on = false
+            present.clear()
             cleared++
         }
     }
@@ -111,10 +124,11 @@ class LauncherSyncTest {
         assertEquals("http://img/601.jpg", rows.playNext.first().posterUrl)
         val upNext = rows.playNext.last()
         assertTrue("a finished episode with another after it is up next", upNext.upNext && upNext.episode == null)
-        val channel = checkNotNull(rows.channel) { "the favourites' row" }
+        val channel = rows.channels.single { it.key == LauncherTarget.FAVOURITES }
+        assertEquals("no other titles here: no rows for them", 1, rows.channels.size)
         assertEquals(listOf("$pid:102"), channel.cards.map { it.key })
         assertEquals("Favourite channels", channel.name)
-        eventually("the channel to show") { sync.madeChannel.value == CHANNEL }
+        eventually("the row to show") { sync.madeChannels.value == setOf(CHANNELS) }
 
         // A card opens the app on it, if it still may.
         val target = LauncherSync.target(app, rows.playNext.first().open)
@@ -138,27 +152,75 @@ class LauncherSyncTest {
         LauncherSync(app, scope, c.settings, c.db, writer)
         c.settings.update { it.copy(launcherRows = true) }
         eventually("cards written") { writer.published.isNotEmpty() }
-        assertEquals(null, writer.published.last().channel)
+        assertEquals(emptyList<Any>(), writer.published.last().channels)
         assertEquals(3, writer.published.last().playNext.size)
     }
 
     @Test
-    fun `a channel made and then taken away is not asked to show`() = runBlocking {
+    fun `a row made and then taken away is not asked to show`() = runBlocking {
         val sync = LauncherSync(app, scope, c.settings, c.db, writer)
         c.settings.update { it.copy(launcherRows = true) }
-        eventually("the channel to show") { sync.madeChannel.value == CHANNEL }
-        // Written again with the channel still there (none made now): it is still to be shown.
+        eventually("the row to show") { sync.madeChannels.value == setOf(CHANNELS) }
+        // Written again with the row still there (none made now): it is still to be shown.
         sync.republish()
         eventually("written again") { writer.published.size == 2 }
-        assertEquals(CHANNEL, sync.madeChannel.value)
-        // The last favourite gone before Settings showed the channel: the cards are written again, with no channel.
+        assertEquals(setOf(CHANNELS), sync.madeChannels.value)
+        // The last favourite gone before Settings showed the row: the cards are written again, with no row.
         c.db.favourites().remove(pid, 102)
         sync.republish()
-        eventually("no channel to show") { sync.madeChannel.value == null }
-        assertEquals(null, writer.published.last().channel)
+        eventually("no row to show") { sync.madeChannels.value.isEmpty() }
+        assertEquals(emptyList<Any>(), writer.published.last().channels)
+    }
+
+    @Test
+    fun `Home's rows of titles are rows of posters, in Home's order, that open their pages`() = runBlocking {
+        // The server's film (Big Buck Bunny, 11) and series (Test Show, 21), both new and both favourites.
+        c.sync.refreshNow(pid).getOrThrow()
+        c.vod.setFavourite(pid, CAT_MOVIE, 11, true)
+        c.vod.setFavourite(pid, CAT_SERIES, 21, true)
+        // The sync replaced the channels and their favourites with the server's (none): one of its channels again.
+        c.db.favourites().add(FavouriteEntity(pid, plexChannel("1"), System.currentTimeMillis()))
+        val sync = LauncherSync(app, scope, c.settings, c.db, writer)
+        c.settings.update { it.copy(launcherRows = true) }
+        val keys = ID.keys.toList()
+        eventually("all five rows") { writer.published.lastOrNull()?.channels?.map { it.key } == keys }
+        val rows = writer.published.last().channels.associateBy { it.key }
+        assertEquals("Recently added series", rows.getValue(LauncherTarget.NEWEST_SERIES).name)
+        assertEquals("Recently added movies", rows.getValue(LauncherTarget.NEWEST_MOVIES).name)
+        val newMovie = rows.getValue(LauncherTarget.NEWEST_MOVIES).cards.single { it.key == "$pid:${LauncherTarget.MOVIE_PAGE}:11" }
+        assertEquals(RowCard.Kind.MOVIE, newMovie.kind)
+        val newSeries = rows.getValue(LauncherTarget.NEWEST_SERIES).cards.single { it.key == "$pid:${LauncherTarget.SERIES_PAGE}:21" }
+        assertEquals(RowCard.Kind.SERIES, newSeries.kind)
+        eventually("all five rows to show") { sync.madeChannels.value == ID.values.toSet() }
+
+        // A card opens its page, and a row's own link its list, if they still may.
+        val page = LauncherSync.target(app, newMovie.open)
+        assertEquals(LauncherTarget(LauncherTarget.MOVIE_PAGE, pid, 11), page)
+        assertTrue(sync.allows(page!!))
+        assertEquals(LauncherTarget(LauncherTarget.SERIES_PAGE, pid, 21), LauncherSync.target(app, newSeries.open))
+        assertEquals(
+            LauncherTarget(LauncherTarget.FAVOURITE_SERIES, pid),
+            LauncherSync.target(app, rows.getValue(LauncherTarget.FAVOURITE_SERIES).open)
+        )
+        assertFalse("a film no longer here does not open", sync.allows(LauncherTarget(LauncherTarget.MOVIE_PAGE, pid, 777)))
+
+        // The last favourite film gone: its row comes off, and the others stay. (Written again at once: changes are
+        // otherwise written once they stop.)
+        c.vod.setFavourite(pid, CAT_MOVIE, 11, false)
+        sync.republish()
+        eventually("the favourite films' row taken off") {
+            writer.published.last().channels.map { it.key } == keys - LauncherTarget.FAVOURITE_MOVIES
+        }
     }
 
     private companion object {
-        const val CHANNEL = 7L
+        const val CHANNELS = 7L
+        val ID = mapOf(
+            LauncherTarget.NEWEST_SERIES to 3L,
+            LauncherTarget.NEWEST_MOVIES to 4L,
+            LauncherTarget.FAVOURITE_SERIES to 5L,
+            LauncherTarget.FAVOURITE_MOVIES to 6L,
+            LauncherTarget.FAVOURITES to CHANNELS,
+        )
     }
 }

@@ -13,8 +13,5 @@
     <string name="settings_backup_intro">Saves your Plex servers (with their access tokens), channel and category choices, favorites and settings to a file. Copy it with a file manager app to keep it somewhere else. The file isn\'t encrypted, so keep it private.</string>
     <string name="settings_categories_intro">Only the categories you check are downloaded, so lists load faster and use less storage.</string>
     <string name="settings_playlist_updated_detail">Its channels, TV guide, movies and series are up to date.</string>
-
-    <string name="settings_launcher_help">Continue watching in the home screen\'s Play Next row, and your favorite channels as a row of their own.</string>
     <string name="launcher_favourites">Favorite channels</string>
-    <string name="settings_lib_tvprovider">Continue watching and favorite channels on the TV\'s home screen</string>
 </resources>

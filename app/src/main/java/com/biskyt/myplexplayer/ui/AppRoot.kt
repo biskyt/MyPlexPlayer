@@ -30,6 +30,9 @@ import com.biskyt.myplexplayer.container
 import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.LauncherTarget
 import com.biskyt.myplexplayer.data.Settings
+import com.biskyt.myplexplayer.data.VodShow
+import com.biskyt.myplexplayer.data.VodSort
+import com.biskyt.myplexplayer.data.VodView
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.ui.common.LeaveLiveTvWithoutIt
@@ -41,6 +44,7 @@ import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.TabScaffoldGap
 import com.biskyt.myplexplayer.ui.common.TopBar
 import com.biskyt.myplexplayer.ui.common.onGuideKey
+import com.biskyt.myplexplayer.ui.common.vodDetails
 import com.biskyt.myplexplayer.ui.dvr.DvrScreen
 import com.biskyt.myplexplayer.ui.home.HomeScreen
 import com.biskyt.myplexplayer.ui.live.LiveScreen
@@ -103,7 +107,8 @@ fun AppRoot() {
         LaunchedEffect(nav) {
             container.openedFile.filterNotNull().collect { if (nav.current.screen != Screen.Backup) nav.push(Screen.Backup) }
         }
-        // A card on the TV's home screen: its film, episode or channel plays over Home, if it still may (see LauncherSync).
+        // A card on the TV's home screen: its film, episode or channel plays over Home, or its page or list opens, if it
+        // still may (see LauncherSync).
         LaunchedEffect(nav) { container.launcherTarget.filterNotNull().collect { openFromLauncher(container, nav, it) } }
         val activity = LocalActivity.current
         BackHandler {
@@ -171,6 +176,15 @@ private suspend fun openFromLauncher(container: AppContainer, nav: Navigator, t:
     }
     when (t.kind) {
         LauncherTarget.FAVOURITES -> nav.reset(Screen.Live(ChannelFilter.Favourites))
+        // A row's own link: its list, newest first, or the favourites.
+        LauncherTarget.NEWEST_SERIES -> nav.reset(Screen.Series(VodView(show = VodShow.UNWATCHED, sort = VodSort.NEWEST)))
+        LauncherTarget.NEWEST_MOVIES -> nav.reset(Screen.Movies(VodView(show = VodShow.UNWATCHED, sort = VodSort.NEWEST)))
+        LauncherTarget.FAVOURITE_SERIES -> nav.reset(Screen.Series(VodView(show = VodShow.FAVOURITES)))
+        LauncherTarget.FAVOURITE_MOVIES -> nav.reset(Screen.Movies(VodView(show = VodShow.FAVOURITES)))
+        LauncherTarget.MOVIE_PAGE, LauncherTarget.SERIES_PAGE -> {
+            nav.reset(Screen.Home)
+            nav.push(vodDetails(t.playlistId, if (t.kind == LauncherTarget.MOVIE_PAGE) CAT_MOVIE else CAT_SERIES, t.itemId))
+        }
         LauncherTarget.CHANNEL -> {
             nav.reset(Screen.Home)
             nav.push(Screen.Player(t.playlistId, t.itemId, ChannelFilter.Favourites))

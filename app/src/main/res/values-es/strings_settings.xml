@@ -67,7 +67,7 @@
     <string name="settings_lib_room">La base de datos de canales, guía y progreso</string>
     <string name="settings_lib_paging">Listas largas de canales</string>
     <string name="settings_lib_work">Actualización de listas y guías en segundo plano</string>
-    <string name="settings_lib_tvprovider">Seguir viendo y canales favoritos en la pantalla de inicio de la TV</string>
+    <string name="settings_lib_tvprovider">Seguir viendo y las filas de Inicio en la pantalla de inicio de la TV</string>
     <string name="settings_lib_datastore">Configuración</string>
     <string name="settings_lib_coil">Logos de canales y pósteres</string>
     <string name="settings_lib_okhttp">Descargas (con Okio)</string>
@@ -157,6 +157,6 @@
     <string name="settings_external_ip">Mostrar tu dirección IP externa</string>
     <string name="settings_external_ip_help">Muestra junto al indicador de VPN la dirección que ven los sitios web y su país. Para obtenerla, MyPlexPlayer consulta ipinfo.io cuando cambia la red o la VPN.</string>
     <string name="settings_launcher">Mostrar en la pantalla de inicio de la TV</string>
-    <string name="settings_launcher_help">Seguir viendo en la fila «Siguiente» de la pantalla de inicio, y tus canales favoritos en una fila propia.</string>
+    <string name="settings_launcher_help">Seguir viendo en la fila «Siguiente» de la pantalla de inicio, y las demás filas de Inicio como filas propias.</string>
     <string name="launcher_favourites">Canales favoritos</string>
 </resources>

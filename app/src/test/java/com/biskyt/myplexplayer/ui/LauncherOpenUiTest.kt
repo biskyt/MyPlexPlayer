@@ -3,8 +3,12 @@ package com.biskyt.myplexplayer.ui
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
+import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.LauncherTarget
+import com.biskyt.myplexplayer.data.VodShow
+import com.biskyt.myplexplayer.data.VodSort
+import com.biskyt.myplexplayer.data.VodView
 import com.biskyt.myplexplayer.data.db.FavouriteEntity
 import com.biskyt.myplexplayer.data.db.VOD_MOVIE
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
@@ -49,6 +53,33 @@ class LauncherOpenUiTest {
 
     @After
     fun tearDown() = plex.close()
+
+    /** The screens open now, from the first. */
+    private fun screens() = ViewModelProvider(compose.activity)[RootViewModel::class.java].navigator?.stack?.map { it.screen }
+
+    /** The app, opened from [target]: [screens] are open, and the card is taken. */
+    private fun opens(target: LauncherTarget, vararg screens: Screen) {
+        app.container.launcherTarget.value = target
+        compose.setContent { AppRoot() }
+        compose.waitAdvancingClock(50) { screens() == screens.toList() }
+        assertEquals("taken", null, app.container.launcherTarget.value)
+    }
+
+    @Test
+    fun `a recently added film's card opens its page over Home`() =
+        opens(LauncherTarget(LauncherTarget.MOVIE_PAGE, pid, 11), Screen.Home, Screen.MovieDetails(pid, 11))
+
+    @Test
+    fun `a series' card opens its page over Home`() =
+        opens(LauncherTarget(LauncherTarget.SERIES_PAGE, pid, 21), Screen.Home, Screen.SeriesDetails(pid, 21))
+
+    @Test
+    fun `the favourite series' row opens their list`() =
+        opens(LauncherTarget(LauncherTarget.FAVOURITE_SERIES, pid), Screen.Series(VodView(show = VodShow.FAVOURITES)))
+
+    @Test
+    fun `the recently added films' row opens their list, newest first`() =
+        opens(LauncherTarget(LauncherTarget.NEWEST_MOVIES, pid), Screen.Movies(VodView(show = VodShow.UNWATCHED, sort = VodSort.NEWEST)))
 
     /** The app, opened from the card set: its player shows, and the card is taken. */
     private fun opensPlayer() {

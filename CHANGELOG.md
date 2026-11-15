@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.7.0
+- Home's other rows also show on the TV's home screen.
+- A title's card there opens its page.
+
 ## 1.6.1
 - Settings no longer misses asking the TV to show a new channel row.
 

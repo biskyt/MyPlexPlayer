@@ -43,6 +43,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.tv.material3.MaterialTheme
 import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.R
+import com.biskyt.myplexplayer.data.CHANNEL_ROW_LIMIT
 import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.db.CAT_LIVE
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
@@ -109,7 +110,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 private const val VOD_ROW_LIMIT = 20
 
 /** How many favourite channels, and recently watched ones, Home shows. */
-private const val CHANNEL_ROW_LIMIT = 12
 
 /** How long the remote rests on a card before its picture shows behind Home. */
 private const val BACKDROP_AFTER_MS = 500L
