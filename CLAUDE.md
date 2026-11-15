@@ -103,8 +103,9 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     with its kind, `Published`), and Settings asks the TV to show each new row. Here every Home row is a row of its own
     (the owner, 2026-11-15: "each row should be presented as a channel"), in Home's order: recently added series and
     films, favourite series and films, then favourite channels (key `favourite-channels`, not 1.6.x's `favourites`, so
-    that row is made again after the others: a launcher lists an app's rows in the order they were made). Its
-    `.TvGuide` entry is MyTVPlayer's only.
+    that row is made again after the others: a launcher lists an app's rows in the order they were made).
+  - In 1.7.1: 1.19.0's `.TvGuide` entry (the owner, 2026-11-15: offer the same option). Another app opens the TV guide
+    over Home. If the server has no Live TV (`liveTvShown`), Home opens.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

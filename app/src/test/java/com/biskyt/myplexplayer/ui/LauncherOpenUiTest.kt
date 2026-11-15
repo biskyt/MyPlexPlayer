@@ -1,10 +1,13 @@
 package com.biskyt.myplexplayer.ui
 
+import android.content.ComponentName
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ApplicationProvider
+import com.biskyt.myplexplayer.MainActivity
 import com.biskyt.myplexplayer.data.LauncherTarget
 import com.biskyt.myplexplayer.data.VodShow
 import com.biskyt.myplexplayer.data.VodSort
@@ -23,6 +26,7 @@ import com.biskyt.myplexplayer.testutil.waitForText
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -31,7 +35,10 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** A card on the TV's home screen opens the app on its channel, film or episode, if it still may (see LauncherSync). */
+/**
+ * A card on the TV's home screen opens the app on its channel, film, episode or page, or a row's list, if it still may
+ * (see LauncherSync). Another app can also open the TV guide.
+ */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestApp::class, qualifiers = "+w960dp-h540dp-tvdpi")
 class LauncherOpenUiTest {
@@ -126,5 +133,34 @@ class LauncherOpenUiTest {
         compose.settle()
         assertTrue("no player", !playerShown())
         assertTrue(compose.onAllNodes(hasText("Home")).fetchSemanticsNodes().isNotEmpty())
+    }
+
+    @Test
+    fun `another app opens the TV guide over Home, as the remote's Guide button there`() {
+        // It finds the guide by its action, and opens it by that or by its name.
+        val action = Intent("${app.packageName}.action.TV_GUIDE")
+        val entry = app.packageManager.queryIntentActivities(action, 0).single().activityInfo
+        assertEquals(MainActivity.GUIDE_ENTRY, entry.name)
+        assertTrue(entry.exported)
+        assertTrue(MainActivity.asksForGuide(app, action))
+        assertTrue(MainActivity.asksForGuide(app, Intent().setComponent(ComponentName(app.packageName, entry.name))))
+        assertFalse(MainActivity.asksForGuide(app, Intent(app, MainActivity::class.java)))
+
+        app.container.openGuide.value = true
+        compose.setContent { AppRoot() }
+        compose.waitAdvancingClock(50) { screens() == listOf(Screen.Home, Screen.Live(guide = true)) }
+        assertFalse("taken", app.container.openGuide.value)
+    }
+
+    @Test
+    fun `with no Live TV on the server, another app's ask for the TV guide opens Home`() {
+        plex.liveTv = false
+        runBlocking { app.container.sync.refreshNow(pid).getOrThrow() }
+        // The app starts for the guide, before it knows from the database that there is no Live TV.
+        app.container.openGuide.value = true
+        compose.setContent { AppRoot() }
+        compose.waitAdvancingClock(50) { !app.container.openGuide.value }
+        compose.settle()
+        assertEquals(listOf(Screen.Home), screens())
     }
 }

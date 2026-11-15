@@ -131,6 +131,9 @@ class AppContainer(context: Context, launcherWriter: LauncherWriter = TvLauncher
 
     /** A card on the TV's home screen opened the app, until it's shown (see AppRoot). */
     val launcherTarget = MutableStateFlow<LauncherTarget?>(null)
+
+    /** The TV guide, asked for by another app (see MainActivity): AppRoot opens it, then sets this back. */
+    val openGuide = MutableStateFlow(false)
 }
 
 open class MyPlexApp : Application(), SingletonImageLoader.Factory, LauncherHost {
