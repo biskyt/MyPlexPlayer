@@ -38,8 +38,9 @@ MyPlexPlayer is an independent app. It is not made or endorsed by Plex, Inc. You
 - **VPN check:** a badge in the top bar shows whether Android reports a VPN, and can also show your external IP address
   and its country (from ipinfo.io, off by default).
 - **The TV's home screen** (off by default): Continue watching in the home screen's Play Next row, with posters, and
-  Home's other rows (recently added and favourite series and films, and your favourite channels) as rows of their own. Android TV's own launcher and others that read the TV provider show
-  them. Google TV's home screen shows no app rows.
+  Home's other rows (recently added and favourite series and films, and your favourite channels) as rows of their own. Back from what a card opens returns to the TV's home screen, and
+  Continue watching there is updated as soon as playback stops. Android TV's own launcher and others that read the TV
+  provider show them. Google TV's home screen shows no app rows.
 - **The TV guide for other apps:** a launcher can open the TV guide directly, as the remote's Guide button does on Home.
   It opens the component `com.biskyt.myplexplayer/.TvGuide`, or the action `com.biskyt.myplexplayer.action.TV_GUIDE`.
   If the server has no Live TV, Home opens.
