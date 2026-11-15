@@ -71,6 +71,7 @@ import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
 import com.biskyt.myplexplayer.ui.common.AppIcons
 import com.biskyt.myplexplayer.ui.common.FavouriteMover
+import com.biskyt.myplexplayer.ui.common.GLOW_ROOM
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.ItemActionsPanel
 import com.biskyt.myplexplayer.ui.common.KeepInView
@@ -90,10 +91,13 @@ import com.biskyt.myplexplayer.ui.common.TabScaffold
 import com.biskyt.myplexplayer.ui.common.TvCard
 import com.biskyt.myplexplayer.ui.common.collectIds
 import com.biskyt.myplexplayer.ui.common.formatRuntime
+import com.biskyt.myplexplayer.ui.common.glowRoom
+import com.biskyt.myplexplayer.ui.common.glowRoomPadding
 import com.biskyt.myplexplayer.ui.common.markWatched
 import com.biskyt.myplexplayer.ui.common.moveAction
 import com.biskyt.myplexplayer.ui.common.pageItem
 import com.biskyt.myplexplayer.ui.common.pageKeys
+import com.biskyt.myplexplayer.ui.common.raiseOnFocus
 import com.biskyt.myplexplayer.ui.common.restoreFocusIf
 import com.biskyt.myplexplayer.ui.common.reveal
 import com.biskyt.myplexplayer.ui.common.rowsInView
@@ -415,7 +419,8 @@ private fun PosterGridCells(
     val focusGone = vm.focusId.let { id -> id == null || items.itemSnapshotList.none { it?.id == id } }
     LazyVerticalGrid(
         columns = GridCells.Fixed(COLUMNS),
-        modifier = Modifier.pageKeys(
+        // Room for the glow at its sides only: drawn past its top, a card would cover the pills above it.
+        modifier = Modifier.glowRoom(vertical = false).pageKeys(
             page,
             { items.itemCount },
             COLUMNS,
@@ -425,7 +430,7 @@ private fun PosterGridCells(
         state = state,
         horizontalArrangement = Arrangement.spacedBy(GAP),
         verticalArrangement = Arrangement.spacedBy(GAP),
-        contentPadding = PaddingValues(bottom = 40.dp)
+        contentPadding = glowRoomPadding(PaddingValues(top = GLOW_ROOM, bottom = 40.dp), vertical = false)
     ) {
         items(count = items.itemCount, key = items.itemKey { it.id }) { index ->
             val card = items[index]
@@ -435,17 +440,20 @@ private fun PosterGridCells(
                 // Back from a title, on it; after a change of view or one taken off Favourites, on the first.
                 val wantsFocus = vm.restoreFocusPending && (if (focusGone) index == 0 else vm.focusId == card.id)
                 val lastOfTopRow = index == minOf(items.itemCount, COLUMNS) - 1
-                MovableTile(vm.mover, vm.type, card.id, MoveLayout.GRID, COLUMNS) {
-                    GridCard(
-                        card,
-                        vm.isMovies,
-                        posterWidth,
-                        Modifier.restoreFocusIf(wantsFocus) { vm.restoreFocusPending = false }
-                            .then(if (index < COLUMNS) topRow(routes, lastOfTopRow) else Modifier)
-                            .pageItem(page, index),
-                        favourite = card.id in favourites,
-                        onLongClick = { vm.optionsFor = card }
-                    ) { nav.push(vm.open(card, pid)) }
+                // Drawn over the cards beside it while it has focus, as it grows and glows (see focusGlow).
+                Box(Modifier.raiseOnFocus()) {
+                    MovableTile(vm.mover, vm.type, card.id, MoveLayout.GRID, COLUMNS) {
+                        GridCard(
+                            card,
+                            vm.isMovies,
+                            posterWidth,
+                            Modifier.restoreFocusIf(wantsFocus) { vm.restoreFocusPending = false }
+                                .then(if (index < COLUMNS) topRow(routes, lastOfTopRow) else Modifier)
+                                .pageItem(page, index),
+                            favourite = card.id in favourites,
+                            onLongClick = { vm.optionsFor = card }
+                        ) { nav.push(vm.open(card, pid)) }
+                    }
                 }
             }
         }
@@ -482,7 +490,7 @@ private fun GridCard(
     onLongClick: () -> Unit,
     onClick: () -> Unit
 ) {
-    TvCard(onClick = onClick, onLongClick = onLongClick, color = Palette.background, modifier = modifier) {
+    TvCard(onClick = onClick, onLongClick = onLongClick, color = Palette.background, modifier = modifier, glow = true) {
         Column(Modifier.padding(CARD_PADDING), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Box {
                 Poster(card.imageUrl, card.title, width)

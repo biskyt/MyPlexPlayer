@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.8.0
+- Selected cards grow and glow in the accent colour.
+- A channel's guide over the player shows every programme's description.
+- The TV's home screen no longer shows an older position after playback stops.
+
 ## 1.7.2
 - Back from a TV home screen card returns to the TV's home screen.
 - Continue watching on the TV's home screen updates when playback stops.

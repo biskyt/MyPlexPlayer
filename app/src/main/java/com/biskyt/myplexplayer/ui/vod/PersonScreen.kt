@@ -63,7 +63,10 @@ import com.biskyt.myplexplayer.ui.common.Poster
 import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.TvCard
 import com.biskyt.myplexplayer.ui.common.formatDate
+import com.biskyt.myplexplayer.ui.common.glowRoom
+import com.biskyt.myplexplayer.ui.common.glowRoomPadding
 import com.biskyt.myplexplayer.ui.common.initials
+import com.biskyt.myplexplayer.ui.common.raiseOnFocus
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
 import com.biskyt.myplexplayer.ui.theme.MEDIUM
@@ -216,12 +219,16 @@ private fun PersonPhoto(url: String?, name: String) {
 private fun <T> PosterRow(heading: String, items: List<T>, focus: Boolean, top: Dp, card: @Composable (T, Modifier) -> Unit) {
     Column(Modifier.padding(top = top), verticalArrangement = Arrangement.spacedBy(12.dp - CARD_PAD)) {
         Heading(heading, Modifier.padding(start = SIDE))
-        // Each card keeps CARD_PAD round it for its focus ring, taken back from the gap and the row's start.
+        // Each card keeps CARD_PAD round its poster, taken back from the gap and the row's start. As on Home, the card
+        // with the remote grows and glows (see focusGlow), drawn past the row's edges and over the cards beside it.
         LazyRow(
-            contentPadding = PaddingValues(horizontal = SIDE - CARD_PAD),
+            Modifier.glowRoom(),
+            contentPadding = glowRoomPadding(PaddingValues(horizontal = SIDE - CARD_PAD)),
             horizontalArrangement = Arrangement.spacedBy(18.dp - CARD_PAD * 2)
         ) {
-            itemsIndexed(items) { i, item -> card(item, if (focus && i == 0) rememberFirstFocus() else Modifier) }
+            itemsIndexed(items) { i, item ->
+                Box(Modifier.raiseOnFocus()) { card(item, if (focus && i == 0) rememberFirstFocus() else Modifier) }
+            }
         }
     }
 }
@@ -229,7 +236,7 @@ private fun <T> PosterRow(heading: String, items: List<T>, focus: Boolean, top: 
 /** A poster 140 by 210, the title and a dim line under it. */
 @Composable
 private fun TitleCard(title: String, imageUrl: String?, line: String?, modifier: Modifier, onClick: () -> Unit) {
-    TvCard(onClick = onClick, color = Palette.background, modifier = modifier) {
+    TvCard(onClick = onClick, color = Palette.background, modifier = modifier, glow = true) {
         Column(Modifier.padding(CARD_PAD).width(POSTER), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Poster(imageUrl, title, POSTER, radius = 8.dp)
             Column {
