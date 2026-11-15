@@ -6,7 +6,7 @@ Each version's section becomes its GitHub release notes, so it is written for th
 - Android 12 and earlier now decode surround sound with all its channels.
 - The More panel's sound line shows the format and real channel count.
 - A new test setting decodes AAC sound in the app.
-- A new check says whether your TV sends AAC unchanged to your amplifier.
+- A new check says whether your TV can send AAC unchanged over HDMI.
 - To turn on the test setting, go to Settings › Playback › Decode AAC in the app.
 
 ## 1.9.0
