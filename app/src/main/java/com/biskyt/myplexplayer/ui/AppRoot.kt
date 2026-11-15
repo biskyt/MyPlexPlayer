@@ -68,7 +68,9 @@ import com.biskyt.myplexplayer.ui.vod.PersonScreen
 import com.biskyt.myplexplayer.ui.vod.SeriesDetailsScreen
 import com.biskyt.myplexplayer.ui.vod.VodBrowseScreen
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @Composable
@@ -110,6 +112,8 @@ fun AppRoot() {
         // A card on the TV's home screen: its film, episode or channel plays over Home, or its page or list opens, if it
         // still may (see LauncherSync).
         LaunchedEffect(nav) { container.launcherTarget.filterNotNull().collect { openFromLauncher(container, nav, it) } }
+        // Another app asks for the TV guide (see MainActivity): it opens over Home, as the remote's Guide button does there.
+        LaunchedEffect(nav) { container.openGuide.filter { it }.collect { openGuideForApp(container, nav) } }
         val activity = LocalActivity.current
         BackHandler {
             when {
@@ -152,16 +156,29 @@ private suspend fun firstScreen(container: AppContainer, s: Settings, safeStart:
         // Movies and series not loaded yet (e.g. just updated from a version without them).
         !container.vod.hasTitles(playlist.id) -> container.sync.refreshVod(playlist.id)
     }
-    // Not when opened with a backup file or from a card on the TV's home screen: that's what to show (see MainActivity).
+    // Not when opened with a backup file, from a card on the TV's home screen or for the TV guide: that's what to show
+    // (see MainActivity).
+    val opened = container.openedFile.value != null || container.launcherTarget.value != null || container.openGuide.value
     if (s.startOnLastChannel &&
-        container.openedFile.value == null &&
-        container.launcherTarget.value == null &&
+        !opened &&
         s.lastChannelId != 0L &&
         container.channels.get(playlist.id, s.lastChannelId) != null
     ) {
         nav.push(Screen.Player(playlist.id, s.lastChannelId, ChannelFilter.All))
     }
     return nav
+}
+
+/**
+ * Opens the TV guide over Home for another app (see MainActivity). If the server has no Live TV, only Home opens. The
+ * app reads this from the database, because [AppContainer.liveTvShown] is true until the database answers.
+ */
+private suspend fun openGuideForApp(container: AppContainer, nav: Navigator) {
+    container.openGuide.value = false
+    val pid = container.settings.current().activePlaylistId
+    if (container.playlists.get(pid) == null) return
+    nav.reset(Screen.Home)
+    if (guideButtonOpensGuide(nav.current.screen, container.playlists.observeHasLiveTv(pid).first())) openGuide(nav)
 }
 
 /** Opens [t], a card on the TV's home screen, in its playlist; nothing if it may no longer open (see LauncherSync.allows). */
@@ -202,7 +219,10 @@ private suspend fun openFromLauncher(container: AppContainer, nav: Navigator, t:
  * there, unchanged.
  */
 private fun Modifier.guideButton(nav: Navigator, hasPlaylist: Boolean, liveTv: StateFlow<Boolean>) =
-    onGuideKey({ hasPlaylist && guideButtonOpensGuide(nav.current.screen, liveTv.value) }) { nav.push(Screen.Live(guide = true)) }
+    onGuideKey({ hasPlaylist && guideButtonOpensGuide(nav.current.screen, liveTv.value) }) { openGuide(nav) }
+
+/** The TV guide, opened on top (Back returns to what was there). */
+private fun openGuide(nav: Navigator) = nav.push(Screen.Live(guide = true))
 
 /**
  * Not while watching something (leaving would stop it), during set-up, or on the live screen (which switches between
