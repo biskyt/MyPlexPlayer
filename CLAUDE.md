@@ -127,6 +127,10 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     3 minutes). Here the worker makes the quick look the app makes while it is open (`SyncManager.refreshPlayState`
     with `whileOpen`, which now returns the sync it starts, so that the worker waits for new titles), in place of
     MyTVPlayer's Drive sync. It never starts the full sync: its 8-day guide is slow on the owner's server.
+  - In 1.9.1: 1.22.1 (`0ec08de`): every audio decoder asked for all channels before API 32 (`AllAudioChannels`), the
+    sound label from the audio output's config, the "Decode AAC in the app" test setting and the AAC check in Settings ›
+    Playback. Here `decodedName` is top-level beside `encodedName`, and Playback info's track line uses it too. Also
+    1.22.2 (`5519698`, this app's review): the output follows the current AudioTrack, `encodingName`, and HDMI only.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

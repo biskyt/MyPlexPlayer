@@ -11,6 +11,7 @@ import androidx.media3.common.util.UnstableApi
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.player.channelLayout
+import com.biskyt.myplexplayer.player.decodedName
 import com.biskyt.myplexplayer.player.encodedName
 import com.biskyt.myplexplayer.player.selectedFormat
 import com.biskyt.myplexplayer.ui.common.displayLanguage
@@ -46,7 +47,7 @@ fun frameRate(fps: Float): String? = fps.takeIf { it > 0 }?.let { "%.3f".format(
 
 /** "Dolby Digital Plus · 6ch · English". */
 internal fun audio(f: Format): String = listOfNotNull(
-    encodedName(f.sampleMimeType) ?: codec(f),
+    encodedName(f.sampleMimeType) ?: decodedName(f.sampleMimeType) ?: codec(f),
     // "Stereo" for two, a count otherwise (mono is "1ch").
     f.channelCount.takeIf { it > 0 }?.let { if (it == 2) channelLayout(it) else appString(R.string.player_track_channels, it) },
     f.language?.takeIf { it != C.LANGUAGE_UNDETERMINED }?.let(::displayLanguage),
@@ -68,7 +69,6 @@ private fun codec(f: Format): String? {
         MimeTypes.VIDEO_H264 -> "AVC"
         MimeTypes.VIDEO_VP9 -> "VP9"
         MimeTypes.VIDEO_AV1 -> "AV1"
-        MimeTypes.AUDIO_AAC -> "AAC"
         MimeTypes.AUDIO_RAW -> "PCM"
         else -> f.sampleMimeType?.substringAfter('/')?.uppercase(Locale.ROOT)
     }

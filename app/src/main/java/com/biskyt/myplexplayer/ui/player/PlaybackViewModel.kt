@@ -221,6 +221,22 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         ) {
             audioLabel = engine?.audioOutputLabel(playing = format).orEmpty()
         }
+
+        // No sound any more: the label says what the track is, not the last output.
+        override fun onAudioDisabled(
+            eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+            decoderCounters: androidx.media3.exoplayer.DecoderCounters
+        ) {
+            audioLabel = engine?.audioOutputLabel().orEmpty()
+        }
+
+        // What really goes to the audio output (sent unchanged, or decoded and with how many channels).
+        override fun onAudioTrackInitialized(
+            eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+            audioTrackConfig: androidx.media3.exoplayer.audio.AudioSink.AudioTrackConfig
+        ) {
+            audioLabel = engine?.audioOutputLabel(out = audioTrackConfig).orEmpty()
+        }
     }
 
     /** Reads the settings and creates the engine; subclasses call this first when they start. */

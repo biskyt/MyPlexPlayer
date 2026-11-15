@@ -41,6 +41,9 @@ class PlaybackInfoTest {
         val aac = Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).setLanguage(C.LANGUAGE_UNDETERMINED)
         assertEquals("AAC · Stereo", audio(aac.setChannelCount(2).build()))
         assertEquals("AAC · 1ch", audio(aac.setChannelCount(1).build()))
+        // Named as the sound line in More names them.
+        val mp3 = Format.Builder().setSampleMimeType(MimeTypes.AUDIO_MPEG).setChannelCount(2).build()
+        assertEquals("MP3 · Stereo", audio(mp3))
     }
 
     @Test
