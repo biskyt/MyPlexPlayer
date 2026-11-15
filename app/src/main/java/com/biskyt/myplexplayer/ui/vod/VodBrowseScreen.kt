@@ -552,5 +552,6 @@ private fun cardLine(card: VodCard, movie: Boolean): String = listOfNotNull(
 
 private const val COLUMNS = 7
 private val GAP = 14.dp
+
 /** About a card's height in a grid on a TV: the poster, the gap for its glow (GLOW_GAP) and the two lines under it. */
 private val PLACEHOLDER_HEIGHT = 220.dp
