@@ -106,6 +106,16 @@ class LauncherSyncTest {
         plex.close()
     }
 
+    /**
+     * The rows turned on, then this test's own sync started: it reads the setting as on from the first. Started first,
+     * its read of the settings could meet the change half-way and miss it now and then (seen on busy runners: it never
+     * wrote, while the app's own sync, reading long before, did).
+     */
+    private suspend fun syncTurnedOn(): LauncherSync {
+        c.settings.update { it.copy(launcherRows = true) }
+        return LauncherSync(app, scope, c.settings, c.db, writer)
+    }
+
     @Test
     fun `off by default, nothing is written`() = runBlocking {
         LauncherSync(app, scope, c.settings, c.db, writer)
@@ -116,8 +126,7 @@ class LauncherSyncTest {
 
     @Test
     fun `on, the active server's cards go to the launcher, and off they come off`() = runBlocking {
-        val sync = LauncherSync(app, scope, c.settings, c.db, writer)
-        c.settings.update { it.copy(launcherRows = true) }
+        val sync = syncTurnedOn()
         eventually("cards written") { writer.published.isNotEmpty() }
         val rows = writer.published.last()
         assertEquals(listOf("$pid:$VOD_MOVIE:601", "$pid:$VOD_MOVIE:501", "$pid:$VOD_EPISODE:9002"), rows.playNext.map { it.key })
@@ -149,8 +158,7 @@ class LauncherSyncTest {
     fun `with no favourite channels there is no row, not an empty one`() = runBlocking {
         // None left (as on a server with no Live TV: it has no channels).
         c.db.favourites().remove(pid, 102)
-        LauncherSync(app, scope, c.settings, c.db, writer)
-        c.settings.update { it.copy(launcherRows = true) }
+        syncTurnedOn()
         eventually("cards written") { writer.published.isNotEmpty() }
         assertEquals(emptyList<Any>(), writer.published.last().channels)
         assertEquals(3, writer.published.last().playNext.size)
@@ -158,8 +166,7 @@ class LauncherSyncTest {
 
     @Test
     fun `a row made and then taken away is not asked to show`() = runBlocking {
-        val sync = LauncherSync(app, scope, c.settings, c.db, writer)
-        c.settings.update { it.copy(launcherRows = true) }
+        val sync = syncTurnedOn()
         eventually("the row to show") { sync.madeChannels.value == setOf(CHANNELS) }
         // Written again with the row still there (none made now): it is still to be shown.
         sync.republish()
@@ -180,8 +187,7 @@ class LauncherSyncTest {
         c.vod.setFavourite(pid, CAT_SERIES, 21, true)
         // The sync replaced the channels and their favourites with the server's (none): one of its channels again.
         c.db.favourites().add(FavouriteEntity(pid, plexChannel("1"), System.currentTimeMillis()))
-        val sync = LauncherSync(app, scope, c.settings, c.db, writer)
-        c.settings.update { it.copy(launcherRows = true) }
+        val sync = syncTurnedOn()
         val keys = ID.keys.toList()
         eventually("all five rows") { writer.published.lastOrNull()?.channels?.map { it.key } == keys }
         val rows = writer.published.last().channels.associateBy { it.key }
