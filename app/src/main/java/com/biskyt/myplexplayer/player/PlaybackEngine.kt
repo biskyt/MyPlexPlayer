@@ -15,6 +15,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -24,6 +25,7 @@ import androidx.media3.exoplayer.audio.AudioCapabilities
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.LoadEventInfo
 import androidx.media3.exoplayer.source.MediaLoadData
@@ -55,8 +57,28 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
      */
     private var emptyReply: String? = null
 
-    /** Notes each load from the start of an address that ended with no data, from the player's own load events. */
-    private val replySizes = object : AnalyticsListener {
+    /**
+     * Notes each load from the start of an address that ended with no data, from the player's own load events, and what
+     * goes to the audio output ([output]).
+     */
+    private val events = object : AnalyticsListener {
+        override fun onAudioTrackInitialized(eventTime: AnalyticsListener.EventTime, config: AudioSink.AudioTrackConfig) {
+            output = config
+        }
+
+        override fun onAudioTrackReleased(eventTime: AnalyticsListener.EventTime, config: AudioSink.AudioTrackConfig) {
+            // (Its config is a new object, with no equals: compared by its fields.)
+            if (output?.let {
+                    it.encoding == config.encoding &&
+                        it.channelConfig == config.channelConfig &&
+                        it.bufferSize == config.bufferSize
+                } ==
+                true
+            ) {
+                output = null
+            }
+        }
+
         override fun onLoadCompleted(eventTime: AnalyticsListener.EventTime, info: LoadEventInfo, data: MediaLoadData) =
             note(info, empty = info.bytesLoaded == 0L)
 
@@ -100,9 +122,12 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
                     )
             )
         )
-        .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
+        .setAudioAttributes(MOVIE, true)
         .setHandleAudioBecomingNoisy(true)
         .build()
+
+    /** What goes to the audio output now: the format sent unchanged, or the decoded sound and its channels. Null: nothing yet. */
+    private var output: AudioSink.AudioTrackConfig? = null
 
     /**
      * Called with an address that can't be played at all (a stream type the player has no support for), instead of
@@ -156,7 +181,7 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
     }
 
     init {
-        player.addAnalyticsListener(replySizes)
+        player.addAnalyticsListener(events)
         player.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) = watchForStall()
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) = watchForStall()
@@ -190,6 +215,7 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
             .build()
         current = url
+        output = null
         started = false
         currentInferred = hls == null && url !in hlsUrls
         http.setUserAgent(userAgent ?: USER_AGENT)
@@ -257,18 +283,36 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
     }
 
     /**
-     * How the sound is played, for the options menu, e.g. "Passthrough · Dolby Atmos". Read from the selected audio track in [tracks]: when tracks change,
-     * the player's own audio format isn't known yet (the audio output starts a moment later).
+     * How the sound is played, for the options menu, e.g. "Passthrough · Dolby Atmos" or "AAC decoded · Stereo". Once the
+     * audio output has started ([out]), it says what goes to it: the channels after decoding, which can be fewer than
+     * the track's (a TV's decoder can mix 5.1 down to stereo). Before that, it is read from the selected audio track in
+     * [tracks] (when tracks change, the player's own audio format isn't known yet).
      */
-    fun audioOutputLabel(tracks: Tracks = player.currentTracks, playing: Format? = player.audioFormat): String {
-        // The format being played when known (it has the real channel count); else the chosen track's.
+    fun audioOutputLabel(
+        tracks: Tracks = player.currentTracks,
+        playing: Format? = player.audioFormat,
+        out: AudioSink.AudioTrackConfig? = output
+    ): String {
+        // The format being played when known; else the chosen track's.
         val f = playing ?: selectedFormat(tracks, C.TRACK_TYPE_AUDIO) ?: return appString(R.string.player_audio_none)
-        val name = encodedName(f.sampleMimeType)
-        if (name != null && settings.audioPassthrough) {
-            val caps = AudioCapabilities.getCapabilities(context, AudioAttributes.DEFAULT, null)
-            if (caps.isPassthroughPlaybackSupported(f, AudioAttributes.DEFAULT)) return appString(R.string.player_audio_passthrough, name)
+        val name = encodedName(f.sampleMimeType) ?: decodedName(f.sampleMimeType)
+        // An output started for an earlier format (sent unchanged, but not as this one) says nothing about this one.
+        val now = out?.takeIf {
+            Util.isEncodingLinearPcm(it.encoding) ||
+                it.encoding == MimeTypes.getEncoding(f.sampleMimeType.orEmpty(), f.codecs)
         }
-        val layout = channelLayout(f.channelCount.takeIf { it != Format.NO_VALUE } ?: 2)
+        val sentUnchanged = when {
+            now != null -> !Util.isEncodingLinearPcm(now.encoding)
+            encodedName(f.sampleMimeType) == null || !settings.audioPassthrough -> false
+            else -> AudioCapabilities.getCapabilities(
+                context,
+                AudioAttributes.DEFAULT,
+                null
+            ).isPassthroughPlaybackSupported(f, AudioAttributes.DEFAULT)
+        }
+        if (sentUnchanged && name != null) return appString(R.string.player_audio_passthrough, name)
+        val channels = now?.let { Integer.bitCount(it.channelConfig) } ?: f.channelCount.takeIf { it != Format.NO_VALUE } ?: 2
+        val layout = channelLayout(channels)
         return if (name != null) appString(R.string.player_audio_decoded, name, layout) else appString(R.string.player_audio_layout, layout)
     }
 
@@ -284,9 +328,8 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
     }
 
     private fun renderersFactory() = object : DefaultRenderersFactory(context) {
-        override fun getCodecAdapterFactory(): MediaCodecAdapter.Factory = dolbyVisionWithoutHdr10Plus(super.getCodecAdapterFactory()) {
-            dolbyVisionScreen(context)
-        }
+        override fun getCodecAdapterFactory(): MediaCodecAdapter.Factory =
+            allAudioChannels(dolbyVisionWithoutHdr10Plus(super.getCodecAdapterFactory()) { dolbyVisionScreen(context) })
 
         override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink? =
             if (settings.audioPassthrough) {
@@ -295,7 +338,10 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
                 @Suppress("DEPRECATION")
                 DefaultAudioSink.Builder(context).setAudioCapabilities(AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES).build()
             }
-    }.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON).setEnableDecoderFallback(true)
+    }.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON).setEnableDecoderFallback(true).apply {
+        // The extension decoder (FFmpeg) comes after the TV's own, so it plays AAC when the TV's are left out.
+        if (settings.aacInApp) setMediaCodecSelector(WITHOUT_AAC)
+    }
 
     private fun loadControl(size: BufferSize): DefaultLoadControl {
         // Byte caps matter on low-RAM boxes: high-bitrate streams would otherwise fill memory before the time limit.
@@ -311,13 +357,21 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
             .build()
     }
 
-    private companion object {
-        const val TAG = "PlaybackEngine"
-        const val MB = 1024 * 1024
+    companion object {
+        private const val TAG = "PlaybackEngine"
+        private const val MB = 1024 * 1024
 
         /** Buffering this long without getting any further counts as a failure. */
-        const val STALL_MS = 20_000L
-        const val STALL_CHECK_MS = 5_000L
+        private const val STALL_MS = 20_000L
+        private const val STALL_CHECK_MS = 5_000L
+
+        /** How the player's sound is played (also what [AacPassthrough] checks). */
+        val MOVIE: AudioAttributes = AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build()
+
+        /** The TV's own decoders, except for AAC (see Settings.aacInApp). */
+        internal val WITHOUT_AAC = MediaCodecSelector { mime, secure, tunneling ->
+            if (mime == MimeTypes.AUDIO_AAC) emptyList() else MediaCodecSelector.DEFAULT.getDecoderInfos(mime, secure, tunneling)
+        }
     }
 }
 
@@ -328,6 +382,19 @@ fun selectedFormat(tracks: Tracks, type: Int): Format? = tracks.groups.firstOrNu
 /** "Stereo" for two channels or fewer, else the count ("6ch"). */
 fun channelLayout(channels: Int): String =
     if (channels > 2) appString(R.string.player_track_channels, channels) else appString(R.string.player_audio_stereo)
+
+/** The name of a format that is always decoded before it is played, such as "AAC"; null for others (and PCM). */
+@OptIn(UnstableApi::class)
+fun decodedName(mime: String?): String? = when (mime) {
+    MimeTypes.AUDIO_AAC -> "AAC"
+    MimeTypes.AUDIO_MPEG -> "MP3"
+    MimeTypes.AUDIO_MPEG_L2 -> "MP2"
+    MimeTypes.AUDIO_OPUS -> "Opus"
+    MimeTypes.AUDIO_VORBIS -> "Vorbis"
+    MimeTypes.AUDIO_FLAC -> "FLAC"
+    MimeTypes.AUDIO_ALAC -> "ALAC"
+    else -> null
+}
 
 /** The brand name of a surround sound format (Dolby, DTS), if it is one. */
 @OptIn(UnstableApi::class)

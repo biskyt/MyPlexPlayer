@@ -23,7 +23,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +49,7 @@ import com.biskyt.myplexplayer.data.BufferSize
 import com.biskyt.myplexplayer.data.Settings
 import com.biskyt.myplexplayer.data.accentName
 import com.biskyt.myplexplayer.launcher.TvLauncher
+import com.biskyt.myplexplayer.player.AacPassthrough
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
@@ -59,10 +63,12 @@ import com.biskyt.myplexplayer.ui.common.displayLanguage
 import com.biskyt.myplexplayer.ui.common.nativeLanguageName
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     val settings = c.settings.settings.stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -120,6 +126,25 @@ fun SettingsScreen() {
         }
         item { SupportSection() }
     }
+}
+
+/**
+ * Whether the TV can send AAC unchanged to the amplifier (see AacPassthrough): checked when the row shows, and again on
+ * OK. Off the main thread: the check asks Android's audio service several times.
+ */
+@Composable
+private fun AacPassthroughRow() {
+    val context = LocalContext.current
+    var checks by remember { mutableIntStateOf(0) }
+    val result by produceState<AacPassthrough?>(null, checks) { value = withContext(Dispatchers.Default) { AacPassthrough.check(context) } }
+    val text = when (result) {
+        null -> null
+        AacPassthrough.YES -> R.string.settings_aac_passthrough_yes
+        AacPassthrough.NOT_BY_TV -> R.string.settings_aac_passthrough_not_by_tv
+        AacPassthrough.NO -> R.string.settings_aac_passthrough_no
+        AacPassthrough.UNKNOWN -> R.string.settings_aac_passthrough_unknown
+    }
+    SettingRow(stringResource(R.string.settings_aac_passthrough), text?.let { stringResource(it) }, { checks++ })
 }
 
 /**
@@ -207,6 +232,14 @@ fun PlaybackSettingsScreen() {
                 { vm.update { it.copy(audioPassthrough = !it.audioPassthrough) } }
             ) { Toggle(s.audioPassthrough) }
         }
+        item {
+            SettingRow(
+                stringResource(R.string.settings_aac_in_app),
+                stringResource(R.string.settings_aac_in_app_help),
+                { vm.update { it.copy(aacInApp = !it.aacInApp) } }
+            ) { Toggle(s.aacInApp) }
+        }
+        item { AacPassthroughRow() }
         item {
             val mode = when (s.subtitleMode) {
                 SubtitleMode.OFF -> R.string.common_subtitles_off
