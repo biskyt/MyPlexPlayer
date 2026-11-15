@@ -1,6 +1,7 @@
 package com.biskyt.myplexplayer.ui.settings
 
 import android.content.pm.PackageManager
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -59,8 +60,8 @@ import com.biskyt.myplexplayer.ui.common.nativeLanguageName
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import java.util.Locale
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(private val c: AppContainer) : ViewModel() {
@@ -122,20 +123,22 @@ fun SettingsScreen() {
 }
 
 /**
- * "Show on the TV's home screen" (see LauncherSync), off by default: only on a TV. Turned on, the TV is asked to show the
- * app's channel there, the first time it is made (the TV asks the user).
+ * "Show on the TV's home screen" (see LauncherSync), off by default: only on a TV. Turned on, the TV is asked to show each
+ * of the app's rows there, the first time it is made (the TV can ask the user).
  */
 @Composable
 private fun LauncherRow() {
     val context = LocalContext.current
+    val activity = LocalActivity.current
     if (!remember { context.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) }) return
     val vm = appViewModel { SettingsViewModel(it) }
     val s = vm.settings.collectAsState().value ?: return
     LaunchedEffect(Unit) {
-        val made = context.container.launcherSync.madeChannel
-        made.filterNotNull().collect {
-            made.compareAndSet(it, null) // (not a newer one made meanwhile)
-            TvLauncher.askToShow(context, it)
+        val made = context.container.launcherSync.madeChannels
+        made.collect { ids ->
+            if (ids.isEmpty() || activity == null) return@collect
+            made.update { it - ids } // (not those made meanwhile)
+            TvLauncher.askToShow(activity, ids)
         }
     }
     SettingRow(stringResource(R.string.settings_launcher), stringResource(R.string.settings_launcher_help), {

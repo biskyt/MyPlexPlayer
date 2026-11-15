@@ -4,6 +4,7 @@ import android.os.SystemClock
 import com.biskyt.myplexplayer.MyPlexApp
 import com.biskyt.myplexplayer.launcher.LauncherRows
 import com.biskyt.myplexplayer.launcher.LauncherWriter
+import com.biskyt.myplexplayer.launcher.Published
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.job
@@ -27,7 +28,7 @@ class TestApp : MyPlexApp() {
     override fun launcherWriter(): LauncherWriter = object : LauncherWriter {
         override fun isOn() = false
 
-        override fun publish(rows: LauncherRows): Long? = null
+        override fun publish(rows: LauncherRows) = Published(emptySet(), emptySet())
 
         override fun clear() = Unit
     }

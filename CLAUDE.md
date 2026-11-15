@@ -99,6 +99,12 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
   - In 1.6.1: 1.18.2 (`a1fe060`): Settings clears the channel to show only if no newer one was made
     (`compareAndSet`), and its LauncherSyncTest case. Its `LauncherSync.write` left out: `publish(rows, still)` here
     does the same.
+  - In 1.7.0: 1.19.0 (`d5f09bf`, `ef56c2e`): the launcher's rows are a list (`LauncherChannel` with a `key`, `RowCard`
+    with its kind, `Published`), and Settings asks the TV to show each new row. Here every Home row is a row of its own
+    (the owner, 2026-11-15: "each row should be presented as a channel"), in Home's order: recently added series and
+    films, favourite series and films, then favourite channels (key `favourite-channels`, not 1.6.x's `favourites`, so
+    that row is made again after the others: a launcher lists an app's rows in the order they were made). Its
+    `.TvGuide` entry is MyTVPlayer's only.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

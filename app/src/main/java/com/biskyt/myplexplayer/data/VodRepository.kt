@@ -44,6 +44,9 @@ enum class VodShow { ALL, UNWATCHED, FAVOURITES }
 /** Cards on Continue watching: as many as the server's Continue Watching is asked for. */
 const val CARRY_ON_LIMIT = 20
 
+/** Channels on Home's rows of favourite and recent channels (and the launcher's row of favourite channels). */
+const val CHANNEL_ROW_LIMIT = 12
+
 /** [NEWEST]: films by date added, series by their newest episode. Favourites keep the user's own order. */
 enum class VodSort { NEWEST, TITLE, YEAR }
 
