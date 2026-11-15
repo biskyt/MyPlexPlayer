@@ -5,10 +5,13 @@ import android.content.Context
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.LocaleList
+import android.util.Log
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
@@ -29,6 +32,7 @@ import com.biskyt.myplexplayer.data.CrashLog
 import com.biskyt.myplexplayer.data.EpgRepository
 import com.biskyt.myplexplayer.data.ExternalIp
 import com.biskyt.myplexplayer.data.Favourites
+import com.biskyt.myplexplayer.data.HomeRowsReceiver
 import com.biskyt.myplexplayer.data.LauncherSync
 import com.biskyt.myplexplayer.data.LauncherTarget
 import com.biskyt.myplexplayer.data.Notices
@@ -48,6 +52,7 @@ import com.biskyt.myplexplayer.launcher.LauncherWriter
 import com.biskyt.myplexplayer.launcher.TvLauncher
 import java.io.File
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -56,6 +61,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import okhttp3.ConnectionPool
@@ -132,6 +138,11 @@ class AppContainer(context: Context, launcherWriter: LauncherWriter = TvLauncher
     /** Continue watching and the favourite channels on the TV's home screen: nothing runs while the setting is off. */
     val launcherSync = LauncherSync(context, appScope, settings, db, launcherWriter)
 
+    init {
+        // A launcher's request starts the app only while there is something to refresh: the rows on the TV's home screen.
+        HomeRowsReceiver.follow(context, appScope, settings.settings.map { it.launcherRows })
+    }
+
     /** A card on the TV's home screen opened the app, until it's shown (see AppRoot). */
     val launcherTarget = MutableStateFlow<LauncherTarget?>(null)
 
@@ -169,7 +180,7 @@ open class MyPlexApp : Application(), SingletonImageLoader.Factory, LauncherHost
 
     protected open fun scheduleDailyRefresh() {
         val request = PeriodicWorkRequestBuilder<RefreshWorker>(1, TimeUnit.DAYS)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setConstraints(online)
             .build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork("daily-refresh", ExistingPeriodicWorkPolicy.KEEP, request)
     }
@@ -200,6 +211,56 @@ open class MyPlexApp : Application(), SingletonImageLoader.Factory, LauncherHost
 }
 
 val Context.container: AppContainer get() = (applicationContext as MyPlexApp).container
+
+/**
+ * A launcher's request to refresh the app's rows on the TV's home screen (see HomeRowsReceiver; MyTVLauncher sends it as
+ * the TV wakes and as its Home shows, the owner 2026-11-15): what was played elsewhere and the titles added to the
+ * server come in (the look the app makes while it is open, with the sync it starts for new titles), then Continue watching and
+ * the app's rows are written again. With the rows off, nothing is done. At most once in [MIN_GAP_MS], as any app can ask.
+ */
+class HomeRowsWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    @Suppress("TooGenericExceptionCaught") // as a sync: the rows are written from what is here whatever went wrong
+    override suspend fun doWork(): Result {
+        val prefs = applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (System.currentTimeMillis() - prefs.getLong(LAST, 0) in 0 until MIN_GAP_MS) return Result.success()
+        val c = applicationContext.container
+        val s = c.settings.current()
+        if (!s.launcherRows) return Result.success()
+        try {
+            // The quick look, never the full sync (its 8-day guide is slow on a small server; the daily refresh does
+            // it). The films and series sync it starts for new titles is waited for: the rows then have them.
+            c.sync.refreshPlayState(s.activePlaylistId, syncIfDue = false, whileOpen = true)?.join()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // (Written from what is here: the next request, or opening the app, looks again.)
+            Log.w(TAG, "Could not bring in the server's changes for the home rows", e)
+        }
+        // Not written again if nothing changed since this process last wrote them.
+        c.launcherSync.refresh(again = false)
+        // Only once done: a run that WorkManager stopped (the TV went offline) is done in full when it runs again.
+        prefs.edit().putLong(LAST, System.currentTimeMillis()).apply()
+        return Result.success()
+    }
+
+    companion object {
+        private const val TAG = "HomeRowsWorker"
+        internal const val PREFS = "home-rows"
+        private const val LAST = "last-refresh"
+
+        /** MyTVLauncher asks at most once in 5 minutes: a little less, so that its requests are not skipped. */
+        const val MIN_GAP_MS = 3 * 60_000L
+
+        fun start(context: Context) {
+            val request = OneTimeWorkRequestBuilder<HomeRowsWorker>().setConstraints(online).build()
+            // One at a time: a request while one waits or runs is that one.
+            WorkManager.getInstance(context).enqueueUniqueWork("home-rows", ExistingWorkPolicy.KEEP, request)
+        }
+    }
+}
+
+/** Work that needs the network: it waits until the TV is online. */
+private val online = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
 
 /** Daily refresh of the source in use: its channels, films and series, and its TV guide. */
 class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {

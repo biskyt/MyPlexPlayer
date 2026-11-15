@@ -44,6 +44,9 @@ MyPlexPlayer is an independent app. It is not made or endorsed by Plex, Inc. You
 - **The TV guide for other apps:** a launcher can open the TV guide directly, as the remote's Guide button does on Home.
   It opens the component `com.biskyt.myplexplayer/.TvGuide`, or the action `com.biskyt.myplexplayer.action.TV_GUIDE`.
   If the server has no Live TV, Home opens.
+- **Rows refreshed for a launcher:** while the TV's home screen rows are on, a launcher (such as MyTVLauncher) can
+  send the broadcast `com.biskyt.myplexplayer.action.REFRESH_HOME_ROWS`. The app then brings in what was played and
+  added on the Plex server, and writes the rows again, at most once in 3 minutes. It does nothing on a schedule.
 - **Languages:** English, Spanish, Portuguese (Brazil) and French.
 
 | | |

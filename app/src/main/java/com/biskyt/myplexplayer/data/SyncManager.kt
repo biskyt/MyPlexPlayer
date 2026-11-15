@@ -148,34 +148,42 @@ class SyncManager(
      * nor within seconds of the last; out of reach, it waits for next time. Due a sync, [syncIfDue] starts one (the
      * app opening starts its own). [whileOpen]: a later look while the app stays open, which looks even when a sync is
      * due (a full sync never starts from there, in the middle of a film; only the films and series one for new titles).
+     * Returns the sync it started, if any (see HomeRowsWorker, which waits for it), or the one for new titles that runs.
      */
     @Suppress("TooGenericExceptionCaught") // as a sync: whatever goes wrong (a full disk, say) mustn't end the app
-    suspend fun refreshPlayState(playlistId: Long, syncIfDue: Boolean, whileOpen: Boolean = false) {
+    suspend fun refreshPlayState(playlistId: Long, syncIfDue: Boolean, whileOpen: Boolean = false): Job? {
         // Not while new titles sync (they set the time of this look), nor alongside other work.
-        if (placing?.isActive == true || !mutex.tryLock()) return
-        try {
-            val p = playlists.get(playlistId)?.takeIf { it.lastSyncAt > 0 } ?: return
-            if (p.isStale() && !whileOpen) {
-                if (syncIfDue) refresh(p.id) // once this lets go
-                return
-            }
-            val now = System.currentTimeMillis()
-            val since = playStateAt[p.id] ?: p.lastSyncAt
-            if (now - since < PLAY_STATE_GAP_MS) return
-            if (vod.refreshPlayState(p, since)) {
-                // The new titles go in their places when this lets go. The sync then sets the time of the last look.
-                // A sync that does not run, or fails, leaves that time, so the next look finds the same titles again.
-                // While a player is open, no sync starts (the owner, 2026-11-11). The look when it closes starts it.
-                if (_playersOpen.value <= 0) placing = refreshVod(p.id, markSynced = false)
-            } else {
-                playStateAt[p.id] = now
-            }
+        placing?.takeIf { it.isActive }?.let { return it }
+        if (!mutex.tryLock()) return null
+        return try {
+            look(playlistId, syncIfDue, whileOpen)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "Play state not brought in; next time", e)
+            null
         } finally {
             mutex.unlock()
+        }
+    }
+
+    /** [refreshPlayState]'s look, under [mutex]: the sync it starts, if any. */
+    private suspend fun look(playlistId: Long, syncIfDue: Boolean, whileOpen: Boolean): Job? {
+        val p = playlists.get(playlistId)?.takeIf { it.lastSyncAt > 0 } ?: return null
+        val now = System.currentTimeMillis()
+        val since = playStateAt[p.id] ?: p.lastSyncAt
+        return when {
+            p.isStale() && !whileOpen -> if (syncIfDue) refresh(p.id) else null // (it starts once the look lets go)
+            now - since < PLAY_STATE_GAP_MS -> null
+            !vod.refreshPlayState(p, since) -> {
+                playStateAt[p.id] = now
+                null
+            }
+            // The new titles go in their places when the look lets go. The sync then sets the time of the last look.
+            // A sync that does not run, or fails, leaves that time, so the next look finds the same titles again.
+            // While a player is open, no sync starts (the owner, 2026-11-11). The look when it closes starts it.
+            _playersOpen.value <= 0 -> refreshVod(p.id, markSynced = false).also { placing = it }
+            else -> null
         }
     }
 
@@ -254,10 +262,10 @@ class SyncManager(
     private companion object {
         const val TAG = "SyncManager"
 
-        /** Back in the app sooner than this after the last look (or a sync), play state isn't asked for again. */
-        const val PLAY_STATE_GAP_MS = 5_000L
-
         /** How long no player must be open before the look after playback. */
         const val PLAYER_GAP_MS = 1_000L
     }
 }
+
+/** Back in the app sooner than this after the last look (or a sync), play state isn't asked for again. */
+internal const val PLAY_STATE_GAP_MS = 5_000L
