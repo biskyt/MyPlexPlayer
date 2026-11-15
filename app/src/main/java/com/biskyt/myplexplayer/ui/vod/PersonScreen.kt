@@ -34,6 +34,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -59,9 +60,10 @@ import com.biskyt.myplexplayer.ui.common.BoardPanelText
 import com.biskyt.myplexplayer.ui.common.BoardPanelTitle
 import com.biskyt.myplexplayer.ui.common.ErrorRetry
 import com.biskyt.myplexplayer.ui.common.Muted
+import com.biskyt.myplexplayer.ui.common.OneLine
 import com.biskyt.myplexplayer.ui.common.Poster
+import com.biskyt.myplexplayer.ui.common.PosterTile
 import com.biskyt.myplexplayer.ui.common.Tab
-import com.biskyt.myplexplayer.ui.common.TvCard
 import com.biskyt.myplexplayer.ui.common.formatDate
 import com.biskyt.myplexplayer.ui.common.glowRoom
 import com.biskyt.myplexplayer.ui.common.glowRoomPadding
@@ -217,14 +219,14 @@ private fun PersonPhoto(url: String?, name: String) {
 /** A heading and a row of [items]' cards ([card], 18 apart). The first card has the remote when [focus]. */
 @Composable
 private fun <T> PosterRow(heading: String, items: List<T>, focus: Boolean, top: Dp, card: @Composable (T, Modifier) -> Unit) {
-    Column(Modifier.padding(top = top), verticalArrangement = Arrangement.spacedBy(12.dp - CARD_PAD)) {
+    Column(Modifier.padding(top = top), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Heading(heading, Modifier.padding(start = SIDE))
-        // Each card keeps CARD_PAD round its poster, taken back from the gap and the row's start. As on Home, the card
-        // with the remote grows and glows (see focusGlow), drawn past the row's edges and over the cards beside it.
+        // As on Home, the poster with the remote grows and glows (see focusGlow), drawn past the row's edges and over
+        // the cards beside it.
         LazyRow(
             Modifier.glowRoom(),
-            contentPadding = glowRoomPadding(PaddingValues(horizontal = SIDE - CARD_PAD)),
-            horizontalArrangement = Arrangement.spacedBy(18.dp - CARD_PAD * 2)
+            contentPadding = glowRoomPadding(PaddingValues(horizontal = SIDE)),
+            horizontalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             itemsIndexed(items) { i, item ->
                 Box(Modifier.raiseOnFocus()) { card(item, if (focus && i == 0) rememberFirstFocus() else Modifier) }
@@ -236,14 +238,17 @@ private fun <T> PosterRow(heading: String, items: List<T>, focus: Boolean, top: 
 /** A poster 140 by 210, the title and a dim line under it. */
 @Composable
 private fun TitleCard(title: String, imageUrl: String?, line: String?, modifier: Modifier, onClick: () -> Unit) {
-    TvCard(onClick = onClick, color = Palette.background, modifier = modifier, glow = true) {
-        Column(Modifier.padding(CARD_PAD).width(POSTER), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Poster(imageUrl, title, POSTER, radius = 8.dp)
-            Column {
-                Text(title, style = CardTitle.current, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(line.orEmpty(), style = CardLine.current, color = Palette.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
+    PosterTile(
+        onClick,
+        null,
+        modifier,
+        listOfNotNull(title, line),
+        width = POSTER,
+        // (Its initials, shown until the picture loads, are not read: the card's texts are.)
+        poster = { Poster(imageUrl, title, POSTER, Modifier.clearAndSetSemantics {}) }
+    ) { focused ->
+        OneLine(title, CardTitle.current, focused = focused)
+        OneLine(line.orEmpty(), CardLine.current, color = Palette.textDim, focused = focused)
     }
 }
 
@@ -363,10 +368,9 @@ private val SIDE = 56.dp
 private val FIRST_GAP = 44.dp
 private val PHOTO = 200.dp
 private val POSTER = 140.dp
-private val CARD_PAD = 6.dp
 
-/** Between the parts: the board's 40, less the room a card keeps below it for its focus ring. */
-private val GAP = 40.dp - CARD_PAD
+/** Between the parts: the board's 40. */
+private val GAP = 40.dp
 private const val BIO_LINES = 3
 private const val BIO_PART = 500
 

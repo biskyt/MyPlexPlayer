@@ -41,6 +41,7 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -75,7 +76,6 @@ import com.biskyt.myplexplayer.ui.common.GLOW_ROOM
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.ItemActionsPanel
 import com.biskyt.myplexplayer.ui.common.KeepInView
-import com.biskyt.myplexplayer.ui.common.LocalCardFocused
 import com.biskyt.myplexplayer.ui.common.MovableTile
 import com.biskyt.myplexplayer.ui.common.MoveBackHandler
 import com.biskyt.myplexplayer.ui.common.MoveHint
@@ -85,10 +85,10 @@ import com.biskyt.myplexplayer.ui.common.OneLine
 import com.biskyt.myplexplayer.ui.common.PageFocus
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.Poster
+import com.biskyt.myplexplayer.ui.common.PosterTile
 import com.biskyt.myplexplayer.ui.common.ProgressLine
 import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.TabScaffold
-import com.biskyt.myplexplayer.ui.common.TvCard
 import com.biskyt.myplexplayer.ui.common.collectIds
 import com.biskyt.myplexplayer.ui.common.formatRuntime
 import com.biskyt.myplexplayer.ui.common.glowRoom
@@ -104,7 +104,6 @@ import com.biskyt.myplexplayer.ui.common.rowsInView
 import com.biskyt.myplexplayer.ui.common.vodActions
 import com.biskyt.myplexplayer.ui.common.vodDetails
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
-import com.biskyt.myplexplayer.ui.theme.Palette
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -397,7 +396,7 @@ private fun PosterGrid(vm: VodBrowseViewModel, pid: Long, routes: GridRoutes) {
             page,
             items,
             favourites,
-            (maxWidth - GAP * (COLUMNS - 1)) / COLUMNS - CARD_PADDING * 2
+            (maxWidth - GAP * (COLUMNS - 1)) / COLUMNS
         )
     }
 }
@@ -490,17 +489,19 @@ private fun GridCard(
     onLongClick: () -> Unit,
     onClick: () -> Unit
 ) {
-    TvCard(onClick = onClick, onLongClick = onLongClick, color = Palette.background, modifier = modifier, glow = true) {
-        Column(Modifier.padding(CARD_PADDING), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Box {
-                Poster(card.imageUrl, card.title, width)
-                Marks(card, favourite)
-            }
-            OneLine(card.title, MaterialTheme.typography.labelMedium)
-            // Only the focused card says more, so the grid stays calm; the line is kept so nothing moves.
-            Box(Modifier.height(16.dp)) {
-                if (LocalCardFocused.current) Muted(cardLine(card, movie))
-            }
+    // Only the poster grows and glows, as on Home (see PosterTile). A screen reader reads the title and the line under
+    // it, also while that line is not shown. (The poster's initials are not read.)
+    val line = cardLine(card, movie)
+    PosterTile(onClick, onLongClick, modifier, listOf(card.title, line), width, {
+        Box {
+            Poster(card.imageUrl, card.title, width, Modifier.clearAndSetSemantics {})
+            Marks(card, favourite)
+        }
+    }) { focused ->
+        OneLine(card.title, MaterialTheme.typography.labelMedium, focused = focused)
+        // Only the focused card says more, so the grid stays calm; the line is kept so nothing moves.
+        Box(Modifier.height(16.dp)) {
+            if (focused) Muted(line)
         }
     }
 }
@@ -551,5 +552,5 @@ private fun cardLine(card: VodCard, movie: Boolean): String = listOfNotNull(
 
 private const val COLUMNS = 7
 private val GAP = 14.dp
-private val CARD_PADDING = 5.dp
-private val PLACEHOLDER_HEIGHT = 190.dp
+/** About a card's height in a grid on a TV: the poster, the gap for its glow (GLOW_GAP) and the two lines under it. */
+private val PLACEHOLDER_HEIGHT = 220.dp
