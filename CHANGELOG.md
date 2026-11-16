@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.9.3
+- The test setting Send AAC unchanged is removed, because it froze the picture.
+
 ## 1.9.2
 - A new test setting sends AAC sound unchanged to your amplifier.
 - The test setting Decode AAC in the app is removed.

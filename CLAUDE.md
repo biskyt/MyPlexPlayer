@@ -132,9 +132,12 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     Playback. Here `decodedName` is top-level beside `encodedName`, and Playback info's track line uses it too. Also
     1.22.2 (`5519698`, this app's review): the output follows the current AudioTrack, `encodingName`, and HDMI only.
   - In 1.9.2: 1.22.3 (`b8dea2f`): the "Send AAC unchanged" test setting (`AacUnchanged`, Android 10 and later), in
-    place of "Decode AAC in the app" (its saved value deleted), and the small points of this app's review. Also 1.22.4
+    place of "Decode AAC in the app" (its saved value deleted), and the small points of this app's review. Also the first 1.22.4
     (`5c11642`, this app's review of 1.22.3): the sample rate in the cache key, a refused direct track decoded instead,
     and the row shown only with passthrough on.
+  - In 1.9.3: 1.22.4 (`58b6d65`): "Send AAC unchanged" and the AAC check removed again (the owner's TV played the
+    direct AAC track too slowly, refused IEC 61937 from apps, and the soundbar does not decode AAC over HDMI). Its saved
+    values are deleted at the next save. Its VpnBadgeUiTest fix was here already.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
