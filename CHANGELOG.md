@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.9.4
+- A resumed title moves up Continue watching only after 30 seconds of play.
+
 ## 1.9.3
 - The test setting Send AAC unchanged is removed, because it froze the picture.
 
