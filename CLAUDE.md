@@ -144,6 +144,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     1.23.1's shared library (`b38b3fb`): `native/ac3enc/` and `jniLibs/*/libac3enc.so` are copied as they are. Its
     `JNI_OnLoad` registers the functions for MyTVPlayer's or this app's `Ac3Encoder`, so one build serves both apps:
     a change to `ac3enc.c` is made and rebuilt in MyTVPlayer first. `proguard-rules.pro` keeps this app's class.
+  - In 1.10.1: 1.23.2 (`6ef269f`): the Dolby Digital setting encodes only AAC (`AacSourceRenderer`), the padded
+    block at a stream change, the encoder delay in frame times, and the encoder library loaded off the main thread.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
