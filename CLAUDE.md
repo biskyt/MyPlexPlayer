@@ -139,8 +139,11 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     direct AAC track too slowly, refused IEC 61937 from apps, and the soundbar does not decode AAC over HDMI). Its saved
     values are deleted at the next save. Its VpnBadgeUiTest fix was here already.
   - In 1.9.4, by hand: from 1.23.0 (`0af169e`), a resumed title saved (and reported to Plex) only after 30 s of play
-    (`saving` in VodPlayerViewModel; here it also covers a next episode's card, which counted at once before). Its Dolby
-    Digital encoder waits for one shared `libac3enc.so` (JNI_OnLoad for both apps' packages).
+    (`saving` in VodPlayerViewModel; here it also covers a next episode's card, which counted at once before).
+  - In 1.10.0: 1.23.0's "Send surround sound as Dolby Digital" (`0af169e`: `DolbyDigitalSink`, `Ac3Encoder`) with
+    1.23.1's shared library (`b38b3fb`): `native/ac3enc/` and `jniLibs/*/libac3enc.so` are copied as they are. Its
+    `JNI_OnLoad` registers the functions for MyTVPlayer's or this app's `Ac3Encoder`, so one build serves both apps:
+    a change to `ac3enc.c` is made and rebuilt in MyTVPlayer first. `proguard-rules.pro` keeps this app's class.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.10.0
+- A new setting sends AAC 5.1 to your soundbar as Dolby Digital 5.1.
+- To turn it on, go to Settings › Playback › Send surround sound as Dolby Digital.
+
 ## 1.9.4
 - A resumed title moves up Continue watching only after 30 seconds of play.
 
