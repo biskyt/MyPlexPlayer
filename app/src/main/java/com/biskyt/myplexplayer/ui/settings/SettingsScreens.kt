@@ -46,6 +46,7 @@ import com.biskyt.myplexplayer.data.BufferSize
 import com.biskyt.myplexplayer.data.Settings
 import com.biskyt.myplexplayer.data.accentName
 import com.biskyt.myplexplayer.launcher.TvLauncher
+import com.biskyt.myplexplayer.player.Ac3Encoder
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
@@ -206,6 +207,15 @@ fun PlaybackSettingsScreen() {
                 stringResource(R.string.settings_passthrough_help),
                 { vm.update { it.copy(audioPassthrough = !it.audioPassthrough) } }
             ) { Toggle(s.audioPassthrough) }
+        }
+        if (s.audioPassthrough && Ac3Encoder.available) {
+            item {
+                SettingRow(
+                    stringResource(R.string.settings_surround_dolby),
+                    stringResource(R.string.settings_surround_dolby_help),
+                    { vm.update { it.copy(surroundAsDolby = !it.surroundAsDolby) } }
+                ) { Toggle(s.surroundAsDolby) }
+            }
         }
         item {
             val mode = when (s.subtitleMode) {
