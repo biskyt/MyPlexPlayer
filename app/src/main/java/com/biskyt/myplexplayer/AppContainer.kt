@@ -42,7 +42,9 @@ import com.biskyt.myplexplayer.data.PlexSources
 import com.biskyt.myplexplayer.data.Recordings
 import com.biskyt.myplexplayer.data.SearchRepository
 import com.biskyt.myplexplayer.data.SettingsRepository
+import com.biskyt.myplexplayer.data.SimilarRepository
 import com.biskyt.myplexplayer.data.SyncManager
+import com.biskyt.myplexplayer.data.TmdbRepository
 import com.biskyt.myplexplayer.data.VodRepository
 import com.biskyt.myplexplayer.data.VpnMonitor
 import com.biskyt.myplexplayer.data.db.AppDatabase
@@ -90,6 +92,7 @@ class AppContainer(context: Context, launcherWriter: LauncherWriter = TvLauncher
         }
         .build()
     val settings = SettingsRepository(context)
+    val tmdb = TmdbRepository(context.cacheDir, http, settings)
     val epg = EpgRepository(db)
     private val categoryStore = CategoryStore(db)
     val plex = PlexSources(db, http, settings)
@@ -112,6 +115,7 @@ class AppContainer(context: Context, launcherWriter: LauncherWriter = TvLauncher
     // owner, 2026-11-15), not once changes settle. While that is off, only the setting is read.
     val vod = VodRepository(db, playlists, categoryStore, plex, notices) { launcherSync.playbackStopped() }
     val people = PersonRepository(db, plex)
+    val similar = SimilarRepository(vod, tmdb)
     val favourites = Favourites(appScope, settings, channels, vod)
     val recordings = Recordings(appScope, playlists, plex, notices)
     val search = SearchRepository(db)

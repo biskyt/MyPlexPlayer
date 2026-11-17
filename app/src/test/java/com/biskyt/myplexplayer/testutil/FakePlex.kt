@@ -207,6 +207,12 @@ class FakePlex : AutoCloseable {
     /** The people Discover and the server know (see FakeDiscover.kt). */
     @Volatile var people: List<FakePerson> = emptyList()
 
+    /** Titles' TMDB ids, by their key on the server: sent as a `tmdb://` guid with `includeGuids=1`, as a server sends it. */
+    @Volatile var tmdbIds: Map<String, Int> = emptyMap()
+
+    /** Titles' TMDB ids on Discover, by their id there (a credit's ratingKey): sent as a `tmdb://` guid. */
+    @Volatile var discoverTmdbIds: Map<String, Int> = emptyMap()
+
     /** The Discover requests (a person or their credits, by path), in order. */
     val discovered: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
 
@@ -718,8 +724,16 @@ class FakePlex : AutoCloseable {
         return added != false && played != false
     }
 
-    private fun details(items: List<JsonObject>, request: RecordedRequest) =
-        container { put("Metadata", JsonArray(items.map { withPreferences(withMarkers(withState(it), request), request) })) }
+    private fun details(items: List<JsonObject>, request: RecordedRequest) = container {
+        put("Metadata", JsonArray(items.map { withGuids(withPreferences(withMarkers(withState(it), request), request), request) }))
+    }
+
+    /** A title's ids elsewhere ([tmdbIds]), only when asked for, as from a real server. */
+    private fun withGuids(item: JsonObject, request: RecordedRequest): JsonObject {
+        if (request.requestUrl?.queryParameter("includeGuids") != "1") return item
+        val tmdb = tmdbIds[item.string("ratingKey")] ?: return item
+        return JsonObject(item + ("Guid" to buildJsonArray { add(obj { put("id", "tmdb://$tmdb") }) }))
+    }
 
     /** A show's own settings, only when asked for, as from a real server. */
     private fun withPreferences(item: JsonObject, request: RecordedRequest): JsonObject {
@@ -859,6 +873,13 @@ class FakePlex : AutoCloseable {
 
     /** Discover's answer to [path], with [token]: null for anything not Discover's. */
     private fun discoverAnswer(path: String, token: String?): MockResponse? {
+        if (token == ACCOUNT_TOKEN && path.startsWith("/library/metadata/")) {
+            discovered += path
+            // A title on Discover: its ids elsewhere (an IMDb id only, where it has no TMDB id).
+            val tmdb = discoverTmdbIds[path.substringAfterLast('/')]
+            val guids = buildJsonArray { add(obj { put("id", tmdb?.let { "tmdb://$it" } ?: "imdb://tt0000001") }) }
+            return container { putJsonArray("Metadata") { add(obj { put("Guid", guids) }) } }
+        }
         if (!path.startsWith("/library/people/") || token != ACCOUNT_TOKEN) return null
         discovered += path
         return discover(path, people)?.let { json(it) } ?: MockResponse().setResponseCode(404)

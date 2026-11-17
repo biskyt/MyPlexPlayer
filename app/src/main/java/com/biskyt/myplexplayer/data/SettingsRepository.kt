@@ -31,6 +31,8 @@ data class Settings(
     val audioPassthrough: Boolean = true,
     /** Decoded AAC surround sound is sent as Dolby Digital 5.1 (with passthrough on; see DolbyDigitalSink). */
     val surroundAsDolby: Boolean = false,
+    /** The user's TMDB key (v3 key or v4 token); blank: TMDB is off. In backups. */
+    val tmdbKey: String = "",
     val subtitleMode: SubtitleMode = SubtitleMode.FORCED_ONLY,
     /** Empty means "follow the TV's system language". */
     val subtitleLanguage: String = "",
@@ -72,6 +74,7 @@ class SettingsRepository(private val context: Context) {
         val skipForward = intPreferencesKey("skip_forward")
         val passthrough = booleanPreferencesKey("audio_passthrough")
         val surroundAsDolby = booleanPreferencesKey("surround_as_dolby")
+        val tmdbKey = stringPreferencesKey("tmdb_key")
         val aacUnchanged = booleanPreferencesKey("aac_unchanged")
         val aacInApp = booleanPreferencesKey("aac_in_app")
         val subtitleMode = stringPreferencesKey("subtitle_mode")
@@ -124,6 +127,7 @@ class SettingsRepository(private val context: Context) {
             skipForwardSec = valueOr(K.skipForward, d.skipForwardSec),
             audioPassthrough = valueOr(K.passthrough, d.audioPassthrough),
             surroundAsDolby = valueOr(K.surroundAsDolby, d.surroundAsDolby),
+            tmdbKey = valueOr(K.tmdbKey, d.tmdbKey),
             subtitleMode = enumOr(this[K.subtitleMode], d.subtitleMode),
             subtitleLanguage = valueOr(K.subtitleLang, d.subtitleLanguage),
             bufferSize = enumOr(this[K.buffer], d.bufferSize),
@@ -154,6 +158,7 @@ class SettingsRepository(private val context: Context) {
             prefs[K.skipForward] = s.skipForwardSec
             prefs[K.passthrough] = s.audioPassthrough
             prefs[K.surroundAsDolby] = s.surroundAsDolby
+            prefs[K.tmdbKey] = s.tmdbKey
             // Test settings of 1.9.1 and 1.9.2, since removed: their stored values go at the next save.
             prefs.remove(K.aacInApp)
             prefs.remove(K.aacUnchanged)

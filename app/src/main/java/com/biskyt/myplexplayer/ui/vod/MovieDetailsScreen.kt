@@ -75,6 +75,9 @@ class MovieDetailsViewModel(private val c: AppContainer, private val playlistId:
     val progress = c.vod.observeMovieProgress(playlistId, streamId).stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val favourite = c.vod.observeFavourite(playlistId, CAT_MOVIE, streamId).stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
+    /** Whether the user has a TMDB key: More… offers More like this only then. */
+    val tmdbOn = c.tmdb.on.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     /** Whether the server lets it be deleted (asked once, then known for the source). */
     suspend fun canDelete() = c.vod.canDelete(playlistId)
 
@@ -155,10 +158,18 @@ private fun FilmPanels(
         FilmPanel.MORE -> {
             val favourite by vm.favourite.collectAsState()
             val canDelete by produceState(false) { value = vm.canDelete() }
+            val tmdbOn by vm.tmdbOn.collectAsState()
             val actions = listOf(markWatched(watched) { vm.setWatched(it) }, favouriteAction(favourite) { vm.toggleFavourite() }) +
                 titleActions(
                     d,
                     trailer = { Screen.VodPlayer(movie.playlistId, movie.streamId, trailer = it) },
+                    similar = if (tmdbOn) {
+                        { id ->
+                            Screen.MoreLike(movie.playlistId, id, series = false, movie.title, Tab.MOVIES)
+                        }
+                    } else {
+                        null
+                    },
                     showCast = { show(FilmPanel.CAST) },
                     showAbout = { show(FilmPanel.ABOUT) },
                     showTech = { show(FilmPanel.TECH) }
@@ -209,7 +220,7 @@ fun FilmPage(
                 d?.scores?.let { ScoresRow(it) }
                 d?.plot?.let { PlotWithMore(movie.title, it, FilmPlot.current, maxLines = 3) }
                 d?.let {
-                    people(it)
+                    people(it.directors, it.writers)
                 }?.let { Text(it, style = SmallMuted.current, color = Palette.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 // 12 above the labels (with the column's 8) and 18 below them, as the board has them.
                 d?.media?.badges?.takeIf { it.isNotEmpty() }?.let { LabelRow(it, Modifier.padding(top = 4.bd)) }
@@ -323,10 +334,10 @@ private val CardShape = RoundedCornerShape(12.bd)
 private val PhotoShape = RoundedCornerShape(10.bd)
 private val CARD_PAD = 4.bd
 
-/** "Directed by Ana Ruiz · Written by Ana Ruiz, Paul Okafor", where known. */
-private fun people(d: VodDetails): String? = listOfNotNull(
-    d.directors.takeIf { it.isNotEmpty() }?.let { appString(R.string.vod_directed_by, it.joinToString(", ") { p -> p.name }) },
-    d.writers.takeIf { it.isNotEmpty() }?.let { appString(R.string.vod_written_by, it.joinToString(", ") { p -> p.name }) }
+/** "Directed by Ana Ruiz · Written by Ana Ruiz, Paul Okafor", where known (also on a TMDB title's page). */
+internal fun people(directors: List<CastMember>, writers: List<CastMember>): String? = listOfNotNull(
+    directors.takeIf { it.isNotEmpty() }?.let { appString(R.string.vod_directed_by, it.joinToString(", ") { p -> p.name }) },
+    writers.takeIf { it.isNotEmpty() }?.let { appString(R.string.vod_written_by, it.joinToString(", ") { p -> p.name }) }
 ).joinToString(" · ").ifEmpty { null }
 
 /** Under More…'s title: "2021 · Drama, Mystery". */

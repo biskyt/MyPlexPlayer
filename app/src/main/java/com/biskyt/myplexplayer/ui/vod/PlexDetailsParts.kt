@@ -30,13 +30,16 @@ import java.io.IOException
 // MyPlexPlayer's own parts of the film and series pages (the shared ones are in DetailsParts.kt, as in MyTVPlayer).
 
 /**
- * What a film's or show's More… shares: its trailer ([trailer] plays it, when it has one), its cast and crew
- * ([showCast], where known), About ([showAbout]), a film's Technical info ([showTech]: a film has one, a show not) and
- * its links in one row. A film's items have a help line under them, as its board draws them.
+ * What a film's or show's More… shares: its trailer ([trailer] plays it, when it has one), More like this ([similar]
+ * opens it with the title's TMDB id: given only with a TMDB key, and offered only when the server gives the id), its
+ * cast and crew ([showCast], where known), About ([showAbout]), a film's Technical info ([showTech]: a film has one, a
+ * show not) and its links in one row. A film's items have a help line under them, as its board draws them.
  */
+@Suppress("LongParameterList") // one action for each option
 fun titleActions(
     details: VodDetails?,
     trailer: (Long) -> Screen,
+    similar: ((Int) -> Screen)?,
     showCast: () -> Unit,
     showAbout: () -> Unit,
     showTech: (() -> Unit)? = null
@@ -46,6 +49,9 @@ fun titleActions(
     val crew = details != null && (details.cast.isNotEmpty() || details.directors.isNotEmpty() || details.writers.isNotEmpty())
     return listOfNotNull(
         details?.trailer?.let { ItemAction.Open(appString(R.string.vod_play_trailer), trailer(it), help(R.string.vod_play_trailer_help)) },
+        similar?.let { open ->
+            details?.tmdbId?.let { ItemAction.Open(appString(R.string.vod_similar), open(it), help(R.string.vod_similar_help)) }
+        },
         if (crew) ItemAction.Run(appString(R.string.vod_cast_crew), help(R.string.vod_cast_crew_help), showCast) else null,
         ItemAction.Run(
             appString(if (film) R.string.vod_about_this_film else R.string.vod_about_this_show),

@@ -37,6 +37,8 @@ data class VodDetails(
     val media: PlexMediaInfo? = null,
     /** The id of its trailer on the server, if it has one. */
     val trailer: Long? = null,
+    /** Its id on TMDB, from the server's `tmdb://` guid; null when the server gives none. */
+    val tmdbId: Int? = null,
 )
 
 /**

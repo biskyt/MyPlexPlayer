@@ -99,4 +99,12 @@ class PlexMediaInfoTest {
             titleLinks(PlexItem(ratingKey = "2", type = "show", guids = guids.drop(1))).map { it.name to it.url }
         )
     }
+
+    @Test
+    fun `the TMDB id from plex's tmdb guid`() {
+        assertEquals(637, tmdbIdOf(listOf(PlexGuid("imdb://tt0118799"), PlexGuid("tmdb://637"), PlexGuid("tvdb://1234"))))
+        assertNull(tmdbIdOf(listOf(PlexGuid("imdb://tt0118799"), PlexGuid("tvdb://1234"))))
+        assertNull("not a number", tmdbIdOf(listOf(PlexGuid("tmdb://x"))))
+        assertNull(tmdbIdOf(emptyList()))
+    }
 }

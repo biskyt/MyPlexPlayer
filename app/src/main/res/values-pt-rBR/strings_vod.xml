@@ -127,4 +127,16 @@
     <!-- %1$s: the part the person plays; %2$s: the title of the film or show, e.g. "Mara in The Harbour". -->
     <string name="vod_person_role_in">%1$s em %2$s</string>
     <string name="vod_person_failed">Não foi possível carregar a página desta pessoa</string>
+    <string name="vod_similar">Títulos semelhantes</string>
+    <string name="vod_similar_help">Filmes parecidos, segundo o TMDB</string>
+    <string name="vod_similar_title">Semelhantes a %1$s</string>
+    <string name="vod_similar_in_library">Na sua biblioteca</string>
+    <string name="vod_similar_none">O TMDB não tem sugestões para este título</string>
+    <string name="vod_similar_failed">Não foi possível carregar as sugestões</string>
+    <string name="vod_score_tmdb_value">TMDB %1$s</string>
+    <string name="vod_similar_suggested">Sugestões do TMDB</string>
+    <string name="vod_find_in_library">Procurar na sua biblioteca</string>
+    <string name="vod_tmdb_title_failed">Não foi possível carregar este título do TMDB</string>
+    <string name="vod_tmdb_title_none">Não foi possível encontrar este título no TMDB</string>
+    <string name="vod_discover_unreachable">Não foi possível acessar o Plex. Tente novamente mais tarde.</string>
 </resources>

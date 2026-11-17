@@ -27,6 +27,7 @@ import com.biskyt.myplexplayer.core.plex.Score
 import com.biskyt.myplexplayer.core.plex.ageRating
 import com.biskyt.myplexplayer.core.plex.scores
 import com.biskyt.myplexplayer.core.plex.titleLinks
+import com.biskyt.myplexplayer.core.plex.tmdbIdOf
 import com.biskyt.myplexplayer.core.vod.CastMember
 import com.biskyt.myplexplayer.core.vod.EpisodeInfo
 import com.biskyt.myplexplayer.core.vod.SeasonInfo
@@ -311,6 +312,7 @@ class PlexSources(
         links = titleLinks(item),
         media = PlexMediaInfo.of(item),
         trailer = item.trailer,
+        tmdbId = tmdbIdOf(item.guids),
     )
 
     private fun List<PlexTag>.tags() = map { it.tag }.filter { it.isNotBlank() }
@@ -413,6 +415,13 @@ class PlexSources(
 
     /** A person's credits on Discover, all of them. */
     suspend fun credits(tagKey: String): List<PlexCreditGroup> = account().credits(token(), tagKey)
+
+    /** A title's TMDB id, by its id on Discover ([PersonCredit.ratingKey]); null when Discover gives none. */
+    suspend fun discoverTmdbId(ratingKey: String): Int? =
+        tmdbIds[ratingKey] ?: account().tmdbId(token(), ratingKey)?.also { tmdbIds[ratingKey] = it }
+
+    /** Discover titles' TMDB ids, as found: a title's id does not change. */
+    private val tmdbIds = java.util.concurrent.ConcurrentHashMap<String, Int>()
 
     /** Each server's Live TV, as last found: tuning needs its DVR. */
     private val liveTv = java.util.concurrent.ConcurrentHashMap<Long, PlexLiveTv>()

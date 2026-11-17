@@ -9,4 +9,5 @@
         <item quantity="one">%1$d series</item>
         <item quantity="other">%1$d series</item>
     </plurals>
+    <string name="vod_similar_help">Similar films from TMDB</string>
 </resources>

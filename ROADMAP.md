@@ -82,4 +82,6 @@ Each step is its own pull request.
 
 ## Later
 - Plex Home users (switching between the users of one account).
+- Open a title in MyTVPlayer (the owner, 2026-11-17): from a film or series page, or a "More like this" title that
+  is not on the server, search for it in MyTVPlayer and stream it from there.
 - Plex's newer JWT sign-in.

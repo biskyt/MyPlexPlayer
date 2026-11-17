@@ -207,6 +207,16 @@ class PlexAccount(
         token
     ).container.groups
 
+    /**
+     * The TMDB id of a title on Discover, by its id there ([PersonCredit.ratingKey]), with the account's [token]. Null if
+     * Discover gives it no `tmdb://` guid.
+     */
+    suspend fun tmdbId(token: String, ratingKey: String): Int? = call<PlexGuidsResponse>(
+        "GET",
+        discover.at("library/metadata/$ratingKey") { addQueryParameter("includeGuids", "1") },
+        token
+    ).container.items.firstOrNull()?.let { tmdbIdOf(it.guids) }
+
     private fun rank(connection: PlexConnection): Int = when {
         connection.relay -> 2
         connection.local -> 0

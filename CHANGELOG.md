@@ -2,6 +2,12 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.11.0
+- Film and series pages can now show "More like this", with suggestions from TMDB.
+- A suggestion that you do not have opens a short page about it from TMDB.
+- On a cast member's page, the titles under "Also appears in" now open that page too.
+- To turn it on, add your own free TMDB key in Settings › TMDB.
+
 ## 1.10.1
 - Send surround sound as Dolby Digital now changes only AAC surround sound.
 - With this setting on, the sound and the picture are more exactly in sync.

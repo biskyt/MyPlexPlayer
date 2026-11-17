@@ -106,6 +106,10 @@ class VodRepository(
 
     suspend fun series(playlistId: Long, id: Long) = vod.series(playlistId, id)
 
+    /** Every movie or series ([type]) of the source, as the app has them (no request to the server). */
+    suspend fun cards(playlistId: Long, type: String): List<VodCard> =
+        if (type == CAT_MOVIE) vod.movieCards(playlistId) else vod.seriesCards(playlistId)
+
     // --- favourites and progress ---
 
     fun observeFavourite(playlistId: Long, type: String, id: Long): Flow<Boolean> = vod.observeFavourite(playlistId, type, id)
