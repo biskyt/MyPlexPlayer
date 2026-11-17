@@ -479,10 +479,11 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
     at a time. Back from the new video goes through the pages to the screen under the old player.
   - The board is 1280 wide, so its sizes are dp there, not `.bd`. Nothing is saved to Room: Discover's answers are
     kept in memory (`PersonRepository`).
-- **Extra data comes from Plex Discover first** (the owner, 2026-11-17): MyPlexPlayer uses Plex Discover for data the
-  server does not have. It follows MyTVPlayer's features, which use TMDB, as closely as Discover allows. Where one
-  service has data that the other does not, keep the feature in the app that has the data: do not remove it to make the
-  two apps the same. Where Discover has no equivalent of MyTVPlayer's TMDB data, use TMDB as MyTVPlayer does.
+- **MyTVPlayer's metadata and display, from Plex first** (the owner, 2026-11-17): port every metadata and display
+  improvement MyTVPlayer makes, so that the two apps look almost the same. Take the data from the Plex server first,
+  then Plex Discover, and TMDB (as MyTVPlayer does) only where neither has it. Where one service has data that the
+  other does not, keep the feature in the app that has the data: do not remove it to make the two apps the same.
+  Where a MyTVPlayer display directly conflicts with MyPlexPlayer's own, ask the owner for a ruling first.
   - "More like this" (MyTVPlayer 1.24.0 and 1.25.1) comes from TMDB, with the user's own key (Settings › TMDB, off by
     default). Discover has no equivalent (S15, docs/plex-api.md row 32). The TMDB id comes from the title's Plex
     `Guid[]` (`tmdb://…`), not a search by name.
