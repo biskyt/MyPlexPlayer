@@ -154,6 +154,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     cast, links, scores, episode descriptions and person page (Plex has them), and the 1.25.0 Drive backup. Also
     `PhoneForm` and the key page's counts from 1.26.0 and 1.26.1 (`047e6ef`: 32 connections, kept open); not 1.26.0's
     series status lines.
+  - In 1.11.1: 1.26.2 (`07fb628`): "Find “<original title>”" on the TMDB page, the key panel's last check forgotten when it
+    opens, and the Nearby devices hint on the phone key page.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

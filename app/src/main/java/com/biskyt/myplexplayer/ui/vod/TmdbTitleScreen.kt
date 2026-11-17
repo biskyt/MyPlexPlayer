@@ -24,6 +24,7 @@ import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.tmdb.TmdbTitle
+import com.biskyt.myplexplayer.core.vod.VodTitles
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
@@ -98,6 +99,10 @@ fun TmdbTitleScreen(screen: Screen.TmdbTitle) {
                             rememberFirstFocus(),
                             strong = true,
                         )
+                        // TMDB's title is in the app's language; the server may use the original ("Intouchables").
+                        originalTitle(info, screen.title)?.let { original ->
+                            DetailButton(stringResource(R.string.vod_find_original, original), { nav.push(Screen.Search(original)) })
+                        }
                         info?.trailer?.let { id -> DetailButton(stringResource(R.string.vod_play_trailer), { playTrailer(id) }) }
                         DetailButton(stringResource(R.string.vod_similar), {
                             nav.push(Screen.MoreLike(screen.playlistId, screen.tmdbId, screen.series, screen.title, screen.tab))
@@ -120,6 +125,10 @@ private fun aboutLine(info: TmdbTitle): String? = listOfNotNull(
     genresOf(info.genres),
     info.score?.let { stringResource(R.string.vod_score_tmdb_value, percentOf(it)) },
 ).joinToString(" · ").ifEmpty { null }
+
+/** TMDB's original title, when a search for it can find more than one for [title]; else null. */
+private fun originalTitle(info: TmdbTitle?, title: String): String? =
+    info?.originalTitle?.takeIf { VodTitles.key(it) != VodTitles.key(title) }
 
 private const val PLOT_LINES = 6
 private val POSTER_WIDTH = 200.dp

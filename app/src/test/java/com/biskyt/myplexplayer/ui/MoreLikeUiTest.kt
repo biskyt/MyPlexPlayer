@@ -150,6 +150,12 @@ class MoreLikeUiTest {
         compose.waitForText("2018 · Drama · TMDB 76%", stepMs = 50)
         compose.waitForText("Directed by Ana Ruiz", stepMs = 50)
         compose.waitForText("Play trailer", stepMs = 50)
+        // The original title, which the server may use: searched for with its own button.
+        compose.click("Find “Bateaux de Papier”")
+        compose.waitAdvancingClock(stepMs = 50) { screen is Screen.Search }
+        assertEquals(Screen.Search("Bateaux de Papier"), screen)
+        compose.runOnUiThread { navigator.pop() }
+        compose.waitForText("Find in your library", stepMs = 50)
         compose.click("Find in your library")
         compose.waitAdvancingClock(stepMs = 50) { screen is Screen.Search }
         assertEquals(Screen.Search("Paper Boats"), screen)

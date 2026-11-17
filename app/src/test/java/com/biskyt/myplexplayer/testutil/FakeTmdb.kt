@@ -77,7 +77,7 @@ class FakeTmdb : Dispatcher() {
                 """"vote_average":8.3,"vote_count":500}]}"""
 
         private const val PAPER_BOATS_PAGE =
-            """{"id":$PAPER_BOATS,"title":"Paper Boats","overview":"Two sisters sail home.","release_date":"2018-03-02",""" +
+            """{"id":$PAPER_BOATS,"title":"Paper Boats","original_title":"Bateaux de Papier","overview":"Two sisters sail home.","release_date":"2018-03-02",""" +
                 """"vote_average":7.6,"vote_count":1900,"genres":[{"name":"Drama"}],""" +
                 """"credits":{"crew":[{"name":"Ana Ruiz","job":"Director"}]},""" +
                 """"videos":{"results":[{"key":"$TRAILER","site":"YouTube","type":"Trailer","official":true}]}}"""

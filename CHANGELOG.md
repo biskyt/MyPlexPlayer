@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.11.1
+- A TMDB title's page can now also search your library for its original title.
+- The TMDB key panel no longer shows the result of an earlier key check.
+- The TMDB key panel now says when a phone browser needs Nearby devices.
+
 ## 1.11.0
 - Film and series pages can now show "More like this", with suggestions from TMDB.
 - A suggestion that you do not have opens a short page about it from TMDB.

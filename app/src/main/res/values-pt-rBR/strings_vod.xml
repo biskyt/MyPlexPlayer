@@ -139,4 +139,5 @@
     <string name="vod_tmdb_title_failed">Não foi possível carregar este título do TMDB</string>
     <string name="vod_tmdb_title_none">Não foi possível encontrar este título no TMDB</string>
     <string name="vod_discover_unreachable">Não foi possível acessar o Plex. Tente novamente mais tarde.</string>
+    <string name="vod_find_original">Procurar “%1$s”</string>
 </resources>

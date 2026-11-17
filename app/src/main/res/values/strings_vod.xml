@@ -162,4 +162,6 @@
     <string name="vod_tmdb_title_failed">Couldn\'t load this title from TMDB</string>
     <string name="vod_tmdb_title_none">Couldn\'t find this title on TMDB</string>
     <string name="vod_discover_unreachable">Couldn\'t reach Plex. Try again later.</string>
+    <!-- A TMDB title's page: searches the library for its original title. %1$s: that title, e.g. "Intouchables". -->
+    <string name="vod_find_original">Find “%1$s”</string>
 </resources>
