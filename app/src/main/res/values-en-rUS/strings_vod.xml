@@ -10,4 +10,5 @@
         <item quantity="other">%1$d seasons</item>
     </plurals>
     <string name="vod_similar_help">Similar movies from TMDB</string>
+    <string name="vod_status_cancelled">Canceled</string>
 </resources>

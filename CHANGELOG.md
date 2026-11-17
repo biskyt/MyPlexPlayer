@@ -2,6 +2,17 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.12.0
+- Series pages now show the show's status and next episode.
+- Series pages now count all seasons and yours: "6 series (3 available)".
+- Episodes with no description or picture on your server get them from TMDB.
+- Titles with no trailer on your server can play TMDB's trailer.
+- A TMDB title's page now lists a series' seasons and episodes.
+- A TMDB title's page can also search your library for the original title.
+- The TMDB key panel no longer shows the result of an earlier key check.
+- The TMDB key panel now says when a phone browser needs Nearby devices.
+- To get the TMDB parts, add your own free TMDB key in Settings › TMDB.
+
 ## 1.11.0
 - Film and series pages can now show "More like this", with suggestions from TMDB.
 - A suggestion that you do not have opens a short page about it from TMDB.

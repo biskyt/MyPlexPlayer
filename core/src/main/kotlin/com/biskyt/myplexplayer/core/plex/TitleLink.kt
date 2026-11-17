@@ -1,5 +1,7 @@
 package com.biskyt.myplexplayer.core.plex
 
+import com.biskyt.myplexplayer.core.tmdb.dateOf
+import java.time.LocalDate
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -26,8 +28,21 @@ private fun guidIds(guids: List<PlexGuid>): Map<String, String> =
         .associate { (site, id) -> site to id }
 
 /**
- * A title on Discover, of which only its ids elsewhere are read ([PlexAccount.tmdbId]). Discover's title does not read as
- * a [PlexItem]: some of its fields have other shapes.
+ * What Plex's Discover service knows of a title that the server does not: its TMDB id and, for a show, whether new
+ * episodes are coming, its seasons and episodes so far (specials not counted) and when the next one is first shown.
+ * Null fields are not known.
+ */
+data class DiscoverTitle(
+    val tmdbId: Int?,
+    val continuing: Boolean? = null,
+    val seasonCount: Int? = null,
+    val episodeCount: Int? = null,
+    val nextEpisode: LocalDate? = null,
+)
+
+/**
+ * A title on Discover, of which only its ids elsewhere and a show's facts are read ([PlexAccount.discoverTitle]).
+ * Discover's title does not read as a [PlexItem]: some of its fields have other shapes.
  */
 @Serializable
 internal class PlexGuidsResponse(@SerialName("MediaContainer") val container: PlexGuidsContainer = PlexGuidsContainer())
@@ -38,4 +53,18 @@ internal class PlexGuidsContainer(
 )
 
 @Serializable
-internal class PlexGuids(@SerialName("Guid") @Serializable(with = SkippingList::class) val guids: List<PlexGuid> = emptyList())
+internal class PlexGuids(
+    @SerialName("Guid") @Serializable(with = SkippingList::class) val guids: List<PlexGuid> = emptyList(),
+    val isContinuingSeries: Boolean? = null,
+    val childCount: Int? = null,
+    val leafCount: Int? = null,
+    val nextEpisodeOriginallyAvailableAt: String? = null,
+) {
+    fun toTitle() = DiscoverTitle(
+        tmdbId = tmdbIdOf(guids),
+        continuing = isContinuingSeries,
+        seasonCount = childCount?.takeIf { it > 0 },
+        episodeCount = leafCount?.takeIf { it > 0 },
+        nextEpisode = dateOf(nextEpisodeOriginallyAvailableAt),
+    )
+}

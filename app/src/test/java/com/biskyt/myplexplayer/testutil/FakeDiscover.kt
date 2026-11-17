@@ -1,6 +1,7 @@
 package com.biskyt.myplexplayer.testutil
 
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -28,6 +29,34 @@ data class FakePerson(
  * [FakePlex.guidId]), a show or a film of [year], and the [role] played.
  */
 data class FakeCredit(val ratingKey: String, val title: String, val show: Boolean = false, val year: Int? = null, val role: String? = null)
+
+/**
+ * What Discover knows of a show, in S10's fields (docs/plex-api.md): whether new episodes come ([continuing]), its
+ * [seasons] and [episodes] so far, and when the [next] episode is first shown ("2026-11-22"). Null: not sent.
+ */
+data class FakeShowFacts(val continuing: Boolean, val seasons: Int? = null, val episodes: Int? = null, val next: String? = null)
+
+/** Discover's reply for a title: its TMDB id as a guid ([tmdb], else an IMDb id only), and a [show]'s facts. */
+internal fun discoverTitle(tmdb: Int?, show: FakeShowFacts?): JsonObject = buildJsonObject {
+    putJsonObject("MediaContainer") {
+        putJsonArray("Metadata") {
+            add(
+                buildJsonObject {
+                    putJsonArray("Guid") { add(buildJsonObject { put("id", tmdb?.let { "tmdb://$it" } ?: "imdb://tt0000001") }) }
+                    show?.let { facts(it) }
+                }
+            )
+        }
+    }
+}
+
+private fun JsonObjectBuilder.facts(f: FakeShowFacts) {
+    put("type", "show")
+    put("isContinuingSeries", f.continuing)
+    f.seasons?.let { put("childCount", it) }
+    f.episodes?.let { put("leafCount", it) }
+    f.next?.let { put("nextEpisodeOriginallyAvailableAt", it) }
+}
 
 /**
  * Discover's reply to [path]: a person (`/library/people/{tagKey}`) or their credits (`…/credits`) among [people], in

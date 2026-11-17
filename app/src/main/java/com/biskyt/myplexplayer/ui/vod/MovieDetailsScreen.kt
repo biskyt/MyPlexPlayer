@@ -53,6 +53,7 @@ import com.biskyt.myplexplayer.ui.common.formatDuration
 import com.biskyt.myplexplayer.ui.common.markWatched
 import com.biskyt.myplexplayer.ui.common.onOptionsKey
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
+import com.biskyt.myplexplayer.ui.common.rememberTrailerOpener
 import com.biskyt.myplexplayer.ui.common.timeLeft
 import com.biskyt.myplexplayer.ui.theme.BOLD
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
@@ -86,6 +87,20 @@ class MovieDetailsViewModel(private val c: AppContainer, private val playlistId:
         movie = c.vod.movie(playlistId, streamId)
         // The page works without details (title, poster and play come from the list).
         runCatching { c.vod.movieDetails(c.source(playlistId), streamId) }.getOrNull().also { details = it }
+    }
+
+    /**
+     * TMDB's trailer (a YouTube id), read with a TMDB key only when the server has no trailer of its own but gives the
+     * film's TMDB id; null otherwise, or until it is read.
+     */
+    var tmdbTrailer by mutableStateOf<String?>(null)
+        private set
+
+    init {
+        viewModelScope.launch {
+            val d = firstLoad.await() ?: return@launch
+            if (d.trailer == null) d.tmdbId?.let { tmdbTrailer = c.tmdb.title(series = false, it)?.trailer }
+        }
     }
 
     /**
@@ -153,6 +168,8 @@ private fun FilmPanels(
 ) {
     val d = vm.details
     val close = { show(FilmPanel.NONE) }
+    // Out here, so that the trailer's panel (where nothing can open it) stays while the panels change.
+    val playTrailer = rememberTrailerOpener()
     when (open) {
         FilmPanel.NONE -> Unit
         FilmPanel.MORE -> {
@@ -162,7 +179,13 @@ private fun FilmPanels(
             val actions = listOf(markWatched(watched) { vm.setWatched(it) }, favouriteAction(favourite) { vm.toggleFavourite() }) +
                 titleActions(
                     d,
-                    trailer = { Screen.VodPlayer(movie.playlistId, movie.streamId, trailer = it) },
+                    trailerAction(
+                        d?.trailer,
+                        { Screen.VodPlayer(movie.playlistId, movie.streamId, trailer = it) },
+                        vm.tmdbTrailer,
+                        playTrailer,
+                        film = true
+                    ),
                     similar = if (tmdbOn) {
                         { id ->
                             Screen.MoreLike(movie.playlistId, id, series = false, movie.title, Tab.MOVIES)

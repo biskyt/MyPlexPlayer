@@ -154,6 +154,13 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     cast, links, scores, episode descriptions and person page (Plex has them), and the 1.25.0 Drive backup. Also
     `PhoneForm` and the key page's counts from 1.26.0 and 1.26.1 (`047e6ef`: 32 connections, kept open); not 1.26.0's
     series status lines.
+  - In 1.12.0: 1.26.2 (`07fb628`): "Find “<original title>”" on the TMDB page, the key panel's last check forgotten when it
+    opens, and the Nearby devices hint on the phone key page. Also 1.26.0's (`f350164`) series status lines
+    (`SeriesStatusLines.kt`, from `seriesStatusOf(discover, tmdb)`), the TMDB page's seasons and episodes, 1.24.0's
+    missing episode descriptions and pictures from TMDB (only where the server's are blank), and a TMDB trailer only for a
+    title with no server trailer. The owner's rulings (2026-11-17): the season count is the whole show's, then the
+    server's ("6 series (3 available)"); the next episode's date comes from Discover, with TMDB's code (S2E9) when there
+    is a key, and no spike.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -477,10 +484,11 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
     at a time. Back from the new video goes through the pages to the screen under the old player.
   - The board is 1280 wide, so its sizes are dp there, not `.bd`. Nothing is saved to Room: Discover's answers are
     kept in memory (`PersonRepository`).
-- **Extra data comes from Plex Discover first** (the owner, 2026-11-17): MyPlexPlayer uses Plex Discover for data the
-  server does not have. It follows MyTVPlayer's features, which use TMDB, as closely as Discover allows. Where one
-  service has data that the other does not, keep the feature in the app that has the data: do not remove it to make the
-  two apps the same. Where Discover has no equivalent of MyTVPlayer's TMDB data, use TMDB as MyTVPlayer does.
+- **MyTVPlayer's metadata and display, from Plex first** (the owner, 2026-11-17): port every metadata and display
+  improvement MyTVPlayer makes, so that the two apps look almost the same. Take the data from the Plex server first,
+  then Plex Discover, and TMDB (as MyTVPlayer does) only where neither has it. Where one service has data that the
+  other does not, keep the feature in the app that has the data: do not remove it to make the two apps the same.
+  Where a MyTVPlayer display directly conflicts with MyPlexPlayer's own, ask the owner for a ruling first.
   - "More like this" (MyTVPlayer 1.24.0 and 1.25.1) comes from TMDB, with the user's own key (Settings › TMDB, off by
     default). Discover has no equivalent (S15, docs/plex-api.md row 32). The TMDB id comes from the title's Plex
     `Guid[]` (`tmdb://…`), not a search by name.

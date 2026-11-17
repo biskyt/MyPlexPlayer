@@ -10,4 +10,5 @@
         <item quantity="other">%1$d series</item>
     </plurals>
     <string name="vod_similar_help">Similar films from TMDB</string>
+    <string name="vod_status_cancelled">Cancelled</string>
 </resources>

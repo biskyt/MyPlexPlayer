@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.annotation.VisibleForTesting
 import com.biskyt.myplexplayer.AppText
 import com.biskyt.myplexplayer.core.tmdb.TmdbClient
+import com.biskyt.myplexplayer.core.tmdb.TmdbEpisode
 import com.biskyt.myplexplayer.core.tmdb.TmdbException
 import com.biskyt.myplexplayer.core.tmdb.TmdbSuggestion
 import com.biskyt.myplexplayer.core.tmdb.TmdbTitle
@@ -15,7 +16,9 @@ import okhttp3.Cache
 import okhttp3.OkHttpClient
 
 /**
- * "More like this" from TMDB, with the user's own key (Settings › TMDB). Without a key it does nothing: no requests,
+ * "More like this" from TMDB, with the user's own key (Settings › TMDB), and what the server and Discover do not have (a
+ * series' finer status and next episode code, a trailer, an episode's missing description or picture). Without a key
+ * it does nothing: no requests,
  * and not even its cache is made. Answers are kept for [KEEP_DAYS] days, so a page opened again costs no request. A
  * title is found by its TMDB id, which the server gives (its `tmdb://` guid). A failure gives null. MyTVPlayer's copy
  * also finds a title by its name, for its own film and series pages: MyPlexPlayer does not need that part.
@@ -50,6 +53,9 @@ class TmdbRepository(
 
     /** Film (or, when [series], series) [id]'s page on TMDB; null when TMDB cannot give it (no key, or out of reach). */
     suspend fun title(series: Boolean, id: Int): TmdbTitle? = quietly { if (series) it.series(id) else it.movie(id) }
+
+    /** The episodes of [season] of the TMDB series [seriesId]. */
+    suspend fun season(seriesId: Int, season: Int): List<TmdbEpisode> = quietly { it.season(seriesId, season) }.orEmpty()
 
     /** The films (or, when [series], the series) that TMDB suggests for its title [id]; null when TMDB cannot give them. */
     suspend fun recommendations(series: Boolean, id: Int): List<TmdbSuggestion>? = quietly { it.recommendations(series, id) }

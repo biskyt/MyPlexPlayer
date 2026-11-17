@@ -213,6 +213,9 @@ class FakePlex : AutoCloseable {
     /** Titles' TMDB ids on Discover, by their id there (a credit's ratingKey): sent as a `tmdb://` guid. */
     @Volatile var discoverTmdbIds: Map<String, Int> = emptyMap()
 
+    /** What Discover knows of shows, by their id there (the end of their guid, see [guidId]). */
+    @Volatile var discoverShows: Map<String, FakeShowFacts> = emptyMap()
+
     /** The Discover requests (a person or their credits, by path), in order. */
     val discovered: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
 
@@ -875,10 +878,9 @@ class FakePlex : AutoCloseable {
     private fun discoverAnswer(path: String, token: String?): MockResponse? {
         if (token == ACCOUNT_TOKEN && path.startsWith("/library/metadata/")) {
             discovered += path
-            // A title on Discover: its ids elsewhere (an IMDb id only, where it has no TMDB id).
-            val tmdb = discoverTmdbIds[path.substringAfterLast('/')]
-            val guids = buildJsonArray { add(obj { put("id", tmdb?.let { "tmdb://$it" } ?: "imdb://tt0000001") }) }
-            return container { putJsonArray("Metadata") { add(obj { put("Guid", guids) }) } }
+            // A title on Discover: its ids elsewhere, and what it knows of a show.
+            val id = path.substringAfterLast('/')
+            return json(discoverTitle(discoverTmdbIds[id], discoverShows[id]))
         }
         if (!path.startsWith("/library/people/") || token != ACCOUNT_TOKEN) return null
         discovered += path
