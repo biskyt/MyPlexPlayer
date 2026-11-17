@@ -161,6 +161,11 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     title with no server trailer. The owner's rulings (2026-11-17): the season count is the whole show's, then the
     server's ("6 series (3 available)"); the next episode's date comes from Discover, with TMDB's code (S2E9) when there
     is a key, and no spike.
+  - In 1.13.0: 1.27.0 (`855e8a1`) and 1.27.1 (`d755835`): TMDB trailers for the TV's country (`region`, `TmdbVideo`),
+    "Other trailers" (`TrailersPanel`), `quietFocus()`, the TMDB page's `SeasonPill` and Try again, JSON decoded on IO,
+    and `PhoneForm` without its counts. Here, "Play trailer" and "Other trailers" list the server's own trailers and
+    teasers first (`PlexItem.trailers`, from `includeExtras=1` on the details request; played in the app), then
+    TMDB's with a key.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

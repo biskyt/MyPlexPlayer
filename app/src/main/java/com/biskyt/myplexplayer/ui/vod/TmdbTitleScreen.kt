@@ -1,7 +1,5 @@
 package com.biskyt.myplexplayer.ui.vod
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,11 +16,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -41,9 +37,10 @@ import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
 import com.biskyt.myplexplayer.ui.common.ErrorRetry
 import com.biskyt.myplexplayer.ui.common.Muted
-import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.Poster
+import com.biskyt.myplexplayer.ui.common.TrailersPanel
 import com.biskyt.myplexplayer.ui.common.formatDate
+import com.biskyt.myplexplayer.ui.common.quietFocus
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.rememberTrailerOpener
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
@@ -69,6 +66,10 @@ class TmdbTitleViewModel(private val c: AppContainer, private val screen: Screen
     var episodes by mutableStateOf<List<TmdbEpisode>?>(null)
         private set
 
+    /** TMDB could not give [season]'s episodes: the page offers Try again. */
+    var seasonFailed by mutableStateOf(false)
+        private set
+
     init {
         load()
     }
@@ -88,12 +89,17 @@ class TmdbTitleViewModel(private val c: AppContainer, private val screen: Screen
     /** The request for the episodes of [season]: a season chosen next stops it, so that its episodes cannot show. */
     private var seasonRequest: Job? = null
 
+    /** Shows [number]'s episodes; the season shown is read again only when it failed (Try again). */
     fun showSeason(number: Int) {
-        if (number == season) return
+        if (number == season && !seasonFailed) return
         season = number
         episodes = null
+        seasonFailed = false
         seasonRequest?.cancel()
-        seasonRequest = viewModelScope.launch { episodes = c.tmdb.season(screen.tmdbId, number) }
+        seasonRequest = viewModelScope.launch {
+            val read = c.tmdb.season(screen.tmdbId, number)
+            if (read == null) seasonFailed = true else episodes = read
+        }
     }
 }
 
@@ -101,8 +107,8 @@ class TmdbTitleViewModel(private val c: AppContainer, private val screen: Screen
  * A title from TMDB that the server may not have (from "More like this" or a person's page): the poster, the title,
  * "2023 · Drama, Crime · TMDB 78%", a series' status and next episode, the overview and who made it. A series' seasons
  * and episodes come under it. "Find in your library" (it has the remote) searches the server for the title. Then
- * "Play trailer", where TMDB has one, and "More like this". The buttons work while the page loads, and when TMDB cannot
- * be reached.
+ * "Play trailer", where TMDB has one, "Other trailers", where it has more than one, and "More like this". The buttons
+ * work while the page loads, and when TMDB cannot be reached.
  */
 @Composable
 fun TmdbTitleScreen(screen: Screen.TmdbTitle) {
@@ -110,6 +116,7 @@ fun TmdbTitleScreen(screen: Screen.TmdbTitle) {
     val nav = LocalNavigator.current
     val info = vm.info
     val playTrailer = rememberTrailerOpener()
+    var trailers by rememberSaveable { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
         item {
             Row(Modifier.padding(horizontal = SIDE), horizontalArrangement = Arrangement.spacedBy(40.dp)) {
@@ -145,6 +152,12 @@ fun TmdbTitleScreen(screen: Screen.TmdbTitle) {
                             DetailButton(stringResource(R.string.vod_find_original, original), { nav.push(Screen.Search(original)) })
                         }
                         info?.trailer?.let { id -> DetailButton(stringResource(R.string.vod_play_trailer), { playTrailer(id) }) }
+                        if (TitleTrailers(tmdb = info?.trailers.orEmpty()).more) {
+                            DetailButton(stringResource(R.string.vod_other_trailers), {
+                                trailers =
+                                    true
+                            })
+                        }
                         DetailButton(stringResource(R.string.vod_similar), {
                             nav.push(Screen.MoreLike(screen.playlistId, screen.tmdbId, screen.series, screen.title, screen.tab))
                         })
@@ -158,6 +171,7 @@ fun TmdbTitleScreen(screen: Screen.TmdbTitle) {
             item { Muted(stringResource(R.string.common_loading), Modifier.padding(start = SIDE, top = 32.dp)) }
         }
     }
+    if (trailers) info?.let { TrailersPanel(screen.title, it.trailers) { trailers = false } }
 }
 
 /**
@@ -171,15 +185,22 @@ private fun LazyListScope.seasons(seasons: List<TmdbSeason>, vm: TmdbTitleViewMo
             contentPadding = PaddingValues(horizontal = SIDE),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // As the series page's seasons.
             items(seasons, key = { it.number }) { s ->
-                val name = s.name ?: stringResource(R.string.vod_season, s.number)
-                PillButton(name, { vm.showSeason(s.number) }, selected = s.number == vm.season)
+                SeasonPill(seasonName(s.number, s.name), s.number == vm.season) { vm.showSeason(s.number) }
             }
         }
     }
     val episodes = vm.episodes
-    if (vm.season != null && episodes == null) {
-        item { Muted(stringResource(R.string.common_loading), Modifier.padding(start = SIDE, top = 16.dp)) }
+    val season = vm.season
+    when {
+        season == null || episodes != null -> Unit
+        vm.seasonFailed -> item {
+            Box(Modifier.padding(start = SIDE, top = 16.dp)) {
+                ErrorRetry(stringResource(R.string.vod_tmdb_season_failed)) { vm.showSeason(season) }
+            }
+        }
+        else -> item { Muted(stringResource(R.string.common_loading), Modifier.padding(start = SIDE, top = 16.dp)) }
     }
     items(episodes.orEmpty(), key = { "${it.season}:${it.number}" }) { EpisodeLine(it) }
 }
@@ -187,10 +208,8 @@ private fun LazyListScope.seasons(seasons: List<TmdbSeason>, vm: TmdbTitleViewMo
 /** "4  The Return  ·  4 Dec 2026", shown quietly (a dark fill behind it) while it has the remote. */
 @Composable
 private fun EpisodeLine(e: TmdbEpisode) {
-    var focused by remember { mutableStateOf(false) }
     Row(
-        Modifier.padding(horizontal = SIDE).onFocusChanged { focused = it.isFocused }.focusable()
-            .background(if (focused) Palette.surfaceHigh else Color.Transparent).padding(vertical = 8.dp),
+        Modifier.padding(horizontal = SIDE).quietFocus().padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         Text(e.number.toString(), style = LineText.current, color = Palette.textDim, modifier = Modifier.width(40.dp))

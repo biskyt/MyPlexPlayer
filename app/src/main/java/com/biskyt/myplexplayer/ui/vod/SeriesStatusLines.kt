@@ -6,7 +6,7 @@ import androidx.compose.ui.res.stringResource
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.core.plex.DiscoverTitle
 import com.biskyt.myplexplayer.core.tmdb.SeriesStatus
-import com.biskyt.myplexplayer.core.tmdb.TmdbAiring
+import com.biskyt.myplexplayer.core.tmdb.TmdbEpisode
 import com.biskyt.myplexplayer.core.tmdb.TmdbTitle
 import com.biskyt.myplexplayer.ui.common.formatDate
 import java.time.LocalDate
@@ -23,7 +23,7 @@ data class SeriesStatusInfo(
     val seasonCount: Int? = null,
     val episodeCount: Int? = null,
     val nextDate: LocalDate? = null,
-    val next: TmdbAiring? = null,
+    val next: TmdbEpisode? = null,
 )
 
 /**

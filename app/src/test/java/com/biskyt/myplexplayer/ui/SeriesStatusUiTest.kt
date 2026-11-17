@@ -12,7 +12,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.core.plex.DiscoverTitle
 import com.biskyt.myplexplayer.core.tmdb.SeriesStatus
-import com.biskyt.myplexplayer.core.tmdb.TmdbAiring
+import com.biskyt.myplexplayer.core.tmdb.TmdbEpisode
 import com.biskyt.myplexplayer.core.tmdb.TmdbTitle
 import com.biskyt.myplexplayer.testutil.BoardTitles
 import com.biskyt.myplexplayer.testutil.FakePlex
@@ -131,8 +131,8 @@ class SeriesStatusUiTest {
     @Test
     fun `the next episode has Discover's date, and TMDB's code with a TMDB key`() {
         val discover = DiscoverTitle(tmdbId = null, nextEpisode = LocalDate.parse(NEXT))
-        val tmdb = tmdbTitle().copy(nextEpisode = TmdbAiring(4, 2, null, LocalDate.parse(NEXT)))
-        val otherDay = tmdbTitle().copy(nextEpisode = TmdbAiring(4, 1, null, LocalDate.parse(NEXT).minusDays(7)))
+        val tmdb = tmdbTitle().copy(nextEpisode = TmdbEpisode(4, 2, null, null, null, LocalDate.parse(NEXT)))
+        val otherDay = tmdbTitle().copy(nextEpisode = TmdbEpisode(4, 1, null, null, null, LocalDate.parse(NEXT).minusDays(7)))
         lines(
             { nextEpisodeLine(seriesStatusOf(discover, null)) },
             { nextEpisodeLine(seriesStatusOf(discover, tmdb)) },
@@ -239,7 +239,7 @@ class SeriesStatusUiTest {
     }
 
     private fun tmdbTitle() = TmdbTitle(
-        1, true, null, null, null, emptyList(), emptyList(), emptyList(), null, null, null, emptyList(), null, null,
+        1, true, null, null, null, emptyList(), emptyList(), emptyList(), emptyList(), null, null, emptyList(), null, null,
         emptyList(), emptyList()
     )
 

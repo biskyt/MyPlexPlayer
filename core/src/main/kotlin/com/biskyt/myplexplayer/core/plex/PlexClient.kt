@@ -57,13 +57,15 @@ class PlexClient(private val http: OkHttpClient, private val server: PlexServer,
         page(section, type, 0, count, if (type == PlexType.SHOW) "episode.addedAt:desc" else "addedAt:desc").items
 
     /**
-     * One item; with [markers], its intro and credits too, and with [guids] its ids elsewhere (each comes only when
-     * asked for: playback asks for markers, a details page for ids).
+     * One item; with [markers], its intro and credits too, with [guids] its ids elsewhere, and with [extras] its extras
+     * ([PlexItem.trailers]). Each comes only when asked for: playback asks for markers, a details page for ids and
+     * extras.
      */
-    suspend fun item(ratingKey: String, markers: Boolean = false, guids: Boolean = false): PlexItem = container(
+    suspend fun item(ratingKey: String, markers: Boolean = false, guids: Boolean = false, extras: Boolean = false): PlexItem = container(
         url("library/metadata/$ratingKey") {
             if (markers) addQueryParameter("includeMarkers", "1")
             if (guids) addQueryParameter("includeGuids", "1")
+            if (extras) addQueryParameter("includeExtras", "1")
         }
     ).items.firstOrNull()
         ?: throw PlexException("No item $ratingKey", reason = Reason.UNEXPECTED_RESPONSE)

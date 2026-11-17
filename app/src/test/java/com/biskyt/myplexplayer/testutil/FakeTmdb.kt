@@ -11,7 +11,7 @@ import okhttp3.mockwebserver.RecordedRequest
 /**
  * TMDB as the app reads it for "More like this", for the board's titles ([BoardTitles]): The Long Harbour is film
  * [FILM], Coastline is series [SHOW] (each a TMDB id that [FakePlex.tmdbIds] gives the server's title). Only those two
- * have suggestions. The Long Harbour has a trailer, and Coastline a status, counts, a next episode and words for two
+ * have suggestions. The Long Harbour has a trailer and a teaser, and Coastline a status, counts, a next episode and words for two
  * episodes of series 2. [use] points [AppContainer.tmdb] at it, with a test key (never a real one). As MyTVPlayer's FakeTmdb,
  * with MyPlexPlayer's titles.
  */
@@ -24,6 +24,9 @@ class FakeTmdb : Dispatcher() {
     /** The paths asked for, in order. */
     val requests: MutableList<String> = CopyOnWriteArrayList()
 
+    /** While set, a season's episodes fail (TMDB out of reach for a moment). */
+    @Volatile var seasonsFail = false
+
     /** Points [c]'s TMDB at this server; with [key], TMDB is on, as with a key in Settings. */
     fun use(c: AppContainer, key: String? = TEST_KEY) = runBlocking {
         c.tmdb.base = server.url("/3/").toString()
@@ -35,6 +38,7 @@ class FakeTmdb : Dispatcher() {
     override fun dispatch(request: RecordedRequest): MockResponse {
         val path = request.requestUrl!!.encodedPath.removePrefix("/3/")
         requests += path
+        if (seasonsFail && "/season/" in path) return MockResponse().setResponseCode(503)
         val body = when (path) {
             // Only the test key is accepted.
             "authentication" -> if (request.requestUrl!!.queryParameter("api_key") == TEST_KEY) "{}" else return refused()
@@ -75,6 +79,12 @@ class FakeTmdb : Dispatcher() {
         /** The Long Harbour's trailer on TMDB, for a server that has none of its own. */
         const val FILM_TRAILER = "lhtrailer01"
 
+        /** The Long Harbour's teaser, for the UK: second of TMDB's in Other trailers. */
+        const val TEASER = "lhteaser001"
+
+        /** Paper Boats' teaser, for the UK: second in its TMDB page's Other trailers. */
+        const val PAPER_BOATS_TEASER = "pbteaser001"
+
         /** When Coastline's next episode is shown (series 4, episode 2), as TMDB says. */
         const val NEXT_EPISODE = "2099-11-22"
 
@@ -99,7 +109,8 @@ class FakeTmdb : Dispatcher() {
                 """"overview":"Two sisters sail home.","release_date":"2018-03-02",""" +
                 """"vote_average":7.6,"vote_count":1900,"genres":[{"name":"Drama"}],""" +
                 """"credits":{"crew":[{"name":"Ana Ruiz","job":"Director"}]},""" +
-                """"videos":{"results":[{"key":"$TRAILER","site":"YouTube","type":"Trailer","official":true}]}}"""
+                """"videos":{"results":[{"key":"$TRAILER","site":"YouTube","type":"Trailer","official":true},""" +
+                """{"key":"$PAPER_BOATS_TEASER","site":"YouTube","type":"Teaser","name":"Teaser","iso_3166_1":"GB"}]}}"""
 
         private const val SIGNAL_HILL_PAGE =
             """{"id":$SIGNAL_HILL,"name":"Signal Hill","overview":"A radio station on a hill.","first_air_date":"2020-04-29",""" +
@@ -122,9 +133,10 @@ class FakeTmdb : Dispatcher() {
             """{"episodes":[{"season_number":2,"episode_number":3,"overview":"$LOW_WATER","still_path":"/lowwater.jpg"},""" +
                 """{"season_number":2,"episode_number":4,"overview":"$KEEPER","still_path":"/keeper.jpg"}]}"""
 
-        /** The Long Harbour on TMDB: only its trailer, for a server that has none. */
+        /** The Long Harbour on TMDB: only its trailer and its UK teaser. */
         private const val LONG_HARBOUR_PAGE =
             """{"id":$FILM,"title":"The Long Harbour",""" +
-                """"videos":{"results":[{"key":"$FILM_TRAILER","site":"YouTube","type":"Trailer","official":true}]}}"""
+                """"videos":{"results":[{"key":"$FILM_TRAILER","site":"YouTube","type":"Trailer","official":true},""" +
+                """{"key":"$TEASER","site":"YouTube","type":"Teaser","name":"Teaser","iso_3166_1":"GB"}]}}"""
     }
 }

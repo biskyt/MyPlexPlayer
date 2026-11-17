@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +34,7 @@ import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
+import com.biskyt.myplexplayer.core.tmdb.TmdbTitle
 import com.biskyt.myplexplayer.core.vod.CastMember
 import com.biskyt.myplexplayer.core.vod.VodDetails
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
@@ -89,17 +91,19 @@ class MovieDetailsViewModel(private val c: AppContainer, private val playlistId:
         runCatching { c.vod.movieDetails(c.source(playlistId), streamId) }.getOrNull().also { details = it }
     }
 
+    /** The film on TMDB, read with a TMDB key when the server gives the film's TMDB id; null otherwise, or until read. */
+    private var tmdb by mutableStateOf<TmdbTitle?>(null)
+
     /**
-     * TMDB's trailer (a YouTube id), read with a TMDB key only when the server has no trailer of its own but gives the
-     * film's TMDB id; null otherwise, or until it is read.
+     * The film's trailers for Other trailers: the server's (with its details), then TMDB's (with a key). "Play trailer"
+     * plays TMDB's best ([TitleTrailers.tmdbTrailer]) only when the server has no trailer of its own.
      */
-    var tmdbTrailer by mutableStateOf<String?>(null)
-        private set
+    val trailers by derivedStateOf { TitleTrailers(details?.trailers.orEmpty(), tmdb?.trailers.orEmpty()) }
 
     init {
         viewModelScope.launch {
-            val d = firstLoad.await() ?: return@launch
-            if (d.trailer == null) d.tmdbId?.let { tmdbTrailer = c.tmdb.title(series = false, it)?.trailer }
+            val id = firstLoad.await()?.tmdbId ?: return@launch
+            tmdb = c.tmdb.title(series = false, id)
         }
     }
 
@@ -119,7 +123,7 @@ class MovieDetailsViewModel(private val c: AppContainer, private val playlistId:
 }
 
 /** The panels over the film page. */
-private enum class FilmPanel { NONE, MORE, CAST, ABOUT, TECH }
+private enum class FilmPanel { NONE, MORE, CAST, ABOUT, TECH, TRAILERS }
 
 @Composable
 fun MovieDetailsScreen(screen: Screen.MovieDetails) {
@@ -182,10 +186,11 @@ private fun FilmPanels(
                     trailerAction(
                         d?.trailer,
                         { Screen.VodPlayer(movie.playlistId, movie.streamId, trailer = it) },
-                        vm.tmdbTrailer,
+                        vm.trailers.tmdbTrailer,
                         playTrailer,
                         film = true
                     ),
+                    otherTrailers = { show(FilmPanel.TRAILERS) }.takeIf { vm.trailers.more },
                     similar = if (tmdbOn) {
                         { id ->
                             Screen.MoreLike(movie.playlistId, id, series = false, movie.title, Tab.MOVIES)
@@ -205,6 +210,8 @@ private fun FilmPanels(
         }
         FilmPanel.ABOUT -> AboutPanel(film = true, d, close, vm::loadDetails)
         FilmPanel.TECH -> TechnicalInfoPanel(d, close, vm::loadDetails)
+        FilmPanel.TRAILERS ->
+            OtherTrailersPanel(movie.title, vm.trailers, { Screen.VodPlayer(movie.playlistId, movie.streamId, trailer = it) }, close)
     }
 }
 

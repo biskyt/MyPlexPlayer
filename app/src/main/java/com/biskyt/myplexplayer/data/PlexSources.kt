@@ -235,7 +235,7 @@ class PlexSources(
     /** A film's page, bringing its play state from the server into its progress row. */
     suspend fun movieDetails(p: PlaylistEntity, ratingKey: Long): VodDetails {
         val client = client(p)
-        val item = client.item(ratingKey.toString(), guids = true)
+        val item = client.item(ratingKey.toString(), guids = true, extras = true)
         progress.positions(p.id, VOD_MOVIE, listOf(item), rowFor(client, p.id))
         return details(client, item)
     }
@@ -248,7 +248,7 @@ class PlexSources(
 
     /** A series' page, bringing its episodes' play state and its unwatched count from the server. */
     suspend fun seriesDetails(p: PlaylistEntity, ratingKey: Long): SeriesDetails {
-        val (client, show, leaves) = seriesState(p, ratingKey, guids = true)
+        val (client, show, leaves) = seriesState(p, ratingKey, details = true)
         val episodes = leaves.mapNotNull { e ->
             EpisodeInfo(
                 id = e.ratingKey.toLongOrNull() ?: return@mapNotNull null,
@@ -275,11 +275,12 @@ class PlexSources(
         p: PlaylistEntity,
         ratingKey: Long,
         listed: PlexItem? = null,
-        guids: Boolean = false
+        details: Boolean = false
     ): Triple<PlexClient, PlexItem, List<PlexItem>> {
         val client = client(p)
         val (show, leaves) = coroutineScope {
-            val show = async { listed ?: client.item(ratingKey.toString(), guids = guids) }
+            // A page asks for the show's ids elsewhere and its extras too.
+            val show = async { listed ?: client.item(ratingKey.toString(), guids = details, extras = details) }
             val leaves = async { client.episodes(ratingKey.toString()) }
             show.await() to leaves.await()
         }
@@ -315,6 +316,7 @@ class PlexSources(
         links = titleLinks(item),
         media = PlexMediaInfo.of(item),
         trailer = item.trailer,
+        trailers = item.trailers,
         tmdbId = tmdbIdOf(item.guids),
         discoverId = plexGuidId(item.guid),
     )

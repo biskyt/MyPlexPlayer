@@ -137,6 +137,9 @@ class SeriesDetailsViewModel(
     var tmdb by mutableStateOf<TmdbTitle?>(null)
         private set
 
+    /** The show's trailers for Other trailers: the server's (with its details), then TMDB's (with a key). */
+    val trailers by derivedStateOf { TitleTrailers(details?.info?.trailers.orEmpty(), tmdb?.trailers.orEmpty()) }
+
     /** The show as a whole (its status, counts and next episode), from Discover, then TMDB. */
     val status by derivedStateOf { seriesStatusOf(discover, tmdb) }
 
@@ -208,7 +211,7 @@ class SeriesDetailsViewModel(
         val id = d.info.tmdbId ?: return
         if (d.episodes.none { it.season == season && it.missesWords() } || !tmdbAsked.add(season)) return
         viewModelScope.launch {
-            val episodes = c.tmdb.season(id, season)
+            val episodes = c.tmdb.season(id, season).orEmpty()
             // Nothing (a failure gives nothing too, as does a season that TMDB does not have): not asked again while the
             // page is open, so that each mark as watched does not ask again.
             if (episodes.isEmpty()) return@launch
@@ -279,6 +282,7 @@ sealed interface SeriesPanel {
     data class Options(val e: EpisodeInfo) : SeriesPanel
     data object Cast : SeriesPanel
     data object About : SeriesPanel
+    data object Trailers : SeriesPanel
     data class Describe(val e: EpisodeInfo) : SeriesPanel
 }
 
@@ -390,7 +394,7 @@ private fun SeriesPanels(
     when (val p = vm.open) {
         null -> Unit
         is SeriesPanel.Options -> {
-            val trailer = trailerAction(d?.info?.trailer, vm::trailer, vm.tmdb?.trailer, playTrailer, film = false)
+            val trailer = trailerAction(d?.info?.trailer, vm::trailer, vm.trailers.tmdbTrailer, playTrailer, film = false)
             EpisodeOptions(vm, title, d, p.e, progress[p.e.id], play, trailer)
         }
         SeriesPanel.Cast -> {
@@ -398,6 +402,7 @@ private fun SeriesPanels(
             CastPanel(title, crew, stringResource(R.string.vod_cast_crew), vm.castFocus, { openPerson(it, crew[it]) }, close)
         }
         SeriesPanel.About -> AboutPanel(film = false, d?.info, close)
+        SeriesPanel.Trailers -> OtherTrailersPanel(title, vm.trailers, vm::trailer, close)
         is SeriesPanel.Describe -> EpisodeDescriptionPanel(DescribedEpisode(title, p.e), close)
     }
 }
@@ -470,7 +475,7 @@ private fun SeriesColumn(
 
 /** A season's name: the server's, else the app's ("Series 2"). */
 @Composable
-private fun seasonName(number: Int, name: String?) = name ?: stringResource(R.string.vod_season, number)
+internal fun seasonName(number: Int, name: String?) = name ?: stringResource(R.string.vod_season, number)
 
 /** "Continue S2 E4 · 21 min left", "Continue S2 E5" (the next one), or "Play S1 E1" when nothing is watched yet. */
 @Composable
@@ -608,6 +613,7 @@ private fun EpisodeOptions(
         titleActions(
             d?.info,
             trailer,
+            otherTrailers = { vm.open = SeriesPanel.Trailers }.takeIf { vm.trailers.more },
             similar = if (tmdbOn) { id -> vm.similar(title, id) } else null,
             showCast = vm::showCast,
             showAbout = { vm.open = SeriesPanel.About }

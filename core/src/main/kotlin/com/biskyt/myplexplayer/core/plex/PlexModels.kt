@@ -97,6 +97,10 @@ data class PlexItem(
     /** Plex's own id for the title ("plex://movie/5d776…"), the same on every server. */
     val guid: String? = null,
     val type: String = "",
+    /** An extra's kind ("trailer", "teaser", "behindTheScenes"), where `type` is "clip" (docs/plex-api.md row 30). */
+    val subtype: String? = null,
+    /** An extra's kind as a number: 1 is a trailer. */
+    val extraType: Int? = null,
     val title: String = "",
     val summary: String = "",
     val year: Int? = null,
@@ -155,12 +159,57 @@ data class PlexItem(
      * row 30). With Plex Pass, it is one of Plex's online trailers, which the server sends as an MP4 file.
      */
     val primaryExtraKey: String? = null,
+    /** Its extras (trailers, scenes, interviews), sent only when asked for ([PlexClient.item] with `extras`). */
+    @SerialName("Extras") val extras: PlexExtras? = null,
 ) {
     /** The first file of the first version, the one played. */
     val part: PlexPart? get() = media.firstOrNull()?.parts?.firstOrNull()
 
     /** The id of its trailer ([primaryExtraKey]) on the server, if it has one. */
     val trailer: Long? get() = primaryExtraKey?.substringAfterLast('/')?.toLongOrNull()
+
+    /**
+     * Its trailers and teasers of [extras] (docs/plex-api.md row 30), in the server's order, with its own trailer
+     * ([trailer]) first. Its other extras (scenes, interviews) are left out.
+     */
+    val trailers: List<PlexTrailer>
+        get() = extras?.items.orEmpty().mapNotNull(PlexTrailer::of).sortedBy { it.id != trailer }
+}
+
+/** A title's extras, as `includeExtras=1` sends them: the same list as `/library/metadata/{id}/extras`. */
+@Serializable
+class PlexExtras(@SerialName("Metadata") @Serializable(with = SkippingList::class) val items: List<PlexItem> = emptyList())
+
+/**
+ * One of a title's trailers or teasers on the server (an extra, docs/plex-api.md row 30): its [id], which plays as the
+ * title's own trailer does, its [title] (null: none given), and whether Plex calls it a [teaser].
+ */
+data class PlexTrailer(val id: Long, val title: String?, val teaser: Boolean) {
+    /**
+     * Its name in a list: its title, then its kind ([trailerWord] or [teaserWord], in the app's language) where the
+     * title does not say it ("Official Trailer", "Spot · Teaser"); only its kind when it has no title. A server's titles
+     * are often in English whatever the app's language, so the English word counts too.
+     */
+    fun label(trailerWord: String, teaserWord: String): String {
+        val kind = if (teaser) teaserWord else trailerWord
+        val english = if (teaser) "teaser" else "trailer"
+        val title = title ?: return kind
+        return if (title.contains(kind, ignoreCase = true) || title.contains(english, ignoreCase = true)) title else "$title · $kind"
+    }
+
+    companion object {
+        /** [extra] as a trailer or teaser; null for another kind of extra (a scene, an interview) or one with no id. */
+        fun of(extra: PlexItem): PlexTrailer? {
+            if (extra.type != "clip") return null
+            val teaser = extra.subtype == "teaser"
+            val trailer = extra.subtype == "trailer" || (extra.subtype == null && extra.extraType == TRAILER_TYPE)
+            if (!teaser && !trailer) return null
+            val id = extra.ratingKey.toLongOrNull() ?: return null
+            return PlexTrailer(id, extra.title.ifBlank { null }, teaser)
+        }
+
+        private const val TRAILER_TYPE = 1
+    }
 }
 
 /** An item's own settings (`includePreferences=1`); a show's are what [PlexAutoDelete] is read from. */

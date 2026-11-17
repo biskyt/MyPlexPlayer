@@ -9,6 +9,7 @@ import com.biskyt.myplexplayer.core.tmdb.TmdbException
 import com.biskyt.myplexplayer.core.tmdb.TmdbSuggestion
 import com.biskyt.myplexplayer.core.tmdb.TmdbTitle
 import java.io.File
+import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -48,14 +49,18 @@ class TmdbRepository(
 
     private suspend fun client(): TmdbClient? = settings.current().tmdbKey.trim().ifEmpty { null }?.let { client(it) }
 
-    /** A client for [key] in the app's language. It holds no state: the HTTP client and its cache are shared. */
-    private fun client(key: String) = TmdbClient(cached, key, AppText.locale.toLanguageTag(), base)
+    /**
+     * A client for [key] in the app's language, putting the TV's country's trailers first. It holds no state: the HTTP
+     * client and its cache are shared.
+     */
+    private fun client(key: String) =
+        TmdbClient(cached, key, AppText.locale.toLanguageTag(), base, Locale.getDefault().country.ifEmpty { null })
 
     /** Film (or, when [series], series) [id]'s page on TMDB; null when TMDB cannot give it (no key, or out of reach). */
     suspend fun title(series: Boolean, id: Int): TmdbTitle? = quietly { if (series) it.series(id) else it.movie(id) }
 
-    /** The episodes of [season] of the TMDB series [seriesId]. */
-    suspend fun season(seriesId: Int, season: Int): List<TmdbEpisode> = quietly { it.season(seriesId, season) }.orEmpty()
+    /** The episodes of [season] of the TMDB series [seriesId]; null when TMDB cannot give them (no key, or out of reach). */
+    suspend fun season(seriesId: Int, season: Int): List<TmdbEpisode>? = quietly { it.season(seriesId, season) }
 
     /** The films (or, when [series], the series) that TMDB suggests for its title [id]; null when TMDB cannot give them. */
     suspend fun recommendations(series: Boolean, id: Int): List<TmdbSuggestion>? = quietly { it.recommendations(series, id) }
