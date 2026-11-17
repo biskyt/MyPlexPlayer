@@ -396,7 +396,7 @@ private fun PosterGrid(vm: VodBrowseViewModel, pid: Long, routes: GridRoutes) {
             page,
             items,
             favourites,
-            (maxWidth - GAP * (COLUMNS - 1)) / COLUMNS
+            (maxWidth - GRID_GAP * (COLUMNS - 1)) / COLUMNS
         )
     }
 }
@@ -427,8 +427,8 @@ private fun PosterGridCells(
             rows = { state.rowsInView() }
         ) { state.reveal(it, COLUMNS) },
         state = state,
-        horizontalArrangement = Arrangement.spacedBy(GAP),
-        verticalArrangement = Arrangement.spacedBy(GAP),
+        horizontalArrangement = Arrangement.spacedBy(GRID_GAP),
+        verticalArrangement = Arrangement.spacedBy(GRID_GAP),
         contentPadding = glowRoomPadding(PaddingValues(top = GLOW_ROOM, bottom = 40.dp), vertical = false)
     ) {
         items(count = items.itemCount, key = items.itemKey { it.id }) { index ->
@@ -551,7 +551,7 @@ private fun cardLine(card: VodCard, movie: Boolean): String = listOfNotNull(
 ).joinToString(" · ")
 
 private const val COLUMNS = 7
-private val GAP = 14.dp
+private val GRID_GAP = 14.dp
 
 /** About a card's height in a grid on a TV: the poster, the gap for its glow (GLOW_GAP) and the two lines under it. */
 private val PLACEHOLDER_HEIGHT = 220.dp

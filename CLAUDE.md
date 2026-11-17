@@ -146,6 +146,14 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     a change to `ac3enc.c` is made and rebuilt in MyTVPlayer first. `proguard-rules.pro` keeps this app's class.
   - In 1.10.1: 1.23.2 (`6ef269f`): the Dolby Digital setting encodes only AAC (`AacSourceRenderer`), the padded
     block at a stream change, the encoder delay in frame times, and the encoder library loaded off the main thread.
+  - In 1.11.0: from 1.24.0 (`a0ca525`, `5f32bb8`, `78f2e8a`) and 1.25.1 (`6dd48fe`), only "More like this" (the
+    owner, 2026-11-17): core `tmdb/` and `net/PhoneForm.kt` as they are (`TmdbClient` with this app's imports),
+    `PosterRows.kt`, Settings › TMDB, `SimilarRepository` with `PlaylistMatcher`, `MoreLikeScreen` and
+    `TmdbTitleScreen` ("Find in your library"). The TMDB id comes from the title's `Guid[]` (`VodDetails.tmdbId`); a
+    person page's "Also appears in" card asks Discover for it when pressed (`PlexAccount.tmdbId`). Left out: TMDB's
+    cast, links, scores, episode descriptions and person page (Plex has them), and the 1.25.0 Drive backup. Also
+    `PhoneForm` and the key page's counts from 1.26.0 and 1.26.1 (`047e6ef`: 32 connections, kept open); not 1.26.0's
+    series status lines.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -469,13 +477,18 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
     at a time. Back from the new video goes through the pages to the screen under the old player.
   - The board is 1280 wide, so its sizes are dp there, not `.bd`. Nothing is saved to Room: Discover's answers are
     kept in memory (`PersonRepository`).
-- **Extra data comes only from Plex Discover** (the owner, 2026-11-17): MyPlexPlayer uses Plex Discover, and no other
-  service, for data the server does not have. It follows MyTVPlayer's features, which use TMDB, as closely as Discover
-  allows. Where one service has data that the other does not, keep the feature in the app that has the data: do not
-  remove it to make the two apps the same.
-  - "More like this" (MyTVPlayer 1.24.0) comes from Discover's "Titles You Might Like" hub (S15).
+- **Extra data comes from Plex Discover first** (the owner, 2026-11-17): MyPlexPlayer uses Plex Discover for data the
+  server does not have. It follows MyTVPlayer's features, which use TMDB, as closely as Discover allows. Where one
+  service has data that the other does not, keep the feature in the app that has the data: do not remove it to make the
+  two apps the same. Where Discover has no equivalent of MyTVPlayer's TMDB data, use TMDB as MyTVPlayer does.
+  - "More like this" (MyTVPlayer 1.24.0 and 1.25.1) comes from TMDB, with the user's own key (Settings › TMDB, off by
+    default). Discover has no equivalent (S15, docs/plex-api.md row 32). The TMDB id comes from the title's Plex
+    `Guid[]` (`tmdb://…`), not a search by name.
   - MyTVPlayer's Google Drive backup (1.25.0) is not ported: Plex keeps the important data, and Plex sign-in is
     simple. The benefit is less than the work to register the app for Drive.
+- **Never show Plex's free streaming service** (the owner, 2026-11-17): no title, row or suggestion from Plex's own
+  catalogue of free films and channels (`tv.plex.provider.vod` and similar). Getting away from it is one of the main
+  reasons for this app. Discover's "Titles You Might Like on Plex" hub is that catalogue.
 - **Back stops playback.** There's no picture-in-picture.
 - **Text fields are built for a TV remote:**
   - Server addresses get no autocorrect or capitals.

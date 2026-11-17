@@ -66,9 +66,11 @@ import com.biskyt.myplexplayer.ui.settings.SettingsScreen
 import com.biskyt.myplexplayer.ui.settings.WelcomeScreen
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import com.biskyt.myplexplayer.ui.theme.Palette
+import com.biskyt.myplexplayer.ui.vod.MoreLikeScreen
 import com.biskyt.myplexplayer.ui.vod.MovieDetailsScreen
 import com.biskyt.myplexplayer.ui.vod.PersonScreen
 import com.biskyt.myplexplayer.ui.vod.SeriesDetailsScreen
+import com.biskyt.myplexplayer.ui.vod.TmdbTitleScreen
 import com.biskyt.myplexplayer.ui.vod.VodBrowseScreen
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filter
@@ -286,8 +288,9 @@ private val Screen.drawsOwnTopBar: Boolean
     get() = when (this) {
         Screen.Home, is Screen.Live, is Screen.Movies, is Screen.Series, Screen.Dvr, is Screen.Search -> true
         Screen.Welcome, is Screen.Player, is Screen.VodPlayer, is Screen.MovieDetails,
-        is Screen.SeriesDetails, is Screen.Person, Screen.Settings, Screen.Playlists, is Screen.PlexSignIn, is Screen.Categories,
-        Screen.PlaybackSettings, Screen.Appearance, Screen.Backup, Screen.About, Screen.Licences -> false
+        is Screen.SeriesDetails, is Screen.Person, is Screen.MoreLike, is Screen.TmdbTitle, Screen.Settings, Screen.Playlists,
+        is Screen.PlexSignIn, is Screen.Categories, Screen.PlaybackSettings, Screen.Appearance, Screen.Backup, Screen.About,
+        Screen.Licences -> false
     }
 
 /** The tab a screen comes under in the top bar, if any. */
@@ -296,6 +299,8 @@ private val Screen.tab: Tab?
         is Screen.MovieDetails -> Tab.MOVIES
         is Screen.SeriesDetails -> Tab.SERIES
         is Screen.Person -> tab
+        is Screen.MoreLike -> tab
+        is Screen.TmdbTitle -> tab
         else -> null
     }
 
@@ -311,6 +316,8 @@ private fun ScreenBody(screen: Screen) {
         is Screen.MovieDetails -> MovieDetailsScreen(screen)
         is Screen.SeriesDetails -> SeriesDetailsScreen(screen)
         is Screen.Person -> PersonScreen(screen)
+        is Screen.MoreLike -> MoreLikeScreen(screen)
+        is Screen.TmdbTitle -> TmdbTitleScreen(screen)
         is Screen.VodPlayer -> VodPlayerScreen(screen)
         is Screen.Search -> SearchScreen(screen.query)
         is Screen.Player -> PlayerScreen(screen)

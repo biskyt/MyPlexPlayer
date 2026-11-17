@@ -14,4 +14,8 @@
     <string name="settings_categories_intro">Only the categories you check are downloaded, so lists load faster and use less storage.</string>
     <string name="settings_playlist_updated_detail">Its channels, TV guide, movies and series are up to date.</string>
     <string name="launcher_favourites">Favorite channels</string>
+    <string name="settings_tmdb_help">Off. Add your own free TMDB key to show “More like this” on movie and series pages.</string>
+    <string name="settings_tmdb_on">On. Movie and series pages show “More like this” from TMDB.</string>
+    <string name="settings_tmdb_explain">With your own TMDB key, movie and series pages show “More like this”: similar titles that TMDB suggests. To get a free key, sign in at themoviedb.org, then go to Settings › API. When you use “More like this”, MyPlexPlayer sends the title that you opened to TMDB.</string>
+    <string name="settings_lib_tmdb">“More like this” for movies and series. This product uses the TMDB API but is not endorsed or certified by TMDB.</string>
 </resources>

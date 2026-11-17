@@ -150,4 +150,16 @@
     <!-- %1$s: the part the person plays; %2$s: the title of the film or show, e.g. "Mara in The Harbour". -->
     <string name="vod_person_role_in">%1$s in %2$s</string>
     <string name="vod_person_failed">Couldn\'t load this person\'s page</string>
+    <string name="vod_similar">More like this</string>
+    <string name="vod_similar_help">Similar films from TMDB</string>
+    <string name="vod_similar_title">More like %1$s</string>
+    <string name="vod_similar_in_library">In your library</string>
+    <string name="vod_similar_none">TMDB has no suggestions for this</string>
+    <string name="vod_similar_failed">Couldn\'t load the suggestions</string>
+    <string name="vod_score_tmdb_value">TMDB %1$s</string>
+    <string name="vod_similar_suggested">Suggested by TMDB</string>
+    <string name="vod_find_in_library">Find in your library</string>
+    <string name="vod_tmdb_title_failed">Couldn\'t load this title from TMDB</string>
+    <string name="vod_tmdb_title_none">Couldn\'t find this title on TMDB</string>
+    <string name="vod_discover_unreachable">Couldn\'t reach Plex. Try again later.</string>
 </resources>

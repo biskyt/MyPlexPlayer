@@ -133,10 +133,13 @@ fun SourceLogo(@DrawableRes logo: Int, name: String, modifier: Modifier = Modifi
     )
 }
 
+/** A score out of 10 as a percentage, in the app's language: "76%" (TMDB's on "More like this"). */
+internal fun percentOf(score: Double): String = NumberFormat.getPercentInstance(AppText.locale).format(score * 10 / PERCENT)
+
 /** IMDb's way, one decimal; the others' out of 100. */
 private fun valueOf(score: Score): String = when (score.source) {
     ScoreSource.IMDB -> "%.1f".format(AppText.locale, score.value)
-    else -> NumberFormat.getPercentInstance(AppText.locale).format(score.percent / PERCENT)
+    else -> percentOf(score.percent / 10.0)
 }
 
 @DrawableRes

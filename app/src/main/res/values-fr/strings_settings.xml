@@ -162,4 +162,22 @@
     <string name="settings_launcher">Afficher sur l\'écran d\'accueil de la TV</string>
     <string name="settings_launcher_help">Reprendre la lecture dans la rangée « À suivre » de l\'écran d\'accueil, et les autres rangées de l\'Accueil dans des rangées à part.</string>
     <string name="launcher_favourites">Chaînes favorites</string>
+    <string name="settings_tmdb">TMDB</string>
+    <string name="settings_tmdb_help">Désactivé. Ajoutez votre propre clé TMDB gratuite pour voir « Titres similaires » sur les pages des films et des séries.</string>
+    <string name="settings_tmdb_on">Activé. Les pages des films et des séries affichent « Titres similaires » de TMDB.</string>
+    <string name="settings_tmdb_explain">Avec votre propre clé TMDB, les pages des films et des séries affichent « Titres similaires » : des titres proches que TMDB suggère. Pour obtenir une clé gratuite, connectez-vous sur themoviedb.org, puis allez dans Paramètres › API. Quand vous utilisez « Titres similaires », MyPlexPlayer envoie à TMDB le titre que vous avez ouvert.</string>
+    <string name="settings_tmdb_key_hint">Clé d\'API ou jeton d\'accès en lecture</string>
+    <string name="settings_tmdb_save">Enregistrer</string>
+    <string name="settings_tmdb_remove">Supprimer la clé</string>
+    <string name="settings_tmdb_checking">Vérification de la clé…</string>
+    <string name="settings_tmdb_saved">TMDB a accepté la clé. Elle est enregistrée.</string>
+    <string name="settings_tmdb_refused">TMDB n\'a pas accepté cette clé. Vérifiez-la et réessayez.</string>
+    <string name="settings_tmdb_unreachable">TMDB est injoignable, la clé n\'a donc pas été vérifiée. Elle est enregistrée.</string>
+    <string name="settings_lib_tmdb">« Titres similaires » des films et des séries. Ce produit utilise l\'API de TMDB, mais il n\'est ni approuvé ni certifié par TMDB.</string>
+    <string name="settings_tmdb_phone">Ou scannez ceci avec votre téléphone, puis collez votre clé sur la page qui s\'ouvre. Votre téléphone doit être sur le même réseau que le téléviseur.</string>
+    <string name="settings_tmdb_phone_title">Clé TMDB pour MyPlexPlayer</string>
+    <string name="settings_tmdb_phone_hint">Collez votre clé d\'API ou votre jeton d\'accès en lecture TMDB, puis sélectionnez Envoyer.</string>
+    <string name="settings_tmdb_phone_send">Envoyer</string>
+    <string name="settings_tmdb_phone_done">Envoyée. Le téléviseur vérifie la clé. Vous pouvez fermer cette page.</string>
+    <string name="settings_tmdb_phone_seen">Vu depuis votre réseau : %1$d connexions, %2$d pages, %3$d essais HTTPS, %4$d sans réponse</string>
 </resources>

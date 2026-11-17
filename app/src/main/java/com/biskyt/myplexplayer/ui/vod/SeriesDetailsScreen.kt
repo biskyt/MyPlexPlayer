@@ -208,6 +208,12 @@ class SeriesDetailsViewModel(
     /** The player for the show's trailer [id]. */
     fun trailer(id: Long) = Screen.VodPlayer(playlistId, seriesId, seriesId, trailer = id)
 
+    /** Whether the user has a TMDB key: the show's options offer More like this only then. */
+    val tmdbOn = c.tmdb.on.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /** More like this for the show called [title], by its TMDB id. */
+    fun similar(title: String, tmdbId: Int) = Screen.MoreLike(playlistId, tmdbId, series = true, title, Tab.SERIES)
+
     /** Deletes the series on the server, every episode with it; the page closes (refused or out of reach, a notice says so). */
     fun deleteSeries() = viewModelScope.launch { if (c.vod.deleteSeries(playlistId, seriesId)) gone = true }
 }
@@ -488,6 +494,7 @@ private fun EpisodeOptions(
     play: (EpisodeInfo, Boolean) -> Unit
 ) {
     val favourite by vm.favourite.collectAsState()
+    val tmdbOn by vm.tmdbOn.collectAsState()
     val canDelete by produceState(false) { value = vm.canDelete() }
     val close = { vm.open = null }
     val set = { watched: Boolean ->
@@ -510,7 +517,13 @@ private fun EpisodeOptions(
         if (canDelete) deleteAction(episodeName(e)) { vm.delete(e) } else null,
     )
     val showActions = listOf(ItemAction.Heading(appString(R.string.vod_the_show))) +
-        titleActions(d?.info, trailer = vm::trailer, showCast = vm::showCast, showAbout = { vm.open = SeriesPanel.About }) +
+        titleActions(
+            d?.info,
+            vm::trailer,
+            similar = if (tmdbOn) { id -> vm.similar(title, id) } else null,
+            showCast = vm::showCast,
+            showAbout = { vm.open = SeriesPanel.About }
+        ) +
         listOfNotNull(
             favouriteAction(favourite) { vm.toggleFavourite() },
             vm.autoDelete?.action(),

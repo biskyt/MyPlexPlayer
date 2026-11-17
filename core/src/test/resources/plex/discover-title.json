@@ -1,0 +1,154 @@
+{
+  "MediaContainer": {
+    "librarySectionID": "home",
+    "librarySectionTitle": "Discover",
+    "offset": 0,
+    "totalSize": 1,
+    "identifier": "tv.plex.provider.discover",
+    "size": 1,
+    "Metadata": [
+      {
+        "art": "https://image.tmdb.org/t/p/original/yGJGwt7DdIWTUXuahLfhcH1gi7G.jpg",
+        "banner": "https://artworks.thetvdb.com/banners/v4/series/463433/banners/6a20ac292eaaa.jpg",
+        "guid": "plex://show/681bfb361a7ad6c1b6da9873",
+        "key": "/library/metadata/681bfb361a7ad6c1b6da9873/children",
+        "primaryExtraKey": "/library/metadata/681bfb361a7ad6c1b6da9873/extras/6926b2bf153302fddb134c1f",
+        "rating": 4.8,
+        "ratingKey": "681bfb361a7ad6c1b6da9873",
+        "studio": "101 Studios",
+        "summary": "With the Yellowstone Ranch behind him, Kayce Dutton joins an elite unit of U.S. Marshals, combining his skills as a cowboy and Navy SEAL to bring range justice to Montana, where he and his teammates must balance family, duty and the high psychological cost that comes with serving as the last line of defense in the region's war on violence.",
+        "tagline": "A New Era of Yellowstone",
+        "type": "show",
+        "addedAt": 1772323200,
+        "audienceRating": 2.8,
+        "audienceRatingImage": "rottentomatoes://image.rating.spilled",
+        "childCount": 2,
+        "contentRating": "TV-14",
+        "duration": 2580000,
+        "imdbRatingCount": 20892,
+        "isContinuingSeries": true,
+        "lastEpisodeOriginallyAvailableAt": "2026-11-15",
+        "lastSeasonOriginallyAvailableAt": "2026-10-04",
+        "leafCount": 22,
+        "nextEpisodeOriginallyAvailableAt": "2026-11-22",
+        "originallyAvailableAt": "2026-03-01",
+        "publicPagesURL": "https://watch.plex.tv/show/marshals",
+        "ratingImage": "rottentomatoes://image.rating.rotten",
+        "slug": "marshals",
+        "thumb": "https://image.tmdb.org/t/p/original/zV1MRb6eqx6Uj3NSXquZFfz75pa.jpg",
+        "title": "Marshals",
+        "userState": false,
+        "year": 2026,
+        "Image": [
+          {
+            "alt": "Marshals",
+            "type": "background",
+            "url": "https://image.tmdb.org/t/p/original/yGJGwt7DdIWTUXuahLfhcH1gi7G.jpg"
+          },
+          {
+            "alt": "Marshals",
+            "type": "backgroundSquare",
+            "url": "https://metadata-static.plex.tv/8/gracenote/SERVERID.jpg"
+          },
+          {
+            "alt": "Marshals",
+            "type": "banner",
+            "url": "https://artworks.thetvdb.com/banners/v4/series/463433/banners/6a20ac292eaaa.jpg"
+          }
+        ],
+        "Genre": [
+          {
+            "filter": "genre=5d9c046c705e7a001e6c8d9a",
+            "id": "5d9c046c705e7a001e6c8d9a",
+            "key": "/library/categories/drama",
+            "ratingKey": "genre_5d9c046c705e7a001e6c8d9a",
+            "slug": "drama",
+            "tag": "Drama",
+            "type": "hub",
+            "context": "tag.genre"
+          },
+          {
+            "filter": "genre=5d9c046c08fddd001f28ab90",
+            "id": "5d9c046c08fddd001f28ab90",
+            "key": "/library/categories/crime",
+            "ratingKey": "genre_5d9c046c08fddd001f28ab90",
+            "slug": "crime",
+            "tag": "Crime",
+            "type": "hub",
+            "context": "tag.genre"
+          },
+          {
+            "filter": "genre=5d9c046c2192ba001f2ff6c2",
+            "id": "5d9c046c2192ba001f2ff6c2",
+            "key": "/library/categories/action",
+            "ratingKey": "genre_5d9c046c2192ba001f2ff6c2",
+            "slug": "action",
+            "tag": "Action",
+            "type": "hub",
+            "context": "tag.genre"
+          }
+        ],
+        "Guid": [
+          {
+            "id": "imdb://tt36849871"
+          },
+          {
+            "id": "tmdb://290856"
+          },
+          {
+            "id": "tvdb://463433"
+          }
+        ],
+        "Rating": [
+          {
+            "image": "imdb://image.rating",
+            "type": "audience",
+            "value": 6.2
+          },
+          {
+            "image": "rottentomatoes://image.rating.rotten",
+            "type": "critic",
+            "value": 4.8
+          },
+          {
+            "image": "rottentomatoes://image.rating.spilled",
+            "type": "audience",
+            "value": 2.8
+          }
+        ],
+        "Role": [
+          {
+            "id": "5d776833eb5d26001f1e02aa",
+            "order": 1,
+            "slug": "luke-grimes",
+            "tag": "Luke Grimes",
+            "thumb": "https://metadata-static.plex.tv/4/people/SERVERID.jpg",
+            "role": "Kayce Dutton",
+            "key": "/library/people/5d776833eb5d26001f1e02aa",
+            "type": "person"
+          },
+          {
+            "id": "5d77682e999c64001ec2df80",
+            "order": 2,
+            "slug": "logan-marshall-green",
+            "tag": "Logan Marshall-Green",
+            "thumb": "https://metadata-static.plex.tv/2/people/SERVERID.jpg",
+            "role": "Pete Calvin",
+            "key": "/library/people/5d77682e999c64001ec2df80",
+            "type": "person"
+          },
+          {
+            "id": "5d77682a4de0ee001fcc955c",
+            "order": 3,
+            "slug": "arielle-kebbel",
+            "tag": "Arielle Kebbel",
+            "thumb": "https://metadata-static.plex.tv/e/people/SERVERID.jpg",
+            "role": "Belle Skinner",
+            "key": "/library/people/5d77682a4de0ee001fcc955c",
+            "type": "person"
+          }
+        ]
+      }
+    ]
+  }
+}

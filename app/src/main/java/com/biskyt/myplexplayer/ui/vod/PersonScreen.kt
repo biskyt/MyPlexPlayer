@@ -1,5 +1,6 @@
 package com.biskyt.myplexplayer.ui.vod
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,13 +17,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -34,9 +36,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -51,6 +51,7 @@ import com.biskyt.myplexplayer.core.plex.PersonCredit
 import com.biskyt.myplexplayer.core.plex.PlexCreditGroup
 import com.biskyt.myplexplayer.core.vod.CastMember
 import com.biskyt.myplexplayer.data.LibraryTitle
+import com.biskyt.myplexplayer.data.Notice
 import com.biskyt.myplexplayer.data.PersonPage
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
@@ -60,15 +61,9 @@ import com.biskyt.myplexplayer.ui.common.BoardPanelText
 import com.biskyt.myplexplayer.ui.common.BoardPanelTitle
 import com.biskyt.myplexplayer.ui.common.ErrorRetry
 import com.biskyt.myplexplayer.ui.common.Muted
-import com.biskyt.myplexplayer.ui.common.OneLine
-import com.biskyt.myplexplayer.ui.common.Poster
-import com.biskyt.myplexplayer.ui.common.PosterTile
 import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.formatDate
-import com.biskyt.myplexplayer.ui.common.glowRoom
-import com.biskyt.myplexplayer.ui.common.glowRoomPadding
 import com.biskyt.myplexplayer.ui.common.initials
-import com.biskyt.myplexplayer.ui.common.raiseOnFocus
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
 import com.biskyt.myplexplayer.ui.theme.MEDIUM
@@ -77,6 +72,9 @@ import com.biskyt.myplexplayer.ui.theme.SEMI_BOLD
 import com.biskyt.myplexplayer.ui.theme.bd
 import com.biskyt.myplexplayer.ui.theme.boardLineBox
 import java.io.IOException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 // A cast or crew member's page (board "Cast member's page", 2026-11-06). The board is 1280 wide, as the app's own
@@ -107,6 +105,29 @@ class PersonViewModel(private val c: AppContainer, private val screen: Screen.Pe
             error = e.message ?: appString(R.string.vod_person_failed)
         }
     }
+
+    /** Whether the user has a TMDB key: only then do "Also appears in"'s cards open a page. */
+    val tmdbOn = c.tmdb.on.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /**
+     * Credit [credit]'s page on TMDB. Discover gives its TMDB id, read only now (a wait of a few seconds at most). Null,
+     * with a notice, when Discover gives none or cannot be reached.
+     */
+    suspend fun tmdbScreen(credit: PersonCredit): Screen.TmdbTitle? {
+        val id = try {
+            c.plex.discoverTmdbId(credit.ratingKey)
+        } catch (e: IOException) {
+            Log.w(TAG, "No TMDB id from Discover: ${e.message}")
+            c.notices.post(Notice(appString(R.string.vod_discover_unreachable), null))
+            return null
+        }
+        if (id == null) c.notices.post(Notice(appString(R.string.vod_tmdb_title_none), null))
+        return id?.let { Screen.TmdbTitle(screen.playlistId, it, credit.show, credit.title, credit.thumb, screen.tab) }
+    }
+
+    private companion object {
+        const val TAG = "Person"
+    }
 }
 
 /**
@@ -119,6 +140,10 @@ fun PersonScreen(screen: Screen.Person) {
     val vm = appViewModel { PersonViewModel(it, screen) }
     val nav = LocalNavigator.current
     val page = vm.page
+    val tmdbOn by vm.tmdbOn.collectAsState()
+    // Leaving the page while a TMDB id is read stops the read: the page it was for does not open over another.
+    val scope = rememberCoroutineScope()
+    var reading by remember { mutableStateOf<Job?>(null) }
     var biography by rememberSaveable { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
         item { Header(screen, page) { biography = true } }
@@ -126,16 +151,30 @@ fun PersonScreen(screen: Screen.Person) {
         when {
             error != null -> item { Box(Modifier.padding(start = SIDE, top = 40.dp)) { ErrorRetry(error) { vm.load() } } }
             page == null -> item { Muted(stringResource(R.string.common_loading), Modifier.padding(start = SIDE, top = 40.dp)) }
-            else -> sections(page, first = page.biography == null) { t ->
-                nav.push(if (t.show) Screen.SeriesDetails(screen.playlistId, t.id) else Screen.MovieDetails(screen.playlistId, t.id))
-            }
+            else -> sections(
+                page,
+                first = page.biography == null,
+                open = { t ->
+                    nav.push(if (t.show) Screen.SeriesDetails(screen.playlistId, t.id) else Screen.MovieDetails(screen.playlistId, t.id))
+                },
+                openTmdb = if (tmdbOn) {
+                    // One read at a time: a second OK while it runs does not open a second page.
+                    { c -> if (reading?.isActive != true) reading = scope.launch { vm.tmdbScreen(c)?.let(nav::push) } }
+                } else {
+                    null
+                },
+            )
         }
     }
     if (biography) page?.let { p -> p.biography?.let { BiographyPanel(p.name, it) { biography = false } } }
 }
 
-/** The page's parts under the header. The first card or row has the remote when [first] (no biography button). */
-private fun LazyListScope.sections(page: PersonPage, first: Boolean, open: (LibraryTitle) -> Unit) {
+/**
+ * The page's parts under the header. The first card or row has the remote when [first] (no biography button). [open]
+ * opens a title on the server. [openTmdb], with a TMDB key, opens one that is not on its TMDB page (as MyTVPlayer's
+ * person page does).
+ */
+private fun LazyListScope.sections(page: PersonPage, first: Boolean, open: (LibraryTitle) -> Unit, openTmdb: ((PersonCredit) -> Unit)?) {
     var focus = first
     fun takesFocus(): Boolean = focus.also { focus = false }
     if (page.library.isNotEmpty()) {
@@ -151,8 +190,9 @@ private fun LazyListScope.sections(page: PersonPage, first: Boolean, open: (Libr
         item {
             val top = if (page.library.isEmpty()) FIRST_GAP else GAP
             PosterRow(stringResource(R.string.vod_person_elsewhere), page.elsewhere, f, top) { c, modifier ->
-                // Not on the server: nothing to open. It takes the remote all the same, so that the row scrolls.
-                TitleCard(c.title, c.thumb, cardLine(c.show, c.year, c.role, c.kind), modifier) {}
+                // Not on the server: without a TMDB key, nothing to open. It takes the remote all the same, so that the
+                // row scrolls.
+                TitleCard(c.title, c.thumb, cardLine(c.show, c.year, c.role, c.kind), modifier) { openTmdb?.invoke(c) }
             }
         }
     }
@@ -216,42 +256,6 @@ private fun PersonPhoto(url: String?, name: String) {
     }
 }
 
-/** A heading and a row of [items]' cards ([card], 18 apart). The first card has the remote when [focus]. */
-@Composable
-private fun <T> PosterRow(heading: String, items: List<T>, focus: Boolean, top: Dp, card: @Composable (T, Modifier) -> Unit) {
-    Column(Modifier.padding(top = top), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Heading(heading, Modifier.padding(start = SIDE))
-        // As on Home, the poster with the remote grows and glows (see focusGlow), drawn past the row's edges and over
-        // the cards beside it.
-        LazyRow(
-            Modifier.glowRoom(),
-            contentPadding = glowRoomPadding(PaddingValues(horizontal = SIDE)),
-            horizontalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            itemsIndexed(items) { i, item ->
-                Box(Modifier.raiseOnFocus()) { card(item, if (focus && i == 0) rememberFirstFocus() else Modifier) }
-            }
-        }
-    }
-}
-
-/** A poster 140 by 210, the title and a dim line under it. */
-@Composable
-private fun TitleCard(title: String, imageUrl: String?, line: String?, modifier: Modifier, onClick: () -> Unit) {
-    PosterTile(
-        onClick,
-        null,
-        modifier,
-        listOfNotNull(title, line),
-        width = POSTER,
-        // (Its initials, shown until the picture loads, are not read: the card's texts are.)
-        poster = { Poster(imageUrl, title, POSTER, Modifier.clearAndSetSemantics {}) }
-    ) { focused ->
-        OneLine(title, CardTitle.current, focused = focused)
-        OneLine(line.orEmpty(), CardLine.current, color = Palette.textDim, focused = focused)
-    }
-}
-
 /**
  * A credit: its year, its title (a show's with " (TV show)") and the part or job. It takes the remote, so that Up and
  * Down scroll the list, and shows it quietly (a dark fill behind it).
@@ -286,9 +290,6 @@ private fun CreditRow(c: PersonCredit, modifier: Modifier) {
         Box(Modifier.height(10.dp))
     }
 }
-
-@Composable
-private fun Heading(text: String, modifier: Modifier = Modifier) = Text(text, style = HeadingText.current, modifier = modifier)
 
 /**
  * The whole biography, in a side panel. Each paragraph (a long one in parts) takes the remote in turn, so that Up and
@@ -358,19 +359,13 @@ fun bioParts(text: String, max: Int = BIO_PART): List<String> = text.split('\n')
 
 private val SENTENCE_END = Regex("(?<=[.!?])\\s+")
 
-/** The page's left and right margin, as the board's. */
-private val SIDE = 56.dp
-
 /**
  * Above the first part under the header: where the board has it (352) under a header with three lines of biography
  * (the board's 60 under the photo, less what the text adds below it).
  */
 private val FIRST_GAP = 44.dp
 private val PHOTO = 200.dp
-private val POSTER = 140.dp
 
-/** Between the parts: the board's 40. */
-private val GAP = 40.dp
 private const val BIO_LINES = 3
 private const val BIO_PART = 500
 
@@ -382,7 +377,4 @@ private val LineText = BoardStyle(15, MEDIUM)
 private val BioText = BoardStyle(16, MEDIUM, 1.5f)
 private val ButtonText = BoardStyle(15, SEMI_BOLD)
 private val InitialsText = BoardStyle(48, MEDIUM)
-private val HeadingText = BoardStyle(20, SEMI_BOLD)
-private val CardTitle = BoardStyle(14, MEDIUM)
-private val CardLine = BoardStyle(12, MEDIUM)
 private val RowText = BoardStyle(15, MEDIUM)

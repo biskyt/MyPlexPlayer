@@ -34,6 +34,10 @@ class PlexPeopleTest {
                     "/library/people/$WRITER" -> MockResponse().setBody(fixture("person-discover-writer"))
                     "/library/people/$ACTOR/credits" -> MockResponse().setBody(fixture("person-credits"))
                     "/library/people/$NOBODY" -> MockResponse().setBody("""{"MediaContainer":{"size":0}}""")
+                    "/library/metadata/$TITLE" -> MockResponse().setBody(fixture("discover-title"))
+                    "/library/metadata/$NOBODY" -> MockResponse().setBody(
+                        """{"MediaContainer":{"Metadata":[{"Guid":[{"id":"imdb://tt1"}]}]}}"""
+                    )
                     else -> MockResponse().setResponseCode(404)
                 }
             }
@@ -163,11 +167,21 @@ class PlexPeopleTest {
         assertEquals(emptyList<String>(), kindsOfWork(listOf(PlexCreditType("actor", 0))))
     }
 
+    @Test
+    fun `a credit's TMDB id, from its title on Discover`() = runTest {
+        assertEquals(290856, account.tmdbId("account-token", TITLE))
+        assertEquals("/library/metadata/$TITLE", discover.takeRequest().requestUrl!!.encodedPath)
+        assertNull("no tmdb guid", account.tmdbId("account-token", NOBODY))
+    }
+
     private fun fixture(name: String) = javaClass.getResource("/plex/$name.json")!!.readText()
 
     private companion object {
         const val ACTOR = "5e0000000000000000000a01"
         const val WRITER = "5e0000000000000000000b02"
         const val NOBODY = "5e0000000000000000000d04"
+
+        /** A show on Discover (S10's reply, discover-title.json). */
+        const val TITLE = "681bfb361a7ad6c1b6da9873"
     }
 }

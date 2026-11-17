@@ -113,6 +113,7 @@ fun SettingsScreen() {
         }
         item { LauncherRow() }
         item { VpnWarningRows() }
+        item { TmdbRow() }
         item {
             SettingRow(stringResource(R.string.settings_backup_title), stringResource(R.string.settings_backup_help), {
                 nav.push(Screen.Backup)

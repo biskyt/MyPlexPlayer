@@ -39,6 +39,22 @@ fun rememberLinkOpener(): (TitleLink) -> Unit {
     return remember(context) { { link -> if (openLink(context, link.url) != null) shown = link } }
 }
 
+/**
+ * Plays a trailer (a YouTube id) by its YouTube watch address, which the YouTube app (and others, such as SmartTube)
+ * opens and plays; where nothing can open it, shows that address as a QR code (with "Open on this TV"). Not a
+ * "vnd.youtube:" link: on Android TV the YouTube app then opens without the video, and SmartTube calls it a bad intent.
+ * MyTVPlayer's, for a TMDB page's trailer (a server's own trailer plays in the app's player).
+ */
+@Composable
+fun rememberTrailerOpener(): (String) -> Unit {
+    val context = LocalContext.current
+    var shown by remember { mutableStateOf<String?>(null) }
+    shown?.let { LinkPanel(stringResource(R.string.vod_trailer), youTubePage(it)) { shown = null } }
+    return remember(context) { { id -> if (openLink(context, youTubePage(id)) != null) shown = id } }
+}
+
+private fun youTubePage(id: String) = "https://www.youtube.com/watch?v=$id"
+
 /** One of the cast: photo (loaded only when shown), name and part. */
 @Composable
 fun CastPerson(person: CastMember, photo: Dp, modifier: Modifier = Modifier) {

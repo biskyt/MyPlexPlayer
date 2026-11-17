@@ -469,6 +469,14 @@ interface VodDao {
     @Query("$SERIES_CARD FROM series WHERE playlistId = :pid AND title $LIKE_Q ORDER BY position, title LIMIT :limit")
     suspend fun searchSeries(pid: Long, q: String, limit: Int): List<VodCard>
 
+    /** Every movie of :pid, for "More like this" to find TMDB's suggestions in. */
+    @Query("$MOVIE_CARD FROM movie WHERE playlistId = :pid")
+    suspend fun movieCards(pid: Long): List<VodCard>
+
+    /** Every series of :pid, for "More like this" to find TMDB's suggestions in. */
+    @Query("$SERIES_CARD FROM series WHERE playlistId = :pid")
+    suspend fun seriesCards(pid: Long): List<VodCard>
+
     // Whole lists, used by tests (screens page).
     @Query("SELECT * FROM movie WHERE playlistId = :pid ORDER BY position, title")
     suspend fun moviesSnapshot(pid: Long): List<MovieEntity>
