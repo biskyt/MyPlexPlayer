@@ -469,6 +469,13 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
     at a time. Back from the new video goes through the pages to the screen under the old player.
   - The board is 1280 wide, so its sizes are dp there, not `.bd`. Nothing is saved to Room: Discover's answers are
     kept in memory (`PersonRepository`).
+- **Extra data comes only from Plex Discover** (the owner, 2026-11-17): MyPlexPlayer uses Plex Discover, and no other
+  service, for data the server does not have. It follows MyTVPlayer's features, which use TMDB, as closely as Discover
+  allows. Where one service has data that the other does not, keep the feature in the app that has the data: do not
+  remove it to make the two apps the same.
+  - "More like this" (MyTVPlayer 1.24.0) comes from Discover's "Titles You Might Like" hub (S15).
+  - MyTVPlayer's Google Drive backup (1.25.0) is not ported: Plex keeps the important data, and Plex sign-in is
+    simple. The benefit is less than the work to register the app for Drive.
 - **Back stops playback.** There's no picture-in-picture.
 - **Text fields are built for a TV remote:**
   - Server addresses get no autocorrect or capitals.

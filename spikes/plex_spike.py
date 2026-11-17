@@ -20,7 +20,8 @@ addresses, account names, emails and file paths replaced, for test fixtures. rep
     python3 spikes/plex_spike.py people    [--server URL] # S10: cast members' biographies and credits, similar titles
     python3 spikes/plex_spike.py person    [--server URL] # S13: a cast member's page: titles here, Discover credits, matching
     python3 spikes/plex_spike.py trailers  [--server URL] # S14: trailers and other extras, where they come from, how they play
-    python3 spikes/plex_spike.py cast                    # S10, S13 and S14 (signing in first if needed), then spike-results.zip
+    python3 spikes/plex_spike.py similar   [--server URL] # S15: "More like this" from Plex Discover, and which are here
+    python3 spikes/plex_spike.py cast                    # S10, S13, S14 and S15 (signing in first if needed), then spike-results.zip
     python3 spikes/plex_spike.py series_dvr [--server URL] [--record] # S11: series recordings: made, edited, removed
     python3 spikes/plex_spike.py test-dvr                # S11 with --record (signing in first if needed), then the zip
     python3 spikes/plex_spike.py recordings [--server URL] # S12: recordings in progress and recent ones, and how each plays (only reads)
@@ -1541,6 +1542,65 @@ def people(args, state):
     rec.finish()
 
 
+# ---------------------------------------------------------------- S15: "More like this" from Plex Discover
+def similar(args, state):
+    """"More like this" (the owner, 2026-11-17: Discover is the app's only source of extra data): for the newest film
+    and the newest show, Discover's related hubs, the titles of its "Titles You Might Like" hub (its fields, scores,
+    pictures and size, and whether it pages), and which of them are on this server, matched by the id at the end of
+    the server title's guid. Only reads."""
+    rec = Recorder(args.out, "s15-similar")
+    http = server_http(args, state)
+    note_server(rec, http)
+    discover = Http(state, DISCOVER, need_token(state))
+    _, _, sections = http.get("/library/sections")
+    for kind, number in (("movie", 1), ("show", 2)):
+        section = next((d for d in mc(sections).get("Directory", []) if d.get("type") == kind), None)
+        if not rec.check(f"a {kind} library", section):
+            continue
+        _, _, page = http.get(f"/library/sections/{section['key']}/all", type=number, sort="addedAt:desc",
+                              **{"X-Plex-Container-Start": 0, "X-Plex-Container-Size": 1})
+        title = first(mc(page), "Metadata")
+        guid = title.get("guid", "")
+        plex_id = guid.rsplit("/", 1)[-1] if guid.startswith("plex://") else None
+        if not rec.check(f"the newest {kind}'s Plex guid", plex_id, f"{title.get('title')!r}: {guid or 'none'}"):
+            continue
+        status, _, body = discover.get(f"/library/metadata/{plex_id}/related")
+        rec.save(f"{kind}-related", body)
+        hubs = mc(body).get("Hub", [])
+        rec.check(f"Discover: GET /library/metadata/{{guid id}}/related for a {kind} (HTTP {status})", hubs,
+                  "; ".join(f"{h.get('title')!r} key {h.get('key')} context {h.get('context')} "
+                            f"{len(h.get('Metadata', []))} inline" for h in hubs))
+        hub = next((h for h in hubs if "similar" in (h.get("key") or "").lower()), None)
+        if not rec.check(f"the {kind}'s similar titles hub", hub, repr(hub and hub.get("title"))):
+            continue
+        status, _, body = discover.get(hub["key"], includeMeta=1)
+        rec.save(f"{kind}-similar", body)
+        found = items(body)
+        rec.check(f"Discover: GET {hub['key'].replace(plex_id, '{guid id}')} (HTTP {status})", found,
+                  f"{len(found)} titles; total {mc(body).get('totalSize')}; size {mc(body).get('size')}; "
+                  f"types {Counter(t.get('type') for t in found)}; fields {sorted({k for t in found for k in t})}; "
+                  f"{size_of(body)} KB")
+        sample = found[0] if found else {}
+        rec.check(f"a similar {kind}'s card", sample,
+                  f"title {sample.get('title')!r}, year {sample.get('year')}, ratingKey {sample.get('ratingKey')}, "
+                  f"guid {sample.get('guid')}, thumb {str(sample.get('thumb'))[:60]}, "
+                  f"audienceRating {sample.get('audienceRating')} ({sample.get('audienceRatingImage')}), "
+                  f"rating {sample.get('rating')} ({sample.get('ratingImage')}), Rating {sample.get('Rating')}")
+        status, _, more = discover.get(hub["key"], includeMeta=1,
+                                       **{"X-Plex-Container-Start": 10, "X-Plex-Container-Size": 10})
+        again = [t.get("ratingKey") for t in items(more)]
+        rec.check(f"paging the similar {kind}s (start 10, size 10; HTTP {status})", True,
+                  f"{len(again)} titles; the same as the first page's start: {again[:3] == [t.get('ratingKey') for t in found[:3]]}")
+        here = []
+        for t in found[:20]:
+            _, _, match = http.get("/library/all", guid=t.get("guid") or f"plex://{t.get('type')}/{t.get('ratingKey')}")
+            if mc(match).get("Metadata"):
+                here.append(t.get("title"))
+        rec.check(f"similar {kind}s on this server (of the first {min(len(found), 20)}, by guid)", True,
+                  f"{len(here)}: {here[:8]}")
+    rec.finish()
+
+
 # ---------------------------------------------------------------- S13: a cast member's page
 
 MEDIA_FIELDS = ("type", "ratingKey", "guid", "title", "year", "thumb", "librarySectionID")
@@ -1996,7 +2056,7 @@ def run_all(args, state):
     """Every step in turn (signing in first if needed, tuning and recording included), carrying on past a step
     that fails, then the shareable results zipped into spike-results.zip."""
     args.tune = args.record = True
-    steps = ([] if state.get("token") else [signin]) + [servers, library, playback, livetv, dvr, favourites, markers, deletion, people, person_page, trailers, series_dvr]
+    steps = ([] if state.get("token") else [signin]) + [servers, library, playback, livetv, dvr, favourites, markers, deletion, people, person_page, trailers, similar, series_dvr]
     for step in steps:
         print(f"\n=== {step.__name__} ===", flush=True)
         try:
@@ -2021,7 +2081,7 @@ def save_favourites(args, state):
 
 
 def cast(args, state):
-    """The spike app's "Test cast, similar titles and trailers": people, person_page and trailers (signing in and
+    """The spike app's "Test cast, similar titles and trailers": people, person_page, trailers and similar (signing in and
     finding the servers first if needed), then the results zipped as `all` does."""
     if not state.get("token"):
         signin(args, state)
@@ -2030,6 +2090,7 @@ def cast(args, state):
     people(args, state)
     person_page(args, state)
     trailers(args, state)
+    similar(args, state)
     share_results(args)
 
 
@@ -2060,7 +2121,7 @@ def share_results(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("step", choices=["all", "signin", "servers", "library", "playback", "livetv", "dvr",
-                                             "favourites", "save-favourites", "markers", "deletion", "people", "person", "trailers", "cast", "series_dvr", "test-dvr",
+                                             "favourites", "save-favourites", "markers", "deletion", "people", "person", "trailers", "similar", "cast", "series_dvr", "test-dvr",
                                              "recordings", "test-recordings"])
     parser.add_argument("--server", help="server URL, e.g. http://192.168.1.20:32400 (default: from `servers`)")
     parser.add_argument("--token", help="token for --server (not needed for a local unclaimed test server)")

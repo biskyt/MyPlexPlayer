@@ -34,6 +34,7 @@ python3 spikes/plex_spike.py markers         # intro and credits markers, for Sk
 python3 spikes/plex_spike.py people          # cast members' biographies and other credits, similar titles (only reads)
 python3 spikes/plex_spike.py person          # a cast member's page: their titles here, Plex credits page by page, matches (only reads)
 python3 spikes/plex_spike.py trailers        # trailers and other extras: where each comes from, and how it plays (only reads)
+python3 spikes/plex_spike.py similar         # "More like this" from Plex Discover, and which of those titles are here (only reads)
 python3 spikes/plex_spike.py series_dvr --record  # a series recording made, edited, one airing cancelled, then removed
 ```
 
@@ -44,8 +45,10 @@ python3 spikes/plex_spike.py series_dvr --record  # a series recording made, edi
   finds which extras are files on your server and which are Plex's online extras (Plex Pass). For one of each, it
   reads the first 1 KB of the file and asks the server how it would direct stream it. It only reads that decision:
   it stops the session at once, and nothing is streamed or converted. It also asks Plex for the extras of a title
-  that is not on your server. The spike app's "Test cast, similar titles and trailers" button runs it with `people`
-  and `person` (`python3 spikes/plex_spike.py cast` does the same here).
+  that is not on your server. The spike app's "Test cast, similar titles and trailers" button runs it with `people`,
+  `person` and `similar` (`python3 spikes/plex_spike.py cast` does the same here).
+- `similar` (S15) reads Plex Discover's "Titles You Might Like" for your newest film and your newest show. It records
+  what each title holds and whether the list pages, and it finds which of those titles are on your server.
 - `--tune` uses a tuner for a few seconds; `--record` schedules a recording of a programme starting over an hour from
   now and cancels it straight away; `--write-back` saves your favourite channels back exactly as they were read,
   only after a clean and complete read and with a dated backup first (`spike-out/favourites-backup-*.json`; put one
