@@ -136,8 +136,8 @@ class MainActivity : Activity() {
             text(
                 "Test cast, similar titles and trailers: reads a show's cast, a cast member's biography and other " +
                     "films and shows, and similar titles, from your server and from Plex, then the parts of a cast " +
-                    "member's page, then the trailers and other extras of films and shows and how each would play " +
-                    "(about three minutes; only reads).",
+                    "member's page, then the trailers and other extras of films and shows and how each would play, " +
+                    "then the titles Plex suggests for a film and a show (about three minutes; only reads).",
                 15f
             )
         )
