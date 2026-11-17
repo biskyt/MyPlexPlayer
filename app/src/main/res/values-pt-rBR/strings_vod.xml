@@ -152,4 +152,8 @@
         <item quantity="many">%1$s (%2$d disponíveis)</item>
         <item quantity="other">%1$s (%2$d disponíveis)</item>
     </plurals>
+    <string name="vod_other_trailers">Outros trailers</string>
+    <string name="vod_other_trailers_help">Todos os trailers e teasers deste título</string>
+    <string name="vod_teaser">Teaser</string>
+    <string name="vod_tmdb_season_failed">Não foi possível carregar estes episódios do TMDB</string>
 </resources>

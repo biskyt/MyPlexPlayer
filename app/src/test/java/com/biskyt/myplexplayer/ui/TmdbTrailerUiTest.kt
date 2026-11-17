@@ -22,6 +22,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -32,7 +33,8 @@ import org.robolectric.annotation.Config
 
 /**
  * TMDB's trailer, with a TMDB key, for a film or show whose server has no trailer of its own: "Play trailer" opens its
- * YouTube page, as the TMDB page's does. The server's own trailer still plays in the app, and TMDB is not asked for one.
+ * YouTube page, as the TMDB page's does. The server's own trailer still plays in the app. Other trailers lists TMDB's
+ * trailers and teasers, each with its country (MyTVPlayer's TmdbFilmUiTest).
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestApp::class, qualifiers = "+w960dp-h540dp-tvdpi")
@@ -94,13 +96,27 @@ class TmdbTrailerUiTest {
     }
 
     @Test
-    fun `a film with its own trailer plays that one, and TMDB is not asked for one`() {
+    fun `a film with its own trailer plays that one, not TMDB's`() {
         setUp(ownTrailer = true)
         filmOptions()
+        // TMDB is asked for its trailers too, for Other trailers.
+        compose.waitAdvancingClock(stepMs = 50) { "movie/${FakeTmdb.FILM}" in tmdb.requests }
         compose.click("Play trailer")
         compose.waitAdvancingClock(stepMs = 50) { navigator.current.screen is Screen.VodPlayer }
         assertEquals(Screen.VodPlayer(source, BoardTitles.FILM.toLong(), trailer = OWN_TRAILER.toLong()), navigator.current.screen)
-        assertFalse("movie/${FakeTmdb.FILM}" in tmdb.requests)
+        assertNull(shadowOf(app).nextStartedActivity)
+    }
+
+    @Test
+    fun `More's Other trailers lists every trailer, with its country, and plays the one chosen`() {
+        setUp(ownTrailer = false)
+        filmOptions()
+        compose.waitForText("Other trailers", stepMs = 50)
+        compose.click("Other trailers")
+        compose.waitForText("Teaser · GB", stepMs = 50)
+        compose.click("Teaser · GB")
+        compose.waitAdvancingClock { shadowOf(app).peekNextStartedActivity() != null }
+        assertEquals("https://www.youtube.com/watch?v=${FakeTmdb.TEASER}", shadowOf(app).nextStartedActivity.dataString)
     }
 
     @Test

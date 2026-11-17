@@ -93,10 +93,18 @@ fun markWatched(watched: Boolean, setWatched: (Boolean) -> Unit) =
 fun vodDetails(playlistId: Long, type: String, id: Long): Screen =
     if (type == CAT_MOVIE) Screen.MovieDetails(playlistId, id) else Screen.SeriesDetails(playlistId, id)
 
-/** A side panel of what can be done with something, with no line under its [title]: see [BoardActionsPanel]. */
+/**
+ * A side panel of what can be done with something, with [subtitle] under its [title] if given (as MyTVPlayer's): see
+ * [BoardActionsPanel].
+ */
 @Composable
-fun ItemActionsPanel(title: String, actions: List<ItemAction>, onDismiss: () -> Unit, more: (@Composable () -> Unit)? = null) =
-    BoardActionsPanel(title, null, actions, onDismiss, more = more)
+fun ItemActionsPanel(
+    title: String,
+    actions: List<ItemAction>,
+    onDismiss: () -> Unit,
+    subtitle: String? = null,
+    more: (@Composable () -> Unit)? = null
+) = BoardActionsPanel(title, subtitle, actions, onDismiss, more = more)
 
 /**
  * [confirm]'s [question], then its "no" (focused, [onNo]) and its yes ([onDismiss], then it is done), each drawn by

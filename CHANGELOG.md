@@ -2,6 +2,12 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.13.0
+- Film and series pages now offer "Other trailers" when a title has more than one.
+- Your server's trailers come first, then TMDB's trailers for your country.
+- A TMDB title's episode list that fails to load now offers Try again.
+- The TMDB key's phone page no longer shows connection counts.
+
 ## 1.12.0
 - Series pages now show the show's status and next episode.
 - Series pages now count all seasons and yours: "6 series (3 available)".

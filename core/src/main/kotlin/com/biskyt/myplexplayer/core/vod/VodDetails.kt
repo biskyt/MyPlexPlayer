@@ -1,6 +1,7 @@
 package com.biskyt.myplexplayer.core.vod
 
 import com.biskyt.myplexplayer.core.plex.PlexMediaInfo
+import com.biskyt.myplexplayer.core.plex.PlexTrailer
 import com.biskyt.myplexplayer.core.plex.Score
 import com.biskyt.myplexplayer.core.plex.TitleLink
 import java.time.LocalDate
@@ -37,6 +38,8 @@ data class VodDetails(
     val media: PlexMediaInfo? = null,
     /** The id of its trailer on the server, if it has one. */
     val trailer: Long? = null,
+    /** Its trailers and teasers on the server, [trailer] first (for Other trailers). */
+    val trailers: List<PlexTrailer> = emptyList(),
     /** Its id on TMDB, from the server's `tmdb://` guid; null when the server gives none. */
     val tmdbId: Int? = null,
     /** Its id on Plex's Discover service: the end of its `plex://` guid. Null when the server gives none. */

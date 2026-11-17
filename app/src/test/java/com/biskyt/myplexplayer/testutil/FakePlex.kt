@@ -62,6 +62,12 @@ class FakePlex : AutoCloseable {
     /** Extras, such as a trailer ([trailer]): in no library, but each answers by its key, as on the server. */
     @Volatile var extras: List<JsonObject> = emptyList()
 
+    /** Each title's extras (keys of [extras]) by its key, sent in its `Extras` with `includeExtras=1`, as on the server. */
+    @Volatile var extrasOf: Map<String, List<String>> = emptyMap()
+
+    /** The keys of the titles asked for with their extras (`includeExtras=1`), in order. */
+    val extrasAsked: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList()
+
     /** Images by their path on the server (a thumb's), served through the image service; none: an empty reply. */
     @Volatile var images: (String) -> ByteArray? = { null }
 
@@ -728,7 +734,16 @@ class FakePlex : AutoCloseable {
     }
 
     private fun details(items: List<JsonObject>, request: RecordedRequest) = container {
-        put("Metadata", JsonArray(items.map { withGuids(withPreferences(withMarkers(withState(it), request), request), request) }))
+        // Each part only when asked for, as from a real server.
+        fun asked(item: JsonObject) = withExtras(withGuids(withPreferences(withMarkers(item, request), request), request), request)
+        put("Metadata", JsonArray(items.map { asked(withState(it)) }))
+    }
+
+    /** A title's extras ([extrasOf]), only when asked for, as from a real server (docs/plex-api.md row 30). */
+    private fun withExtras(item: JsonObject, request: RecordedRequest): JsonObject {
+        if (request.requestUrl?.queryParameter("includeExtras") != "1") return item
+        val key = item.string("ratingKey")!!.also { extrasAsked += it }
+        return JsonObject(item + ("Extras" to obj { put("Metadata", JsonArray(extrasOf[key].orEmpty().mapNotNull(::byKey))) }))
     }
 
     /** A title's ids elsewhere ([tmdbIds]), only when asked for, as from a real server. */
@@ -972,15 +987,15 @@ class FakePlex : AutoCloseable {
 
         /**
          * Trailer [key], as the server sends one of Plex's online trailers (docs/plex-api.md row 30): an MP4 file at a
-         * server path.
+         * server path. [subtype] is its kind ("teaser", or "behindTheScenes" for an extra that is not a trailer).
          */
-        fun trailer(key: String) = obj {
+        fun trailer(key: String, title: String = "Trailer", subtype: String = "trailer") = obj {
             put("ratingKey", key)
             put("key", "/library/metadata/$key")
             put("type", "clip")
-            put("subtype", "trailer")
-            put("extraType", 1)
-            put("title", "Trailer")
+            put("subtype", subtype)
+            if (subtype == "trailer") put("extraType", 1)
+            put("title", title)
             put("duration", 96_000)
             put("Media", media(key.toInt(), "mp4", key = trailerPath(key)))
         }

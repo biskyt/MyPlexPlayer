@@ -33,6 +33,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /**
@@ -159,6 +160,30 @@ class MoreLikeUiTest {
         compose.click("Find in your library")
         compose.waitAdvancingClock(stepMs = 50) { screen is Screen.Search }
         assertEquals(Screen.Search("Paper Boats"), screen)
+    }
+
+    @Test
+    fun `a TMDB page's Other trailers lists TMDB's trailers, with their country, and opens the one chosen`() {
+        tmdb.use(app.container)
+        show(Screen.TmdbTitle(source, FakeTmdb.PAPER_BOATS, series = false, "Paper Boats", null, Tab.MOVIES))
+        compose.waitForText("Other trailers", stepMs = 50)
+        compose.click("Other trailers")
+        compose.waitForText("Teaser · GB", stepMs = 50)
+        compose.click("Teaser · GB")
+        compose.waitAdvancingClock { shadowOf(app).peekNextStartedActivity() != null }
+        assertEquals("https://www.youtube.com/watch?v=${FakeTmdb.PAPER_BOATS_TEASER}", shadowOf(app).nextStartedActivity.dataString)
+    }
+
+    @Test
+    fun `a season that TMDB could not give offers Try again, which shows its episodes`() {
+        tmdb.use(app.container)
+        tmdb.seasonsFail = true
+        show(Screen.TmdbTitle(source, FakeTmdb.SIGNAL_HILL, series = true, "Signal Hill", null, Tab.SERIES))
+        compose.waitForText("Couldn't load these episodes from TMDB", stepMs = 50)
+        tmdb.seasonsFail = false
+        compose.click("Try again")
+        compose.waitForText("Static", stepMs = 50)
+        assertFalse(shown("Couldn't load these episodes from TMDB"))
     }
 
     @Test

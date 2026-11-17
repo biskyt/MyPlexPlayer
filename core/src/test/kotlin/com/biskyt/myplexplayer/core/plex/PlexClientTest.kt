@@ -404,6 +404,30 @@ class PlexClientTest {
     }
 
     @Test
+    fun `a title's trailers are its trailer and teaser extras, its main trailer first (docs plex-api row 30)`() = runTest {
+        responses["library/metadata/9"] = MockResponse().setBody(
+            """{"MediaContainer":{"size":1,"Metadata":[{"ratingKey":"9","type":"movie","title":"Film",""" +
+                """"primaryExtraKey":"/library/metadata/7851","Extras":{"size":5,"Metadata":[""" +
+                """{"ratingKey":"7850","type":"clip","subtype":"behindTheScenes","extraType":5,"title":"Making of"},""" +
+                """{"ratingKey":"7852","type":"clip","subtype":"teaser","title":"Teaser"},""" +
+                """{"ratingKey":"7851","type":"clip","subtype":"trailer","extraType":1,"title":"Official Trailer"},""" +
+                """{"ratingKey":"7853","type":"clip","extraType":1,"title":""},""" +
+                """{"ratingKey":"7854","type":"clip","subtype":"scene","title":"Opening"}]}}]}}"""
+        )
+        assertEquals(
+            listOf(PlexTrailer(7851, "Official Trailer", false), PlexTrailer(7852, "Teaser", true), PlexTrailer(7853, null, false)),
+            client.item("9", extras = true).trailers
+        )
+        assertEquals("1", server.takeRequest().requestUrl!!.queryParameter("includeExtras"))
+    }
+
+    @Test
+    fun `a title asked for without its extras has no trailers`() = runTest {
+        assertEquals(emptyList<PlexTrailer>(), client.item("1").trailers)
+        assertNull(server.takeRequest().requestUrl!!.queryParameter("includeExtras"))
+    }
+
+    @Test
     fun `direct stream copies audio and video, after the server's decision`() = runTest {
         val stream = client.directStream("1", "session-2", offsetMs = 125_500)
         val decision = server.takeRequest()

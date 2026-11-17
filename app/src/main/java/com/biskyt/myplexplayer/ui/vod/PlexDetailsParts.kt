@@ -9,18 +9,24 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.AppText
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
+import com.biskyt.myplexplayer.core.plex.PlexTrailer
+import com.biskyt.myplexplayer.core.tmdb.TmdbVideo
 import com.biskyt.myplexplayer.core.vod.CastMember
 import com.biskyt.myplexplayer.core.vod.VodDetails
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
 import com.biskyt.myplexplayer.ui.Screen
+import com.biskyt.myplexplayer.ui.common.BoardActionsPanel
 import com.biskyt.myplexplayer.ui.common.ItemAction
+import com.biskyt.myplexplayer.ui.common.TrailersPanel
 import com.biskyt.myplexplayer.ui.common.favouriteLabel
 import com.biskyt.myplexplayer.ui.common.formatRuntime
+import com.biskyt.myplexplayer.ui.common.rememberVideoOpener
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
 import com.biskyt.myplexplayer.ui.theme.EXTRA_BOLD
 import com.biskyt.myplexplayer.ui.theme.Palette
@@ -48,7 +54,43 @@ fun trailerAction(
 }
 
 /**
- * What a film's or show's More… shares: its [trailer] (see [trailerAction]), More like this ([similar]
+ * A title's trailers for "Other trailers": the server's own ([own], its trailers and teasers, the one "Play trailer"
+ * plays first), then TMDB's ([tmdb], best first; none without a TMDB key).
+ */
+data class TitleTrailers(val own: List<PlexTrailer> = emptyList(), val tmdb: List<TmdbVideo> = emptyList()) {
+    /** Whether "Other trailers" is offered: only when there is more than one trailer in all. */
+    val more: Boolean get() = own.size + tmdb.size > 1
+
+    /** TMDB's best trailer on YouTube (its YouTube id), as [com.biskyt.myplexplayer.core.tmdb.TmdbTitle.trailer] gives it. */
+    val tmdbTrailer: String? get() = tmdb.firstOrNull { it.site == TmdbVideo.YOUTUBE }?.key
+}
+
+/**
+ * "Other trailers" for [title], in place of MyTVPlayer's [TrailersPanel]: the server's own trailers first, each played
+ * in the app (the screen [open] gives), then TMDB's, each opened as [TrailersPanel] opens one.
+ */
+@Composable
+fun OtherTrailersPanel(title: String, trailers: TitleTrailers, open: (Long) -> Screen, onDismiss: () -> Unit) {
+    val trailer = stringResource(R.string.vod_trailer)
+    val teaser = stringResource(R.string.vod_teaser)
+    val own = trailers.own.map { ItemAction.Open(it.label(trailer, teaser), open(it.id)) }
+    BoardActionsPanel(title, stringResource(R.string.vod_other_trailers), own + tmdbTrailerActions(trailers.tmdb), onDismiss)
+}
+
+/** TMDB's [trailers] as [TrailersPanel] lists them: "Trailer · GB", with the site where it is not YouTube. */
+@Composable
+private fun tmdbTrailerActions(trailers: List<TmdbVideo>): List<ItemAction> {
+    val open = rememberVideoOpener()
+    val trailer = stringResource(R.string.vod_trailer)
+    return trailers.map { v ->
+        val label = listOfNotNull(v.name ?: trailer, v.country, v.site.takeIf { it != TmdbVideo.YOUTUBE }).joinToString(" · ")
+        ItemAction.Run(label) { open(v.url) }
+    }
+}
+
+/**
+ * What a film's or show's More… shares: its [trailer] (see [trailerAction]), Other trailers ([otherTrailers] opens
+ * them, given only when there is more than one, see [TitleTrailers]), More like this ([similar]
  * opens it with the title's TMDB id: given only with a TMDB key, and offered only when the server gives the id), its
  * cast and crew ([showCast], where known), About ([showAbout]), a film's Technical info ([showTech]: a film has one, a
  * show not) and its links in one row. A film's items have a help line under them, as its board draws them.
@@ -57,6 +99,7 @@ fun trailerAction(
 fun titleActions(
     details: VodDetails?,
     trailer: ItemAction?,
+    otherTrailers: (() -> Unit)?,
     similar: ((Int) -> Screen)?,
     showCast: () -> Unit,
     showAbout: () -> Unit,
@@ -67,6 +110,7 @@ fun titleActions(
     val crew = details != null && (details.cast.isNotEmpty() || details.directors.isNotEmpty() || details.writers.isNotEmpty())
     return listOfNotNull(
         trailer,
+        otherTrailers?.let { ItemAction.Run(appString(R.string.vod_other_trailers), help(R.string.vod_other_trailers_help), it) },
         similar?.let { open ->
             details?.tmdbId?.let { ItemAction.Open(appString(R.string.vod_similar), open(it), help(R.string.vod_similar_help)) }
         },

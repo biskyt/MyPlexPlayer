@@ -178,4 +178,11 @@
         <item quantity="one">%1$s (%2$d available)</item>
         <item quantity="other">%1$s (%2$d available)</item>
     </plurals>
+    <!-- More…: every trailer of a title, the server's own first, then TMDB's (with a key); its help (a film's only) under it. -->
+    <string name="vod_other_trailers">Other trailers</string>
+    <string name="vod_other_trailers_help">Every trailer and teaser of this title</string>
+    <!-- Other trailers: the kind of a server's extra, after its title where the title does not say it ("Spot · Teaser"). -->
+    <string name="vod_teaser">Teaser</string>
+    <!-- A TMDB title's page: TMDB could not give the season's episodes; Try again under it. -->
+    <string name="vod_tmdb_season_failed">Couldn\'t load these episodes from TMDB</string>
 </resources>
