@@ -11,7 +11,8 @@ import okhttp3.mockwebserver.RecordedRequest
 /**
  * TMDB as the app reads it for "More like this", for the board's titles ([BoardTitles]): The Long Harbour is film
  * [FILM], Coastline is series [SHOW] (each a TMDB id that [FakePlex.tmdbIds] gives the server's title). Only those two
- * have suggestions. [use] points [AppContainer.tmdb] at it, with a test key (never a real one). As MyTVPlayer's FakeTmdb,
+ * have suggestions. The Long Harbour has a trailer, and Coastline a status, counts, a next episode and words for two
+ * episodes of series 2. [use] points [AppContainer.tmdb] at it, with a test key (never a real one). As MyTVPlayer's FakeTmdb,
  * with MyPlexPlayer's titles.
  */
 class FakeTmdb : Dispatcher() {
@@ -41,6 +42,11 @@ class FakeTmdb : Dispatcher() {
             "tv/$SHOW/recommendations" -> SHOW_LIKE
             "movie/$PAPER_BOATS" -> PAPER_BOATS_PAGE
             "tv/$SIGNAL_HILL" -> SIGNAL_HILL_PAGE
+            "tv/$SIGNAL_HILL/season/2" -> SIGNAL_HILL_2
+            "tv/$SIGNAL_HILL/season/1" -> """{"episodes":[{"season_number":1,"episode_number":1,"name":"Episode One"}]}"""
+            "tv/$SHOW" -> COASTLINE_PAGE
+            "tv/$SHOW/season/2" -> COASTLINE_2
+            "movie/$FILM" -> LONG_HARBOUR_PAGE
             else -> return MockResponse().setResponseCode(404).setBody("""{"status_code":34}""")
         }
         return MockResponse().setBody(body)
@@ -66,6 +72,18 @@ class FakeTmdb : Dispatcher() {
 
         const val TRAILER = "pbtrailer01"
 
+        /** The Long Harbour's trailer on TMDB, for a server that has none of its own. */
+        const val FILM_TRAILER = "lhtrailer01"
+
+        /** When Coastline's next episode is shown (series 4, episode 2), as TMDB says. */
+        const val NEXT_EPISODE = "2099-11-22"
+
+        /** TMDB's description of Coastline's "Low Water" (series 2, episode 3), which the server gives none. */
+        const val LOW_WATER = "Rose waits for the tide to turn."
+
+        /** TMDB's description of "The Lighthouse Keeper" (episode 4), which the server has its own of. */
+        const val KEEPER = "TMDB's own words for the keeper."
+
         /** More like The Long Harbour: Sintel is on the server (FakePlex's film 12), Paper Boats is not. */
         private const val FILM_LIKE =
             """{"page":1,"results":[{"id":45745,"title":"Sintel","release_date":"2010-09-27"},""" +
@@ -85,6 +103,28 @@ class FakeTmdb : Dispatcher() {
 
         private const val SIGNAL_HILL_PAGE =
             """{"id":$SIGNAL_HILL,"name":"Signal Hill","overview":"A radio station on a hill.","first_air_date":"2020-04-29",""" +
-                """"vote_average":8.3,"vote_count":500,"genres":[{"name":"Crime"}],"created_by":[{"name":"Sally Moor"}]}"""
+                """"vote_average":8.3,"vote_count":500,"genres":[{"name":"Crime"}],"created_by":[{"name":"Sally Moor"}],""" +
+                """"status":"Ended","number_of_seasons":2,"number_of_episodes":12,""" +
+                """"seasons":[{"season_number":0,"name":"Specials","episode_count":1},{"season_number":1,"episode_count":6},""" +
+                """{"season_number":2,"name":"The Second Run","episode_count":6}]}"""
+
+        private const val SIGNAL_HILL_2 =
+            """{"episodes":[{"season_number":2,"episode_number":1,"name":"Static","air_date":"2023-01-01"},""" +
+                """{"season_number":2,"episode_number":2,"name":"Dead Air"}]}"""
+
+        /** Coastline on TMDB: cancelled (TMDB's finer word), 6 seasons, and its next episode. No trailer. */
+        private const val COASTLINE_PAGE =
+            """{"id":$SHOW,"name":"Coastline","status":"In Production","number_of_seasons":6,"number_of_episodes":40,""" +
+                """"next_episode_to_air":{"season_number":4,"episode_number":2,"air_date":"$NEXT_EPISODE"}}"""
+
+        /** Coastline's series 2 on TMDB: "Low Water" and "The Lighthouse Keeper", each with a description and a picture. */
+        private const val COASTLINE_2 =
+            """{"episodes":[{"season_number":2,"episode_number":3,"overview":"$LOW_WATER","still_path":"/lowwater.jpg"},""" +
+                """{"season_number":2,"episode_number":4,"overview":"$KEEPER","still_path":"/keeper.jpg"}]}"""
+
+        /** The Long Harbour on TMDB: only its trailer, for a server that has none. */
+        private const val LONG_HARBOUR_PAGE =
+            """{"id":$FILM,"title":"The Long Harbour",""" +
+                """"videos":{"results":[{"key":"$FILM_TRAILER","site":"YouTube","type":"Trailer","official":true}]}}"""
     }
 }

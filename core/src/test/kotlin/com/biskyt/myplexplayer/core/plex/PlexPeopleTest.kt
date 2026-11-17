@@ -1,5 +1,6 @@
 package com.biskyt.myplexplayer.core.plex
 
+import java.time.LocalDate
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.Dispatcher
@@ -169,9 +170,19 @@ class PlexPeopleTest {
 
     @Test
     fun `a credit's TMDB id, from its title on Discover`() = runTest {
-        assertEquals(290856, account.tmdbId("account-token", TITLE))
+        assertEquals(290856, account.discoverTitle("account-token", TITLE)?.tmdbId)
         assertEquals("/library/metadata/$TITLE", discover.takeRequest().requestUrl!!.encodedPath)
-        assertNull("no tmdb guid", account.tmdbId("account-token", NOBODY))
+        assertNull("no tmdb guid", account.discoverTitle("account-token", NOBODY)?.tmdbId)
+    }
+
+    @Test
+    fun `a show on Discover, with whether it goes on, its seasons and episodes so far, and the next episode's date`() = runTest {
+        assertEquals(
+            DiscoverTitle(tmdbId = 290856, continuing = true, seasonCount = 2, episodeCount = 22, nextEpisode = LocalDate.of(2026, 11, 22)),
+            account.discoverTitle("account-token", TITLE)
+        )
+        // A title with none of them: each is not known.
+        assertEquals(DiscoverTitle(tmdbId = null), account.discoverTitle("account-token", NOBODY))
     }
 
     private fun fixture(name: String) = javaClass.getResource("/plex/$name.json")!!.readText()

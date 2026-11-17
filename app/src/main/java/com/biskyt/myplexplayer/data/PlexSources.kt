@@ -1,9 +1,11 @@
 package com.biskyt.myplexplayer.data
 
 import android.os.Build
+import android.util.LruCache
 import androidx.annotation.VisibleForTesting
 import androidx.room.withTransaction
 import com.biskyt.myplexplayer.BuildConfig
+import com.biskyt.myplexplayer.core.plex.DiscoverTitle
 import com.biskyt.myplexplayer.core.plex.PlexAccount
 import com.biskyt.myplexplayer.core.plex.PlexAutoDelete
 import com.biskyt.myplexplayer.core.plex.PlexClient
@@ -25,6 +27,7 @@ import com.biskyt.myplexplayer.core.plex.PlexTag
 import com.biskyt.myplexplayer.core.plex.PlexType
 import com.biskyt.myplexplayer.core.plex.Score
 import com.biskyt.myplexplayer.core.plex.ageRating
+import com.biskyt.myplexplayer.core.plex.plexGuidId
 import com.biskyt.myplexplayer.core.plex.scores
 import com.biskyt.myplexplayer.core.plex.titleLinks
 import com.biskyt.myplexplayer.core.plex.tmdbIdOf
@@ -313,6 +316,7 @@ class PlexSources(
         media = PlexMediaInfo.of(item),
         trailer = item.trailer,
         tmdbId = tmdbIdOf(item.guids),
+        discoverId = plexGuidId(item.guid),
     )
 
     private fun List<PlexTag>.tags() = map { it.tag }.filter { it.isNotBlank() }
@@ -417,11 +421,21 @@ class PlexSources(
     suspend fun credits(tagKey: String): List<PlexCreditGroup> = account().credits(token(), tagKey)
 
     /** A title's TMDB id, by its id on Discover ([PersonCredit.ratingKey]); null when Discover gives none. */
-    suspend fun discoverTmdbId(ratingKey: String): Int? =
-        tmdbIds[ratingKey] ?: account().tmdbId(token(), ratingKey)?.also { tmdbIds[ratingKey] = it }
+    suspend fun discoverTmdbId(ratingKey: String): Int? = discoverTitle(ratingKey)?.tmdbId
 
-    /** Discover titles' TMDB ids, as found: a title's id does not change. */
-    private val tmdbIds = java.util.concurrent.ConcurrentHashMap<String, Int>()
+    /**
+     * What Discover knows of a title that the server does not (a show's status, its seasons and episodes so far, and
+     * its next episode's date), by its id there ([VodDetails.discoverId]). The answers for the last few titles are
+     * kept in memory, a title that Discover does not know too: nothing is saved. Throws when Discover cannot be
+     * reached, and a failure is not kept: the next call asks again.
+     */
+    suspend fun discoverTitle(id: String): DiscoverTitle? =
+        (discovered.get(id) ?: Discovered(account().discoverTitle(token(), id)).also { discovered.put(id, it) }).title
+
+    /** Discover's answer for one title: [title] is null when Discover does not know it. */
+    private class Discovered(val title: DiscoverTitle?)
+
+    private val discovered = LruCache<String, Discovered>(DISCOVERED_KEPT)
 
     /** Each server's Live TV, as last found: tuning needs its DVR. */
     private val liveTv = java.util.concurrent.ConcurrentHashMap<Long, PlexLiveTv>()
@@ -667,6 +681,9 @@ class PlexSources(
         private const val POSTER_HEIGHT = 360
         private const val STILL_WIDTH = 400
         private const val STILL_HEIGHT = 225
+
+        /** Titles whose Discover answers are kept. */
+        private const val DISCOVERED_KEPT = 16
         private const val BACKDROP_WIDTH = 1280
         private const val BACKDROP_HEIGHT = 720
         private const val MS_PER_SEC = 1000

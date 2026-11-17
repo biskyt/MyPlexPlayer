@@ -140,4 +140,16 @@
     <string name="vod_tmdb_title_none">Impossible de trouver ce titre sur TMDB</string>
     <string name="vod_discover_unreachable">Impossible de joindre Plex. Réessayez plus tard.</string>
     <string name="vod_find_original">Chercher « %1$s »</string>
+    <string name="vod_status_continuing">En cours</string>
+    <string name="vod_status_ended">Terminée</string>
+    <string name="vod_status_cancelled">Annulée</string>
+    <string name="vod_status_in_production">En production</string>
+    <string name="vod_status_planned">Prévue</string>
+    <string name="vod_status_pilot">Pilote</string>
+    <string name="vod_next_episode">Prochain épisode : %1$s</string>
+    <plurals name="vod_seasons_available">
+        <item quantity="one">%1$s (%2$d disponible)</item>
+        <item quantity="many">%1$s (%2$d disponibles)</item>
+        <item quantity="other">%1$s (%2$d disponibles)</item>
+    </plurals>
 </resources>

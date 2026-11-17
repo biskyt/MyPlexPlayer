@@ -164,4 +164,18 @@
     <string name="vod_discover_unreachable">Couldn\'t reach Plex. Try again later.</string>
     <!-- A TMDB title's page: searches the library for its original title. %1$s: that title, e.g. "Intouchables". -->
     <string name="vod_find_original">Find “%1$s”</string>
+    <!-- A series' status, before its episode count: "Continuing · 18 episodes". -->
+    <string name="vod_status_continuing">Continuing</string>
+    <string name="vod_status_ended">Ended</string>
+    <string name="vod_status_cancelled">Cancelled</string>
+    <string name="vod_status_in_production">In production</string>
+    <string name="vod_status_planned">Planned</string>
+    <string name="vod_status_pilot">Pilot</string>
+    <!-- A continuing series' next episode. %1$s: its date, and its code where known, e.g. "4 Dec 2026 · S2E9". -->
+    <string name="vod_next_episode">Next episode: %1$s</string>
+    <!-- The whole show's season count, then how many of them are on the server. %1$s: the count, e.g. "6 series"; %2$d: the number on the server. -->
+    <plurals name="vod_seasons_available">
+        <item quantity="one">%1$s (%2$d available)</item>
+        <item quantity="other">%1$s (%2$d available)</item>
+    </plurals>
 </resources>

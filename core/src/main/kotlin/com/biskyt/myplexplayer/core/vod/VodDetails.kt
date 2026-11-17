@@ -39,6 +39,8 @@ data class VodDetails(
     val trailer: Long? = null,
     /** Its id on TMDB, from the server's `tmdb://` guid; null when the server gives none. */
     val tmdbId: Int? = null,
+    /** Its id on Plex's Discover service: the end of its `plex://` guid. Null when the server gives none. */
+    val discoverId: String? = null,
 )
 
 /**
