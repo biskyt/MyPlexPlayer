@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.13.1
+- Play trailer now also plays TMDB trailers on Vimeo.
+- A TMDB teaser with no name is now called a teaser.
+- After Try again on a TMDB title, the remote goes to the seasons.
+
 ## 1.13.0
 - Film and series pages now offer "Other trailers" when a title has more than one.
 - Your server's trailers come first, then TMDB's trailers for your country.
