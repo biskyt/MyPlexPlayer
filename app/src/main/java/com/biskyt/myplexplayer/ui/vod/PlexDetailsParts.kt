@@ -26,7 +26,7 @@ import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.TrailersPanel
 import com.biskyt.myplexplayer.ui.common.favouriteLabel
 import com.biskyt.myplexplayer.ui.common.formatRuntime
-import com.biskyt.myplexplayer.ui.common.rememberVideoOpener
+import com.biskyt.myplexplayer.ui.common.rememberTrailerOpener
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
 import com.biskyt.myplexplayer.ui.theme.EXTRA_BOLD
 import com.biskyt.myplexplayer.ui.theme.Palette
@@ -37,20 +37,20 @@ import java.io.IOException
 
 /**
  * "Play trailer": the server's own trailer [serverTrailer] (the screen [open] gives plays it), else TMDB's
- * [tmdbTrailer] (a YouTube id, which [openTmdb] opens, as the TMDB page does); null when there is neither. A film's
+ * [tmdbTrailer] (on YouTube or Vimeo: [openTmdb] opens its page, as the TMDB page does); null when there is neither. A film's
  * action has a help line under it ([film]), as its board draws it.
  */
 fun trailerAction(
     serverTrailer: Long?,
     open: (Long) -> Screen,
-    tmdbTrailer: String?,
+    tmdbTrailer: TmdbVideo?,
     openTmdb: (String) -> Unit,
     film: Boolean
 ): ItemAction? {
     val label = appString(R.string.vod_play_trailer)
     val help = if (film) appString(R.string.vod_play_trailer_help) else null
     return serverTrailer?.let { ItemAction.Open(label, open(it), help) }
-        ?: tmdbTrailer?.let { id -> ItemAction.Run(label, help) { openTmdb(id) } }
+        ?: tmdbTrailer?.let { v -> ItemAction.Run(label, help) { openTmdb(v.url) } }
 }
 
 /**
@@ -61,8 +61,8 @@ data class TitleTrailers(val own: List<PlexTrailer> = emptyList(), val tmdb: Lis
     /** Whether "Other trailers" is offered: only when there is more than one trailer in all. */
     val more: Boolean get() = own.size + tmdb.size > 1
 
-    /** TMDB's best trailer on YouTube (its YouTube id), as [com.biskyt.myplexplayer.core.tmdb.TmdbTitle.trailer] gives it. */
-    val tmdbTrailer: String? get() = tmdb.firstOrNull { it.site == TmdbVideo.YOUTUBE }?.key
+    /** TMDB's best trailer, as [com.biskyt.myplexplayer.core.tmdb.TmdbTitle.trailer] gives it. */
+    val tmdbTrailer: TmdbVideo? get() = tmdb.firstOrNull()
 }
 
 /**
@@ -80,10 +80,12 @@ fun OtherTrailersPanel(title: String, trailers: TitleTrailers, open: (Long) -> S
 /** TMDB's [trailers] as [TrailersPanel] lists them: "Trailer · GB", with the site where it is not YouTube. */
 @Composable
 private fun tmdbTrailerActions(trailers: List<TmdbVideo>): List<ItemAction> {
-    val open = rememberVideoOpener()
+    val open = rememberTrailerOpener()
     val trailer = stringResource(R.string.vod_trailer)
+    val teaser = stringResource(R.string.vod_teaser)
     return trailers.map { v ->
-        val label = listOfNotNull(v.name ?: trailer, v.country, v.site.takeIf { it != TmdbVideo.YOUTUBE }).joinToString(" · ")
+        val name = v.name ?: if (v.teaser) teaser else trailer
+        val label = listOfNotNull(name, v.country, v.site.takeIf { it != TmdbVideo.YOUTUBE }).joinToString(" · ")
         ItemAction.Run(label) { open(v.url) }
     }
 }

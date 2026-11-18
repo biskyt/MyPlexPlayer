@@ -166,6 +166,10 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     and `PhoneForm` without its counts. Here, "Play trailer" and "Other trailers" list the server's own trailers and
     teasers first (`PlexItem.trailers`, from `includeExtras=1` on the details request; played in the app), then
     TMDB's with a key.
+  - In 1.13.1: from 1.28.0 (`8a8323c`), the fixes from this app's review of 1.27.x: TMDB's best trailer on YouTube or
+    Vimeo (`TmdbTitle.trailer` is a `TmdbVideo`; `rememberVideoOpener` deleted), an unnamed teaser called "Teaser",
+    one IO switch for each TMDB request, Try again moving the remote up to the seasons, `quietFocus` as a
+    `Modifier.Node`. Left out: its guide refresh (7 days, `isOutOfDate`): the guide here is Plex's.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

@@ -17,6 +17,7 @@ import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.click
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
+import com.biskyt.myplexplayer.testutil.focusedText
 import com.biskyt.myplexplayer.testutil.settle
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForFilmPage
@@ -181,9 +182,13 @@ class MoreLikeUiTest {
         show(Screen.TmdbTitle(source, FakeTmdb.SIGNAL_HILL, series = true, "Signal Hill", null, Tab.SERIES))
         compose.waitForText("Couldn't load these episodes from TMDB", stepMs = 50)
         tmdb.seasonsFail = false
+        compose.waitAdvancingClock { compose.focusedText() == "Try again" }
         compose.click("Try again")
         compose.waitForText("Static", stepMs = 50)
         assertFalse(shown("Couldn't load these episodes from TMDB"))
+        // The button went: the remote moved up to its season, not back to the top of the page.
+        compose.settle()
+        assertEquals("The Second Run", compose.focusedText())
     }
 
     @Test
