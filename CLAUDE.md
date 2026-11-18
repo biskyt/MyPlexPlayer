@@ -170,6 +170,10 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     Vimeo (`TmdbTitle.trailer` is a `TmdbVideo`; `rememberVideoOpener` deleted), an unnamed teaser called "Teaser",
     one IO switch for each TMDB request, Try again moving the remote up to the seasons, `quietFocus` as a
     `Modifier.Node`. Left out: its guide refresh (7 days, `isOutOfDate`): the guide here is Plex's.
+  - In 1.13.2: from 1.29.0 (`b5e0daa`), this app's third review: `ErrorRetry`'s `focusAfter` (the TMDB page's season
+    pill), the public `trailerActions` (here also in `OtherTrailersPanel`), `QuietFocusNode` keeping its outline; and
+    the play bar's time up to date as the controls open (`onControlsShown`). Left out: its guide import (`ReadAhead`,
+    `ProgrammeWriter`, `GuideTimes`: no XMLTV here) and its catch-up player.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

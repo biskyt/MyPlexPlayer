@@ -297,10 +297,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
             while (isActive) {
                 val player = engine?.player ?: break
                 updateSkip()
-                if (overlay == OverlayState.CONTROLS) {
-                    positionSec = player.currentPosition / 1000
-                    durationSec = player.duration.coerceAtLeast(0) / 1000
-                }
+                if (overlay == OverlayState.CONTROLS) showTime()
                 if (player.isPlaying) {
                     playedMs += TICK_MS
                     sinceSave += TICK_MS
@@ -312,6 +309,15 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
                 delay(TICK_MS)
             }
         }
+    }
+
+    override fun onControlsShown() = showTime()
+
+    /** Where playback is, for the play bar. */
+    private fun showTime() {
+        val player = engine?.player ?: return
+        positionSec = player.currentPosition / 1000
+        durationSec = player.duration.coerceAtLeast(0) / 1000
     }
 
     /** Pausing (or buffering, or leaving the app) saves where playback got to. */
