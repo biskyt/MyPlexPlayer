@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.13.2
+- The play bar now opens at the right time, with no jump.
+- After Try again on a TMDB title, the remote goes to the shown season.
+
 ## 1.13.1
 - Play trailer now also plays TMDB trailers on Vimeo.
 - A TMDB teaser with no name is now called a teaser.

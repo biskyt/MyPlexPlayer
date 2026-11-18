@@ -26,7 +26,7 @@ import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.TrailersPanel
 import com.biskyt.myplexplayer.ui.common.favouriteLabel
 import com.biskyt.myplexplayer.ui.common.formatRuntime
-import com.biskyt.myplexplayer.ui.common.rememberTrailerOpener
+import com.biskyt.myplexplayer.ui.common.trailerActions
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
 import com.biskyt.myplexplayer.ui.theme.EXTRA_BOLD
 import com.biskyt.myplexplayer.ui.theme.Palette
@@ -74,20 +74,7 @@ fun OtherTrailersPanel(title: String, trailers: TitleTrailers, open: (Long) -> S
     val trailer = stringResource(R.string.vod_trailer)
     val teaser = stringResource(R.string.vod_teaser)
     val own = trailers.own.map { ItemAction.Open(it.label(trailer, teaser), open(it.id)) }
-    BoardActionsPanel(title, stringResource(R.string.vod_other_trailers), own + tmdbTrailerActions(trailers.tmdb), onDismiss)
-}
-
-/** TMDB's [trailers] as [TrailersPanel] lists them: "Trailer · GB", with the site where it is not YouTube. */
-@Composable
-private fun tmdbTrailerActions(trailers: List<TmdbVideo>): List<ItemAction> {
-    val open = rememberTrailerOpener()
-    val trailer = stringResource(R.string.vod_trailer)
-    val teaser = stringResource(R.string.vod_teaser)
-    return trailers.map { v ->
-        val name = v.name ?: if (v.teaser) teaser else trailer
-        val label = listOfNotNull(name, v.country, v.site.takeIf { it != TmdbVideo.YOUTUBE }).joinToString(" · ")
-        ItemAction.Run(label) { open(v.url) }
-    }
+    BoardActionsPanel(title, stringResource(R.string.vod_other_trailers), own + trailerActions(trailers.tmdb), onDismiss)
 }
 
 /**
