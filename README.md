@@ -12,12 +12,6 @@ MyTVPlayer is currently in closed testing on Google Play. You need to join the g
 
 1. [Join the group](https://groups.google.com/g/biskyt-apps-beta) → 2. [Accept the test](https://play.google.com/apps/testing/com.biskyt.myplexplayer) → 3. [Install from Play](https://play.google.com/store/apps/details?id=com.biskyt.myplexplayer)
 
-
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/biskyt) [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?style=for-the-badge&logo=github-sponsors&logoColor=white)](https://github.com/sponsors/biskyt)
-
-_This work is free, with no ads, no tracking and no data collection. If you find it useful, you can support its development by buying me a coffee with the links above._
-
-
 # MyPlexPlayer
 
 A fast, lightweight and free player for your own **Plex Media Server**, made for Android TV, Google TV and Fire TV
@@ -95,10 +89,10 @@ Project layout: `core/` is plain Kotlin (the Plex client, parsers and the player
 
 ## Support
 
-MyPlexPlayer is free, with no ads and no tracking. If you find it useful, you can support its development:
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/biskyt) [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?style=for-the-badge&logo=github-sponsors&logoColor=white)](https://github.com/sponsors/biskyt)
 
-- [Ko-fi](https://ko-fi.com/biskyt)
-- [GitHub Sponsors](https://github.com/sponsors/biskyt)
+_This work is free, with no ads, no tracking and no data collection. If you find it useful, you can support its development by buying me a coffee with the links above._
+
 
 ## Licence
 
