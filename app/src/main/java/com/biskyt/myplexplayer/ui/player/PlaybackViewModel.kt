@@ -1,6 +1,10 @@
 package com.biskyt.myplexplayer.ui.player
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.os.SystemClock
 import androidx.annotation.StringRes
 import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.getValue
@@ -18,6 +22,7 @@ import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.player.KeyActionMapper
+import com.biskyt.myplexplayer.core.player.NetworkReturn
 import com.biskyt.myplexplayer.core.player.OverlayState
 import com.biskyt.myplexplayer.core.player.PlayerAction
 import com.biskyt.myplexplayer.core.player.RemoteKey
@@ -27,6 +32,7 @@ import com.biskyt.myplexplayer.data.db.ChannelProgramme
 import com.biskyt.myplexplayer.player.PlaybackEngine
 import com.biskyt.myplexplayer.player.PlaybackError
 import com.biskyt.myplexplayer.player.explainFailure
+import com.biskyt.myplexplayer.player.isPassing
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.formatDuration
 import kotlinx.coroutines.Job
@@ -60,6 +66,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
      * that failed, [url] is its address: the error shows it, and the reason names its server.
      */
     protected fun fail(message: String? = null, reason: String? = null, url: String? = null) {
+        cancelRetry() // a try still waiting would open the stream again over the error (MyPlexPlayer's review)
         error = PlaybackError(message ?: appString(failureMessage), reason, url)
         tuning = false
         wake() // an error isn't left under the dimming
@@ -112,12 +119,25 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         private set
 
     protected lateinit var settings: Settings
-    private lateinit var mapper: KeyActionMapper
+
+    // The remote works from the start, with the usual skips, until the settings are read (the owner, 2026-11-23: Back
+    // and the channel buttons while a stream is still loading).
+    private var mapper = mapperFor(Settings())
     private var hideJob: Job? = null
     private var dimJob: Job? = null
-    private var retryJob: Job? = null
     private var messageJob: Job? = null
-    private val retries = RetryBudget(MAX_RETRIES)
+
+    // The retries of a stream that fails.
+    private var retryJob: Job? = null
+    private val failures = FailureRun(MAX_RETRIES)
+    private val retries get() = failures.retries
+
+    /**
+     * Whether the last failure fell behind live TV's window: [reconnect] then moves back into it (see [reopenLive]). The
+     * network's return keeps it, so that a recording watched from its start goes back into what the stream holds.
+     */
+    protected var behind = false
+        private set
 
     // How long the stream has played since its last failure: once it has really played a while, failures get fresh
     // retries; one that starts and fails again straight away would otherwise retry for ever ("Loading…", blank…).
@@ -137,12 +157,15 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
             // Paused, the controls stay up; playing again, they go after the usual while.
             if (!playWhenReady || overlay == OverlayState.CONTROLS) showControls(keepOverlay = true)
+            // Paused by the viewer: the time with no picture stops there, so a failure after playing again has its
+            // full 5 minutes (MyPlexPlayer's review, 2026-11-23).
+            if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) failures.paused()
             wake()
         }
 
         override fun onIsPlayingChanged(playing: Boolean) {
             isPlaying = playing
-            val now = System.currentTimeMillis()
+            val now = SystemClock.elapsedRealtime()
             if (playing) {
                 hasPlayed = true
                 tuning = false
@@ -162,7 +185,10 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
                 return
             }
             buffering = state == Player.STATE_BUFFERING
-            if (state == Player.STATE_READY) error = null
+            if (state == Player.STATE_READY) {
+                error = null
+                reconnecting = false
+            }
             if (state == Player.STATE_ENDED) onEnded()
             // Paused again after a retry or a stop (which ended the countdown): the dimming counts from now. A
             // countdown already running carries on, so a stream that keeps changing state still dims.
@@ -176,28 +202,35 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         }
 
         override fun onPlayerError(e: PlaybackException) {
-            val player = engine?.player ?: return
+            // A late error, after Back or Home (see cancelRetry): nothing is tried again.
+            if (exit || hidden || engine == null) return
             // A failure retrying can't mend, or a stream that failed again after a retry before it ever played, may
             // play another way.
             if (playAnotherWay(e) || engine?.retryAsHls(e) == true || (!hasPlayed && retries.used > 0 && tryOtherFormat())) return
             // Streams drop out now and then; retry a few times before showing an error.
-            if (playedSinceFailure() >= STEADY_MS) retries.reset()
+            val played = playedSinceFailure()
             playedMs = 0
             playingSince = 0
-            if (!retries.take()) {
+            // Live TV that has played goes on trying, as a TV does, while the feed is gone (the owner, 2026-11-23), if
+            // the failure is one that passes, for a while with no picture (see keepsTrying): a session the server ended without
+            // saying so (a playlist that stops) then shows an error, with Try again. One that never played (a dead
+            // channel), or a refusal, gets a few tries, then says why.
+            val tryAgain = failures.failed(SystemClock.elapsedRealtime(), played, isLive, hasPlayed, isPassing(e))
+            if (!tryAgain) {
+                reconnecting = false
                 val url = engine?.currentUrl
                 fail(reason = explainFailure(e, engine?.sentNothing(url) == true), url = url)
                 return
             }
-            if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
-                if (keepsWindowStart) player.seekTo(0) else player.seekToDefaultPosition()
-                player.prepare()
-                return
-            }
+            // Behind the live window: the next try goes back into it (see reopenLive), after the same waits, so a stream
+            // that falls behind again at once is not opened again many times a second. Anything else opens where it
+            // was, so a viewer who paused live TV, or went back in it, keeps the place after a short drop-out.
+            behind = e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW
+            if (hasPlayed) reconnecting = true
             retryJob?.cancel()
             retryJob = viewModelScope.launch {
-                delay(1_000L * retries.used)
-                player.prepare()
+                delay(retryDelayMs(retries.used - 1))
+                reconnectIfShown()
             }
         }
     }
@@ -245,29 +278,104 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     /** Reads the settings and creates the engine; subclasses call this first when they start. */
     protected suspend fun startEngine(): PlaybackEngine {
         settings = c.settings.current()
-        mapper = KeyActionMapper(settings.skipBackSec * 1_000L, settings.skipForwardSec * 1_000L, settings.zapWithUpDown)
+        mapper = mapperFor(settings)
         return PlaybackEngine(appContext, settings).also {
             it.player.addListener(listener)
             it.player.addAnalyticsListener(formatListener)
+            it.live = isLive
             it.onStalled = listener::onPlayerError
+            // A picture came back (or with no video, the time moves): the 5 minutes with no picture start again. Play
+            // time alone does not count: a frozen picture or a still time also "plays" (MyPlexPlayer's review).
+            it.onMoving = failures::moving
             it.onUnsupported =
                 { url -> fail(appString(R.string.player_unsupported_format), url = url.ifEmpty { null }) }
             engine = it
+            if (!hidden) watchNetwork()
         }
     }
+
+    /**
+     * Opens the stream that failed again: live TV as [reopenLive] says ([behind]: it fell behind the live window),
+     * anything else where it was. It is the same stream at the same address (for Plex Live TV, the same session, with
+     * no new tune: a second tune can take a second tuner), never another one. The stall watch
+     * starts again with it ([PlaybackEngine.reopen]). A stream that has not played yet waits [unplayedReopenMs] for its
+     * first picture, if set.
+     */
+    protected open fun reconnect() {
+        val engine = engine ?: return
+        if (isLive && behind) reopenLive(engine.player)
+        engine.reopen(if (hasPlayed) null else unplayedReopenMs)
+    }
+
+    /**
+     * How long a reopened stream that has not played yet waits for its first picture (null: as long as its first
+     * open did). A live tune that already waited long for its first picture can set a shorter wait here.
+     */
+    protected open val unplayedReopenMs: Long? get() = null
+
+    /**
+     * Before a live stream opens again: only one that fell behind its window ([behind]) moves, to the live point, or to
+     * the start of what the stream holds if it is watched from its start ([keepsWindowStart]). Anything else stays
+     * where it was.
+     */
+    private fun reopenLive(player: Player) {
+        if (keepsWindowStart) player.seekTo(0) else player.seekToDefaultPosition()
+    }
+
+    /** Set while a stream that played is opened again after it failed: the player says so, over its last picture. */
+    var reconnecting by mutableStateOf(false)
+        private set
+
+    /** Whether the network has just come back, for [networkBack]. */
+    private val back = NetworkReturn<Network>()
+
+    /**
+     * The network is back (Wi-Fi again, or a cable): a stream waiting to try again tries at once. Only once Android has
+     * found that the network reaches the internet, not when it first connects, and only at that change (see
+     * NetworkReturn): a network that comes and goes would otherwise use up a film's few tries in seconds (MyPlexPlayer's
+     * review, 2026-11-23).
+     */
+    private val networkBack = object : ConnectivityManager.NetworkCallback() {
+        override fun onLost(network: Network) = back.lost(network)
+
+        override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+            if (!back.changed(network, capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED))) return
+            // On the network's thread: a look first, so that no coroutine starts when no try waits, and again on the
+            // main thread, where the tries are made.
+            if (retryJob?.isActive == true) viewModelScope.launch { if (retryJob?.isActive == true) retryNow() }
+        }
+    }
+
+    private fun retryNow() {
+        retryJob?.cancel()
+        reconnectIfShown()
+    }
+
+    /** Opens the stream again, unless it was left (Back, Home). */
+    private fun reconnectIfShown() {
+        if (!exit && !hidden) reconnect()
+    }
+
+    /** A try still waiting is dropped (Back, Home): it would open the stream again after it was left. */
+    private fun cancelRetry() {
+        retryJob?.cancel()
+        reconnecting = false
+    }
+
+    private fun mapperFor(s: Settings) = KeyActionMapper(s.skipBackSec * 1_000L, s.skipForwardSec * 1_000L, s.zapWithUpDown)
 
     /** Forgets the previous stream's failures before playing another. */
     protected fun resetForNewStream() {
         cancelScrub()
-        retryJob?.cancel()
+        cancelRetry()
         error = null
-        retries.reset()
+        failures.reset()
         playedMs = 0
         playingSince = 0
         hasPlayed = false
     }
 
-    private fun playedSinceFailure() = playedMs + if (playingSince > 0) System.currentTimeMillis() - playingSince else 0
+    private fun playedSinceFailure() = playedMs + if (playingSince > 0) SystemClock.elapsedRealtime() - playingSince else 0
 
     protected open fun onPlayingChanged(playing: Boolean) = Unit
 
@@ -279,6 +387,10 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
     /** Whether a failure [e] that retrying can't mend is handled another way (true: the failure is left to that). */
     protected open fun playAnotherWay(e: PlaybackException): Boolean = false
+
+    /** As the player says it started or stopped playing: tests stand in for a picture the test player can't show. */
+    @VisibleForTesting
+    internal fun playingChanged(playing: Boolean) = listener.onIsPlayingChanged(playing)
 
     /** Playback reached the end of the stream. */
     @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
@@ -297,7 +409,6 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
     /** A remote key; [repeat] counts the repeats while it's held. */
     fun onKey(key: RemoteKey, digit: Int = 0, repeat: Int = 0): Boolean {
-        if (!::mapper.isInitialized) return false
         // A held OK, Menu or Guide does it once (its repeats would toggle the controls, the pause, a menu or the guide);
         // one the player doesn't act on is the TV's, repeats and all. A held play/pause or stop also acts once: a
         // keyboard's Space and X repeat quickly (the owner, 2026-11-13).
@@ -357,7 +468,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     }
 
     /** Whether the player acts on [key] now (else it's left to the TV: Guide on a film opens the TV's own guide). */
-    fun actsOn(key: RemoteKey): Boolean = ::mapper.isInitialized && actionFor(key) != PlayerAction.None
+    fun actsOn(key: RemoteKey): Boolean = actionFor(key) != PlayerAction.None
 
     private fun actionFor(key: RemoteKey, digit: Int = 0) = mapper.map(key, overlay, isLive, digit, menuOpen = menuOpen)
 
@@ -366,7 +477,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
     /** Back closes the topmost overlay, otherwise stops playback (also safe while the player is still starting). */
     fun back() {
-        if (!::mapper.isInitialized) stop() else perform(mapper.map(RemoteKey.BACK, overlay, isLive))
+        if (engine == null) stop() else perform(mapper.map(RemoteKey.BACK, overlay, isLive))
     }
 
     /** Whether the app is in the background, where nothing may stream. */
@@ -375,12 +486,15 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     /** Called when the app goes to the background / comes back: nothing is left streaming in the background. */
     open fun onAppHidden() {
         hidden = true
+        cancelRetry()
+        stopWatchingNetwork()
         cancelScrub()
         engine?.player?.stop()
     }
 
     fun onAppShown() {
         hidden = false
+        watchNetwork()
         resume()
     }
 
@@ -390,7 +504,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             // Nothing in it yet (what to play is still loading, as the screen's first "shown" comes straight away):
             // prepared empty, it would end at once and close the player.
             if (it.playbackState == Player.STATE_IDLE && it.mediaItemCount > 0 && !exit) {
-                it.prepare()
+                engine?.reopen()
                 it.play()
             }
         }
@@ -398,8 +512,29 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
     open fun stop() {
         cancelScrub()
+        cancelRetry()
         engine?.player?.stop()
         exit = true
+        stopWatchingNetwork()
+    }
+
+    /** Whether [networkBack] is registered: only while the player is shown and not stopped. */
+    private var watchingNetwork = false
+
+    private val connectivity by lazy(LazyThreadSafetyMode.NONE) { appContext.getSystemService(ConnectivityManager::class.java) }
+
+    private fun watchNetwork() {
+        if (watchingNetwork || exit || engine == null) return
+        val connectivity = connectivity ?: return
+        watchingNetwork = runCatching { connectivity.registerDefaultNetworkCallback(networkBack) }.isSuccess
+    }
+
+    /** The network is no longer watched (hidden, stopped, or the screen gone). */
+    private fun stopWatchingNetwork() {
+        if (!watchingNetwork) return
+        watchingNetwork = false
+        runCatching { connectivity?.unregisterNetworkCallback(networkBack) }
+        back.clear() // nothing is told while it is not watched
     }
 
     fun togglePlayPause() = perform(PlayerAction.TogglePlayPause)
@@ -433,7 +568,8 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     private fun scrub(ms: Long, repeat: Int) {
         val (range, now) = scrubBounds() ?: return skipUnavailable(ms)
         val target = scrubTarget(scrubMs ?: now, ms, repeat, range)
-        // Live TV with catch-up, at the present: there is nothing ahead to skip to.
+        // Live TV (and catch-up) at either end of what it can skip to, such as the present: nothing that way to skip to.
+        // (Live TV that cannot skip at all has no bounds, above.)
         if (isLive && scrubMs == null && target == now) return skipUnavailable(ms)
         if (overlay == OverlayState.NONE) showControls(forSkip = true)
         moveScrub(target, now)
@@ -566,7 +702,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
     open fun retry() {
         resetForNewStream()
-        engine?.player?.prepare()
+        engine?.reopen()
     }
 
     private var trackJob: Job? = null
@@ -614,6 +750,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
     override fun onCleared() {
         released = true
+        stopWatchingNetwork()
         engine?.player?.removeListener(listener)
         engine?.player?.removeAnalyticsListener(formatListener)
         engine?.release()
@@ -627,8 +764,6 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         /** The longest a message about the stream loading stays (see showWhileLoading). */
         const val WAITING_MESSAGE_MS = 15_000L
 
-        /** Having played this long (in all) since the last failure counts as working: later failures get fresh retries. */
-        const val STEADY_MS = 20_000L
         const val OVERLAY_TIMEOUT_MS = 5_000L
 
         /** How long the paused screen is left alone before it dims. */

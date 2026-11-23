@@ -329,6 +329,8 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         skip = null
         resetForNewStream()
         val engine = engine ?: return
+        // A film or an episode on a slow server (a file made on the fly, a disk that sleeps) may take a while to start:
+        // the engine gives it longer than live TV (see PlaybackEngine.play).
         engine.play(playing.stream.url, hls = null, headers = playing.stream.headers)
         // Resume unless it was nearly finished (or the user asked to start over). From Plex, the row has the server's point.
         if (saved != null && !saved.finished && saved.positionMs > RESUME_AFTER_MS) {

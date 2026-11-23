@@ -200,6 +200,55 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     time in the guide; here live TV seeks in the player's own position, with no catch-up), its catch-up parts and
     downloads (none here). 1.31.0 (`8374c8a`, past catch-up programmes in the player's channel guide) doesn't apply:
     no catch-up here, and the schedule here starts with the programme on now.
+  - In 1.15.0: from 1.33.0 (`b685987`, `b29f5a9`; merge `a198721`): core `StallWatch` as it is, the engine's watch
+    every 2 s (`ERROR_CODE_FROZEN`), live that played tries again with no limit (`retryDelayMs`, `reconnect()`,
+    "Reconnecting…"), the network callback, the key mapper from `Settings()` defaults, and the review notes. Here
+    `reconnect()` keeps a recording watched from its start (`keepsWindowStart`) where it was, and a tune's first
+    picture has 60 s (`TUNE_WAIT_MS`, see **Plex Live TV**). `PlayerScreen`'s `WaitingLabel` also shows
+    "Tuning…". Left out: `ChannelGuide`, `GuidePlayer` and catch-up's own retries (no catch-up or zap list change here).
+    Also 1.33.1 (merge `98d338d`: `StallWatch`'s `pictureMoved`, a reset on a seek) and 1.33.2 (merge `85026ce`):
+    `isPassing` (only a failure that passes goes on with no limit; a 4xx such as an ended Plex session fails to the
+    error), `cancelRetry()` in `stop()` and `onAppHidden()`, `stopWatchingNetwork()`, `PlaybackEngine.live` with
+    `REBUFFER_MS`, `play(firstPictureMs = FIRST_PICTURE_MS)` (here a tune's first play passes `TUNE_WAIT_MS`),
+    `RetryBudget.take()` counting past its limit, and HomeFavouritesUiTest's rows compared by `IndexForKey`. StallWatch,
+    its test and the engine's stall watch are as MyTVPlayer has them.
+    Also 1.34.1's playback parts (merge `5403671`): `PlaybackEngine.seekTo` (removed again by 1.34.4; a viewer's seek starts the watch again;
+    `playFrom` and every film and episode seek here use it; a reconnect's seek does not), `ON_DEMAND_REBUFFER_MS` (60 s),
+    `keepsTrying` and `GIVE_UP_MS` (5 min with no picture, then the error with Try again), no behind-window branch (here
+    the delayed `reconnect(behind = true)` keeps `reopenLive`'s rule), no retry after Back or Home, and the network
+    callback only while the player shows (`watchNetwork`). 1.34.0's `ChannelPlayerViewModel` refactor left out for now.
+    Also 1.34.2 (merge `81e5c3b`): a stream's read waits 60 s (here the engine's `READ_TIMEOUT_MS`, as this app's player
+    uses Media3's own HTTP source, not an OkHttp client: it covers a film's wait and a tune's 60 s first picture),
+    `failingSince` cleared only where the retries reset, `started` set as soon as the player is ready, a film's or an
+    episode's first picture given `ON_DEMAND_REBUFFER_MS` (also on the direct-stream switch), StallWatch's `still()`
+    and `watchNetwork` with no connectivity service. This app's own fix: the network's return keeps the failure's
+    `behind` (a field), so that `reopenLive` keeps a recording watched from its start in the stream.
+    Also 1.34.3 (merge `f5b5820`): `PlaybackEngine.reopen()` (the stall watch starts again; a reconnect, Try again and
+    the return from Home use it), `StallWatch.watchPicture` (only live TV's still picture is a freeze),
+    `PLAYED_A_WHILE_MS` (5 s of play clears `failingSince`, not after a freeze) and a live reconnect that moves only
+    after a fall behind the live window. Here `reopenLive` moves to the window's start in place of the live point for a
+    recording watched from its start; MyTVPlayer's `behindLive` is this app's `behind`.
+    Also 1.34.4 (merge `071c5b7`): StallWatch's `stillLimit()` (a first picture held with its time still is FROZEN
+    after `startMs`) and `onMoving` (a picture back clears `failingSince`; `PLAYED_A_WHILE_MS` removed), the check only
+    while the player wants to play and is BUFFERING or READY (`keepChecking`, `checking`), the reset on every seek
+    (`DISCONTINUITY_REASON_SEEK`; `engine.seekTo` removed), `retryAsHls` watched from its start, `play(rebufferMs)` with
+    both waits from `live`, the network's return only once VALIDATED, `SERVER_ERRORS` and PlayerVpnUiTest's race fix.
+    Here a tuned session also waits `TUNE_WAIT_MS` for more data (`rebufferMs`, `PlaybackEngine.rebufferMs` for
+    its test). Its season folders for downloads (`DownloadNames`) don't apply: no downloads here.
+    Also 1.34.5 (merge `50fb077`): core's `NetworkReturn` (a retry on the network's return only when it changes from not
+    working to working, cleared in `stopWatchingNetwork`), StallWatch's `noteMoving()` (a slide that changes now and then
+    clears `failingSince` while its time moves), the malformed playlist and segment codes in `PASSING`, the engine's
+    `stopChecking()` and plain `onMoving`, the shared `rebufferMs` getter and PlayerVpnUiTest's single report. StallWatch
+    and NetworkReturn are as MyTVPlayer has them.
+    Also 1.34.6 (merge `8eca470`): `FailureRun` in RetryBudget.kt (the retries, `failingSince` and whether the stream
+    moved; the retries reset after `STEADY_MS` only if it moved), a viewer's pause clearing the failure run
+    (`failures.paused()`), StallWatch's `isVideo` and `newStream()` (a live picture that froze after a reopen is
+    FROZEN after `startMs` while its time moves; a radio slide is not), and `FailureRunTest`.
+    Also 1.34.7 (merge `abbfe8b`): `PlaybackEngine.reopen(firstPictureMs)`, `cancelRetry()` in `fail()`, one "too slowly
+    to play" text for every stall, and StallWatch's `liveVideo`. Here a reopen of a tuned session that showed no picture
+    yet waits for the rest of the tune's minute, and at least `FIRST_PICTURE_MS` (the shared `unplayedReopenMs` hook, from
+    `hasPlayed`, so "Watch from start" and a fall behind the live window are covered too). A channel that never locks
+    gets its error in about 2 minutes, not 4.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -399,6 +448,17 @@ See also:
   saved as the server's own guide source (`EpgRepository.savePlexGuide`, url `plex:<id>`), with why it last failed,
   if it did, shown on the server's row in Settings › Playlists. A channel is tuned once (`PlexLive`), its tuner let go before the next tune and on leaving; a
   server that refuses Live TV (a friend's) just has no channels.
+  - **Reconnect never tunes again** (1.15.0): the stall watch, `reconnect()` and the network callback never tune. A
+    stall or failure calls `reconnect()`, which only does `prepare()` again on the same session's address (with no
+    `seekToDefaultPosition` for "Watch from start", see `reopenLive`). Only these paths tune (each through `tuneTo`,
+    which lets the old tuner go first): the player as it opens, Try again after an error (`retry()`), the return from
+    the background (`resume()`), a channel change (`zap`, the guide's `watchGuideChannel`) and number entry. The stall
+    watch gives a tune's first picture `TUNE_WAIT_MS`, which is the HTTP read time-out (`HTTP_READ_TIMEOUT_MS` in
+    AppContainer.kt); then it opens the same session again too. A reopen of a session that has not played waits for the
+    rest of that minute, and at least `FIRST_PICTURE_MS`. No retry asks for another stream: no transcode. A
+    session that the server ended (a 404 from its address) is not a failure that passes (`isPassing`): after the
+    usual tries it fails to the error, and only Try again tunes again. A failure that passes gets the error too after
+    `GIVE_UP_MS` with no picture. `LiveStallTest` checks these.
   - **Favourite channels are Plex's** (the owner, 0.9.0: "no point storing it locally"): read from Plex's guide
     service (`PlexAccount.favouriteChannels`) at each sync, they replace this server's favourites here, in Plex's
     order (`PlaylistRepository.syncFavourites`). Adding or removing one (`ChannelRepository.setFavourite`), or the

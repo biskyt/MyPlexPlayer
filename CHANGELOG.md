@@ -2,6 +2,16 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.15.0
+- Live TV reconnects by itself when the picture drops out.
+- The player shows "Reconnecting…" until the picture comes back.
+- The player now opens a stuck or frozen stream again.
+- Playback tries again when the network comes back.
+- The remote's buttons now work while a stream is still loading.
+- Live TV shows an error with Try again when the server ends the session.
+- Live TV shows an error after 5 minutes of reconnecting with no picture.
+- Live TV keeps its place after a short drop-out.
+
 ## 1.14.1
 - The search box and the first category now show their full glow.
 - The external IP lookup tries again when the network is not ready.

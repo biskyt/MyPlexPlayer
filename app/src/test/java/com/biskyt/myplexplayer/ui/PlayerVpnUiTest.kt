@@ -79,7 +79,9 @@ class PlayerVpnUiTest {
         runBlocking { app.container.settings.update { it.copy(warnVpn = true) } }
         play()
         compose.waitForText("VPN not connected")
-        compose.waitAdvancingClock { shadowOf(connectivity).networkCallbacks.isNotEmpty() }
+        // Two listen: the player, to try again when the network comes back, and the VPN status. A report reaches only
+        // those that listen already.
+        compose.waitAdvancingClock { shadowOf(connectivity).networkCallbacks.size >= 2 }
         connectivity.reportNetwork(vpn = true)
         compose.waitForText("VPN on")
         connectivity.reportNetwork(vpn = null)

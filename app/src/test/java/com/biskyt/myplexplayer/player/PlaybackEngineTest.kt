@@ -3,12 +3,18 @@ package com.biskyt.myplexplayer.player
 import android.content.Context
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
+import com.biskyt.myplexplayer.HTTP_READ_TIMEOUT_MS
 import com.biskyt.myplexplayer.data.Settings
 import com.biskyt.myplexplayer.testutil.PlainApp
+import com.biskyt.myplexplayer.ui.player.GIVE_UP_MS
 import com.biskyt.myplexplayer.ui.player.RetryBudget
+import com.biskyt.myplexplayer.ui.player.keepsTrying
+import com.biskyt.myplexplayer.ui.player.retryDelayMs
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -63,6 +69,23 @@ class PlaybackEngineTest {
     }
 
     @Test
+    fun `the stall check runs only while the player wants to play, and starts again when it plays`() {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE)) // waits for data
+            val looper = shadowOf(Looper.getMainLooper())
+            engine.play(server.url("/live.ts").toString(), hls = false)
+            looper.idle()
+            assertTrue(engine.checking)
+            engine.player.pause()
+            looper.idleFor(Duration.ofSeconds(3)) // the next check notes the pause, and posts no more
+            assertFalse(engine.checking)
+            engine.player.play()
+            looper.idle()
+            assertTrue(engine.checking)
+        }
+    }
+
+    @Test
     fun `a failing stream gets a few retries in a row, then fresh ones once it has played`() {
         val budget = RetryBudget(3)
         repeat(3) { assertTrue(budget.take()) }
@@ -70,6 +93,30 @@ class PlaybackEngineTest {
         budget.reset() // played steadily for a while
         assertTrue(budget.take())
         assertEquals(1, budget.used)
+    }
+
+    @Test
+    fun `tries in a row wait longer each time, then every 15 seconds`() {
+        assertEquals(listOf(1_000L, 2_000L, 4_000L, 8_000L, 15_000L, 15_000L), (0..5).map(::retryDelayMs))
+    }
+
+    @Test
+    fun `a stream's read waits as long as the longest stall wait, so that a slow server is not cut off first`() {
+        assertTrue(PlaybackEngine.READ_TIMEOUT_MS >= PlaybackEngine.ON_DEMAND_REBUFFER_MS)
+        // A Plex tune's first picture: a tuner still locking may not answer for as long as the tune itself waits.
+        assertTrue(PlaybackEngine.READ_TIMEOUT_MS >= HTTP_READ_TIMEOUT_MS)
+    }
+
+    @Test
+    fun `live TV that played goes on trying a failure that passes, for 5 minutes with no picture`() {
+        assertTrue(keepsTrying(live = true, played = true, passing = true, failingForMs = 0))
+        assertTrue(keepsTrying(live = true, played = true, passing = true, failingForMs = GIVE_UP_MS - 1))
+        // Then the error shows, with Try again.
+        assertFalse(keepsTrying(live = true, played = true, passing = true, failingForMs = GIVE_UP_MS))
+        // A refusal, a channel that never played, or a film: the usual few tries.
+        assertFalse(keepsTrying(live = true, played = true, passing = false, failingForMs = 0))
+        assertFalse(keepsTrying(live = true, played = false, passing = true, failingForMs = 0))
+        assertFalse(keepsTrying(live = false, played = true, passing = true, failingForMs = 0))
     }
 
     @Test

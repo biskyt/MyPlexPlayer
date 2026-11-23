@@ -21,6 +21,38 @@ data class PlaybackError(val message: String, val reason: String? = null, val ad
 /** A stream that buffered for a long while without getting any further (see PlaybackEngine). */
 const val ERROR_CODE_STALLED = PlaybackException.CUSTOM_ERROR_CODE_BASE
 
+/** A stream that played on with a picture, or a time, that did not move (see PlaybackEngine). */
+const val ERROR_CODE_FROZEN = PlaybackException.CUSTOM_ERROR_CODE_BASE + 1
+
+/**
+ * Whether [e] is a failure that passes, which live TV goes on trying for up to GIVE_UP_MS: the network or the
+ * connection to the server, a time-out, a stall or a frozen picture, or a server that is busy (5xx, 408, 429). A
+ * refusal (other 4xx: the session ended, no access), a decoder or a format that cannot play does not get better by
+ * asking again: it gets a few tries, then an error (MyPlexPlayer's review, 2026-11-23).
+ */
+@OptIn(UnstableApi::class)
+fun isPassing(e: PlaybackException): Boolean {
+    val http = e.causes().firstNotNullOfOrNull { it as? HttpDataSource.InvalidResponseCodeException }
+    return if (http != null) http.responseCode in SERVER_ERRORS || http.responseCode in BUSY else e.errorCode in PASSING
+}
+
+private val SERVER_ERRORS = 500..599
+private val BUSY = setOf(408, 429)
+
+private val PASSING = setOf(
+    ERROR_CODE_STALLED,
+    ERROR_CODE_FROZEN,
+    PlaybackException.ERROR_CODE_TIMEOUT,
+    PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+    PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW,
+    // A feed that drops in the middle of a part or a playlist leaves it cut off: what was read cannot be parsed
+    // (MyPlexPlayer's review, 2026-11-23). A format the player cannot read at all is ..._UNSUPPORTED, which does not pass.
+    PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
+    PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED,
+)
+
 /**
  * A stream's address to show. A Plex address can carry the server's token (`X-Plex-Token`, as image addresses do). It is
  * hidden, so that a photo of the screen does not share it.
@@ -41,6 +73,7 @@ fun explainFailure(e: PlaybackException, sentNothing: Boolean = false): String {
         http != null -> httpReason(http.responseCode)
         e.causes().any { it is UnknownHostException } -> appString(R.string.player_error_dns)
         e.errorCode == ERROR_CODE_STALLED -> appString(R.string.player_error_stalled)
+        e.errorCode == ERROR_CODE_FROZEN -> appString(R.string.player_error_frozen)
         e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> appString(R.string.player_error_timeout)
         e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> appString(R.string.player_error_connection)
         e.errorCode == PlaybackException.ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE -> appString(R.string.player_error_not_video)
@@ -80,7 +113,7 @@ private const val RANGE_NOT_SATISFIABLE = 416
 private fun httpReason(code: Int) = when (code) {
     401, 403 -> appString(R.string.player_error_http_refused, code)
     404, 410 -> appString(R.string.player_error_http_gone, code)
-    in 500..599 -> appString(R.string.player_error_http_server, code)
+    in SERVER_ERRORS -> appString(R.string.player_error_http_server, code)
     else -> appString(R.string.player_error_http_other, code)
 }
 

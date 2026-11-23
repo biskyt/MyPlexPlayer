@@ -6,6 +6,7 @@ import androidx.media3.datasource.HttpDataSource
 import com.biskyt.myplexplayer.testutil.PlainApp
 import java.net.UnknownHostException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,6 +36,33 @@ class PlaybackFailureTest {
     }
 
     @Test
+    fun `live TV goes on trying failures that pass, not refusals or streams that cannot play`() {
+        // The network, the server's connection, time-outs, stalls, busy servers and data cut off as the feed dropped pass.
+        listOf(
+            failure(PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED, UnknownHostException("x")),
+            failure(PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT),
+            failure(PlaybackException.ERROR_CODE_IO_UNSPECIFIED),
+            failure(ERROR_CODE_STALLED),
+            failure(ERROR_CODE_FROZEN),
+            failure(PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED),
+            failure(PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED),
+            http(500),
+            http(503),
+            http(429),
+        ).forEach { assertTrue(it.errorCodeName, isPassing(it)) }
+        // A refusal, or a stream this TV cannot play, does not.
+        listOf(
+            http(401),
+            http(403),
+            http(404),
+            http(410),
+            failure(PlaybackException.ERROR_CODE_DECODING_FAILED),
+            failure(PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED),
+            failure(PlaybackException.ERROR_CODE_DRM_UNSPECIFIED),
+        ).forEach { assertFalse(it.errorCodeName, isPassing(it)) }
+    }
+
+    @Test
     fun `server answers say whether the stream is refused, gone or broken`() {
         says(http(403), "refused", "403", "country")
         says(http(404), "isn't at its address", "404")
@@ -53,7 +81,7 @@ class PlaybackFailureTest {
         says(failure(PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED, UnknownHostException("x")), "can't be found")
         says(failure(PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED), "Couldn't connect")
         says(failure(PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT), "didn't answer")
-        says(failure(ERROR_CODE_STALLED), "too slowly to start")
+        says(failure(ERROR_CODE_STALLED), "too slowly to play") // at the start, or after it played
         says(failure(PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED), "This TV box can't decode")
         says(failure(PlaybackException.ERROR_CODE_DRM_LICENSE_ACQUISITION_FAILED), "encrypted")
         says(failure(PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED), "can't read")
