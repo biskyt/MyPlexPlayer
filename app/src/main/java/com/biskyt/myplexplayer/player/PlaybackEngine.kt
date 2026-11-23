@@ -202,7 +202,13 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
     // could stay on "Loading" for ever), and hands them on as failures, which the player retries.
     private val handler = Handler(player.applicationLooper)
     private var started = false
-    private var stalls = StallWatch(STALL_CHECK_MS)
+    private val stalls = StallWatch(STALL_CHECK_MS)
+
+    /**
+     * Whether the streams are live TV (catch-up too): once one has played, waiting [REBUFFER_MS] with no data is a stall.
+     * A film or an episode waits as long as for its first picture: a slow server can take a while to send more.
+     */
+    var live = true
     private val checkStall = object : Runnable {
         override fun run() {
             if (player.playbackState == Player.STATE_READY) started = true
@@ -236,18 +242,25 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         )
     }
 
-    /**
-     * Watches a new stream from its start. [firstPictureMs]: how long it may buffer with no progress before its first
-     * picture (null: [StallWatch.START_MS]); a Plex tune, which the server answers before the tuner has locked, waits longer.
-     */
-    private fun watchForStall(firstPictureMs: Long?) {
+    /** Watches a new stream from its start. */
+    private fun watchForStall() {
         handler.removeCallbacks(checkStall)
-        stalls = StallWatch(STALL_CHECK_MS, startMs = firstPictureMs ?: StallWatch.START_MS)
+        stalls.reset()
         handler.postDelayed(checkStall, STALL_CHECK_MS)
     }
 
     init {
         player.addAnalyticsListener(events)
+        // After a seek, the picture can hold again while the sound catches up: as at the start, not a freeze.
+        player.addListener(object : Player.Listener {
+            override fun onPositionDiscontinuity(old: Player.PositionInfo, new: Player.PositionInfo, reason: Int) {
+                if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+                    // A seek is a new start: on a slow server it can take as long as the first picture did.
+                    stalls.reset()
+                    started = false
+                }
+            }
+        })
     }
 
     /** The current stream's address. */
@@ -258,8 +271,8 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
      * [hls]: null works the format out from the stream (retrying once as HLS when that fails, see [retryAsHls]).
      * [userAgent] / [referrer]: some streams only play when these headers are sent. [headers]: sent with every request
      * for the stream (a Plex server's token, so it isn't in the address). [fromWindowStart]: a live stream starts at
-     * the start of what it holds, not at its live edge. [firstPictureMs]: how long it may wait for data before its
-     * first picture (see [watchForStall]).
+     * the start of what it holds, not at its live edge. [firstPictureMs]: how long the stream is given to start
+     * (and to start again after a seek), see [StallWatch].
      */
     @Suppress("LongParameterList") // the stream's address, its format and what is sent for it
     fun play(
@@ -269,8 +282,10 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         referrer: String? = null,
         headers: Map<String, String> = emptyMap(),
         fromWindowStart: Boolean = false,
-        firstPictureMs: Long? = null
+        firstPictureMs: Long = FIRST_PICTURE_MS
     ) {
+        stalls.startMs = firstPictureMs
+        stalls.rebufferMs = if (live) REBUFFER_MS else firstPictureMs
         subtitlesApplied = false
         // A track chosen on the last stream mustn't carry over (or quietly match a different one on this).
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
@@ -289,7 +304,7 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         val item = MediaItem.Builder().setUri(url).apply { if (asHls) setMimeType(MimeTypes.APPLICATION_M3U8) }.build()
         if (!start(item, if (fromWindowStart) 0L else null)) return
         player.playWhenReady = true
-        watchForStall(firstPictureMs)
+        watchForStall()
     }
 
     /** Sets and prepares [item], from [positionMs] if given; false (and [onUnsupported]) when the player can't handle its type. */
@@ -459,6 +474,12 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
 
         /** How often the stream is checked for a stall (see StallWatch). */
         private const val STALL_CHECK_MS = 2_000L
+
+        /** How long a stream is given to start, unless [play] is told otherwise. */
+        const val FIRST_PICTURE_MS = 20_000L
+
+        /** How long live TV that has played may wait with no new data before it is opened again. */
+        const val REBUFFER_MS = 12_000L
 
         /** How the player's sound is played. */
         private val MOVIE: AudioAttributes = AudioAttributes.Builder().setUsage(

@@ -1,8 +1,13 @@
 package com.biskyt.myplexplayer.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.runtime.remember
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performSemanticsAction
@@ -76,19 +81,25 @@ class HomeFavouritesUiTest {
 
     private fun waitFor(text: String) = compose.waitForText(text, stepMs = 50)
 
-    /** Where the last [text] is (a favourite is also among the recently added, above). */
-    private fun top(text: String) = compose.onAllNodes(hasText(text)).onLast().fetchSemanticsNode().boundsInRoot.top
+    // The page itself: the rows in it scroll too, sideways.
+    private val page = hasScrollToNodeAction() and SemanticsMatcher.keyIsDefined(VerticalScrollAxisRange)
+
+    /** The place in the page of the row titled [title]. */
+    private fun rowIndex(@StringRes title: Int) = compose.onNode(page).fetchSemanticsNode().config[SemanticsProperties.IndexForKey](title)
 
     private fun shown(text: String) = compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()
 
     @Test
     fun `favourite series and movies have rows of their own, series first, opening their page`() {
         show()
+        compose.scrollToHomeRow(R.string.home_favourite_series)
+        waitFor("Line of Duty")
         compose.scrollToHomeRow(R.string.home_favourite_movies)
         waitFor("Paddington 2")
         waitFor("Heat")
-        assertTrue(top("Favourite series") < top("Favourite movies"))
-        assertTrue(top("Line of Duty") < top("Favourite movies"))
+        // By their places in the page, not on screen: the page draws only the rows in view, and the series' row can be
+        // above it once the movies' row is scrolled to (how far depends on how tall the rows above have become).
+        assertTrue(rowIndex(R.string.home_favourite_series) < rowIndex(R.string.home_favourite_movies))
 
         // The favourites' card (it's also among the recently added, above).
         compose.onAllNodes(hasText("Paddington 2") and hasClickAction()).onLast().performSemanticsAction(SemanticsActions.OnClick)

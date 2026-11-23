@@ -56,6 +56,19 @@ class LiveStallTest {
         ]
     }
 
+    /** Waits for the stream to be asked for, then plays it and loses it: as a picture that started, then the feed went. */
+    private fun playedThenLost(vm: PlayerViewModel) {
+        compose.waitAdvancingClock(1_000) { plex.liveStreamed.isNotEmpty() }
+        vm.playingChanged(true)
+        vm.playingChanged(false)
+    }
+
+    /** Moves the (simulated) clock on by [n] seconds, a second at a time. */
+    private fun advanceSeconds(n: Int) {
+        var steps = 0
+        compose.waitAdvancingClock(1_000) { ++steps >= n }
+    }
+
     @Test
     fun `a stream that trickles in, never enough to play, ends in an error rather than loading for ever`() {
         val vm = tunedChannel()
@@ -70,10 +83,7 @@ class LiveStallTest {
     @Test
     fun `a channel that played opens its session again for as long as it is gone, with no second tune`() {
         val vm = tunedChannel()
-        compose.waitAdvancingClock(1_000) { plex.liveStreamed.isNotEmpty() }
-        // Its picture started, then the feed went.
-        vm.playingChanged(true)
-        vm.playingChanged(false)
+        playedThenLost(vm)
         // Many more tries than a stream that never played gets before its error.
         compose.waitAdvancingClock(1_000) { plex.liveStreamed.size > 4 }
         // Each time the same session, never a new tune.
@@ -88,12 +98,50 @@ class LiveStallTest {
         val vm = tunedChannel()
         compose.waitAdvancingClock(1_000) { plex.liveStreamed.isNotEmpty() }
         // 50 s with no picture: well past the 20 s a stream gets, within the minute a tune may take.
-        var steps = 0
-        compose.waitAdvancingClock(1_000) { ++steps >= 50 }
+        advanceSeconds(50)
         assertTrue(vm.tuning)
         assertNull(vm.error)
         assertFalse(vm.reconnecting)
         assertEquals(1, plex.liveStreamed.size)
+        assertEquals(listOf("ch-1"), plex.tuned.toList())
+    }
+
+    @Test
+    fun `a session the server ended fails to the error, and Try again tunes once more after letting the old tuner go`() {
+        val vm = tunedChannel()
+        playedThenLost(vm)
+        // The server ends the session: asking again does not mend a 404, so the tries stop at the usual limit.
+        plex.liveGone = true
+        compose.waitAdvancingClock(1_000) { vm.error != null }
+        assertEquals(listOf("ch-1"), plex.tuned.toList())
+        // Only Try again tunes again, once the old session is let go.
+        vm.retry()
+        compose.waitAdvancingClock(1_000) { plex.tuned.size == 2 }
+        assertTrue(plex.liveStopped.toString(), plex.liveStopped.any { it.endsWith("1-ch-1") })
+    }
+
+    @Test
+    fun `a try still waiting does not open the stream again once the player is left`() {
+        val vm = tunedChannel()
+        playedThenLost(vm)
+        // The stall comes, and its try waits (a second): the player is left before it runs.
+        compose.waitAdvancingClock(100) { vm.reconnecting }
+        val asked = plex.liveStreamed.size
+        vm.stop()
+        advanceSeconds(30)
+        assertEquals(asked, plex.liveStreamed.size)
+        assertFalse(vm.reconnecting)
+    }
+
+    @Test
+    fun `a recording opened again from its start has as long as a tune to start its picture`() {
+        val vm = tunedChannel()
+        compose.waitAdvancingClock(1_000) { plex.liveStreamed.isNotEmpty() }
+        // "Watch from start": the server starts the session again, with no new tune.
+        vm.watchFromStart()
+        compose.waitAdvancingClock(1_000) { plex.liveStreamed.size == 2 }
+        advanceSeconds(50)
+        assertEquals(plex.liveStreamed.toString(), 2, plex.liveStreamed.size)
         assertEquals(listOf("ch-1"), plex.tuned.toList())
     }
 }

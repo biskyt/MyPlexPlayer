@@ -8,6 +8,7 @@ Each version's section becomes its GitHub release notes, so it is written for th
 - The player now opens a stuck or frozen stream again.
 - Playback tries again at once when the network comes back.
 - The remote's buttons now work while a stream is still loading.
+- Live TV shows an error with Try again when the server ends the session.
 
 ## 1.14.1
 - The search box and the first category now show their full glow.

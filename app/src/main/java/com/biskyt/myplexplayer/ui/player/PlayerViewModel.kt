@@ -161,7 +161,13 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
             engine?.player?.stop()
             playingFromStart = fromStart
             resetForNewStream()
-            engine?.play(stream.url, hls = true, headers = stream.headers, fromWindowStart = fromStart)
+            engine?.play(
+                stream.url,
+                hls = true,
+                headers = stream.headers,
+                fromWindowStart = fromStart,
+                firstPictureMs = TUNE_FIRST_PICTURE_MS
+            )
         }
     }
 
@@ -247,8 +253,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
             fail(e.userMessage())
             return false
         }
-        // Plex answers the tune before the tuner has locked: the stall watch gives the picture as long to start as the
-        // tune itself may take, and a stall then opens the same session again, never a new tune.
+        // A stall opens the same session again: never a new tune.
         engine?.play(stream.url, hls = true, headers = stream.headers, firstPictureMs = TUNE_FIRST_PICTURE_MS)
         heartbeat = viewModelScope.launch {
             while (true) {
@@ -338,8 +343,9 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
         const val HEARTBEAT_MS = 10_000L
 
         /**
-         * How long a tuned channel may take to show its first picture before the player opens its stream again: as
-         * long as the tune's own wait for the server.
+         * How long a tuned channel may take to show its first picture before the player opens its stream again. Plex
+         * answers a tune before the tuner has locked, and it starts a recording's session again for "Watch from start"
+         * and "Watch live": each gets as long as the tune's own wait for the server (the HTTP read time-out).
          */
         const val TUNE_FIRST_PICTURE_MS = HTTP_READ_TIMEOUT_MS
     }

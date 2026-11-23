@@ -76,10 +76,10 @@ import okhttp3.Request
  */
 val USER_AGENT = "MyPlexPlayer/${BuildConfig.VERSION_NAME} (+https://github.com/biskyt/MyPlexPlayer)"
 
-/** Hand-wired dependencies: small enough that a DI framework would only add start-up time. */
 /** How long a request to a server may wait for its answer: a Plex tune waits this long too (see PlayerViewModel). */
 const val HTTP_READ_TIMEOUT_MS = 60_000L
 
+/** Hand-wired dependencies: small enough that a DI framework would only add start-up time. */
 /** [launcherWriter]: what writes the cards to the TV's home screen (see LauncherSync); none in the JVM tests. */
 class AppContainer(context: Context, launcherWriter: LauncherWriter = TvLauncher(context)) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)

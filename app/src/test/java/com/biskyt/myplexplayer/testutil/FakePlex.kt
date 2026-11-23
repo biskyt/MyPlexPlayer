@@ -203,6 +203,9 @@ class FakePlex : AutoCloseable {
      */
     @Volatile var liveTrickles = false
 
+    /** A live session the server has ended: its stream answers 404. */
+    @Volatile var liveGone = false
+
     /** The live sessions (their paths) whose stream was asked for, each time it was. */
     val liveStreamed: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
 
@@ -352,6 +355,7 @@ class FakePlex : AutoCloseable {
      */
     private fun liveStream(path: String): MockResponse {
         liveStreamed += path
+        if (liveGone) return MockResponse().setResponseCode(404)
         if (!liveTrickles) return MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.NO_RESPONSE)
         return MockResponse().setHeader("Content-Type", "application/vnd.apple.mpegurl")
             .setBody(okio.Buffer().writeUtf8("#EXTM3U\n" + "\n".repeat(10_000)))

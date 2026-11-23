@@ -206,6 +206,12 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     `reconnect()` keeps a recording watched from its start (`keepsWindowStart`) where it was, and a tune's first
     picture has 60 s (`TUNE_FIRST_PICTURE_MS`, see **Plex Live TV**). `PlayerScreen`'s `WaitingLabel` also shows
     "Tuning…". Left out: `ChannelGuide`, `GuidePlayer` and catch-up's own retries (no catch-up or zap list change here).
+    Also 1.33.1 (merge `98d338d`: `StallWatch`'s `pictureMoved`, a reset on a seek) and 1.33.2 (merge `85026ce`):
+    `isPassing` (only a failure that passes goes on with no limit; a 4xx such as an ended Plex session fails to the
+    error), `cancelRetry()` in `stop()` and `onAppHidden()`, `stopWatchingNetwork()`, `PlaybackEngine.live` with
+    `REBUFFER_MS`, `play(firstPictureMs = FIRST_PICTURE_MS)` (here a tune's first play passes `TUNE_FIRST_PICTURE_MS`),
+    `RetryBudget.take()` counting past its limit, and HomeFavouritesUiTest's rows compared by `IndexForKey`. StallWatch,
+    its test and the engine's stall watch are as MyTVPlayer has them.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -411,8 +417,9 @@ See also:
     which lets the old tuner go first): the player as it opens, Try again after an error (`retry()`), the return from
     the background (`resume()`), a channel change (`zap`, the guide's `watchGuideChannel`) and number entry. The stall
     watch gives a tune's first picture `TUNE_FIRST_PICTURE_MS`, which is the HTTP read time-out (`HTTP_READ_TIMEOUT_MS` in
-    AppContainer.kt); then it opens the same session again too. No retry asks for another stream: no transcode.
-    `LiveStallTest` checks these.
+    AppContainer.kt); then it opens the same session again too. No retry asks for another stream: no transcode. A
+    session that the server ended (a 404 from its address) is not a failure that passes (`isPassing`): after the
+    usual tries it fails to the error, and only Try again tunes again. `LiveStallTest` checks these.
   - **Favourite channels are Plex's** (the owner, 0.9.0: "no point storing it locally"): read from Plex's guide
     service (`PlexAccount.favouriteChannels`) at each sync, they replace this server's favourites here, in Plex's
     order (`PlaylistRepository.syncFavourites`). Adding or removing one (`ChannelRepository.setFavourite`), or the
