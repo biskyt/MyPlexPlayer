@@ -125,7 +125,7 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         .setUserAgent(USER_AGENT)
         .setAllowCrossProtocolRedirects(true)
         .setConnectTimeoutMs(10_000)
-        .setReadTimeoutMs(15_000)
+        .setReadTimeoutMs(READ_TIMEOUT_MS.toInt())
 
     val player: ExoPlayer = ExoPlayer.Builder(context, renderersFactory())
         .setLoadControl(loadControl(settings.bufferSize))
@@ -252,6 +252,13 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
 
     init {
         player.addAnalyticsListener(events)
+        // Started as soon as it is ready, not at the next check: a stream that is ready and waits again between two
+        // checks then has the shorter wait of one that played.
+        player.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_READY) started = true
+            }
+        })
     }
 
     /**
@@ -484,6 +491,12 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
 
         /** How long a film or an episode that has played may wait with no new data (a slow server's read time). */
         const val ON_DEMAND_REBUFFER_MS = 60_000L
+
+        /**
+         * How long a read of a stream may wait: as long as the longest stall wait, so that a slow server is not cut
+         * off first. It covers a film's wait for more data and a Plex tune's first picture (a tuner still locking).
+         */
+        internal const val READ_TIMEOUT_MS = ON_DEMAND_REBUFFER_MS
 
         /** How the player's sound is played. */
         private val MOVIE: AudioAttributes = AudioAttributes.Builder().setUsage(

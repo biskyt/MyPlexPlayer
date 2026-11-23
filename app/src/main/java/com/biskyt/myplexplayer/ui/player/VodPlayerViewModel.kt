@@ -28,6 +28,7 @@ import com.biskyt.myplexplayer.data.db.VOD_EPISODE
 import com.biskyt.myplexplayer.data.db.VOD_MOVIE
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import com.biskyt.myplexplayer.data.userMessage
+import com.biskyt.myplexplayer.player.PlaybackEngine
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.favouriteAction
@@ -311,7 +312,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
             }
             // Moved on to another title meanwhile: this one's stream isn't wanted.
             if (current?.stream?.plex !== plex) return@launch plex.close()
-            engine.play(stream.url, hls = true, headers = stream.headers)
+            engine.play(stream.url, hls = true, headers = stream.headers, firstPictureMs = PlaybackEngine.ON_DEMAND_REBUFFER_MS)
             if (position > 0) engine.seekTo(position)
         }
         return true
@@ -329,7 +330,8 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         skip = null
         resetForNewStream()
         val engine = engine ?: return
-        engine.play(playing.stream.url, hls = null, headers = playing.stream.headers)
+        // A film or an episode on a slow server (a file made on the fly, a disk that sleeps) may take a while to start.
+        engine.play(playing.stream.url, hls = null, headers = playing.stream.headers, firstPictureMs = PlaybackEngine.ON_DEMAND_REBUFFER_MS)
         // Resume unless it was nearly finished (or the user asked to start over). From Plex, the row has the server's point.
         if (saved != null && !saved.finished && saved.positionMs > RESUME_AFTER_MS) {
             engine.seekTo(saved.positionMs)

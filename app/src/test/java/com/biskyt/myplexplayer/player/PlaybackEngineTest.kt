@@ -3,6 +3,7 @@ package com.biskyt.myplexplayer.player
 import android.content.Context
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
+import com.biskyt.myplexplayer.HTTP_READ_TIMEOUT_MS
 import com.biskyt.myplexplayer.data.Settings
 import com.biskyt.myplexplayer.testutil.PlainApp
 import com.biskyt.myplexplayer.ui.player.GIVE_UP_MS
@@ -78,6 +79,13 @@ class PlaybackEngineTest {
     @Test
     fun `tries in a row wait longer each time, then every 15 seconds`() {
         assertEquals(listOf(1_000L, 2_000L, 4_000L, 8_000L, 15_000L, 15_000L), (0..5).map(::retryDelayMs))
+    }
+
+    @Test
+    fun `a stream's read waits as long as the longest stall wait, so that a slow server is not cut off first`() {
+        assertTrue(PlaybackEngine.READ_TIMEOUT_MS >= PlaybackEngine.ON_DEMAND_REBUFFER_MS)
+        // A Plex tune's first picture: a tuner still locking may not answer for as long as the tune itself waits.
+        assertTrue(PlaybackEngine.READ_TIMEOUT_MS >= HTTP_READ_TIMEOUT_MS)
     }
 
     @Test

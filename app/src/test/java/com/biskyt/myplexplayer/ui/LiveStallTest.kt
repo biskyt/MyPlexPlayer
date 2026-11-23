@@ -1,10 +1,16 @@
 package com.biskyt.myplexplayer.ui
 
+import android.content.Context
+import android.net.ConnectivityManager
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.media3.common.PlaybackException
 import androidx.test.core.app.ApplicationProvider
+import com.biskyt.myplexplayer.AppContainer
+import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.plexChannelId
 import com.biskyt.myplexplayer.testutil.FakePlex
@@ -12,7 +18,9 @@ import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
+import com.biskyt.myplexplayer.ui.player.PlaybackViewModel
 import com.biskyt.myplexplayer.ui.player.PlayerViewModel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -23,7 +31,9 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowNetwork
 
 /**
  * A live stream that never gets going ends in an error; one that played opens its session again, however long it takes.
@@ -154,5 +164,35 @@ class LiveStallTest {
         assertFalse(vm.reconnecting)
         assertTrue(plex.liveStreamed.toString(), plex.liveStreamed.size > 4)
         assertEquals(listOf("ch-1"), plex.tuned.toList())
+    }
+
+    /** A live player that keeps the start of what the stream holds, as a recording watched from its start does. */
+    private class FromStart(c: AppContainer, app: Context) : PlaybackViewModel(c, app) {
+        override val isLive = true
+        override val failureMessage = R.string.player_reconnecting
+        override val keepsWindowStart = true
+        val reconnects = mutableListOf<Boolean>()
+
+        init {
+            viewModelScope.launch { startEngine() }
+        }
+
+        override fun reconnect(behind: Boolean) {
+            reconnects += behind
+        }
+    }
+
+    @Test
+    fun `the network coming back keeps a fall behind the live window, so a recording from its start stays in it`() {
+        val vm = ViewModelProvider(store, viewModelFactory { initializer { FromStart(app.container, app) } })[FromStart::class.java]
+        compose.waitAdvancingClock { vm.engine != null }
+        vm.playingChanged(true)
+        vm.playingChanged(false)
+        vm.engine!!.onStalled(PlaybackException("behind", null, PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW))
+        // The try waits; the network comes back first.
+        val connectivity = app.getSystemService(ConnectivityManager::class.java)
+        shadowOf(connectivity).networkCallbacks.forEach { it.onAvailable(ShadowNetwork.newInstance(1)) }
+        compose.waitAdvancingClock { vm.reconnects.isNotEmpty() }
+        assertEquals(listOf(true), vm.reconnects)
     }
 }

@@ -217,6 +217,12 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     `keepsTrying` and `GIVE_UP_MS` (5 min with no picture, then the error with Try again), no behind-window branch (here
     the delayed `reconnect(behind = true)` keeps `reopenLive`'s rule), no retry after Back or Home, and the network
     callback only while the player shows (`watchNetwork`). 1.34.0's `ChannelPlayerViewModel` refactor left out for now.
+    Also 1.34.2 (merge `81e5c3b`): a stream's read waits 60 s (here the engine's `READ_TIMEOUT_MS`, as this app's player
+    uses Media3's own HTTP source, not an OkHttp client: it covers a film's wait and a tune's 60 s first picture),
+    `failingSince` cleared only where the retries reset, `started` set as soon as the player is ready, a film's or an
+    episode's first picture given `ON_DEMAND_REBUFFER_MS` (also on the direct-stream switch), StallWatch's `still()`
+    and `watchNetwork` with no connectivity service. This app's own fix: the network's return keeps the failure's
+    `behind` (a field), so that `reopenLive` keeps a recording watched from its start in the stream.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
