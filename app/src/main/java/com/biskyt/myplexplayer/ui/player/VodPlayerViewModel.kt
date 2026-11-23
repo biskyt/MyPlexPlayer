@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.PlaybackException
 import com.biskyt.myplexplayer.AppContainer
+import com.biskyt.myplexplayer.HTTP_READ_TIMEOUT_MS
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.player.OverlayState
@@ -311,7 +312,13 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
             }
             // Moved on to another title meanwhile: this one's stream isn't wanted.
             if (current?.stream?.plex !== plex) return@launch plex.close()
-            engine.play(stream.url, hls = true, headers = stream.headers)
+            engine.play(
+                stream.url,
+                hls = true,
+                headers = stream.headers,
+                firstPictureMs = DIRECT_STREAM_WAIT_MS,
+                rebufferMs = DIRECT_STREAM_WAIT_MS
+            )
             if (position > 0) engine.player.seekTo(position)
         }
         return true
@@ -329,8 +336,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         skip = null
         resetForNewStream()
         val engine = engine ?: return
-        // A film or an episode on a slow server (a file made on the fly, a disk that sleeps) may take a while to start:
-        // the engine gives it longer than live TV (see PlaybackEngine.play).
+        // The engine gives a film or an episode its own waits (see PlaybackEngine.play).
         engine.play(playing.stream.url, hls = null, headers = playing.stream.headers)
         // Resume unless it was nearly finished (or the user asked to start over). From Plex, the row has the server's point.
         if (saved != null && !saved.finished && saved.positionMs > RESUME_AFTER_MS) {
@@ -495,6 +501,12 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
 
         /** Less than this in, it just starts from the beginning. */
         const val RESUME_AFTER_MS = 30_000L
+
+        /**
+         * How long the server's direct stream may send nothing. The server repackages the file as it goes (no
+         * re-encode), which can be slow to start: longer than a file played directly (ON_DEMAND_REBUFFER_MS).
+         */
+        const val DIRECT_STREAM_WAIT_MS = HTTP_READ_TIMEOUT_MS
     }
 }
 

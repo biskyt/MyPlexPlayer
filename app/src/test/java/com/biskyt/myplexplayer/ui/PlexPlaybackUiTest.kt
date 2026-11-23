@@ -2,6 +2,7 @@ package com.biskyt.myplexplayer.ui
 
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.testutil.FakePlex
+import com.biskyt.myplexplayer.testutil.FileReply
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addHomePlex
@@ -34,7 +35,7 @@ class PlexPlaybackUiTest {
 
     @Before
     fun setUp() = runBlocking {
-        plex.unreadableFiles = true
+        plex.files = FileReply.Unreadable
         source = app.container.addHomePlex(plex)
         app.container.vod.sync(app.container.db.playlists().get(source)!!)
     }

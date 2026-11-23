@@ -101,9 +101,25 @@ class PlaybackEngineTest {
     }
 
     @Test
-    fun `a stream's read waits as long as the longest stall wait, so that a slow server is not cut off first`() {
-        assertTrue(PlaybackEngine.READ_TIMEOUT_MS >= PlaybackEngine.ON_DEMAND_REBUFFER_MS)
-        // A Plex tune's first picture: a tuner still locking may not answer for as long as the tune itself waits.
+    fun `a reopen's own first-picture wait is for that reopen only`() {
+        engine.play("https://example.invalid/tune.ts", hls = false, firstPictureMs = 60_000)
+        engine.reopen(firstPictureMs = 20_000)
+        assertEquals(20_000L, engine.firstPictureMs)
+        engine.reopen()
+        assertEquals(60_000L, engine.firstPictureMs) // the stream's own wait again
+    }
+
+    @Test
+    fun `films and episodes wait 20 s to start, and 20 s for more data, before a new try`() {
+        engine.live = false
+        engine.play("https://example.invalid/film.mkv", hls = null)
+        assertEquals(20_000L, engine.firstPictureMs)
+        assertEquals(20_000L, engine.rebufferMs)
+    }
+
+    @Test
+    fun `a stream's read waits as long as a Plex tune does, so that a tuner still locking is not cut off first`() {
+        // A tune's wait (PlayerViewModel.TUNE_WAIT_MS) is the HTTP read time-out.
         assertTrue(PlaybackEngine.READ_TIMEOUT_MS >= HTTP_READ_TIMEOUT_MS)
     }
 

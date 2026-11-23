@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.testutil.FakePlex
+import com.biskyt.myplexplayer.testutil.FileReply
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addHomePlex
@@ -47,7 +48,7 @@ class StreamDiagnosticsUiTest {
 
     @Test
     fun `an empty film says the server sent an empty file, and shows its address`() {
-        plex.emptyFiles = true
+        plex.files = FileReply.Empty
         val navigator = navigators.new(Screen.VodPlayer(source, 11))
         compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
         val vm = ViewModelProvider(navigator.current)[VodPlayerViewModel::class.java]
