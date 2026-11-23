@@ -240,6 +240,10 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     clears `failingSince` while its time moves), the malformed playlist and segment codes in `PASSING`, the engine's
     `stopChecking()` and plain `onMoving`, the shared `rebufferMs` getter and PlayerVpnUiTest's single report. StallWatch
     and NetworkReturn are as MyTVPlayer has them.
+    Also 1.34.6 (merge `8eca470`): `FailureRun` in RetryBudget.kt (the retries, `failingSince` and whether the stream
+    moved; the retries reset after `STEADY_MS` only if it moved), a viewer's pause clearing the failure run
+    (`failures.paused()`), StallWatch's `isVideo` and `newStream()` (a live picture that froze after a reopen is
+    FROZEN after `startMs` while its time moves; a radio slide is not), and `FailureRunTest`.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

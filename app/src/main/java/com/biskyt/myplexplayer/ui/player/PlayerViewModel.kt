@@ -350,10 +350,10 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
         const val HEARTBEAT_MS = 10_000L
 
         /**
-         * How long a tuned channel may wait for its first picture, and for more data once it played, before the player
-         * opens its stream again. Plex answers a tune before the tuner has locked, starts a recording's session again
-         * for "Watch from start" and "Watch live", and can be slow to send the next part after a drop-out: each gets as
-         * long as the tune's own wait for the server (the HTTP read time-out).
+         * How long a tuned channel waits for its first picture, and for more data once it played. After this wait, the
+         * player opens the same session again. Plex answers a tune before the tuner locks. It also starts a recording's
+         * session again for "Watch from start" and "Watch live". After a drop-out, it can be slow to send the next part.
+         * So each wait is the tune's own wait for the server: the HTTP read time-out.
          */
         const val TUNE_WAIT_MS = HTTP_READ_TIMEOUT_MS
     }
