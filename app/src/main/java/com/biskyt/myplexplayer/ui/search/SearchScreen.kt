@@ -44,6 +44,7 @@ import com.biskyt.myplexplayer.ui.appViewModel
 import com.biskyt.myplexplayer.ui.common.AppIcons
 import com.biskyt.myplexplayer.ui.common.ChannelCard
 import com.biskyt.myplexplayer.ui.common.ChannelLogo
+import com.biskyt.myplexplayer.ui.common.GLOW_GAP
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.ItemActionsPanel
 import com.biskyt.myplexplayer.ui.common.Muted
@@ -175,7 +176,8 @@ fun SearchScreen(initialQuery: String = "") {
     }
     TabScaffold(null) {
         LazyColumn(
-            contentPadding = PaddingValues(start = 56.dp, end = 56.dp, bottom = 40.dp),
+            // Room above the search box for its glow, which the list would cut off.
+            contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = GLOW_GAP, bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             item {

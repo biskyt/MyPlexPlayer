@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.14.1
+- The search box and the first category now show their full glow.
+- The external IP lookup tries again when the network is not ready.
+- A favourite removed in the TV guide no longer moves focus in the list later.
+
 ## 1.14.0
 - Continue watching and favourite cards now offer Cast and crew, About and trailers.
 - The player's More menu now offers About and More like this.
