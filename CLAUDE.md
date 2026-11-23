@@ -244,6 +244,11 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     moved; the retries reset after `STEADY_MS` only if it moved), a viewer's pause clearing the failure run
     (`failures.paused()`), StallWatch's `isVideo` and `newStream()` (a live picture that froze after a reopen is
     FROZEN after `startMs` while its time moves; a radio slide is not), and `FailureRunTest`.
+    Also 1.34.7 (merge `abbfe8b`): `PlaybackEngine.reopen(firstPictureMs)`, `cancelRetry()` in `fail()`, one "too slowly
+    to play" text for every stall, and StallWatch's `liveVideo`. Here a reopen of a tuned session that showed no picture
+    yet waits for the rest of the tune's minute, and at least `FIRST_PICTURE_MS` (the shared `unplayedReopenMs` hook, from
+    `hasPlayed`, so "Watch from start" and a fall behind the live window are covered too). A channel that never locks
+    gets its error in about 2 minutes, not 4.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -449,7 +454,8 @@ See also:
     which lets the old tuner go first): the player as it opens, Try again after an error (`retry()`), the return from
     the background (`resume()`), a channel change (`zap`, the guide's `watchGuideChannel`) and number entry. The stall
     watch gives a tune's first picture `TUNE_WAIT_MS`, which is the HTTP read time-out (`HTTP_READ_TIMEOUT_MS` in
-    AppContainer.kt); then it opens the same session again too. No retry asks for another stream: no transcode. A
+    AppContainer.kt); then it opens the same session again too. A reopen of a session that has not played waits for the
+    rest of that minute, and at least `FIRST_PICTURE_MS`. No retry asks for another stream: no transcode. A
     session that the server ended (a 404 from its address) is not a failure that passes (`isPassing`): after the
     usual tries it fails to the error, and only Try again tunes again. A failure that passes gets the error too after
     `GIVE_UP_MS` with no picture. `LiveStallTest` checks these.

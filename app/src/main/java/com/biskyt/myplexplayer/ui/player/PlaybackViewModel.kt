@@ -66,6 +66,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
      * that failed, [url] is its address: the error shows it, and the reason names its server.
      */
     protected fun fail(message: String? = null, reason: String? = null, url: String? = null) {
+        cancelRetry() // a try still waiting would open the stream again over the error (MyPlexPlayer's review)
         error = PlaybackError(message ?: appString(failureMessage), reason, url)
         tuning = false
         wake() // an error isn't left under the dimming
@@ -297,13 +298,20 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
      * Opens the stream that failed again: live TV as [reopenLive] says ([behind]: it fell behind the live window),
      * anything else where it was. It is the same stream at the same address (for Plex Live TV, the same session, with
      * no new tune: a second tune can take a second tuner), never another one. The stall watch
-     * starts again with it ([PlaybackEngine.reopen]), with the waits of a stream that played.
+     * starts again with it ([PlaybackEngine.reopen]). A stream that has not played yet waits [unplayedReopenMs] for its
+     * first picture, if set.
      */
     protected open fun reconnect() {
         val engine = engine ?: return
         if (isLive && behind) reopenLive(engine.player)
-        engine.reopen()
+        engine.reopen(if (hasPlayed) null else unplayedReopenMs)
     }
+
+    /**
+     * How long a reopened stream that has not played yet waits for its first picture (null: as long as its first
+     * open did). A live tune that already waited long for its first picture can set a shorter wait here.
+     */
+    protected open val unplayedReopenMs: Long? get() = null
 
     /**
      * Before a live stream opens again: only one that fell behind its window ([behind]) moves, to the live point, or to
@@ -318,14 +326,15 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     var reconnecting by mutableStateOf(false)
         private set
 
+    /** Whether the network has just come back, for [networkBack]. */
+    private val back = NetworkReturn<Network>()
+
     /**
      * The network is back (Wi-Fi again, or a cable): a stream waiting to try again tries at once. Only once Android has
      * found that the network reaches the internet, not when it first connects, and only at that change (see
      * NetworkReturn): a network that comes and goes would otherwise use up a film's few tries in seconds (MyPlexPlayer's
      * review, 2026-11-23).
      */
-    private val back = NetworkReturn<Network>()
-
     private val networkBack = object : ConnectivityManager.NetworkCallback() {
         override fun onLost(network: Network) = back.lost(network)
 

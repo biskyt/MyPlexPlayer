@@ -117,6 +117,20 @@ class LiveStallTest {
     }
 
     @Test
+    fun `a session that showed no picture waits a tune's minute once, then a short wait on each reopen`() {
+        tunedChannel()
+        // The tune's minute, then the first reopen of the same session.
+        compose.waitAdvancingClock(1_000) { plex.liveStreamed.size == 2 }
+        // The next reopen comes after a stream's 20 s, not a minute for each reopen (that gave about 4 minutes of
+        // "Tuning…").
+        advanceSeconds(15)
+        assertEquals(plex.liveStreamed.toString(), 2, plex.liveStreamed.size)
+        advanceSeconds(15)
+        assertTrue(plex.liveStreamed.toString(), plex.liveStreamed.size >= 3)
+        assertEquals(listOf("ch-1"), plex.tuned.toList())
+    }
+
+    @Test
     fun `a channel that played waits as long as a tune for more data, so a slow server's reconnect is not cut off`() {
         val vm = tunedChannel()
         compose.waitAdvancingClock(1_000) { plex.liveStreamed.isNotEmpty() }
@@ -161,6 +175,38 @@ class LiveStallTest {
         compose.waitAdvancingClock(1_000) { plex.liveStreamed.size == 2 }
         advanceSeconds(50)
         assertEquals(plex.liveStreamed.toString(), 2, plex.liveStreamed.size)
+        assertEquals(listOf("ch-1"), plex.tuned.toList())
+    }
+
+    @Test
+    fun `a tune whose first try fails at once still gets its minute in all before the short waits`() {
+        val vm = tunedChannel()
+        compose.waitAdvancingClock(1_000) { plex.liveStreamed.isNotEmpty() }
+        advanceSeconds(3)
+        // A quick failure that passes (the session's playlist not there yet), while the tuner still locks. As a real
+        // failure does, it stops the player first.
+        val engine = vm.engine!!
+        engine.player.stop()
+        engine.onStalled(PlaybackException("drop", null, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED))
+        compose.waitAdvancingClock(1_000) { plex.liveStreamed.size == 2 }
+        // The reopen waits for the rest of the tune's minute, not only a stream's 20 s.
+        advanceSeconds(35)
+        assertEquals(plex.liveStreamed.toString(), 2, plex.liveStreamed.size)
+        assertEquals(listOf("ch-1"), plex.tuned.toList())
+    }
+
+    @Test
+    fun `a session started again from its start that shows no picture gets the short wait on each reopen too`() {
+        val vm = tunedChannel()
+        compose.waitAdvancingClock(1_000) { plex.liveStreamed.isNotEmpty() }
+        vm.pictureStarted() // the first session showed its picture
+        vm.watchFromStart()
+        // The new session's minute, then its first reopen.
+        compose.waitAdvancingClock(1_000) { plex.liveStreamed.size == 3 }
+        advanceSeconds(15)
+        assertEquals(plex.liveStreamed.toString(), 3, plex.liveStreamed.size)
+        advanceSeconds(15)
+        assertTrue(plex.liveStreamed.toString(), plex.liveStreamed.size >= 4)
         assertEquals(listOf("ch-1"), plex.tuned.toList())
     }
 

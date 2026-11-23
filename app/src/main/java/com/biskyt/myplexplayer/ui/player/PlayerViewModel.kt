@@ -1,6 +1,7 @@
 package com.biskyt.myplexplayer.ui.player
 
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.getValue
@@ -20,6 +21,7 @@ import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.data.db.ChannelProgramme
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
 import com.biskyt.myplexplayer.data.userMessage
+import com.biskyt.myplexplayer.player.PlaybackEngine
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.NumberEntry
@@ -168,6 +170,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
 
     /** Plays a tuned session's [stream], with a tune's wait ([TUNE_WAIT_MS]) for its first picture and for more data. */
     private fun playTuned(stream: PlexStream, fromStart: Boolean = false) {
+        sessionStartedAt = SystemClock.elapsedRealtime()
         engine?.play(
             stream.url,
             hls = true,
@@ -247,7 +250,9 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
      */
     private suspend fun playPlex(p: PlaylistEntity, ch: ChannelEntity): Boolean {
         // The last channel's stream stops first (its session is ending: its retries would fail while this one tunes).
+        // A try it scheduled since the tune began (a failure just before the stop) is dropped too.
         engine?.player?.stop()
+        resetForNewStream()
         letTunerGo()
         closing?.join() // also one let go on leaving the app, or the screen remade
         val key = ch.providerEpgId ?: return false.also { fail() }
@@ -310,6 +315,21 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
 
     /** Asked for: tuned again. */
     override fun retry() = tuneTo(targetStreamId)
+
+    /** When the session in play was started (a tune, or a restream for "Watch from start" or "Watch live"). */
+    private var sessionStartedAt = 0L
+
+    /**
+     * A tuned session that has not played yet waits for its first picture for the tune's minute in all. A reopen waits
+     * for what is left of that minute, and at least as long as a live stream waits to start. So a channel that never
+     * locks gets its error in about 2 minutes, not a minute for each try. A try that fails at once (not a stall) still
+     * uses the usual retries.
+     */
+    override val unplayedReopenMs: Long
+        get() {
+            val left = TUNE_WAIT_MS - (SystemClock.elapsedRealtime() - sessionStartedAt)
+            return left.coerceAtLeast(PlaybackEngine.FIRST_PICTURE_MS)
+        }
 
     override fun zap(step: Int) {
         if (ids.isNotEmpty()) tuneTo(ids.cycle(targetStreamId, step))
