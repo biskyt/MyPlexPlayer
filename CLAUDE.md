@@ -212,6 +212,11 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     `REBUFFER_MS`, `play(firstPictureMs = FIRST_PICTURE_MS)` (here a tune's first play passes `TUNE_FIRST_PICTURE_MS`),
     `RetryBudget.take()` counting past its limit, and HomeFavouritesUiTest's rows compared by `IndexForKey`. StallWatch,
     its test and the engine's stall watch are as MyTVPlayer has them.
+    Also 1.34.1's playback parts (merge `5403671`): `PlaybackEngine.seekTo` (a viewer's seek starts the watch again;
+    `playFrom` and every film and episode seek here use it; a reconnect's seek does not), `ON_DEMAND_REBUFFER_MS` (60 s),
+    `keepsTrying` and `GIVE_UP_MS` (5 min with no picture, then the error with Try again), no behind-window branch (here
+    the delayed `reconnect(behind = true)` keeps `reopenLive`'s rule), no retry after Back or Home, and the network
+    callback only while the player shows (`watchNetwork`). 1.34.0's `ChannelPlayerViewModel` refactor left out for now.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -419,7 +424,8 @@ See also:
     watch gives a tune's first picture `TUNE_FIRST_PICTURE_MS`, which is the HTTP read time-out (`HTTP_READ_TIMEOUT_MS` in
     AppContainer.kt); then it opens the same session again too. No retry asks for another stream: no transcode. A
     session that the server ended (a 404 from its address) is not a failure that passes (`isPassing`): after the
-    usual tries it fails to the error, and only Try again tunes again. `LiveStallTest` checks these.
+    usual tries it fails to the error, and only Try again tunes again. A failure that passes gets the error too after
+    `GIVE_UP_MS` with no picture. `LiveStallTest` checks these.
   - **Favourite channels are Plex's** (the owner, 0.9.0: "no point storing it locally"): read from Plex's guide
     service (`PlexAccount.favouriteChannels`) at each sync, they replace this server's favourites here, in Plex's
     order (`PlaylistRepository.syncFavourites`). Adding or removing one (`ChannelRepository.setFavourite`), or the

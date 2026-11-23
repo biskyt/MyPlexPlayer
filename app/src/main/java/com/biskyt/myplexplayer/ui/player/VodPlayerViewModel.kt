@@ -312,7 +312,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
             // Moved on to another title meanwhile: this one's stream isn't wanted.
             if (current?.stream?.plex !== plex) return@launch plex.close()
             engine.play(stream.url, hls = true, headers = stream.headers)
-            if (position > 0) engine.player.seekTo(position)
+            if (position > 0) engine.seekTo(position)
         }
         return true
     }
@@ -332,7 +332,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         engine.play(playing.stream.url, hls = null, headers = playing.stream.headers)
         // Resume unless it was nearly finished (or the user asked to start over). From Plex, the row has the server's point.
         if (saved != null && !saved.finished && saved.positionMs > RESUME_AFTER_MS) {
-            engine.player.seekTo(saved.positionMs)
+            engine.seekTo(saved.positionMs)
             flash(appString(R.string.player_resuming_from, formatDuration(saved.positionMs)))
         }
         showControls()
@@ -474,7 +474,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     private fun skip(marker: PlexMarker) {
         skipHandled += marker
         skip = null
-        engine?.player?.seekTo(marker.endMs)
+        engine?.seekTo(marker.endMs)
         if (marker.final) stop()
     }
 

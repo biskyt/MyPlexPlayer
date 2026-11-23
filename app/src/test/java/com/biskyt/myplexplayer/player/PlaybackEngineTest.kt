@@ -5,7 +5,9 @@ import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.Settings
 import com.biskyt.myplexplayer.testutil.PlainApp
+import com.biskyt.myplexplayer.ui.player.GIVE_UP_MS
 import com.biskyt.myplexplayer.ui.player.RetryBudget
+import com.biskyt.myplexplayer.ui.player.keepsTrying
 import com.biskyt.myplexplayer.ui.player.retryDelayMs
 import java.util.concurrent.TimeUnit
 import okhttp3.mockwebserver.MockResponse
@@ -76,6 +78,18 @@ class PlaybackEngineTest {
     @Test
     fun `tries in a row wait longer each time, then every 15 seconds`() {
         assertEquals(listOf(1_000L, 2_000L, 4_000L, 8_000L, 15_000L, 15_000L), (0..5).map(::retryDelayMs))
+    }
+
+    @Test
+    fun `live TV that played goes on trying a failure that passes, for 5 minutes with no picture`() {
+        assertTrue(keepsTrying(live = true, played = true, passing = true, failingForMs = 0))
+        assertTrue(keepsTrying(live = true, played = true, passing = true, failingForMs = GIVE_UP_MS - 1))
+        // Then the error shows, with Try again.
+        assertFalse(keepsTrying(live = true, played = true, passing = true, failingForMs = GIVE_UP_MS))
+        // A refusal, a channel that never played, or a film: the usual few tries.
+        assertFalse(keepsTrying(live = true, played = true, passing = false, failingForMs = 0))
+        assertFalse(keepsTrying(live = true, played = false, passing = true, failingForMs = 0))
+        assertFalse(keepsTrying(live = false, played = true, passing = true, failingForMs = 0))
     }
 
     @Test

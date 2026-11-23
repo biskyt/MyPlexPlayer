@@ -144,4 +144,15 @@ class LiveStallTest {
         assertEquals(plex.liveStreamed.toString(), 2, plex.liveStreamed.size)
         assertEquals(listOf("ch-1"), plex.tuned.toList())
     }
+
+    @Test
+    fun `a session that keeps failing in a way that passes shows the error after 5 minutes, with no second tune`() {
+        val vm = tunedChannel()
+        playedThenLost(vm)
+        // The feed never comes back: stall after stall, each one that passes.
+        compose.waitAdvancingClock(5_000) { vm.error != null }
+        assertFalse(vm.reconnecting)
+        assertTrue(plex.liveStreamed.toString(), plex.liveStreamed.size > 4)
+        assertEquals(listOf("ch-1"), plex.tuned.toList())
+    }
 }

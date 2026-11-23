@@ -3,6 +3,7 @@ package com.biskyt.myplexplayer.ui.player
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
+import android.os.SystemClock
 import androidx.annotation.StringRes
 import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.getValue
@@ -171,6 +172,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             if (state == Player.STATE_READY) {
                 error = null
                 reconnecting = false
+                failingSince = 0
             }
             if (state == Player.STATE_ENDED) onEnded()
             // Paused again after a retry or a stop (which ended the countdown): the dimming counts from now. A
@@ -185,7 +187,8 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         }
 
         override fun onPlayerError(e: PlaybackException) {
-            val player = engine?.player ?: return
+            // A late error, after Back or Home (see cancelRetry): nothing is tried again.
+            if (exit || hidden || engine == null) return
             // A failure retrying can't mend, or a stream that failed again after a retry before it ever played, may
             // play another way.
             if (playAnotherWay(e) || engine?.retryAsHls(e) == true || (!hasPlayed && retries.used > 0 && tryOtherFormat())) return
@@ -193,24 +196,28 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             if (playedSinceFailure() >= STEADY_MS) retries.reset()
             playedMs = 0
             playingSince = 0
-            // Live TV that has played goes on trying, as a TV does, however long the feed is gone (the owner,
-            // 2026-11-23), if the failure is one that passes. One that never played (a dead channel), or a refusal,
-            // gets a few tries, then says why.
-            if (!retries.take() && !(isLive && hasPlayed && isPassing(e))) {
+            // Live TV that has played goes on trying, as a TV does, while the feed is gone (the owner, 2026-11-23), if
+            // the failure is one that passes, for a while with no picture (see keepsTrying): a session the server ended
+            // without saying so (a playlist that stops) then shows an error, with Try again. One that never played (a
+            // dead channel), or a refusal, gets a few tries, then says why.
+            // The device's own clock since start-up: a change of the time on the TV does not move it.
+            val now = SystemClock.elapsedRealtime()
+            if (failingSince == 0L) failingSince = now
+            val keepTrying = keepsTrying(isLive, hasPlayed, isPassing(e), failingForMs = now - failingSince)
+            if (!retries.take() && !keepTrying) {
                 reconnecting = false
                 val url = engine?.currentUrl
                 fail(reason = explainFailure(e, engine?.sentNothing(url) == true), url = url)
                 return
             }
-            if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
-                reopenLive(player, behind = true)
-                return
-            }
+            // Behind the live window too: reconnect() goes back into it, after the same waits, so a stream that falls
+            // behind again at once is not opened again many times a second.
+            val behind = e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW
             if (hasPlayed) reconnecting = true
             retryJob?.cancel()
             retryJob = viewModelScope.launch {
                 delay(retryDelayMs(retries.used - 1))
-                reconnect()
+                if (!exit && !hidden) reconnect(behind)
             }
         }
     }
@@ -264,22 +271,26 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             it.player.addAnalyticsListener(formatListener)
             it.live = isLive
             it.onStalled = listener::onPlayerError
-            runCatching { appContext.getSystemService(ConnectivityManager::class.java)?.registerDefaultNetworkCallback(networkBack) }
             it.onUnsupported =
                 { url -> fail(appString(R.string.player_unsupported_format), url = url.ifEmpty { null }) }
             engine = it
+            if (!hidden) watchNetwork()
         }
     }
 
     /**
-     * Opens the stream that failed again: live TV as [reopenLive] says, anything else where it was. It is the same
-     * stream at the same address (for Plex Live TV, the same session, with no new tune: a second tune can take a
-     * second tuner), never another one.
+     * Opens the stream that failed again: live TV as [reopenLive] says ([behind]: it fell behind the live window),
+     * anything else where it was. It is the same stream at the same address (for Plex Live TV, the same session, with
+     * no new tune: a second tune can take a second tuner), never another one. Its seek leaves the stall watch as it is,
+     * so live TV keeps its own waits.
      */
-    protected open fun reconnect() {
+    protected open fun reconnect(behind: Boolean = false) {
         val player = engine?.player ?: return
-        if (isLive) reopenLive(player, behind = false) else player.prepare()
+        if (isLive) reopenLive(player, behind) else player.prepare()
     }
+
+    /** When the stream began to fail, with no picture since (0: it plays). */
+    private var failingSince = 0L
 
     /**
      * Opens a live stream again at the live point. One watched from its start ([keepsWindowStart]) must not jump to
@@ -324,6 +335,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         retryJob?.cancel()
         error = null
         reconnecting = false
+        failingSince = 0
         retries.reset()
         playedMs = 0
         playingSince = 0
@@ -442,12 +454,14 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     open fun onAppHidden() {
         hidden = true
         cancelRetry()
+        stopWatchingNetwork()
         cancelScrub()
         engine?.player?.stop()
     }
 
     fun onAppShown() {
         hidden = false
+        watchNetwork()
         resume()
     }
 
@@ -471,8 +485,20 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         stopWatchingNetwork()
     }
 
-    /** The network is no longer watched (stopped, or the screen gone): a second call does nothing. */
+    /** Whether [networkBack] is registered: only while the player is shown and not stopped. */
+    private var watchingNetwork = false
+
+    private fun watchNetwork() {
+        if (watchingNetwork || exit || engine == null) return
+        watchingNetwork = runCatching {
+            appContext.getSystemService(ConnectivityManager::class.java)?.registerDefaultNetworkCallback(networkBack)
+        }.isSuccess
+    }
+
+    /** The network is no longer watched (hidden, stopped, or the screen gone). */
     private fun stopWatchingNetwork() {
+        if (!watchingNetwork) return
+        watchingNetwork = false
         runCatching { appContext.getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(networkBack) }
     }
 
@@ -497,7 +523,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
     /** Plays from [ms] (a point within [scrubBounds]). */
     protected open fun playFrom(ms: Long) {
-        engine?.player?.seekTo(ms)
+        engine?.seekTo(ms)
     }
 
     /**
