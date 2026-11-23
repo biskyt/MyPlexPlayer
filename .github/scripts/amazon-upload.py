@@ -6,12 +6,13 @@ Needs AMAZON_CLIENT_ID, AMAZON_CLIENT_SECRET and AMAZON_APP_ID in the environmen
 The steps:
 1. Gets an access token.
 2. Uses the app's open edit, or makes one. Amazon allows only one open edit for an app.
-3. Replaces the edit's APK with the new one. A replace keeps the APK's device targeting.
+3. Uploads the new APK to the edit and deletes the old one. Amazon sets the new APK's device targeting from its
+   manifest.
 4. Puts the notes in the "Recent changes" of every English listing.
 5. Commits the edit, which sends it to Amazon's review. --no-submit leaves the edit open, to check in the console.
 An edit that is open already is used only with --use-open-edit: it can hold changes made by hand in the console. A
 second run with --use-open-edit submits an edit that an earlier --no-submit run left open.
-Every change sends the ETag of the item it changes (If-Match), as the API asks.
+Every PUT, DELETE and the commit send the ETag of the item they change (If-Match), as the API asks.
 """
 import argparse
 import json
@@ -42,6 +43,9 @@ def call(method, url, token=None, body=None, headers=None):
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "replace")[:500]
         fail(f"{method} {url.replace(API, '')}: HTTP {e.code} {detail}")
+    except (urllib.error.URLError, TimeoutError) as e:
+        # The request may still have reached Amazon (an upload stored, say): a run again with --use-open-edit carries on.
+        fail(f"{method} {url.replace(API, '')}: no answer ({e})")
 
 
 def etag_of(method, url, token):
@@ -101,26 +105,34 @@ def main():
         print(f"Made the edit {edit['id']}")
     edits = f"{app}/edits/{edit['id']}"
 
-    # One APK: it is replaced, so that its device targeting stays.
+    # The release's APK goes in, and every older APK goes out. A run that stopped half way (the new APK uploaded, an
+    # old one not deleted yet) carries on from there when it runs again with --use-open-edit.
     apks, _ = call("GET", f"{edits}/apks", token)
-    if len(apks or []) != 1:
-        fail(f"The edit has {len(apks or [])} APKs, not 1: set it up in the Developer Console first")
-    apk = apks[0]
-    current = apk.get("versionCode", 0)
-    if current == version_code:
-        # An earlier run left this edit open with this APK (Submit off): it goes on to submit it.
+    apks = apks or []
+    print("The edit's APKs: " + ", ".join(f"{a.get('id')} ({a.get('versionCode')}, {a.get('name')})" for a in apks))
+    newer = [a for a in apks if a.get("versionCode", 0) > version_code]
+    if newer:
+        fail(f"Amazon already has versionCode {newer[0].get('versionCode')}, newer than {version_code}")
+    older = [a for a in apks if a.get("versionCode", 0) < version_code]
+    # Their ETags first: an id that Amazon refuses stops the run before the edit changes.
+    for old in older:
+        etag_of("GET", f"{edits}/apks/{old['id']}", token)
+    if any(a.get("versionCode") == version_code for a in apks):
         print(f"The edit has versionCode {version_code} already")
-    elif current > version_code:
-        fail(f"Amazon already has versionCode {current}, newer than {version_code}")
     else:
-        _, etag = etag_of("GET", f"{edits}/apks/{apk['id']}", token)
+        # Amazon refuses the documented replace call ("Invalid asset id", 2026-11-23), so the new APK is uploaded and
+        # the old one deleted, as Amazon's own guide does. Amazon sets the new APK's device targeting from its manifest.
         with open(apk_path, "rb") as f:
             data = f.read()
-        call("PUT", f"{edits}/apks/{apk['id']}/replace", token, data, {
+        added, _ = call("POST", f"{edits}/apks/upload", token, data, {
             "Content-Type": "application/vnd.android.package-archive",
-            "If-Match": etag,
+            "fileName": os.path.basename(apk_path),
         })
-        print(f"Replaced versionCode {current} with {version_code}")
+        print(f"Uploaded versionCode {(added or {}).get('versionCode', version_code)}")
+    for old in older:
+        _, etag = etag_of("GET", f"{edits}/apks/{old['id']}", token)
+        call("DELETE", f"{edits}/apks/{old['id']}", token, headers={"If-Match": etag})
+        print(f"Deleted versionCode {old.get('versionCode')}")
 
     # The notes are English only (the owner's rule), so only the English listings get them.
     languages = [code for code in listing_languages(call("GET", f"{edits}/listings", token)[0]) if code.startswith("en")]

@@ -74,7 +74,8 @@ Moving a release from closed testing to production is done in Play Console.
 Amazon takes the release's APK (`MyPlexPlayer-<version>.apk`, from the GitHub release), not the `.aab`. The **Amazon
 upload** workflow (`amazon-upload.yml`, input `tag`, run on `main`) sends it with Amazon's App Submission API
 (`.github/scripts/amazon-upload.py`):
-- It replaces the APK in the app's open edit, or in a new one, so that the device targeting stays.
+- It uploads the APK to a new edit (or to the open edit, with "Use open edit") and deletes the older APKs there. Amazon sets the new APK's device targeting from its
+  manifest, so check the targeting in the console after the first run.
 - It puts the same short notes as Play's "What's new" in each English listing's "Recent changes".
 - It submits the edit for Amazon's review. Untick "Submit for review" to leave the edit open and check it in the
   Developer Console first. Then submit it there, or run the workflow again with "Use open edit" ticked.
