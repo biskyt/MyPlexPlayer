@@ -235,6 +235,11 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     both waits from `live`, the network's return only once VALIDATED, `SERVER_ERRORS` and PlayerVpnUiTest's race fix.
     Here a tuned session also waits `TUNE_WAIT_MS` for more data (`rebufferMs`, `PlaybackEngine.rebufferMs` for
     its test). Its season folders for downloads (`DownloadNames`) don't apply: no downloads here.
+    Also 1.34.5 (merge `50fb077`): core's `NetworkReturn` (a retry on the network's return only when it changes from not
+    working to working, cleared in `stopWatchingNetwork`), StallWatch's `noteMoving()` (a slide that changes now and then
+    clears `failingSince` while its time moves), the malformed playlist and segment codes in `PASSING`, the engine's
+    `stopChecking()` and plain `onMoving`, the shared `rebufferMs` getter and PlayerVpnUiTest's single report. StallWatch
+    and NetworkReturn are as MyTVPlayer has them.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

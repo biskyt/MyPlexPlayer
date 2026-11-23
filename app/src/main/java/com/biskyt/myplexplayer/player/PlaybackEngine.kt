@@ -192,11 +192,7 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
      * Called when the stream really plays again after its start, a reopen or a seek: its picture moves, or with no
      * video, its time (see [StallWatch.onMoving]).
      */
-    var onMoving: () -> Unit
-        get() = stalls.onMoving
-        set(value) {
-            stalls.onMoving = value
-        }
+    var onMoving: () -> Unit = {}
 
     /** True once the default subtitle choice has been applied to the current stream (the user may change it after). */
     private var subtitlesApplied = false
@@ -247,6 +243,11 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         handler.postDelayed(checkStall, STALL_CHECK_MS)
     }
 
+    private fun stopChecking() {
+        handler.removeCallbacks(checkStall)
+        checking = false
+    }
+
     private fun stalled(e: PlaybackException) {
         player.stop()
         onStalled(e)
@@ -270,14 +271,14 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
 
     /** Watches a new stream from its start. */
     private fun watchForStall() {
-        handler.removeCallbacks(checkStall)
-        checking = false
+        stopChecking()
         stalls.reset()
         keepChecking()
     }
 
     init {
         player.addAnalyticsListener(events)
+        stalls.onMoving = { onMoving() }
         // Started as soon as it is ready, not at the next check: a stream that is ready and waits again between two
         // checks then has the shorter wait of one that played.
         player.addListener(object : Player.Listener {
@@ -457,8 +458,7 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
     }
 
     fun release() {
-        handler.removeCallbacks(checkStall)
-        checking = false
+        stopChecking()
         player.release()
     }
 

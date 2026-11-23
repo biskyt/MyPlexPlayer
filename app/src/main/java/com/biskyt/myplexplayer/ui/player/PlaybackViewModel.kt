@@ -22,6 +22,7 @@ import com.biskyt.myplexplayer.AppContainer
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.player.KeyActionMapper
+import com.biskyt.myplexplayer.core.player.NetworkReturn
 import com.biskyt.myplexplayer.core.player.OverlayState
 import com.biskyt.myplexplayer.core.player.PlayerAction
 import com.biskyt.myplexplayer.core.player.RemoteKey
@@ -323,12 +324,15 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
     /**
      * The network is back (Wi-Fi again, or a cable): a stream waiting to try again tries at once. Only once Android has
-     * found that the network reaches the internet, not when it first connects: a network that comes and goes would
-     * otherwise use up a film's few tries in seconds (MyPlexPlayer's review, 2026-11-23).
+     * found that the network reaches the internet, not when it first connects, and only at that change (see
+     * NetworkReturn): a network that comes and goes would otherwise use up a film's few tries in seconds (MyPlexPlayer's
+     * review, 2026-11-23).
      */
     private val networkBack = object : ConnectivityManager.NetworkCallback() {
+        override fun onLost(network: Network) = back.lost(network)
+
         override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-            if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) return
+            if (!back.changed(network, capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED))) return
             // On the network's thread: a look first, so that no coroutine starts when no try waits, and again on the
             // main thread, where the tries are made.
             if (retryJob?.isActive == true) viewModelScope.launch { if (retryJob?.isActive == true) retryNow() }
@@ -508,10 +512,13 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         stopWatchingNetwork()
     }
 
+    /** When the network comes back, for [networkBack]. */
+    private val back = NetworkReturn<Network>()
+
     /** Whether [networkBack] is registered: only while the player is shown and not stopped. */
     private var watchingNetwork = false
 
-    private val connectivity by lazy { appContext.getSystemService(ConnectivityManager::class.java) }
+    private val connectivity by lazy(LazyThreadSafetyMode.NONE) { appContext.getSystemService(ConnectivityManager::class.java) }
 
     private fun watchNetwork() {
         if (watchingNetwork || exit || engine == null) return
@@ -524,6 +531,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         if (!watchingNetwork) return
         watchingNetwork = false
         runCatching { connectivity?.unregisterNetworkCallback(networkBack) }
+        back.clear() // nothing is told while it is not watched
     }
 
     fun togglePlayPause() = perform(PlayerAction.TogglePlayPause)
