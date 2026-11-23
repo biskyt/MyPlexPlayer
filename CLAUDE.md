@@ -192,6 +192,14 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     finished episode's Continue watching card describes the episode that Play plays (`carryOnEpisode`). Left out: catch-up (`CatchupFill`,
     `e6f7c19`'s catch-up parts), the guide keeping past programmes, guide sources wording, the proxy parts
     (`ProxyCheck.Unchecked`, `ProxyMonitor`), the parallel VOD sync and downloads (`Downloads.kt`, `DownloadNames`).
+  - In 1.14.1: from 1.32.0 (`880e263`; merge `09d846f`): the IP lookup's `Answered` (`IpLookupLimited` only when no
+    service was out of reach) with its closed-port test, `LiveViewModel.leaving` noting nothing in guide mode and
+    `showGuide` forgetting a removal (its test on FakePlex), the glow room at the top of `CategoryColumn` and Search,
+    and `PlaybackViewModel`'s live `scrub` check and `focusOnBar` (unused here). Left out: the live play bar's scrub,
+    handle and `scrubTo` in `PlayerScreen` (they need MyTVPlayer's live `scrubBounds` and `playFrom`, which give the
+    time in the guide; here live TV seeks in the player's own position, with no catch-up), its catch-up parts and
+    downloads (none here). 1.31.0 (`8374c8a`, past catch-up programmes in the player's channel guide) doesn't apply:
+    no catch-up here, and the schedule here starts with the programme on now.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
