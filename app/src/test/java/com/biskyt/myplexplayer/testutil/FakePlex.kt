@@ -98,11 +98,8 @@ class FakePlex : AutoCloseable {
     /** Each show's "Delete episodes after playing" (by ratingKey; 0, never, when not set). */
     val autoDelete: MutableMap<String, Int> = java.util.concurrent.ConcurrentHashMap()
 
-    /** Whether the films' files are in a container no player reads (so they're streamed by the server instead). */
-    @Volatile var unreadableFiles = false
-
-    /** Whether the films' files come back empty ("OK", with no data), as from a server that no longer has them. */
-    @Volatile var emptyFiles = false
+    /** How the server answers a request for a film's or an episode's file. */
+    @Volatile var files = FileReply.Missing
 
     /** Whether the server would stream a file with its picture and sound as they are (false: only by converting). */
     @Volatile var copies = true
@@ -315,11 +312,12 @@ class FakePlex : AutoCloseable {
 
     /** The libraries, what's in them, and each title's details. */
     private fun libraryAnswer(path: String, request: RecordedRequest): MockResponse = when {
-        // A file: empty, or in a container no player reads (else not served here).
-        path.startsWith("/library/parts/") -> when {
-            emptyFiles -> MockResponse()
-            unreadableFiles -> MockResponse().setBody("not a container anyone reads")
-            else -> MockResponse().setResponseCode(404)
+        // A file: empty, silent, or in a container no player reads (else not served here).
+        path.startsWith("/library/parts/") -> when (files) {
+            FileReply.Empty -> MockResponse()
+            FileReply.Silent -> MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.NO_RESPONSE)
+            FileReply.Unreadable -> MockResponse().setBody("not a container anyone reads")
+            FileReply.Missing -> MockResponse().setResponseCode(404)
         }
         path.startsWith("/library/metadata/") && request.method == "DELETE" -> delete(path.substringAfterLast('/'))
         path.startsWith("/library/metadata/") && path.endsWith("/prefs") && request.method == "PUT" -> {
@@ -1164,3 +1162,10 @@ fun plexChannel(number: String): Long = plexChannelId("ch-$number")
 
 /** As [addHomePlex], then syncs Home Plex (its channels and guide, films and series): the start of most UI tests. */
 suspend fun AppContainer.addSyncedHomePlex(plex: FakePlex): Long = addHomePlex(plex).also { sync.refreshNow(it).getOrThrow() }
+
+/**
+ * How [FakePlex] answers a request for a file: not served ([Missing]), "OK" with no data, as from a server that no
+ * longer has it ([Empty]), no answer at all, as from a disk slow to wake ([Silent]), or in a container no player reads,
+ * so that the server streams it instead ([Unreadable]).
+ */
+enum class FileReply { Missing, Empty, Silent, Unreadable }

@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.15.1
+- Films and episodes that stop loading try again after 20 seconds.
+
 ## 1.15.0
 - Live TV reconnects by itself when the picture drops out.
 - The player shows "Reconnecting…" until the picture comes back.

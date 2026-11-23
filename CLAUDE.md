@@ -249,6 +249,12 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     yet waits for the rest of the tune's minute, and at least `FIRST_PICTURE_MS` (the shared `unplayedReopenMs` hook, from
     `hasPlayed`, so "Watch from start" and a fall behind the live window are covered too). A channel that never locks
     gets its error in about 2 minutes, not 4.
+  - In 1.15.1: 1.34.8 (`69ec32c`; merge `6674dbb`): `ON_DEMAND_REBUFFER_MS` is 20 s (this app does not use Plex
+    transcoding, so a server that sends nothing for 20 s gets a new try), `reopen(firstPictureMs)` for that reopen only
+    (`firstPictureMs` getter), and `PlaybackRecoveryUiTest` (here on FakePlex's `silentFiles`; its live TS to HLS case
+    left out: Plex Live TV is HLS here). Here `READ_TIMEOUT_MS` stays `HTTP_READ_TIMEOUT_MS` (60 s, a tune's wait): the
+    stall watch gives a silent film its new try at 20 s. The direct-stream switch keeps 60 s (`DIRECT_STREAM_WAIT_MS`):
+    the server repackages the file as it goes. FakePlex's file switches are one `files` (`FileReply`).
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
