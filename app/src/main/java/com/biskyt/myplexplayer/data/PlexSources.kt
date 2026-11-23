@@ -785,6 +785,10 @@ class PlexPlayback(
     /** Who's in it, as the server lists them (photos made small, loaded only where shown). */
     val cast: List<CastMember> by lazy { castOf(client, item) }
 
+    /** Who directed it and who wrote it, as the server lists them (an episode's are its own). */
+    val directors: List<CastMember> by lazy { people(client, item.directors) }
+    val writers: List<CastMember> by lazy { people(client, item.writers) }
+
     /** The file's container, as Playback info names it ("MKV"), if the server says. */
     val container: String? by lazy { PlexMediaInfo.containerOf(item) }
 

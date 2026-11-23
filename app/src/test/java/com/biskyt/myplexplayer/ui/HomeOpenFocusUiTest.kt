@@ -15,10 +15,12 @@ import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.focusedText
+import com.biskyt.myplexplayer.testutil.idleFrames
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -47,6 +49,33 @@ class HomeOpenFocusUiTest {
 
     @After
     fun tearDown() = plex.close()
+
+    /** Presses [key], lets focus move, and gives what has focus then. */
+    @OptIn(ExperimentalTestApi::class)
+    private fun press(key: Key): String {
+        compose.onRoot().performKeyInput { pressKey(key) }
+        compose.idleFrames()
+        return compose.focusedText()
+    }
+
+    @Test
+    fun `Left and Right stop at a row's ends, and only Up and Down leave it`() {
+        val navigator = navigators.new(Screen.Home)
+        compose.setContent { MyPlexTheme { NavHost(navigator) { ScreenContent(it) } } }
+        compose.waitAdvancingClock(stepMs = 50) { "Test Show" in compose.focusedText() }
+        val first = compose.focusedText()
+        // The first card: Left stays on it, not on the menu (the owner, 2026-11-22; MyTVPlayer 1.30.0).
+        assertEquals(first, press(Key.DirectionLeft))
+        // Right to the row's last card, then once more: it stays there, not on the next row.
+        var last = first
+        while (true) {
+            val now = press(Key.DirectionRight)
+            if (now == last) break
+            last = now
+        }
+        assertEquals(last, press(Key.DirectionRight))
+        assertNotEquals("", last)
+    }
 
     @OptIn(ExperimentalTestApi::class)
     @Test

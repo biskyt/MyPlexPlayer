@@ -207,7 +207,7 @@
     <string name="settings_warn_vpn">Warn if VPN is not connected</string>
     <string name="settings_warn_vpn_help">Shows in the top bar whether Android reports a VPN on this device. A VPN set up on your router or on another device cannot be detected.</string>
     <string name="settings_external_ip">Show your external IP address</string>
-    <string name="settings_external_ip_help">Shows next to the VPN badge the address that websites see, and its country. To find it, MyPlexPlayer asks ipinfo.io when the network or the VPN changes.</string>
+    <string name="settings_external_ip_help">Shows next to the VPN badge the address that websites see, and its country. To find it, MyPlexPlayer asks ipinfo.io (or, when it is busy, ipwho.is or ipify.org) when the network or the VPN changes.</string>
     <string name="settings_launcher">Show on the TV\'s home screen</string>
     <string name="settings_launcher_help">Continue watching in the home screen\'s Play Next row, and Home\'s other rows as rows of their own.</string>
     <!-- The name of the app\'s row of favourite channels on the TV\'s home screen. -->

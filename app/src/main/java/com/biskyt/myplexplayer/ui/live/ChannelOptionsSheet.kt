@@ -26,6 +26,7 @@ import com.biskyt.myplexplayer.ui.common.ChannelLogo
 import com.biskyt.myplexplayer.ui.common.ProgrammeAbout
 import com.biskyt.myplexplayer.ui.common.ScheduleList
 import com.biskyt.myplexplayer.ui.common.collectIds
+import com.biskyt.myplexplayer.ui.common.favouriteIcon
 import com.biskyt.myplexplayer.ui.common.favouriteLabel
 import com.biskyt.myplexplayer.ui.common.formatTime
 import com.biskyt.myplexplayer.ui.common.numberLabel
@@ -84,7 +85,7 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                     vm.find(ch, programme, kind) { if (nav.current === from) nav.push(it) }
                 }
             }
-            BoardOption(favouriteLabel(ch.streamId in favs)) { vm.toggleFavourite(ch) }
+            BoardOption(favouriteLabel(ch.streamId in favs), icon = favouriteIcon(ch.streamId in favs)) { vm.toggleFavourite(ch) }
             BoardOption(stringResource(R.string.live_option_channel_guide), stringResource(R.string.live_option_channel_guide_help)) {
                 showGuide = true
             }

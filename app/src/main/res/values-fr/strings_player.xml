@@ -90,4 +90,5 @@
     <string name="player_tuning">Recherche de la chaîne…</string>
     <string name="player_description">Description de l\'épisode</string>
     <string name="player_info_buffer">En mémoire tampon : %1$d s</string>
+    <string name="player_info_download">Vitesse de téléchargement : %1$s</string>
 </resources>

@@ -51,6 +51,7 @@ import com.biskyt.myplexplayer.ui.common.CirclePhoto
 import com.biskyt.myplexplayer.ui.common.LocalTopBarInset
 import com.biskyt.myplexplayer.ui.common.Poster
 import com.biskyt.myplexplayer.ui.common.Tab
+import com.biskyt.myplexplayer.ui.common.favouriteAction
 import com.biskyt.myplexplayer.ui.common.formatDuration
 import com.biskyt.myplexplayer.ui.common.markWatched
 import com.biskyt.myplexplayer.ui.common.onOptionsKey

@@ -39,6 +39,8 @@ import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.formatDuration
 import com.biskyt.myplexplayer.ui.common.isSelect
+import com.biskyt.myplexplayer.ui.vod.AboutPanel
+import com.biskyt.myplexplayer.ui.vod.TitlePanel
 
 /** Movies and episodes. */
 @Composable
@@ -55,11 +57,17 @@ fun VodPlayerScreen(screen: Screen.VodPlayer) {
         // closes): while the pill counts down, it cancels the skip.
         BackHandler(enabled = vm.backCancelsSkip, onBack = vm::cancelAutoSkip)
     }
-    // The cast, from More: over the picture, which plays on. OK on someone opens their page over the player.
+    // Cast and crew, from More: over the picture, which plays on. OK on someone opens their page over the player.
     val nav = LocalNavigator.current
-    vm.cast?.let { (title, cast) ->
-        CastPanel(title, cast, focus = vm.castFocus, open = { i -> vm.personPage(i)?.let(nav::push) }) { vm.cast = null }
+    vm.cast?.let { shown ->
+        CastPanel(shown.title, shown.people, stringResource(R.string.vod_cast_crew), vm.castFocus, { i ->
+            vm.personPage(i)?.let(nav::push)
+        }) {
+            vm.cast = null
+        }
     }
+    // About from More, as the title's page opens it.
+    if (vm.panel == TitlePanel.About) AboutPanel(film = screen.seriesId == null, vm.details, onDismiss = { vm.panel = null })
 }
 
 /**

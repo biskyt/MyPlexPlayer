@@ -2,6 +2,7 @@ package com.biskyt.myplexplayer.ui.common
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
@@ -23,7 +24,13 @@ sealed interface ItemAction {
         val replace: Boolean = false
     ) : ItemAction
 
-    class Run(override val label: String, override val help: String? = null, val run: () -> Unit) : ItemAction
+    /** Does [run]; [icon] shows after the label (the favourite's heart). */
+    class Run(
+        override val label: String,
+        override val help: String? = null,
+        val icon: ImageVector? = null,
+        val run: () -> Unit
+    ) : ItemAction
 
     /** A choice changed where it is: left and right step through it ([step] gets -1 or 1), shown as "◀ [value] ▶". */
     class Cycle(override val label: String, val value: String, val step: (Int) -> Unit) : ItemAction {
@@ -66,11 +73,19 @@ fun ItemAction.perform(nav: Navigator, close: () -> Unit, beforeReplace: () -> U
 
 fun favouriteLabel(favourite: Boolean) = appString(if (favourite) R.string.common_favourite_remove else R.string.common_favourite_add)
 
+/**
+ * "Add to favourites", or for a [favourite] "Remove from favourites", with the heart (filled for a favourite) as every
+ * menu shows it (the owner, 2026-11-22). [setFavourite] gets what it is to be.
+ */
+fun favouriteAction(favourite: Boolean, setFavourite: (Boolean) -> Unit) =
+    ItemAction.Run(favouriteLabel(favourite), icon = favouriteIcon(favourite)) { setFavourite(!favourite) }
+
+fun favouriteIcon(favourite: Boolean) = if (favourite) AppIcons.Heart else AppIcons.HeartOutline
+
 fun favouriteFlash(added: Boolean) = appString(if (added) R.string.common_favourite_added else R.string.common_favourite_removed)
 
 /** What every channel menu offers (search, the player): add it to favourites or take it off. */
-fun channelActions(favourite: Boolean, setFavourite: (Boolean) -> Unit): List<ItemAction> =
-    listOf(ItemAction.Run(favouriteLabel(favourite)) { setFavourite(!favourite) })
+fun channelActions(favourite: Boolean, setFavourite: (Boolean) -> Unit): List<ItemAction> = listOf(favouriteAction(favourite, setFavourite))
 
 /**
  * What a movie or series menu offers (search, Home): open it, and add or remove it from favourites once that's known
@@ -82,7 +97,7 @@ fun vodActions(playlistId: Long, type: String, id: Long, favourite: Boolean?, se
             appString(if (type == CAT_MOVIE) R.string.search_open_movie else R.string.search_open_series),
             vodDetails(playlistId, type, id)
         ),
-        favourite?.let { f -> ItemAction.Run(favouriteLabel(f)) { setFavourite(!f) } }
+        favourite?.let { f -> favouriteAction(f, setFavourite) }
     )
 
 /** "Mark as watched", or for one [watched], "Mark as unwatched". */

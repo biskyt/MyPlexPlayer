@@ -174,6 +174,24 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     pill), the public `trailerActions` (here also in `OtherTrailersPanel`), `QuietFocusNode` keeping its outline; and
     the play bar's time up to date as the controls open (`onControlsShown`). Left out: its guide import (`ReadAhead`,
     `ProgrammeWriter`, `GuideTimes`: no XMLTV here) and its catch-up player.
+  - In 1.14.0: from 1.30.0 (`0329a55`, `5e339fa`; merge `f0f2eb9`): Home's rows stop at their ends (`sidewaysOnly`,
+    `titledRow(stopAtEnds)`; here every Home row), focus on the one in a removed favourite's place (`afterRemoval`;
+    here the grid notes its place with `hasFocus`, as its card's modifier is on a wrapper, and reads `focusGone` per
+    card), the heart on every favourite option (`favouriteAction`, `favouriteIcon`, `AppIcons.HeartOutline`; also in
+    `BoardActionsPanel` and the channel options), the glow in place of the white ring (`FocusStroke` deleted), "Go to
+    series", `tryFocus`, `QuietFocusNode`'s outline cache, `showWhileLoading` and `skipUnavailable` (unused here), and
+    the IP lookup's fallbacks. Its Stream info lines: here only the download speed is new in Playback info (it already
+    had the decoder, dropped frames and HDR). Its `TitleExtras.kt` is this app's own: Home's Continue watching and
+    favourite cards read the server's details (`titleExtras`) and reuse the title pages' panels (Cast and crew, About,
+    a film's Technical info, Other trailers, the episode's description); TMDB only for its trailers and More like this.
+    The player's More adds About and More like this. The owner, 2026-11-22: the player's More keeps both "About this
+    movie" (the film page) and "About this film" (the panel); its Cast is now "Cast and crew" (the film's or the
+    episode's own directors and writers, from the item played), and keeps this app's person behaviour (the video
+    pauses, and Back plays on with the panel open on the same person). The player reads only the film's details (an
+    episode's are the series' that its episode list came with) and asks TMDB nothing until More like this opens. A
+    finished episode's Continue watching card describes the episode that Play plays (`carryOnEpisode`). Left out: catch-up (`CatchupFill`,
+    `e6f7c19`'s catch-up parts), the guide keeping past programmes, guide sources wording, the proxy parts
+    (`ProxyCheck.Unchecked`, `ProxyMonitor`), the parallel VOD sync and downloads (`Downloads.kt`, `DownloadNames`).
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -486,13 +504,13 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
     saves and reports nothing (it is not the title itself).
   - Keep `Board.kt`, `BoardPanel.kt`, `DetailsParts.kt` and `TopBar.kt` as MyTVPlayer has them, so ports apply; put Plex-only parts in
     the Plex files above.
-- **Cast member's page** (1.4.0, board "Cast member's page"): OK on a cast photo, or on a row of Cast and crew or
-  of the player's Cast, opens `Screen.Person` (pushed, never replaced). A person with no server `id` does not open.
+- **Cast member's page** (1.4.0, board "Cast member's page"): OK on a cast photo, or on a row of Cast and crew (the
+  player's too: its Cast is Cast and crew since 1.14.0, the owner, 2026-11-22), opens `Screen.Person` (pushed, never replaced). A person with no server `id` does not open.
   - It shows the photo, name, a line (kinds of work, birth, the part in the title it came from) and the biography
     (3 lines, with "Full biography"). Then "In your library", "Also appears in" and "All credits". A part with no data
     is left out.
   - From the player, the video pauses (reported to Plex as paused). Back plays on from the same place, with the Cast
-    panel open on the same person. The film and series pages' Cast and crew also opens again on the same person.
+    and crew panel open on the same person. The film and series pages' Cast and crew also opens again on the same person.
   - A new player closes any player left under the pages above it (`Navigator.push`, the owner, 2026-11-06): one video
     at a time. Back from the new video goes through the pages to the screen under the old player.
   - The board is 1280 wide, so its sizes are dp there, not `.bd`. Nothing is saved to Room: Discover's answers are

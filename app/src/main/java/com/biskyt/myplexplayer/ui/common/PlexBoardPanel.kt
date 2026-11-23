@@ -103,7 +103,7 @@ fun BoardActionsPanel(
                 is ItemAction.Links -> BoardLinksRow(a.label, a.links, focus)
                 is ItemAction.Cycle -> BoardCycle(a.label, a.value, a.step, focus)
                 is ItemAction.Confirmed -> BoardOption(a.label, a.help, focus, danger = true) { asking = a }
-                else -> BoardOption(a.label, a.help, focus) { a.perform(nav, onDismiss) }
+                else -> BoardOption(a.label, a.help, focus, icon = (a as? ItemAction.Run)?.icon) { a.perform(nav, onDismiss) }
             }
         }
         more?.invoke()
