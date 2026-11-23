@@ -157,8 +157,8 @@ fun technicalInfo(context: Context, m: PlexMediaInfo): List<Pair<String, List<Pa
 /** A track's language as the server names it, else "Track 2". */
 private fun trackName(language: String?, index: Int) = language ?: appString(R.string.vod_tech_track, index + 1)
 
-/** "22.1 Mbit/s", or under a megabit "640 kbit/s" (units, the same in every language). */
-private fun bitrate(kbps: Int): String =
+/** "22.1 Mbit/s", or under a megabit "640 kbit/s" (units, the same in every language): also Playback info's download speed. */
+internal fun bitrate(kbps: Int): String =
     if (kbps < KBPS_PER_MBPS) "$kbps kbit/s" else "%.1f Mbit/s".format(AppText.locale, kbps / KBPS_PER_MBPS.toDouble())
 
 private fun List<String>.list() = takeIf { it.isNotEmpty() }?.joinToString(", ")

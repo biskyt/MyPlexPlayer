@@ -24,7 +24,6 @@ import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.common.BoardActionsPanel
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.TrailersPanel
-import com.biskyt.myplexplayer.ui.common.favouriteLabel
 import com.biskyt.myplexplayer.ui.common.formatRuntime
 import com.biskyt.myplexplayer.ui.common.trailerActions
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
@@ -99,29 +98,31 @@ fun titleActions(
     val crew = details != null && (details.cast.isNotEmpty() || details.directors.isNotEmpty() || details.writers.isNotEmpty())
     return listOfNotNull(
         trailer,
-        otherTrailers?.let { ItemAction.Run(appString(R.string.vod_other_trailers), help(R.string.vod_other_trailers_help), it) },
+        otherTrailers?.let { ItemAction.Run(appString(R.string.vod_other_trailers), help(R.string.vod_other_trailers_help), run = it) },
         similar?.let { open ->
             details?.tmdbId?.let { ItemAction.Open(appString(R.string.vod_similar), open(it), help(R.string.vod_similar_help)) }
         },
-        if (crew) ItemAction.Run(appString(R.string.vod_cast_crew), help(R.string.vod_cast_crew_help), showCast) else null,
+        if (crew) ItemAction.Run(appString(R.string.vod_cast_crew), help(R.string.vod_cast_crew_help), run = showCast) else null,
         ItemAction.Run(
-            appString(if (film) R.string.vod_about_this_film else R.string.vod_about_this_show),
+            aboutLabel(film),
             help(R.string.vod_about_film_help),
-            showAbout
+            run = showAbout
         ),
-        showTech?.let { ItemAction.Run(appString(R.string.vod_tech_info), help(R.string.vod_tech_help), it) },
+        showTech?.let { ItemAction.Run(appString(R.string.vod_tech_info), help(R.string.vod_tech_help), run = it) },
         details?.links?.takeIf { it.isNotEmpty() }?.let { ItemAction.Links(appString(R.string.vod_links), it) },
     )
 }
 
-/** "Add to favourites", or for a [favourite], "Remove from favourites". */
-fun favouriteAction(favourite: Boolean, setFavourite: () -> Unit) = ItemAction.Run(favouriteLabel(favourite), run = setFavourite)
-
 /** The cast, then who directed and wrote it (named by their job): everyone Cast and crew lists. */
-fun castAndCrew(d: VodDetails?): List<CastMember> = d?.let {
-    it.cast + it.directors.map { p -> p.copy(role = appString(R.string.vod_role_director)) } +
-        it.writers.map { p -> p.copy(role = appString(R.string.vod_role_writer)) }
-}.orEmpty()
+fun castAndCrew(d: VodDetails?): List<CastMember> = d?.let { it.cast + crewOf(it.directors, it.writers) }.orEmpty()
+
+/** Who [directors] directed and [writers] wrote it, named by their job, as Cast and crew lists them after the cast. */
+fun crewOf(directors: List<CastMember>, writers: List<CastMember>): List<CastMember> =
+    directors.map { p -> p.copy(role = appString(R.string.vod_role_director)) } +
+        writers.map { p -> p.copy(role = appString(R.string.vod_role_writer)) }
+
+/** "About this film", or for a show "About this show": the option that opens About. */
+fun aboutLabel(film: Boolean) = appString(if (film) R.string.vod_about_this_film else R.string.vod_about_this_show)
 
 /** Two genres at most: "Drama, Mystery". */
 fun genresOf(genres: List<String>): String? = genres.take(2).takeIf { it.isNotEmpty() }?.joinToString(", ")

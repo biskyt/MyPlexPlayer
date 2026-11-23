@@ -92,7 +92,7 @@ object AppIcons {
         moveTo(16f, 16f)
         lineTo(20f, 20f)
     }
-    val Heart = icon("heart", true) {
+    private val heart: PathBuilder.() -> Unit = {
         moveTo(12f, 20f)
         curveTo(12f, 20f, 4f, 15f, 4f, 9.5f)
         curveTo(4f, 7f, 6f, 5f, 8.5f, 5f)
@@ -102,6 +102,10 @@ object AppIcons {
         curveTo(20f, 15f, 12f, 20f, 12f, 20f)
         close()
     }
+    val Heart = icon("heart", true, heart)
+
+    /** The heart's outline: not a favourite (yet). */
+    val HeartOutline = icon("heart-outline", false, heart)
 
     /** A cup of coffee (Ko-fi's "buy me a coffee"). */
     val Cup = icon("cup", false) {

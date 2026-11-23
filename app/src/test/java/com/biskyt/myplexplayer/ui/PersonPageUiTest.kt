@@ -51,7 +51,7 @@ import org.robolectric.annotation.Config
 
 /**
  * A cast or crew member's page (board "Cast member's page"): opened by OK on a cast photo (the film page's cast row) or
- * on a row of Cast and crew (the film's and the series') or of the player's Cast. Back from it shows the panel again on
+ * on a row of Cast and crew (the film's and the series') or of the player's Cast and crew. Back from it shows the panel again on
  * the same person; from the player, the film plays on from the same place.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -203,13 +203,15 @@ class PersonPageUiTest {
     }
 
     @Test
-    fun `from the player's Cast, Back plays on from the same place with the panel on the same person`() {
+    fun `from the player's Cast and crew, Back plays on from the same place with the panel on the same person`() {
         show(Screen.VodPlayer(source, BoardTitles.FILM.toLong(), fromStart = true))
         val vm = ViewModelProvider(navigator.current)[VodPlayerViewModel::class.java]
         compose.waitAdvancingClock { vm.engine?.player?.currentMediaItem != null }
         compose.runOnIdle { vm.engine!!.player.seekTo(PLACE_MS) }
-        compose.runOnIdle { (vm.menuActions().first { it.label == "Cast" } as ItemAction.Run).run() }
+        compose.runOnIdle { (vm.menuActions().first { it.label == "Cast and crew" } as ItemAction.Run).run() }
         compose.waitForText("Kofi Mensah", stepMs = 50)
+        // The crew too (its writer is in no part), as the film page's Cast and crew lists them (the owner, 2026-11-22).
+        compose.waitForText("Paul Okafor", stepMs = 50)
         compose.click("Kofi Mensah")
         compose.waitAdvancingClock(stepMs = 50) { (screen as? Screen.Person)?.name == "Kofi Mensah" }
         compose.waitForText("Sam in The Long Harbour", stepMs = 50)

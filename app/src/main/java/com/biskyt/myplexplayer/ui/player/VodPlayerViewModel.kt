@@ -18,6 +18,7 @@ import com.biskyt.myplexplayer.core.plex.SkipPill
 import com.biskyt.myplexplayer.core.plex.skipPill
 import com.biskyt.myplexplayer.core.vod.CastMember
 import com.biskyt.myplexplayer.core.vod.EpisodeInfo
+import com.biskyt.myplexplayer.core.vod.VodDetails
 import com.biskyt.myplexplayer.data.Settings
 import com.biskyt.myplexplayer.data.VodStream
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
@@ -29,11 +30,14 @@ import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import com.biskyt.myplexplayer.data.userMessage
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.common.ItemAction
-import com.biskyt.myplexplayer.ui.common.Tab
+import com.biskyt.myplexplayer.ui.common.favouriteAction
 import com.biskyt.myplexplayer.ui.common.favouriteFlash
-import com.biskyt.myplexplayer.ui.common.favouriteLabel
 import com.biskyt.myplexplayer.ui.common.formatDuration
+import com.biskyt.myplexplayer.ui.vod.TitlePanel
+import com.biskyt.myplexplayer.ui.vod.aboutLabel
+import com.biskyt.myplexplayer.ui.vod.crewOf
 import com.biskyt.myplexplayer.ui.vod.personScreen
+import com.biskyt.myplexplayer.ui.vod.tabOf
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -104,9 +108,17 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         if (screen.trailer != null) return emptyList()
         return listOfNotNull(
             current?.episode?.let { episodeDescriptionAction(it) { sheet = Sheet.DESCRIPTION } },
-            ItemAction.Run(appString(R.string.vod_cast_title)) { showCast() },
-            ItemAction.Run(favouriteLabel(favourite)) {
-                val add = !favourite
+            ItemAction.Run(appString(R.string.vod_cast_crew)) { showCast() },
+            // As the title's page offers them (MyTVPlayer 1.30.0): About, and More like this with a TMDB key.
+            details?.let { ItemAction.Run(aboutLabel(film = series == null)) { openPanel(TitlePanel.About) } },
+            details?.tmdbId?.takeIf { tmdbOn }?.let { id ->
+                val title = current?.show ?: current?.title.orEmpty()
+                ItemAction.Open(
+                    appString(R.string.vod_similar),
+                    Screen.MoreLike(screen.playlistId, id, series = series != null, title, tab)
+                )
+            },
+            favouriteAction(favourite) { add ->
                 viewModelScope.launch {
                     c.vod.setFavourite(screen.playlistId, favouriteType, favouriteId, add)
                     flash(favouriteFlash(add))
@@ -130,22 +142,59 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         )
     }
 
-    /** The cast shown over the player (opened from More), and whose, once read; null while it's closed. */
-    var cast by mutableStateOf<Pair<String, List<CastMember>>?>(null)
+    /**
+     * The film's or series' details, for About and More like this in the menu; null until read. A film's are read once
+     * playback has started (kept, once the film's page has read them); a series' are those its episode list came with.
+     * No TMDB request: More like this asks TMDB only when it opens.
+     */
+    var details by mutableStateOf<VodDetails?>(null)
+        private set
+    private var tmdbOn by mutableStateOf(false)
+
+    /** A panel open over the player from the menu (About), as the title's page opens it. */
+    var panel by mutableStateOf<TitlePanel?>(null)
+
+    private val tab = tabOf(film = series == null)
+
+    private fun openPanel(p: TitlePanel) {
+        sheet = null
+        panel = p
+    }
+
+    /** Cast and crew over the player: [title]'s [people], of whom the first [acting] are the cast (then its crew). */
+    data class CastList(val title: String, val people: List<CastMember>, val acting: Int)
+
+    /** Cast and crew shown over the player (opened from More), once read; null while it's closed. */
+    var cast by mutableStateOf<CastList?>(null)
 
     /** Who in [cast] has the remote as it opens: back from a person's page, that person. */
     var castFocus by mutableIntStateOf(0)
         private set
 
-    /** The film's cast; for an episode its own, else its series' (read from the server only now). */
+    /**
+     * Cast and crew, as the title's page lists them (the owner, 2026-11-22): the film's or the episode's own cast (an
+     * episode's, else its series', read from the server only now), then who directed and wrote it (an episode's own).
+     */
     private fun showCast() {
         sheet = null
         castFocus = 0
         viewModelScope.launch {
             val playing = current ?: return@launch
-            val own = playing.stream.plex?.cast.orEmpty()
-            cast = playing.title to own.ifEmpty { series?.let { c.vod.cast(screen.playlistId, it) }.orEmpty() }
+            val plex = playing.stream.plex
+            val people = plex?.cast.orEmpty().ifEmpty { series?.let { c.vod.cast(screen.playlistId, it) }.orEmpty() }
+            cast = CastList(playing.title, people + crewOf(plex?.directors.orEmpty(), plex?.writers.orEmpty()), people.size)
         }
+    }
+
+    /** The film's or series' details for the menu (see [details]): from what is kept, else one read of a film's. */
+    private suspend fun readDetails(p: PlaylistEntity) {
+        details = runCatching {
+            if (series == null) {
+                c.vod.movieDetails(p, screen.itemId, withState = false)
+            } else {
+                c.vod.seriesDetails(p, series, withState = false).info
+            }
+        }.getOrNull()
     }
 
     override val playsHow: String?
@@ -168,10 +217,9 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
      * the page: Back plays on from the same place, with the cast open on the same person.
      */
     fun personPage(i: Int): Screen.Person? {
-        val (title, people) = cast ?: return null
-        val page = people.getOrNull(i)?.let {
-            personScreen(screen.playlistId, it, title, if (series == null) Tab.MOVIES else Tab.SERIES, acting = true)
-        } ?: return null
+        val shown = cast ?: return null
+        val page = shown.people.getOrNull(i)?.let { personScreen(screen.playlistId, it, shown.title, tab, acting = i < shown.acting) }
+            ?: return null
         castFocus = i
         val player = engine?.player
         // Pausing saves through onPlayingChanged.
@@ -188,6 +236,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     init {
         c.sync.playerOpened()
         viewModelScope.launch { c.vod.observeFavourite(screen.playlistId, favouriteType, favouriteId).collect { favourite = it } }
+        if (screen.trailer == null) viewModelScope.launch { c.tmdb.on.collect { tmdbOn = it } }
         viewModelScope.launch {
             startEngine()
             val p = c.playlists.get(screen.playlistId) ?: return@launch stop()
@@ -199,6 +248,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
                     seriesId == null -> startMovie(p)
                     else -> startEpisode(p, seriesId, screen.itemId, screen.fromStart, screen.continueSeries)
                 }
+                if (screen.trailer == null) readDetails(p)
             } catch (e: java.io.IOException) {
                 fail(e.message)
             }

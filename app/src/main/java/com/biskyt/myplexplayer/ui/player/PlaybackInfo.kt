@@ -15,21 +15,26 @@ import com.biskyt.myplexplayer.player.decodedName
 import com.biskyt.myplexplayer.player.encodedName
 import com.biskyt.myplexplayer.player.selectedFormat
 import com.biskyt.myplexplayer.ui.common.displayLanguage
+import com.biskyt.myplexplayer.ui.vod.bitrate
 import java.util.Locale
 
 /**
  * What the Playback info panel lists, a line each: the playback format ([how]: Plex only), the picture and its
- * [decoder], the sound and where it goes ([audioOutput]), and frames [dropped].
+ * [decoder], the sound and where it goes ([audioOutput]), the download speed ([downloadBps], in bits a second, once the
+ * player has an estimate) and frames [dropped].
  */
-fun playbackInfo(tracks: Tracks, how: String?, decoder: String?, audioOutput: String, dropped: Int?): List<String> = listOfNotNull(
-    how?.let { appString(R.string.player_info_playback, it) },
-    selectedFormat(tracks, C.TRACK_TYPE_VIDEO)?.let { appString(R.string.player_info_video, video(it)) }
-        ?: appString(R.string.player_video_unknown),
-    decoder?.let { appString(R.string.player_info_decoder, it) },
-    selectedFormat(tracks, C.TRACK_TYPE_AUDIO)?.let { appString(R.string.player_info_audio, audio(it)) },
-    audioOutput.takeIf { it.isNotEmpty() }?.let { appString(R.string.player_audio_output, it) },
-    dropped?.let { appString(R.string.player_info_dropped, it) },
-)
+@Suppress("LongParameterList") // one for each line it may list
+fun playbackInfo(tracks: Tracks, how: String?, decoder: String?, audioOutput: String, dropped: Int?, downloadBps: Long = 0): List<String> =
+    listOfNotNull(
+        how?.let { appString(R.string.player_info_playback, it) },
+        selectedFormat(tracks, C.TRACK_TYPE_VIDEO)?.let { appString(R.string.player_info_video, video(it)) }
+            ?: appString(R.string.player_video_unknown),
+        decoder?.let { appString(R.string.player_info_decoder, it) },
+        selectedFormat(tracks, C.TRACK_TYPE_AUDIO)?.let { appString(R.string.player_info_audio, audio(it)) },
+        audioOutput.takeIf { it.isNotEmpty() }?.let { appString(R.string.player_audio_output, it) },
+        downloadBps.takeIf { it > 0 }?.let { appString(R.string.player_info_download, bitrate((it / BPS_PER_KBPS).toInt())) },
+        dropped?.let { appString(R.string.player_info_dropped, it) },
+    )
 
 /** "3840×2160 · HEVC · Dolby Vision · 23.976 fps". */
 internal fun video(f: Format): String = listOfNotNull(
@@ -88,3 +93,5 @@ private fun dynamicRange(f: Format): String? = when {
 fun bufferLine(bufferedMs: Long): String = appString(R.string.player_info_buffer, bufferedMs / MS_PER_S)
 
 private const val MS_PER_S = 1000L
+
+private const val BPS_PER_KBPS = 1000

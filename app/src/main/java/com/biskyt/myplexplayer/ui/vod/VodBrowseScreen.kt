@@ -29,7 +29,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -89,6 +88,7 @@ import com.biskyt.myplexplayer.ui.common.PosterTile
 import com.biskyt.myplexplayer.ui.common.ProgressLine
 import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.TabScaffold
+import com.biskyt.myplexplayer.ui.common.afterRemoval
 import com.biskyt.myplexplayer.ui.common.collectIds
 import com.biskyt.myplexplayer.ui.common.formatRuntime
 import com.biskyt.myplexplayer.ui.common.glowRoom
@@ -111,7 +111,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -175,10 +174,26 @@ class VodBrowseViewModel(
      */
     var removedId by mutableStateOf<Long?>(null)
 
+    /**
+     * The poster with focus (the one whose options open) and its place; [removedAt]: the place of [removedId] as it was
+     * taken off, only when it was the one with focus (a long touch opens the options without focus).
+     */
+    var focusedId: Long? = null
+    var focusedAt: Int? = null
+    var removedAt: Int? = null
+
+    /** [focusedAt], if the poster with focus is [id]. */
+    fun placeOf(id: Long): Int? = focusedAt.takeIf { focusedId == id }
+
     init {
         // The title last opened, deleted on its page: the list catches up only after the remote has gone back to it.
         viewModelScope.launch {
-            c.vod.deletedTitles.collect { (pid, id) -> if (pid == playlist.value?.id && id == focusId) removedId = id }
+            c.vod.deletedTitles.collect { (pid, id) ->
+                if (pid == playlist.value?.id && id == focusId) {
+                    removedAt = placeOf(id)
+                    removedId = id
+                }
+            }
         }
     }
 
@@ -208,8 +223,8 @@ class VodBrowseViewModel(
         c.vod.setFavourite(playlist.value?.id ?: return@launch, type, card.id, favourite)
     }
 
-    /** The title last opened, to return focus to it when coming back. */
-    var focusId: Long? = null
+    /** The title last opened, to return focus to it when coming back (state: the grid reads it, see focusGone). */
+    var focusId by mutableStateOf<Long?>(null)
 
     /** Pending from the start: the tab opens on its first title (as Live TV does on its first channel), not nowhere. */
     var restoreFocusPending by mutableStateOf(true)
@@ -330,6 +345,7 @@ private fun PosterOptions(vm: VodBrowseViewModel, card: VodCard, view: VodView, 
         vm.setFavourite(card, it)
         if (!it && inFavourites) {
             close()
+            vm.removedAt = vm.placeOf(card.id)
             vm.removedId = card.id
         }
     } + listOfNotNull(
@@ -378,9 +394,10 @@ private fun PosterGrid(vm: VodBrowseViewModel, pid: Long, routes: GridRoutes) {
     val state = rememberLazyGridState()
     vm.removedId?.let { removed ->
         LaunchedEffect(removed) {
-            snapshotFlow { items.itemSnapshotList.none { it?.id == removed } }.first { it }
-            vm.focusId = null
-            vm.restoreFocusPending = true
+            afterRemoval(items, removed, vm.removedAt, { it.id }) { next ->
+                vm.focusId = next
+                vm.restoreFocusPending = true
+            }
             vm.removedId = null
         }
     }
@@ -415,7 +432,9 @@ private fun PosterGridCells(
 ) {
     val nav = LocalNavigator.current
     // Back from a title that's no longer listed (deleted from its page, say): the first takes the remote instead.
-    val focusGone = vm.focusId.let { id -> id == null || items.itemSnapshotList.none { it?.id == id } }
+    val focusId = vm.focusId
+    val shown = items.itemSnapshotList
+    val focusGone = remember(focusId, shown) { focusId == null || shown.none { it?.id == focusId } }
     LazyVerticalGrid(
         columns = GridCells.Fixed(COLUMNS),
         // Room for the glow at its sides only: drawn past its top, a card would cover the pills above it.
@@ -436,7 +455,8 @@ private fun PosterGridCells(
             if (card == null) {
                 Box(Modifier.fillMaxWidth().height(PLACEHOLDER_HEIGHT))
             } else {
-                // Back from a title, on it; after a change of view or one taken off Favourites, on the first.
+                // Back from a title, on it; after a change of view, on the first; after one is taken off, on the one in its
+                // place.
                 val wantsFocus = vm.restoreFocusPending && (if (focusGone) index == 0 else vm.focusId == card.id)
                 val lastOfTopRow = index == minOf(items.itemCount, COLUMNS) - 1
                 // Drawn over the cards beside it while it has focus, as it grows and glows (see focusGlow).
@@ -448,7 +468,13 @@ private fun PosterGridCells(
                             posterWidth,
                             Modifier.restoreFocusIf(wantsFocus) { vm.restoreFocusPending = false }
                                 .then(if (index < COLUMNS) topRow(routes, lastOfTopRow) else Modifier)
-                                .pageItem(page, index),
+                                .pageItem(page, index)
+                                .onFocusChanged {
+                                    if (it.hasFocus) {
+                                        vm.focusedId = card.id
+                                        vm.focusedAt = index
+                                    }
+                                },
                             favourite = card.id in favourites,
                             onLongClick = { vm.optionsFor = card }
                         ) { nav.push(vm.open(card, pid)) }

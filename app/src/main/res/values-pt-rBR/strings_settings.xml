@@ -158,7 +158,7 @@
     <string name="settings_warn_vpn">Avisar se a VPN não estiver conectada</string>
     <string name="settings_warn_vpn_help">Mostra na barra superior se o Android indica uma VPN neste dispositivo. Não é possível detectar uma VPN configurada no roteador ou em outro dispositivo.</string>
     <string name="settings_external_ip">Mostrar seu endereço IP externo</string>
-    <string name="settings_external_ip_help">Mostra ao lado do indicador de VPN o endereço que os sites veem e o país dele. Para obtê-lo, o MyPlexPlayer consulta o ipinfo.io quando a rede ou a VPN muda.</string>
+    <string name="settings_external_ip_help">Mostra ao lado do indicador de VPN o endereço que os sites veem e o país dele. Para obtê-lo, o MyPlexPlayer consulta o ipinfo.io (ou, se estiver ocupado, ipwho.is ou ipify.org) quando a rede ou a VPN muda.</string>
     <string name="settings_launcher">Mostrar na tela inicial da TV</string>
     <string name="settings_launcher_help">Continuar assistindo na fileira "A seguir" da tela inicial, e as outras fileiras do Início em fileiras próprias.</string>
     <string name="launcher_favourites">Canais favoritos</string>

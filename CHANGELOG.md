@@ -2,6 +2,17 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.14.0
+- Continue watching and favourite cards now offer Cast and crew, About and trailers.
+- The player's More menu now offers About and More like this.
+- The player's Cast is now Cast and crew.
+- Focused cards and rows now glow, in place of the white ring.
+- Left and Right now stop at the ends of each Home row.
+- After you remove a favourite, focus goes to the next one.
+- Every favourite option now shows a heart.
+- "All episodes" is now "Go to series".
+- Playback info now shows the download speed.
+
 ## 1.13.2
 - The play bar now opens at the right time, with no jump.
 - After Try again on a TMDB title, the remote goes to the shown season.

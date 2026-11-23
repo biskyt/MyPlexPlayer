@@ -90,4 +90,5 @@
     <string name="player_tuning">Sintonizando…</string>
     <string name="player_description">Descripción del episodio</string>
     <string name="player_info_buffer">En el búfer: %1$d s</string>
+    <string name="player_info_download">Velocidad de descarga: %1$s</string>
 </resources>
