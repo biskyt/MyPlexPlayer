@@ -1,0 +1,74 @@
+name: Amazon upload
+
+# Sends a published release's APK and notes to the Amazon Appstore and submits it for Amazon's review, through the App
+# Submission API (.github/scripts/amazon-upload.py). Start it from the Actions tab with the release's tag (e.g. v1.15.0).
+# Needs the AMAZON_CLIENT_ID, AMAZON_CLIENT_SECRET and AMAZON_APP_ID secrets (see RELEASING.md › Amazon Appstore).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The release's tag, e.g. v1.15.0"
+        required: true
+      submit:
+        description: "Submit for review (off: leave the edit open, to check it in the Developer Console)"
+        type: boolean
+        default: true
+      use_open_edit:
+        description: "Use an edit that is open already (it may hold changes made by hand in the Developer Console)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# One at a time: Amazon allows one open edit for an app.
+concurrency:
+  group: amazon-upload
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # main: for the scripts and CHANGELOG.md (which still has the release's section).
+      - uses: actions/checkout@v5
+
+      - name: Get the release's APK and notes
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+          [ "$GITHUB_REF" = refs/heads/main ] || fail "Run it on main, not $GITHUB_REF"
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "'$TAG' isn't a release tag like v1.15.0"
+          v=${TAG#v}
+          body=$(gh release view "$TAG" --json body --jq .body) || fail "No published release $TAG"
+          ! grep -q "signed with the public development key" <<< "$body" ||
+            fail "$TAG is a test build signed with the development key: not for the Amazon Appstore"
+          gh release download "$TAG" --pattern "MyPlexPlayer-$v.apk" --dir amazon
+          # The release's own versionCode, from its tag (main can be ahead of it).
+          git fetch --depth=1 origin "refs/tags/$TAG:refs/tags/$TAG"
+          code=$(git show "$TAG:app/build.gradle.kts" | sed -n 's/^ *versionCode = \([0-9]*\).*/\1/p')
+          [ -n "$code" ] || fail "No versionCode in $TAG's app/build.gradle.kts"
+          # The same short notes as Google Play's "What's new".
+          .github/scripts/release-notes.sh "$v" > "$RUNNER_TEMP/notes.md"
+          python3 .github/scripts/play-notes.py "$RUNNER_TEMP/notes.md" \
+            "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG" > amazon/notes.txt
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Upload to the Amazon Appstore
+        env:
+          AMAZON_CLIENT_ID: ${{ secrets.AMAZON_CLIENT_ID }}
+          AMAZON_CLIENT_SECRET: ${{ secrets.AMAZON_CLIENT_SECRET }}
+          AMAZON_APP_ID: ${{ secrets.AMAZON_APP_ID }}
+          VERSION: ${{ steps.release.outputs.version }}
+          CODE: ${{ steps.release.outputs.code }}
+          SUBMIT: ${{ inputs.submit }}
+          USE_OPEN_EDIT: ${{ inputs.use_open_edit }}
+        run: |
+          python3 .github/scripts/amazon-upload.py "amazon/MyPlexPlayer-$VERSION.apk" amazon/notes.txt "$CODE" \
+            $([ "$SUBMIT" = true ] || echo --no-submit) $([ "$USE_OPEN_EDIT" != true ] || echo --use-open-edit)

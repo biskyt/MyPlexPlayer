@@ -71,7 +71,18 @@ A release reaches testers once Google has reviewed it, usually within a few hour
 Moving a release from closed testing to production is done in Play Console.
 
 ## Amazon Appstore (Fire TV)
-Amazon takes the release's APK (`MyPlexPlayer-<version>.apk`, from the GitHub release), not the `.aab`. Nothing uploads
-it automatically yet: for each release, in the Amazon Developer Console, App Files › Add a new version, upload the APK
-with its notes, and submit. The first listing is in the guide above. Amazon re-signs the app, so an Amazon install and a
+Amazon takes the release's APK (`MyPlexPlayer-<version>.apk`, from the GitHub release), not the `.aab`. The **Amazon
+upload** workflow (`amazon-upload.yml`, input `tag`, run on `main`) sends it with Amazon's App Submission API
+(`.github/scripts/amazon-upload.py`):
+- It replaces the APK in the app's open edit, or in a new one, so that the device targeting stays.
+- It puts the same short notes as Play's "What's new" in each English listing's "Recent changes".
+- It submits the edit for Amazon's review. Untick "Submit for review" to leave the edit open and check it in the
+  Developer Console first. Then submit it there, or run the workflow again with "Use open edit" ticked.
+- It stops when the app already has an open edit, which can hold changes made by hand. Tick "Use open edit" to carry on
+  in it.
+
+It needs three repository secrets, from the Developer Console's Apps & Services › API Access (a security profile for
+the App Submission API): `AMAZON_CLIENT_ID`, `AMAZON_CLIENT_SECRET` and `AMAZON_APP_ID` (the app's
+`amzn1.devportal.mobileapp.…` id). The release does not run it yet. Without the workflow, upload the APK by hand: App
+Files › Add a new version, with its notes, then submit. The first listing is in the guide above. Amazon re-signs the app, so an Amazon install and a
 GitHub or Play install can't update each other.
