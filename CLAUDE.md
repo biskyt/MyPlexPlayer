@@ -200,6 +200,12 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     time in the guide; here live TV seeks in the player's own position, with no catch-up), its catch-up parts and
     downloads (none here). 1.31.0 (`8374c8a`, past catch-up programmes in the player's channel guide) doesn't apply:
     no catch-up here, and the schedule here starts with the programme on now.
+  - In 1.15.0: from 1.33.0 (`b685987`, `b29f5a9`; merge `a198721`): core `StallWatch` as it is, the engine's watch
+    every 2 s (`ERROR_CODE_FROZEN`), live that played tries again with no limit (`retryDelayMs`, `reconnect()`,
+    "Reconnecting…"), the network callback, the key mapper from `Settings()` defaults, and the review notes. Here
+    `reconnect()` keeps a recording watched from its start (`keepsWindowStart`) where it was, and a tune's first
+    picture has 60 s (`TUNE_FIRST_PICTURE_MS`, see **Plex Live TV**). `PlayerScreen`'s `WaitingLabel` also shows
+    "Tuning…". Left out: `ChannelGuide`, `GuidePlayer` and catch-up's own retries (no catch-up or zap list change here).
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -399,6 +405,14 @@ See also:
   saved as the server's own guide source (`EpgRepository.savePlexGuide`, url `plex:<id>`), with why it last failed,
   if it did, shown on the server's row in Settings › Playlists. A channel is tuned once (`PlexLive`), its tuner let go before the next tune and on leaving; a
   server that refuses Live TV (a friend's) just has no channels.
+  - **Reconnect never tunes again** (1.15.0): the stall watch, `reconnect()` and the network callback never tune. A
+    stall or failure calls `reconnect()`, which only does `prepare()` again on the same session's address (with no
+    `seekToDefaultPosition` for "Watch from start", see `reopenLive`). Only these paths tune (each through `tuneTo`,
+    which lets the old tuner go first): the player as it opens, Try again after an error (`retry()`), the return from
+    the background (`resume()`), a channel change (`zap`, the guide's `watchGuideChannel`) and number entry. The stall
+    watch gives a tune's first picture `TUNE_FIRST_PICTURE_MS`, which is the HTTP read time-out (`HTTP_READ_TIMEOUT_MS` in
+    AppContainer.kt); then it opens the same session again too. No retry asks for another stream: no transcode.
+    `LiveStallTest` checks these.
   - **Favourite channels are Plex's** (the owner, 0.9.0: "no point storing it locally"): read from Plex's guide
     service (`PlexAccount.favouriteChannels`) at each sync, they replace this server's favourites here, in Plex's
     order (`PlaylistRepository.syncFavourites`). Adding or removing one (`ChannelRepository.setFavourite`), or the

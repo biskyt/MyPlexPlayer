@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.Settings
 import com.biskyt.myplexplayer.testutil.PlainApp
 import com.biskyt.myplexplayer.ui.player.RetryBudget
+import com.biskyt.myplexplayer.ui.player.retryDelayMs
 import java.util.concurrent.TimeUnit
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -70,6 +71,11 @@ class PlaybackEngineTest {
         budget.reset() // played steadily for a while
         assertTrue(budget.take())
         assertEquals(1, budget.used)
+    }
+
+    @Test
+    fun `tries in a row wait longer each time, then every 15 seconds`() {
+        assertEquals(listOf(1_000L, 2_000L, 4_000L, 8_000L, 15_000L, 15_000L), (0..5).map(::retryDelayMs))
     }
 
     @Test

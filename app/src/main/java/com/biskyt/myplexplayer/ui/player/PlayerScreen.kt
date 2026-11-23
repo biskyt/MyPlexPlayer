@@ -222,7 +222,7 @@ internal fun PlayerFrame(
             // zoomed picture doesn't push them off it.
             Subtitles(engine.player, Modifier.picture(vm.picture, presentation.videoSizeDp, onScreen = true))
         }
-        LoadingLabel(vm, Modifier.align(Alignment.Center))
+        WaitingLabel(vm, Modifier.align(Alignment.Center))
         vm.error?.let { ErrorBox(it, vm) }
         if (vm.overlay == OverlayState.CONTROLS) {
             // With the video focused (Up from the buttons), left and right skip: the bar shows its handle (no remote: none).
@@ -247,12 +247,20 @@ internal fun PlayerFrame(
     FocusFollowsOverlay(vm, root)
 }
 
-/** "Loading…" while the stream fills, or "Tuning…" while a channel is tuned (until its picture starts). */
+/**
+ * "Loading…" while a stream loads; "Tuning…" while a channel is tuned (until its picture starts); "Reconnecting…" while
+ * one that failed opens again, over its last picture.
+ */
 @Composable
-private fun LoadingLabel(vm: PlaybackViewModel, modifier: Modifier) {
-    if ((vm.buffering || vm.tuning) && vm.error == null) {
+private fun WaitingLabel(vm: PlaybackViewModel, modifier: Modifier) {
+    if ((vm.buffering || vm.tuning || vm.reconnecting) && vm.error == null) {
+        val label = when {
+            vm.tuning -> R.string.player_tuning
+            vm.reconnecting -> R.string.player_reconnecting
+            else -> R.string.common_loading
+        }
         Text(
-            stringResource(if (vm.tuning) R.string.player_tuning else R.string.common_loading),
+            stringResource(label),
             style = MaterialTheme.typography.titleLarge,
             modifier = modifier
         )

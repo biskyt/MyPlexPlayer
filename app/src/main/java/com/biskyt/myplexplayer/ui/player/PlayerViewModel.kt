@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.viewModelScope
 import com.biskyt.myplexplayer.AppContainer
+import com.biskyt.myplexplayer.HTTP_READ_TIMEOUT_MS
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.player.OverlayState
@@ -246,7 +247,9 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
             fail(e.userMessage())
             return false
         }
-        engine?.play(stream.url, hls = true, headers = stream.headers)
+        // Plex answers the tune before the tuner has locked: the stall watch gives the picture as long to start as the
+        // tune itself may take, and a stall then opens the same session again, never a new tune.
+        engine?.play(stream.url, hls = true, headers = stream.headers, firstPictureMs = TUNE_FIRST_PICTURE_MS)
         heartbeat = viewModelScope.launch {
             while (true) {
                 delay(HEARTBEAT_MS)
@@ -333,5 +336,11 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
 
         /** A live Plex session ends unless it's reported this often. */
         const val HEARTBEAT_MS = 10_000L
+
+        /**
+         * How long a tuned channel may take to show its first picture before the player opens its stream again: as
+         * long as the tune's own wait for the server.
+         */
+        const val TUNE_FIRST_PICTURE_MS = HTTP_READ_TIMEOUT_MS
     }
 }
