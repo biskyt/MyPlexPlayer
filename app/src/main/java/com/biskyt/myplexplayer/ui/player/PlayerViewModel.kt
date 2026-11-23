@@ -166,14 +166,15 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
         }
     }
 
-    /** Plays a tuned session's [stream], given a tune's wait for its first picture. */
+    /** Plays a tuned session's [stream], with a tune's wait ([TUNE_WAIT_MS]) for its first picture and for more data. */
     private fun playTuned(stream: PlexStream, fromStart: Boolean = false) {
         engine?.play(
             stream.url,
             hls = true,
             headers = stream.headers,
             fromWindowStart = fromStart,
-            firstPictureMs = TUNE_FIRST_PICTURE_MS
+            firstPictureMs = TUNE_WAIT_MS,
+            rebufferMs = TUNE_WAIT_MS
         )
     }
 
@@ -349,10 +350,11 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
         const val HEARTBEAT_MS = 10_000L
 
         /**
-         * How long a tuned channel may take to show its first picture before the player opens its stream again. Plex
-         * answers a tune before the tuner has locked, and it starts a recording's session again for "Watch from start"
-         * and "Watch live": each gets as long as the tune's own wait for the server (the HTTP read time-out).
+         * How long a tuned channel may wait for its first picture, and for more data once it played, before the player
+         * opens its stream again. Plex answers a tune before the tuner has locked, starts a recording's session again
+         * for "Watch from start" and "Watch live", and can be slow to send the next part after a drop-out: each gets as
+         * long as the tune's own wait for the server (the HTTP read time-out).
          */
-        const val TUNE_FIRST_PICTURE_MS = HTTP_READ_TIMEOUT_MS
+        const val TUNE_WAIT_MS = HTTP_READ_TIMEOUT_MS
     }
 }

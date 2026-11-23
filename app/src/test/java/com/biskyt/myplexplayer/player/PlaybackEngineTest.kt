@@ -10,9 +10,11 @@ import com.biskyt.myplexplayer.ui.player.GIVE_UP_MS
 import com.biskyt.myplexplayer.ui.player.RetryBudget
 import com.biskyt.myplexplayer.ui.player.keepsTrying
 import com.biskyt.myplexplayer.ui.player.retryDelayMs
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -63,6 +65,23 @@ class PlaybackEngineTest {
             }
             assertEquals("secret", request.getHeader("X-Plex-Token"))
             assertEquals("/file.mkv", request.path)
+        }
+    }
+
+    @Test
+    fun `the stall check runs only while the player wants to play, and starts again when it plays`() {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE)) // waits for data
+            val looper = shadowOf(Looper.getMainLooper())
+            engine.play(server.url("/live.ts").toString(), hls = false)
+            looper.idle()
+            assertTrue(engine.checking)
+            engine.player.pause()
+            looper.idleFor(Duration.ofSeconds(3)) // the next check notes the pause, and posts no more
+            assertFalse(engine.checking)
+            engine.player.play()
+            looper.idle()
+            assertTrue(engine.checking)
         }
     }
 

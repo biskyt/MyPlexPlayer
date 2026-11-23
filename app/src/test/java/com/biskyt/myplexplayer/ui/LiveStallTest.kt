@@ -10,6 +10,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.media3.common.PlaybackException
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.AppContainer
+import com.biskyt.myplexplayer.HTTP_READ_TIMEOUT_MS
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.plexChannelId
@@ -17,6 +18,7 @@ import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
+import com.biskyt.myplexplayer.testutil.reportNetwork
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.ui.player.PlaybackViewModel
 import com.biskyt.myplexplayer.ui.player.PlayerViewModel
@@ -31,9 +33,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
-import org.robolectric.shadows.ShadowNetwork
 
 /**
  * A live stream that never gets going ends in an error; one that played opens its session again, however long it takes.
@@ -117,6 +117,14 @@ class LiveStallTest {
     }
 
     @Test
+    fun `a channel that played waits as long as a tune for more data, so a slow server's reconnect is not cut off`() {
+        val vm = tunedChannel()
+        compose.waitAdvancingClock(1_000) { plex.liveStreamed.isNotEmpty() }
+        // The tune's own wait (TUNE_WAIT_MS): the HTTP read time-out, not live TV's 12 s.
+        assertEquals(HTTP_READ_TIMEOUT_MS, vm.engine!!.rebufferMs)
+    }
+
+    @Test
     fun `a session the server ended fails to the error, and Try again tunes once more after letting the old tuner go`() {
         val vm = tunedChannel()
         playedThenLost(vm)
@@ -135,7 +143,8 @@ class LiveStallTest {
         val vm = tunedChannel()
         playedThenLost(vm)
         // The stall comes, and its try waits (a second): the player is left before it runs.
-        compose.waitAdvancingClock(100) { vm.reconnecting }
+        // Half-second steps: a tuned stream has a minute before its stall, and the try waits a second after it.
+        compose.waitAdvancingClock(500) { vm.reconnecting }
         val asked = plex.liveStreamed.size
         vm.stop()
         advanceSeconds(30)
@@ -189,9 +198,8 @@ class LiveStallTest {
         vm.playingChanged(true)
         vm.playingChanged(false)
         vm.engine!!.onStalled(PlaybackException("behind", null, PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW))
-        // The try waits; the network comes back first.
-        val connectivity = app.getSystemService(ConnectivityManager::class.java)
-        shadowOf(connectivity).networkCallbacks.forEach { it.onAvailable(ShadowNetwork.newInstance(1)) }
+        // The try waits; the network comes back first, and Android finds that it works.
+        app.getSystemService(ConnectivityManager::class.java).reportNetwork(vpn = false, validated = true)
         compose.waitAdvancingClock { vm.reconnects.isNotEmpty() }
         assertEquals(listOf(true), vm.reconnects)
     }

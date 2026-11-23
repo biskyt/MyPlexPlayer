@@ -204,15 +204,15 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     every 2 s (`ERROR_CODE_FROZEN`), live that played tries again with no limit (`retryDelayMs`, `reconnect()`,
     "Reconnecting…"), the network callback, the key mapper from `Settings()` defaults, and the review notes. Here
     `reconnect()` keeps a recording watched from its start (`keepsWindowStart`) where it was, and a tune's first
-    picture has 60 s (`TUNE_FIRST_PICTURE_MS`, see **Plex Live TV**). `PlayerScreen`'s `WaitingLabel` also shows
+    picture has 60 s (`TUNE_WAIT_MS`, see **Plex Live TV**). `PlayerScreen`'s `WaitingLabel` also shows
     "Tuning…". Left out: `ChannelGuide`, `GuidePlayer` and catch-up's own retries (no catch-up or zap list change here).
     Also 1.33.1 (merge `98d338d`: `StallWatch`'s `pictureMoved`, a reset on a seek) and 1.33.2 (merge `85026ce`):
     `isPassing` (only a failure that passes goes on with no limit; a 4xx such as an ended Plex session fails to the
     error), `cancelRetry()` in `stop()` and `onAppHidden()`, `stopWatchingNetwork()`, `PlaybackEngine.live` with
-    `REBUFFER_MS`, `play(firstPictureMs = FIRST_PICTURE_MS)` (here a tune's first play passes `TUNE_FIRST_PICTURE_MS`),
+    `REBUFFER_MS`, `play(firstPictureMs = FIRST_PICTURE_MS)` (here a tune's first play passes `TUNE_WAIT_MS`),
     `RetryBudget.take()` counting past its limit, and HomeFavouritesUiTest's rows compared by `IndexForKey`. StallWatch,
     its test and the engine's stall watch are as MyTVPlayer has them.
-    Also 1.34.1's playback parts (merge `5403671`): `PlaybackEngine.seekTo` (a viewer's seek starts the watch again;
+    Also 1.34.1's playback parts (merge `5403671`): `PlaybackEngine.seekTo` (removed again by 1.34.4; a viewer's seek starts the watch again;
     `playFrom` and every film and episode seek here use it; a reconnect's seek does not), `ON_DEMAND_REBUFFER_MS` (60 s),
     `keepsTrying` and `GIVE_UP_MS` (5 min with no picture, then the error with Try again), no behind-window branch (here
     the delayed `reconnect(behind = true)` keeps `reopenLive`'s rule), no retry after Back or Home, and the network
@@ -228,6 +228,13 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     `PLAYED_A_WHILE_MS` (5 s of play clears `failingSince`, not after a freeze) and a live reconnect that moves only
     after a fall behind the live window. Here `reopenLive` moves to the window's start in place of the live point for a
     recording watched from its start; MyTVPlayer's `behindLive` is this app's `behind`.
+    Also 1.34.4 (merge `071c5b7`): StallWatch's `stillLimit()` (a first picture held with its time still is FROZEN
+    after `startMs`) and `onMoving` (a picture back clears `failingSince`; `PLAYED_A_WHILE_MS` removed), the check only
+    while the player wants to play and is BUFFERING or READY (`keepChecking`, `checking`), the reset on every seek
+    (`DISCONTINUITY_REASON_SEEK`; `engine.seekTo` removed), `retryAsHls` watched from its start, `play(rebufferMs)` with
+    both waits from `live`, the network's return only once VALIDATED, `SERVER_ERRORS` and PlayerVpnUiTest's race fix.
+    Here a tuned session also waits `TUNE_WAIT_MS` for more data (`rebufferMs`, `PlaybackEngine.rebufferMs` for
+    its test). Its season folders for downloads (`DownloadNames`) don't apply: no downloads here.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -432,7 +439,7 @@ See also:
     `seekToDefaultPosition` for "Watch from start", see `reopenLive`). Only these paths tune (each through `tuneTo`,
     which lets the old tuner go first): the player as it opens, Try again after an error (`retry()`), the return from
     the background (`resume()`), a channel change (`zap`, the guide's `watchGuideChannel`) and number entry. The stall
-    watch gives a tune's first picture `TUNE_FIRST_PICTURE_MS`, which is the HTTP read time-out (`HTTP_READ_TIMEOUT_MS` in
+    watch gives a tune's first picture `TUNE_WAIT_MS`, which is the HTTP read time-out (`HTTP_READ_TIMEOUT_MS` in
     AppContainer.kt); then it opens the same session again too. No retry asks for another stream: no transcode. A
     session that the server ended (a 404 from its address) is not a failure that passes (`isPassing`): after the
     usual tries it fails to the error, and only Try again tunes again. A failure that passes gets the error too after

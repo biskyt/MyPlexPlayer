@@ -3,6 +3,7 @@ package com.biskyt.myplexplayer.ui.player
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
+import android.net.NetworkCapabilities
 import android.os.SystemClock
 import androidx.annotation.StringRes
 import androidx.annotation.VisibleForTesting
@@ -27,7 +28,6 @@ import com.biskyt.myplexplayer.core.player.RemoteKey
 import com.biskyt.myplexplayer.core.player.scrubTarget
 import com.biskyt.myplexplayer.data.Settings
 import com.biskyt.myplexplayer.data.db.ChannelProgramme
-import com.biskyt.myplexplayer.player.ERROR_CODE_FROZEN
 import com.biskyt.myplexplayer.player.PlaybackEngine
 import com.biskyt.myplexplayer.player.PlaybackError
 import com.biskyt.myplexplayer.player.explainFailure
@@ -123,9 +123,21 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     private var mapper = mapperFor(Settings())
     private var hideJob: Job? = null
     private var dimJob: Job? = null
-    private var retryJob: Job? = null
     private var messageJob: Job? = null
+
+    // The retries of a stream that fails.
+    private var retryJob: Job? = null
     private val retries = RetryBudget(MAX_RETRIES)
+
+    /** When the stream began to fail, with no picture since (0: it plays). */
+    private var failingSince = 0L
+
+    /**
+     * Whether the last failure fell behind live TV's window: [reconnect] then moves back into it (see [reopenLive]). The
+     * network's return keeps it, so that a recording watched from its start goes back into what the stream holds.
+     */
+    protected var behind = false
+        private set
 
     // How long the stream has played since its last failure: once it has really played a while, failures get fresh
     // retries; one that starts and fails again straight away would otherwise retry for ever ("Loading…", blank…).
@@ -150,7 +162,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
         override fun onIsPlayingChanged(playing: Boolean) {
             isPlaying = playing
-            val now = System.currentTimeMillis()
+            val now = SystemClock.elapsedRealtime()
             if (playing) {
                 hasPlayed = true
                 tuning = false
@@ -196,9 +208,6 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             // Played steadily since the last failure: a new run of failures. A moment of READY between stalls (a frozen
             // stream, a playlist that replays old parts) is not enough, or the give-up time would never come.
             if (playedSinceFailure() >= STEADY_MS) retries.reset()
-            // Played a while since the last failure: the 5 minutes with no picture start again. Not after a frozen
-            // picture, which "played" with no picture (MyPlexPlayer's review, 2026-11-23).
-            if (e.errorCode != ERROR_CODE_FROZEN && playedSinceFailure() >= PLAYED_A_WHILE_MS) failingSince = 0
             playedMs = 0
             playingSince = 0
             // Live TV that has played goes on trying, as a TV does, while the feed is gone (the owner, 2026-11-23), if
@@ -223,7 +232,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             retryJob?.cancel()
             retryJob = viewModelScope.launch {
                 delay(retryDelayMs(retries.used - 1))
-                if (!exit && !hidden) reconnect()
+                reconnectIfShown()
             }
         }
     }
@@ -277,6 +286,9 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
             it.player.addAnalyticsListener(formatListener)
             it.live = isLive
             it.onStalled = listener::onPlayerError
+            // A picture came back (or with no video, the time moves): the 5 minutes with no picture start again. Play
+            // time alone does not count: a frozen picture or a still time also "plays" (MyPlexPlayer's review).
+            it.onMoving = { failingSince = 0 }
             it.onUnsupported =
                 { url -> fail(appString(R.string.player_unsupported_format), url = url.ifEmpty { null }) }
             engine = it
@@ -287,17 +299,14 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     /**
      * Opens the stream that failed again: live TV as [reopenLive] says ([behind]: it fell behind the live window),
      * anything else where it was. It is the same stream at the same address (for Plex Live TV, the same session, with
-     * no new tune: a second tune can take a second tuner), never another one. Its seek leaves the stall watch as it is,
-     * so live TV keeps its own waits.
+     * no new tune: a second tune can take a second tuner), never another one. The stall watch
+     * starts again with it ([PlaybackEngine.reopen]), with the waits of a stream that played.
      */
     protected open fun reconnect() {
         val engine = engine ?: return
         if (isLive && behind) reopenLive(engine.player)
         engine.reopen()
     }
-
-    /** When the stream began to fail, with no picture since (0: it plays). */
-    private var failingSince = 0L
 
     /**
      * Before a live stream opens again: only one that fell behind its window ([behind]) moves, to the live point, or to
@@ -312,22 +321,27 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     var reconnecting by mutableStateOf(false)
         private set
 
-    /** The network is back (Wi-Fi again, or a cable): a stream waiting to try again tries at once. */
+    /**
+     * The network is back (Wi-Fi again, or a cable): a stream waiting to try again tries at once. Only once Android has
+     * found that the network reaches the internet, not when it first connects: a network that comes and goes would
+     * otherwise use up a film's few tries in seconds (MyPlexPlayer's review, 2026-11-23).
+     */
     private val networkBack = object : ConnectivityManager.NetworkCallback() {
-        override fun onAvailable(network: Network) {
-            viewModelScope.launch { if (retryJob?.isActive == true) retryNow() }
+        override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+            if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) return
+            // On the network's thread: a look first, so that no coroutine starts when no try waits, and again on the
+            // main thread, where the tries are made.
+            if (retryJob?.isActive == true) viewModelScope.launch { if (retryJob?.isActive == true) retryNow() }
         }
     }
 
-    /**
-     * Whether the failure that a waiting try is for fell behind the live window: the network's return keeps it, so that
-     * a recording watched from its start goes back into what the stream holds (see [reopenLive]).
-     */
-    protected var behind = false
-        private set
-
     private fun retryNow() {
         retryJob?.cancel()
+        reconnectIfShown()
+    }
+
+    /** Opens the stream again, unless it was left (Back, Home). */
+    private fun reconnectIfShown() {
         if (!exit && !hidden) reconnect()
     }
 
@@ -342,9 +356,8 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     /** Forgets the previous stream's failures before playing another. */
     protected fun resetForNewStream() {
         cancelScrub()
-        retryJob?.cancel()
+        cancelRetry()
         error = null
-        reconnecting = false
         failingSince = 0
         retries.reset()
         playedMs = 0
@@ -352,7 +365,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
         hasPlayed = false
     }
 
-    private fun playedSinceFailure() = playedMs + if (playingSince > 0) System.currentTimeMillis() - playingSince else 0
+    private fun playedSinceFailure() = playedMs + if (playingSince > 0) SystemClock.elapsedRealtime() - playingSince else 0
 
     protected open fun onPlayingChanged(playing: Boolean) = Unit
 
@@ -498,9 +511,11 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     /** Whether [networkBack] is registered: only while the player is shown and not stopped. */
     private var watchingNetwork = false
 
+    private val connectivity by lazy { appContext.getSystemService(ConnectivityManager::class.java) }
+
     private fun watchNetwork() {
         if (watchingNetwork || exit || engine == null) return
-        val connectivity = appContext.getSystemService(ConnectivityManager::class.java) ?: return
+        val connectivity = connectivity ?: return
         watchingNetwork = runCatching { connectivity.registerDefaultNetworkCallback(networkBack) }.isSuccess
     }
 
@@ -508,7 +523,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
     private fun stopWatchingNetwork() {
         if (!watchingNetwork) return
         watchingNetwork = false
-        runCatching { appContext.getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(networkBack) }
+        runCatching { connectivity?.unregisterNetworkCallback(networkBack) }
     }
 
     fun togglePlayPause() = perform(PlayerAction.TogglePlayPause)
@@ -532,7 +547,7 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
     /** Plays from [ms] (a point within [scrubBounds]). */
     protected open fun playFrom(ms: Long) {
-        engine?.seekTo(ms)
+        engine?.player?.seekTo(ms)
     }
 
     /**
@@ -737,9 +752,6 @@ abstract class PlaybackViewModel(protected val c: AppContainer, private val appC
 
         /** The longest a message about the stream loading stays (see showWhileLoading). */
         const val WAITING_MESSAGE_MS = 15_000L
-
-        /** Having played this long since the last failure (not frozen): the time live TV goes on trying starts again. */
-        const val PLAYED_A_WHILE_MS = 5_000L
 
         /** Having played this long (in all) since the last failure counts as working: later failures get fresh retries. */
         const val STEADY_MS = 20_000L
