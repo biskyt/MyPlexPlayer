@@ -271,6 +271,16 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
         stalls.reset()
     }
 
+    /**
+     * Opens the stream again where it was (a reconnect, Try again, back from Home). The watch starts again too: the new
+     * decoder holds its first picture while the sound catches up, which is not a freeze. It keeps [started], so the
+     * waits stay those of a stream that played.
+     */
+    fun reopen() {
+        stalls.reset()
+        player.prepare()
+    }
+
     /** The current stream's address. */
     val currentUrl: String? get() = current
     private var currentInferred = false
@@ -279,8 +289,8 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
      * [hls]: null works the format out from the stream (retrying once as HLS when that fails, see [retryAsHls]).
      * [userAgent] / [referrer]: some streams only play when these headers are sent. [headers]: sent with every request
      * for the stream (a Plex server's token, so it isn't in the address). [fromWindowStart]: a live stream starts at
-     * the start of what it holds, not at its live edge. [firstPictureMs]: how long the stream is given to start
-     * (and to start again after a seek), see [StallWatch].
+     * the start of what it holds, not at its live edge. [firstPictureMs]: how long the stream is given to start,
+     * see [StallWatch].
      */
     @Suppress("LongParameterList") // the stream's address, its format and what is sent for it
     fun play(
@@ -294,6 +304,8 @@ class PlaybackEngine(private val context: Context, private val settings: Setting
     ) {
         stalls.startMs = firstPictureMs
         stalls.rebufferMs = if (live) REBUFFER_MS else ON_DEMAND_REBUFFER_MS
+        // A film can have long still scenes with no new pictures (a variable frame rate): only its time counts.
+        stalls.watchPicture = live
         subtitlesApplied = false
         // A track chosen on the last stream mustn't carry over (or quietly match a different one on this).
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()

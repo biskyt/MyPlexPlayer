@@ -14,6 +14,7 @@ import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.player.OverlayState
 import com.biskyt.myplexplayer.core.plex.PlexException
+import com.biskyt.myplexplayer.core.plex.PlexStream
 import com.biskyt.myplexplayer.data.PlexLive
 import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.data.db.ChannelProgramme
@@ -161,14 +162,19 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
             engine?.player?.stop()
             playingFromStart = fromStart
             resetForNewStream()
-            engine?.play(
-                stream.url,
-                hls = true,
-                headers = stream.headers,
-                fromWindowStart = fromStart,
-                firstPictureMs = TUNE_FIRST_PICTURE_MS
-            )
+            playTuned(stream, fromStart)
         }
+    }
+
+    /** Plays a tuned session's [stream], given a tune's wait for its first picture. */
+    private fun playTuned(stream: PlexStream, fromStart: Boolean = false) {
+        engine?.play(
+            stream.url,
+            hls = true,
+            headers = stream.headers,
+            fromWindowStart = fromStart,
+            firstPictureMs = TUNE_FIRST_PICTURE_MS
+        )
     }
 
     /** The Plex server: its channels come from its tuner ([live]). */
@@ -254,7 +260,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
             return false
         }
         // A stall opens the same session again: never a new tune.
-        engine?.play(stream.url, hls = true, headers = stream.headers, firstPictureMs = TUNE_FIRST_PICTURE_MS)
+        playTuned(stream)
         heartbeat = viewModelScope.launch {
             while (true) {
                 delay(HEARTBEAT_MS)

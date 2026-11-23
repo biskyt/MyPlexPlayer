@@ -177,7 +177,7 @@ class LiveStallTest {
             viewModelScope.launch { startEngine() }
         }
 
-        override fun reconnect(behind: Boolean) {
+        override fun reconnect() {
             reconnects += behind
         }
     }

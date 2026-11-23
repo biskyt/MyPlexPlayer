@@ -10,6 +10,8 @@ Each version's section becomes its GitHub release notes, so it is written for th
 - The remote's buttons now work while a stream is still loading.
 - Live TV shows an error with Try again when the server ends the session.
 - Live TV shows an error after 5 minutes of reconnecting with no picture.
+- A film's long still scene no longer counts as a frozen picture.
+- Live TV keeps its place after a short drop-out.
 
 ## 1.14.1
 - The search box and the first category now show their full glow.

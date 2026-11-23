@@ -223,6 +223,11 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     episode's first picture given `ON_DEMAND_REBUFFER_MS` (also on the direct-stream switch), StallWatch's `still()`
     and `watchNetwork` with no connectivity service. This app's own fix: the network's return keeps the failure's
     `behind` (a field), so that `reopenLive` keeps a recording watched from its start in the stream.
+    Also 1.34.3 (merge `f5b5820`): `PlaybackEngine.reopen()` (the stall watch starts again; a reconnect, Try again and
+    the return from Home use it), `StallWatch.watchPicture` (only live TV's still picture is a freeze),
+    `PLAYED_A_WHILE_MS` (5 s of play clears `failingSince`, not after a freeze) and a live reconnect that moves only
+    after a fall behind the live window. Here `reopenLive` moves to the window's start in place of the live point for a
+    recording watched from its start; MyTVPlayer's `behindLive` is this app's `behind`.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
