@@ -264,6 +264,11 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     TMDB person has no server id, so their page does not open. The series page and the player build the description
     with one call (`TmdbRepository.describe`). The player asks TMDB for it only when its More first opens, after the
     details' read. `VodRepository.episodeFacts` keeps each episode's facts, so its full item is read once.
+  - In 1.16.1: from 1.35.1 (`ec357ce`, `9d8e388`; merge `a75c967`): the "Playback" heading over the player's own
+    options, CI on pull requests only (the release saves the Robolectric cache), git's default branch set before each
+    checkout, `AAC_MAX_OUTPUT_CHANNELS`, core's `countryName()` (CategoryLanguageDetector and CoreText) and AGP 8.13.2.
+    Left out: `Languages.locale()` (nothing here calls `Locale(code)`) and its episode description parts (here every
+    screen already uses `TmdbRepository.describe`).
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -334,8 +339,8 @@ See also:
      Console.
 6. Commit with the session's attribution trailers, then push to the working branch and open a PR to `main`.
 7. When CI and the emulator runs (if the PR has them; see below) are green, merge the PR (merge commit).
-   - CI runs once per commit: on pull requests and on `main` after a merge (or by hand). A push to a branch without a
-     PR runs nothing, so open the PR to get CI.
+   - CI runs on pull requests only (or by hand): a merge to `main` would repeat what its PR checked (the owner,
+     2026-11-24). A push to a branch without a PR runs nothing, so open the PR to get CI.
    - CI runs `:core:test :app:recordRoborazziDebug` (the unit tests, recording screenshots to `app/screenshots/`; don't
      commit those unless meant to). The emulator runs are on PRs (or started by hand), and skipped when every
      changed file is one that can't reach the app: `.md`, `docs/`, `store/`, JVM tests and screenshots, or the other

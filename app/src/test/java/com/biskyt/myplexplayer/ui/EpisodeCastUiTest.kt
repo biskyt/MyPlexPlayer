@@ -178,6 +178,7 @@ class EpisodeCastUiTest {
         compose.waitAdvancingClock(stepMs = 50) { vm.menuActions().count { it.label == "Cast and crew" } == 2 }
         compose.runOnIdle { vm.sheet = PlaybackViewModel.Sheet.MORE }
         compose.waitForText("THIS EPISODE", stepMs = 50)
+        compose.waitForText("PLAYBACK", stepMs = 50) // the player's own options, under their own heading
         clickFirst("Episode description")
         compose.waitForText("Directed by ${FakeTmdb.EPISODE_DIRECTOR} · Written by ${FakeTmdb.EPISODE_WRITER}", stepMs = 50)
         compose.runOnIdle { vm.panel = null }

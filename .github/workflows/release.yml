@@ -26,6 +26,9 @@ jobs:
       HAS_PLAY_ACCOUNT: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
     timeout-minutes: 45
     steps:
+      # actions/checkout runs "git init", which otherwise prints a hint about the default branch's name.
+      - run: git config --global init.defaultBranch main
+
       - uses: actions/checkout@v5
 
       # Before anything is set up: a release is made from main (or a tag on it), and only once.
@@ -65,12 +68,15 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
 
-      # Robolectric's Android images, from CI's cache.
+      # Robolectric's Android images (about 250 MB), outside Gradle's cache. Saved here, on main, after the tests when
+      # they were not cached yet: CI runs on pull requests only, which read caches from main. setup-gradle saves
+      # Gradle's own cache from main too.
       - name: Robolectric cache key
         id: robolectric
         run: echo "key=$(.github/scripts/robolectric-cache-key.sh)" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
+        id: robolectric-cache
         with:
           path: ~/.m2/repository/org/robolectric
           key: ${{ steps.robolectric.outputs.key }}
@@ -106,6 +112,13 @@ jobs:
 
       - name: Test
         run: ./gradlew :core:test :app:testDebugUnitTest
+
+      - uses: actions/cache/save@v5
+        # From main only: a pull request reads caches from its own branch and main, never from a tag.
+        if: github.ref == 'refs/heads/main' && steps.robolectric-cache.outputs.cache-hit != 'true'
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: ${{ steps.robolectric.outputs.key }}
 
       - name: Build APK and app bundle
         run: ./gradlew :app:assembleRelease :app:bundleRelease

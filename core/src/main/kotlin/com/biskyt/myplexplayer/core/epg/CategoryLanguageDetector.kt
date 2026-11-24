@@ -1,5 +1,6 @@
 package com.biskyt.myplexplayer.core.epg
 
+import com.biskyt.myplexplayer.core.countryName
 import java.text.Normalizer
 import java.util.Locale
 
@@ -48,7 +49,7 @@ object CategoryLanguageDetector {
     private val words: List<Pair<String, String>> = (
         Locale.getISOCountries().flatMap { iso ->
             // Both the full name and the everyday one: "Myanmar (Burma)" → "Myanmar", "Hong Kong SAR China" → "Hong Kong".
-            val name = Locale("", iso).getDisplayCountry(Locale.ENGLISH)
+            val name = countryName(iso, Locale.ENGLISH)
             val short = name.substringBefore(" (").substringBefore(" - ").removeSuffix(" SAR China")
             val code = groupForCountry(iso)
             listOf(name to code, short to code)

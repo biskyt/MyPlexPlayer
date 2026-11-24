@@ -1,5 +1,8 @@
 package com.biskyt.myplexplayer.core
 
+import java.util.IllformedLocaleException
+import java.util.Locale
+
 /** Language tags as streams write them, to ISO 639-1 codes. */
 object Languages {
     /** ISO 639-2 codes streams tag tracks with, both forms ("fre" and "fra"). */
@@ -16,3 +19,10 @@ object Languages {
         return iso3to2[p] ?: p
     }
 }
+
+/** The name of the country with the two-letter [code] (e.g. "GB") in [language]; else [code] in capitals (e.g. "4K"). */
+fun countryName(code: String, language: Locale): String = try {
+    Locale.Builder().setRegion(code).build().getDisplayCountry(language)
+} catch (_: IllformedLocaleException) {
+    ""
+}.ifEmpty { code.uppercase() }
