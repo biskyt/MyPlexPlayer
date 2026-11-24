@@ -66,8 +66,13 @@ fun VodPlayerScreen(screen: Screen.VodPlayer) {
             vm.cast = null
         }
     }
-    // About from More, as the title's page opens it.
-    if (vm.panel == TitlePanel.About) AboutPanel(film = screen.seriesId == null, vm.details, onDismiss = { vm.panel = null })
+    // About and the episode's description from More, as the title's pages open them.
+    when (val panel = vm.panel) {
+        TitlePanel.About -> AboutPanel(film = screen.seriesId == null, vm.details, onDismiss = { vm.panel = null })
+        // What is known now: the rest fills in as it is read, as on the series page.
+        is TitlePanel.Describe -> EpisodeDescriptionPanel(vm.described ?: panel.episode) { vm.panel = null }
+        else -> Unit
+    }
 }
 
 /**

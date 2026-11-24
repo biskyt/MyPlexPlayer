@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.annotation.VisibleForTesting
 import com.biskyt.myplexplayer.AppText
 import com.biskyt.myplexplayer.core.tmdb.TmdbClient
+import com.biskyt.myplexplayer.core.tmdb.TmdbCredits
 import com.biskyt.myplexplayer.core.tmdb.TmdbEpisode
 import com.biskyt.myplexplayer.core.tmdb.TmdbException
 import com.biskyt.myplexplayer.core.tmdb.TmdbSuggestion
@@ -61,6 +62,10 @@ class TmdbRepository(
 
     /** The episodes of [season] of the TMDB series [seriesId]; null when TMDB cannot give them (no key, or out of reach). */
     suspend fun season(seriesId: Int, season: Int): List<TmdbEpisode>? = quietly { it.season(seriesId, season) }
+
+    /** The cast and crew of an episode of the TMDB series [seriesId]; null when TMDB cannot give them. */
+    suspend fun episodeCredits(seriesId: Int, season: Int, number: Int): TmdbCredits? =
+        quietly { it.episodeCredits(seriesId, season, number) }
 
     /** The films (or, when [series], the series) that TMDB suggests for its title [id]; null when TMDB cannot give them. */
     suspend fun recommendations(series: Boolean, id: Int): List<TmdbSuggestion>? = quietly { it.recommendations(series, id) }

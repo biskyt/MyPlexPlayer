@@ -16,6 +16,7 @@ import com.biskyt.myplexplayer.AppText
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.plex.PlexTrailer
+import com.biskyt.myplexplayer.core.tmdb.TmdbCredits
 import com.biskyt.myplexplayer.core.tmdb.TmdbVideo
 import com.biskyt.myplexplayer.core.vod.CastMember
 import com.biskyt.myplexplayer.core.vod.VodDetails
@@ -80,8 +81,8 @@ fun OtherTrailersPanel(title: String, trailers: TitleTrailers, open: (Long) -> S
  * What a film's or show's More… shares: its [trailer] (see [trailerAction]), Other trailers ([otherTrailers] opens
  * them, given only when there is more than one, see [TitleTrailers]), More like this ([similar]
  * opens it with the title's TMDB id: given only with a TMDB key, and offered only when the server gives the id), its
- * cast and crew ([showCast], where known), About ([showAbout]), a film's Technical info ([showTech]: a film has one, a
- * show not) and its links in one row. A film's items have a help line under them, as its board draws them.
+ * cast and crew ([showCast], where known), About ([showAbout], when given), a film's Technical info ([showTech]: a film's page has
+ * one, a show not) and its links in one row. A [film]'s items have a help line under them, as its board draws them.
  */
 @Suppress("LongParameterList") // one action for each option
 fun titleActions(
@@ -90,10 +91,10 @@ fun titleActions(
     otherTrailers: (() -> Unit)?,
     similar: ((Int) -> Screen)?,
     showCast: () -> Unit,
-    showAbout: () -> Unit,
-    showTech: (() -> Unit)? = null
+    showAbout: (() -> Unit)?,
+    showTech: (() -> Unit)? = null,
+    film: Boolean = showTech != null
 ): List<ItemAction> {
-    val film = showTech != null
     fun help(id: Int) = if (film) appString(id) else null
     val crew = details != null && (details.cast.isNotEmpty() || details.directors.isNotEmpty() || details.writers.isNotEmpty())
     return listOfNotNull(
@@ -103,11 +104,7 @@ fun titleActions(
             details?.tmdbId?.let { ItemAction.Open(appString(R.string.vod_similar), open(it), help(R.string.vod_similar_help)) }
         },
         if (crew) ItemAction.Run(appString(R.string.vod_cast_crew), help(R.string.vod_cast_crew_help), run = showCast) else null,
-        ItemAction.Run(
-            aboutLabel(film),
-            help(R.string.vod_about_film_help),
-            run = showAbout
-        ),
+        showAbout?.let { ItemAction.Run(aboutLabel(film), help(R.string.vod_about_film_help), run = it) },
         showTech?.let { ItemAction.Run(appString(R.string.vod_tech_info), help(R.string.vod_tech_help), run = it) },
         details?.links?.takeIf { it.isNotEmpty() }?.let { ItemAction.Links(appString(R.string.vod_links), it) },
     )
@@ -115,6 +112,27 @@ fun titleActions(
 
 /** The cast, then who directed and wrote it (named by their job): everyone Cast and crew lists. */
 fun castAndCrew(d: VodDetails?): List<CastMember> = d?.let { it.cast + crewOf(it.directors, it.writers) }.orEmpty()
+
+/** An episode's own cast and crew: its cast, its guest stars, then who directed and wrote it (named by their job). */
+fun castAndCrew(c: TmdbCredits): List<CastMember> = c.cast + c.guestStars + crewOf(c.directors, c.writers)
+
+/** How many of [castAndCrew]'s first act in it: their role is their part. */
+fun TmdbCredits.acting() = cast.size + guestStars.size
+
+/** "Cast and crew" for an episode's own people ([open] opens them); null while unknown, or when nobody is known. */
+fun episodeCastAction(credits: TmdbCredits?, open: () -> Unit): ItemAction? =
+    credits?.takeUnless { it.isEmpty }?.let { ItemAction.Run(appString(R.string.vod_cast_crew), run = open) }
+
+/**
+ * An episode's options, then its show's, under "This episode" and "The show" (the series page and the player share
+ * them: MyTVPlayer 1.35.0, the owner, 2026-11-24). When one of the two has none, the other's alone, with no headings.
+ */
+fun episodeAndShowActions(episode: List<ItemAction>, show: List<ItemAction>): List<ItemAction> = if (show.isEmpty() || episode.isEmpty()) {
+    episode + show
+} else {
+    listOf(ItemAction.Heading(appString(R.string.vod_this_episode))) + episode +
+        ItemAction.Heading(appString(R.string.vod_the_show)) + show
+}
 
 /** Who [directors] directed and [writers] wrote it, named by their job, as Cast and crew lists them after the cast. */
 fun crewOf(directors: List<CastMember>, writers: List<CastMember>): List<CastMember> =

@@ -12,7 +12,7 @@ import okhttp3.mockwebserver.RecordedRequest
  * TMDB as the app reads it for "More like this", for the board's titles ([BoardTitles]): The Long Harbour is film
  * [FILM], Coastline is series [SHOW] (each a TMDB id that [FakePlex.tmdbIds] gives the server's title). Only those two
  * have suggestions. The Long Harbour has a trailer and a teaser, and Coastline a status, counts, a next episode and words for two
- * episodes of series 2. [use] points [AppContainer.tmdb] at it, with a test key (never a real one). As MyTVPlayer's FakeTmdb,
+ * episodes of series 2. Coastline's first episode has a score, people and its own cast and crew ([EPISODE_DIRECTOR]). [use] points [AppContainer.tmdb] at it, with a test key (never a real one). As MyTVPlayer's FakeTmdb,
  * with MyPlexPlayer's titles.
  */
 class FakeTmdb : Dispatcher() {
@@ -50,6 +50,8 @@ class FakeTmdb : Dispatcher() {
             "tv/$SIGNAL_HILL/season/1" -> """{"episodes":[{"season_number":1,"episode_number":1,"name":"Episode One"}]}"""
             "tv/$SHOW" -> COASTLINE_PAGE
             "tv/$SHOW/season/2" -> COASTLINE_2
+            "tv/$SHOW/season/1" -> COASTLINE_1
+            "tv/$SHOW/season/1/episode/1/credits" -> PILOT_CREDITS
             "movie/$FILM" -> LONG_HARBOUR_PAGE
             else -> return MockResponse().setResponseCode(404).setBody("""{"status_code":34}""")
         }
@@ -93,6 +95,28 @@ class FakeTmdb : Dispatcher() {
 
         /** TMDB's description of "The Lighthouse Keeper" (episode 4), which the server has its own of. */
         const val KEEPER = "TMDB's own words for the keeper."
+
+        /** Who directed Coastline's first episode, and who wrote it, on TMDB. */
+        const val EPISODE_DIRECTOR = "David Caffrey"
+        const val EPISODE_WRITER = "Jed Mercurio"
+
+        /** TMDB's description of Coastline's first episode, which the server gives none. */
+        const val PILOT_WORDS = "Rose takes the case nobody wants."
+
+        /** A guest star in Coastline's first episode, on TMDB. */
+        const val GUEST_STAR = "Neil Morrissey"
+
+        /** Coastline's series 1 on TMDB: its first episode's description, score, who made it and its guest star. */
+        private const val COASTLINE_1 =
+            """{"episodes":[{"season_number":1,"episode_number":1,"overview":"$PILOT_WORDS","vote_average":8.1,"vote_count":50,""" +
+                """"crew":[{"id":501,"name":"$EPISODE_DIRECTOR","job":"Director"},{"id":502,"name":"$EPISODE_WRITER","job":"Writer"}],""" +
+                """"guest_stars":[{"id":503,"name":"$GUEST_STAR","character":"Morton"}]}]}"""
+
+        /** Coastline's first episode's own cast and crew on TMDB. */
+        private const val PILOT_CREDITS =
+            """{"cast":[{"id":504,"name":"Vicky McClure","character":"Kate Fleming"}],""" +
+                """"guest_stars":[{"id":503,"name":"$GUEST_STAR","character":"Morton"}],""" +
+                """"crew":[{"id":501,"name":"$EPISODE_DIRECTOR","job":"Director"},{"id":502,"name":"$EPISODE_WRITER","job":"Writer"}]}"""
 
         /** More like The Long Harbour: Sintel is on the server (FakePlex's film 12), Paper Boats is not. */
         private const val FILM_LIKE =

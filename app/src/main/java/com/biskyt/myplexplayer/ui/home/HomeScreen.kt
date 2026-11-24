@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -100,6 +101,7 @@ import com.biskyt.myplexplayer.ui.common.titledRow
 import com.biskyt.myplexplayer.ui.common.vodActions
 import com.biskyt.myplexplayer.ui.common.vodDetails
 import com.biskyt.myplexplayer.ui.player.DescribedEpisode
+import com.biskyt.myplexplayer.ui.player.describe
 import com.biskyt.myplexplayer.ui.vod.TitleOptions
 import com.biskyt.myplexplayer.ui.vod.carryOnEpisode
 import com.biskyt.myplexplayer.ui.vod.rememberTitleExtras
@@ -626,9 +628,14 @@ private fun CarryOnOptions(p: WatchProgressEntity, vm: HomeViewModel, onDismiss:
     val series = p.seriesId
     val c = LocalContext.current.container
     val extras = rememberTitleExtras(c, p.playlistId, if (series == null) CAT_MOVIE else CAT_SERIES, series ?: p.itemId)
-    val described = series?.let {
-        extras?.episodes?.let { carryOnEpisode(it, p.itemId, p.finished) }
-    }?.let { DescribedEpisode(p.title, it) }
+    val episode = series?.let { extras?.episodes?.let { carryOnEpisode(it, p.itemId, p.finished) } }
+    // As the series page and the player describe it: the server's words, scores and people, then TMDB's where it has none.
+    val described by produceState<DescribedEpisode?>(null, episode, extras?.details?.tmdbId) {
+        val e = episode ?: return@produceState
+        value = DescribedEpisode(p.title, e)
+        val server = c.vod.episodeFacts(p.playlistId, e.id) ?: return@produceState
+        value = c.tmdb.describe(p.title, e, server, extras?.details?.tmdbId)
+    }
     val base = listOf(
         ItemAction.Open(
             stringResource(if (p.upNext) R.string.home_play_next_episode else R.string.home_resume),

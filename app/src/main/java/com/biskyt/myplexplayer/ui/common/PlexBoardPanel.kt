@@ -98,12 +98,10 @@ fun BoardActionsPanel(
         val first = actions.indexOfFirst { it !is ItemAction.Heading }
         actions.forEachIndexed { i, a ->
             val focus = if (i == first) rememberFirstFocus() else Modifier
-            when (a) {
-                is ItemAction.Heading -> BoardSection(a.label)
-                is ItemAction.Links -> BoardLinksRow(a.label, a.links, focus)
-                is ItemAction.Cycle -> BoardCycle(a.label, a.value, a.step, focus)
-                is ItemAction.Confirmed -> BoardOption(a.label, a.help, focus, danger = true) { asking = a }
-                else -> BoardOption(a.label, a.help, focus, icon = (a as? ItemAction.Run)?.icon) { a.perform(nav, onDismiss) }
+            if (a is ItemAction.Confirmed) {
+                BoardOption(a.label, a.help, focus, danger = true) { asking = a }
+            } else {
+                ItemActionRow(a, focus) { a.perform(nav, onDismiss) }
             }
         }
         more?.invoke()

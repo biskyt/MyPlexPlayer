@@ -30,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -96,6 +97,7 @@ import com.biskyt.myplexplayer.ui.common.shortEpisodeLabel
 import com.biskyt.myplexplayer.ui.common.timeLeft
 import com.biskyt.myplexplayer.ui.player.DescribedEpisode
 import com.biskyt.myplexplayer.ui.player.EpisodeDescriptionPanel
+import com.biskyt.myplexplayer.ui.player.describe
 import com.biskyt.myplexplayer.ui.player.episodeDescriptionAction
 import com.biskyt.myplexplayer.ui.player.episodeName
 import com.biskyt.myplexplayer.ui.theme.BOLD
@@ -241,6 +243,38 @@ class SeriesDetailsViewModel(
     fun openOptions(e: EpisodeInfo) {
         open = SeriesPanel.Options(e)
         if (autoDelete == null) autoDelete = AutoDeleteChoice(viewModelScope, c.vod, playlistId, seriesId)
+        loadDescribed(e)
+    }
+
+    /** Each episode as its description tells of it, by its id, once read (see [loadDescribed]). */
+    private val described = mutableStateMapOf<Long, DescribedEpisode>()
+
+    /** The episodes whose read runs now: a quick second opening starts no second read. */
+    private val reading = mutableSetOf<Long>()
+
+    /**
+     * [e] as its description tells of it, as the player has it: [e] as the page has it now, with its scores and people
+     * once read, and TMDB's words where [e] has none.
+     */
+    fun described(e: EpisodeInfo): DescribedEpisode {
+        val read = described[e.id] ?: return DescribedEpisode(series?.title, e)
+        return read.copy(show = series?.title, episode = e.copy(plot = e.plot ?: read.episode.plot))
+    }
+
+    /**
+     * Reads what [e]'s description and its own Cast and crew show as its options open: the same read as the player's
+     * (see [describe]). A read the server did not answer is not kept, so the next opening tries again.
+     */
+    private fun loadDescribed(e: EpisodeInfo) {
+        if (e.id in described || !reading.add(e.id)) return
+        viewModelScope.launch {
+            try {
+                val server = c.vod.episodeFacts(playlistId, e.id) ?: return@launch
+                described[e.id] = c.tmdb.describe(series?.title, e, server, details?.info?.tmdbId)
+            } finally {
+                reading.remove(e.id)
+            }
+        }
     }
 
     /**
@@ -279,6 +313,9 @@ sealed interface SeriesPanel {
     data object About : SeriesPanel
     data object Trailers : SeriesPanel
     data class Describe(val e: EpisodeInfo) : SeriesPanel
+
+    /** An episode's own cast and crew. */
+    data class EpisodeCast(val e: EpisodeInfo) : SeriesPanel
 }
 
 /**
@@ -366,9 +403,8 @@ fun SeriesDetailsScreen(screen: Screen.SeriesDetails) {
             }
         }
     }
-    SeriesPanels(vm, show.title, progress, play) { i, person ->
+    SeriesPanels(vm, show.title, progress, play) { i, person, acting ->
         vm.castFocus = i
-        val acting = i < d?.info?.cast.orEmpty().size
         personScreen(screen.playlistId, person, show.title, Tab.SERIES, acting)?.let(nav::push)
     }
 }
@@ -380,7 +416,8 @@ private fun SeriesPanels(
     title: String,
     progress: Map<Long, WatchProgressEntity>,
     play: (EpisodeInfo, Boolean) -> Unit,
-    openPerson: (Int, CastMember) -> Unit
+    /** Opens the page of the person at [Int] in a cast list ([Boolean]: their role is their part). */
+    openPerson: (Int, CastMember, Boolean) -> Unit
 ) {
     val d = vm.details
     val close = { vm.open = null }
@@ -394,11 +431,18 @@ private fun SeriesPanels(
         }
         SeriesPanel.Cast -> {
             val crew = remember(d) { castAndCrew(d?.info) }
-            CastPanel(title, crew, stringResource(R.string.vod_cast_crew), vm.castFocus, { openPerson(it, crew[it]) }, close)
+            val acting = d?.info?.cast.orEmpty().size
+            CastPanel(title, crew, stringResource(R.string.vod_cast_crew), vm.castFocus, { openPerson(it, crew[it], it < acting) }, close)
         }
         SeriesPanel.About -> AboutPanel(film = false, d?.info, close)
         SeriesPanel.Trailers -> OtherTrailersPanel(title, vm.trailers, vm::trailer, close)
-        is SeriesPanel.Describe -> EpisodeDescriptionPanel(DescribedEpisode(title, p.e), close)
+        is SeriesPanel.Describe -> EpisodeDescriptionPanel(vm.described(p.e), close)
+        is SeriesPanel.EpisodeCast -> vm.described(p.e).extras?.credits?.let { credits ->
+            val crew = remember(credits) { castAndCrew(credits) }
+            val name = episodeLabel(p.e)
+            val acting = credits.acting()
+            CastPanel(name, crew, stringResource(R.string.vod_cast_crew), vm.castFocus, { openPerson(it, crew[it], it < acting) }, close)
+        }
     }
 }
 
@@ -594,32 +638,35 @@ private fun EpisodeOptions(
         close()
         play(e, fromStart)
     }
+    val described = vm.described(e)
     // One partly watched can be counted as watched, or started again (its progress forgotten).
     val episode = listOfNotNull(
-        ItemAction.Heading(appString(R.string.vod_this_episode)),
         resumable?.let { ItemAction.Run(appString(R.string.vod_resume_from, formatDuration(it.positionMs))) { start(false) } },
         resumable?.let { ItemAction.Run(appString(R.string.common_from_start)) { start(true) } },
-        episodeDescriptionAction(e) { vm.open = SeriesPanel.Describe(e) },
+        episodeDescriptionAction(described) { vm.open = SeriesPanel.Describe(e) },
+        episodeCastAction(described.extras?.credits) {
+            vm.castFocus = 0
+            vm.open = SeriesPanel.EpisodeCast(e)
+        },
         if (saved?.finished != true) markWatched(false, set) else null,
         if (saved?.started == true) markWatched(true, set) else null,
         if (canDelete) deleteAction(episodeName(e)) { vm.delete(e) } else null,
     )
-    val showActions = listOf(ItemAction.Heading(appString(R.string.vod_the_show))) +
-        titleActions(
-            d?.info,
-            trailer,
-            otherTrailers = { vm.open = SeriesPanel.Trailers }.takeIf { vm.trailers.more },
-            similar = if (tmdbOn) { id -> vm.similar(title, id) } else null,
-            showCast = vm::showCast,
-            showAbout = { vm.open = SeriesPanel.About }
-        ) +
+    val showActions = titleActions(
+        d?.info,
+        trailer,
+        otherTrailers = { vm.open = SeriesPanel.Trailers }.takeIf { vm.trailers.more },
+        similar = if (tmdbOn) { id -> vm.similar(title, id) } else null,
+        showCast = vm::showCast,
+        showAbout = { vm.open = SeriesPanel.About }
+    ) +
         listOfNotNull(
             favouriteAction(favourite) { vm.toggleFavourite() },
             vm.autoDelete?.action(),
             if (canDelete) deleteSeriesAction(title, d?.episodes?.size) { vm.deleteSeries() } else null
         )
-    val name = "${shortEpisodeLabel(e.season, e.number)} ${episodeName(e)}"
-    BoardActionsPanel("$title · $name", null, episode + showActions, close, smallTitle = true)
+    val name = episodeLabel(e)
+    BoardActionsPanel("$title · $name", null, episodeAndShowActions(episode, showActions), close, smallTitle = true)
 }
 
 /**
@@ -767,3 +814,6 @@ private val MoreText = BoardStyle(14, BOLD)
 
 /** Room around the episode list for the open row's glow (see focusGlow). */
 private val GLOW_EDGE = 12.bd
+
+/** "S1E2 Its name": an episode as its options panel and its Cast and crew name it. */
+private fun episodeLabel(e: EpisodeInfo) = "${shortEpisodeLabel(e.season, e.number)} ${episodeName(e)}"

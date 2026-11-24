@@ -122,6 +122,19 @@ fun ItemActionsPanel(
 ) = BoardActionsPanel(title, subtitle, actions, onDismiss, more = more)
 
 /**
+ * One row of an options panel, drawn the same in every one ([BoardActionsPanel], the player's More): a heading, a row of
+ * links, a choice changed where it is, or an option with its help line and icon, which [perform] does. A
+ * [ItemAction.Confirmed] is asked first by its panel, which draws it.
+ */
+@Composable
+fun ItemActionRow(a: ItemAction, modifier: Modifier = Modifier, perform: () -> Unit) = when (a) {
+    is ItemAction.Heading -> BoardSection(a.label)
+    is ItemAction.Links -> BoardLinksRow(a.label, a.links, modifier)
+    is ItemAction.Cycle -> BoardCycle(a.label, a.value, a.step, modifier)
+    else -> BoardOption(a.label, a.help, modifier, icon = (a as? ItemAction.Run)?.icon, onClick = perform)
+}
+
+/**
  * [confirm]'s [question], then its "no" (focused, [onNo]) and its yes ([onDismiss], then it is done), each drawn by
  * [option] (given whether it is the yes): what every options panel asks before a [ItemAction.Confirmed].
  */
