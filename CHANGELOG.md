@@ -2,6 +2,9 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.16.1
+- The player's More menu now shows Picture and Playback info under "Playback".
+
 ## 1.16.0
 - Episodes now have their own Cast and crew.
 - Episode descriptions now show the score, director and writer.

@@ -41,7 +41,8 @@ class AllAudioChannelsTest {
     fun `on Android 11 and 12 an audio decoder is asked for all channels`() {
         val format = configured(MimeTypes.AUDIO_AAC)
         assertEquals(99, format.getInteger("max-output-channel-count"))
-        assertEquals(8, format.getInteger(MediaFormat.KEY_AAC_MAX_OUTPUT_CHANNEL_COUNT))
+        // Android's own name for the key (MediaFormat.KEY_AAC_MAX_OUTPUT_CHANNEL_COUNT), as the decoders read it.
+        assertEquals(8, format.getInteger("aac-max-output-channel_count"))
     }
 
     @Test

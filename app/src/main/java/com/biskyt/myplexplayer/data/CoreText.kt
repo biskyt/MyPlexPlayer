@@ -4,12 +4,12 @@ import androidx.annotation.StringRes
 import com.biskyt.myplexplayer.AppText
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
+import com.biskyt.myplexplayer.core.countryName
 import com.biskyt.myplexplayer.core.net.ServerReply
 import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.plex.PlexFormat
 import com.biskyt.myplexplayer.data.db.CategoryEntity
 import java.io.IOException
-import java.util.Locale
 
 // The app's words for what the core module reports as codes (core has no Android resources).
 
@@ -69,7 +69,7 @@ internal inline fun <T> withUserPlexErrors(block: () -> T): T = try {
 fun groupLabel(code: String?): String = when {
     code == null -> appString(R.string.data_lang_other)
     code in groupLabels -> appString(groupLabels.getValue(code))
-    code.length == 2 -> Locale("", code).getDisplayCountry(AppText.locale).ifEmpty { code }
+    code.length == 2 -> countryName(code, AppText.locale)
     else -> code
 }
 
