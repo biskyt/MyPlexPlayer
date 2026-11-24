@@ -8,6 +8,8 @@
     <string name="settings_categories_help">Choisir les chaînes chargées ; réafficher des chaînes</string>
     <string name="settings_appearance_title">Apparence</string>
     <string name="settings_appearance_help">Couleur d\'accent et taille du texte</string>
+    <string name="settings_misc_title">Divers</string>
+    <string name="settings_misc_help">Écran d\'accueil du téléviseur, alertes réseau</string>
     <string name="settings_backup_title">Sauvegarde et restauration</string>
     <string name="settings_backup_help">Enregistrer vos playlists et vos choix dans un fichier, ou les restaurer</string>
     <string name="settings_about_title">À propos</string>

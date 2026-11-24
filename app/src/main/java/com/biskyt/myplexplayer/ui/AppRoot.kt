@@ -59,6 +59,7 @@ import com.biskyt.myplexplayer.ui.settings.AppearanceScreen
 import com.biskyt.myplexplayer.ui.settings.BackupScreen
 import com.biskyt.myplexplayer.ui.settings.CategoriesScreen
 import com.biskyt.myplexplayer.ui.settings.LicencesScreen
+import com.biskyt.myplexplayer.ui.settings.MiscSettingsScreen
 import com.biskyt.myplexplayer.ui.settings.PlaybackSettingsScreen
 import com.biskyt.myplexplayer.ui.settings.PlaylistsScreen
 import com.biskyt.myplexplayer.ui.settings.PlexSignInScreen
@@ -289,8 +290,8 @@ private val Screen.drawsOwnTopBar: Boolean
         Screen.Home, is Screen.Live, is Screen.Movies, is Screen.Series, Screen.Dvr, is Screen.Search -> true
         Screen.Welcome, is Screen.Player, is Screen.VodPlayer, is Screen.MovieDetails,
         is Screen.SeriesDetails, is Screen.Person, is Screen.MoreLike, is Screen.TmdbTitle, Screen.Settings, Screen.Playlists,
-        is Screen.PlexSignIn, is Screen.Categories, Screen.PlaybackSettings, Screen.Appearance, Screen.Backup, Screen.About,
-        Screen.Licences -> false
+        is Screen.PlexSignIn, is Screen.Categories, Screen.PlaybackSettings, Screen.Appearance, Screen.MiscSettings,
+        Screen.Backup, Screen.About, Screen.Licences -> false
     }
 
 /** The tab a screen comes under in the top bar, if any. */
@@ -327,6 +328,7 @@ private fun ScreenBody(screen: Screen) {
         is Screen.Categories -> CategoriesScreen(screen.playlistId, screen.firstRun)
         Screen.PlaybackSettings -> PlaybackSettingsScreen()
         Screen.Appearance -> AppearanceScreen()
+        Screen.MiscSettings -> MiscSettingsScreen()
         Screen.Backup -> BackupScreen()
         Screen.About -> AboutScreen()
         Screen.Licences -> LicencesScreen()

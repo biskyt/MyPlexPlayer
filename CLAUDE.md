@@ -273,6 +273,10 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     14.2.0 and Kover 0.9.11 (Gradle stays 8.14.3: AGP 8.x does not work on Gradle 9.6+), and the licences list. Here
     `PlexIdNumber.serialize` opts in to `encodeNull`. Left out: its player description hunk (here the panel reads the
     current value as it draws) and its Kotlin 2.3 fixes in MyTVPlayer-only files.
+  - In 1.16.3: 1.35.3 (`f7f868c`; merge `7d66335`): every channel logo on the light tile (`LogoDark` and core's
+    `LogoLook` deleted, `ChannelLogoTileUiTest` on FakePlex), and the Misc settings page (`Screen.MiscSettings`,
+    `AskToShowLauncherRows`, `MiscSettingsUiTest`). Here Misc holds only "Show on the TV's home screen" and the VPN
+    warning: no radio, downloads or proxy here.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

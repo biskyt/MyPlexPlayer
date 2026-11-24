@@ -8,6 +8,8 @@
     <string name="settings_categories_help">Elige qué canales se cargan; muestra canales ocultos</string>
     <string name="settings_appearance_title">Apariencia</string>
     <string name="settings_appearance_help">Color de acento y tamaño del texto</string>
+    <string name="settings_misc_title">Varios</string>
+    <string name="settings_misc_help">Pantalla de inicio del televisor, avisos de red</string>
     <string name="settings_backup_title">Copia de seguridad</string>
     <string name="settings_backup_help">Guarda tus listas y preferencias en un archivo o restáuralas</string>
     <string name="settings_about_title">Acerca de</string>
