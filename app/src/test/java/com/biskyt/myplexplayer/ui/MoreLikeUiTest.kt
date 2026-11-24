@@ -90,7 +90,7 @@ class MoreLikeUiTest {
         show(Screen.MovieDetails(source, id.toLong()))
         if (id == BoardTitles.FILM) compose.waitForFilmPage() else compose.waitForText("Sintel", stepMs = 50)
         compose.click("More…")
-        compose.waitForText("About this film", stepMs = 50)
+        compose.waitForText("Technical info", stepMs = 50)
     }
 
     /** Coastline's page, with an episode's options open. */

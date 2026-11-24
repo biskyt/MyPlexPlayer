@@ -434,7 +434,7 @@ private fun SeriesPanels(
             val acting = d?.info?.cast.orEmpty().size
             CastPanel(title, crew, stringResource(R.string.vod_cast_crew), vm.castFocus, { openPerson(it, crew[it], it < acting) }, close)
         }
-        SeriesPanel.About -> AboutPanel(film = false, d?.info, close)
+        SeriesPanel.About -> AboutPanel(d?.info, close)
         SeriesPanel.Trailers -> OtherTrailersPanel(title, vm.trailers, vm::trailer, close)
         is SeriesPanel.Describe -> EpisodeDescriptionPanel(vm.described(p.e), close)
         is SeriesPanel.EpisodeCast -> vm.described(p.e).extras?.credits?.let { credits ->

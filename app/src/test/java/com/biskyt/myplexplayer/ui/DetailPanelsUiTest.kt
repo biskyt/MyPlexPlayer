@@ -5,7 +5,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.testutil.BoardTitles
@@ -22,10 +25,13 @@ import com.biskyt.myplexplayer.testutil.sendKey
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForFilmPage
 import com.biskyt.myplexplayer.testutil.waitForText
+import com.biskyt.myplexplayer.ui.common.formatDate
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
+import java.time.LocalDate
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -35,7 +41,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * The film page's Plex parts (board "PlexFilm"): its More… panel and the panels it opens (About this film, Technical
+ * The film page's Plex parts (board "PlexFilm"): its More… panel and the panels it opens (Technical
  * info, Cast and crew), its cast row and its picture and sound labels; and an episode's More… on the series page.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -78,8 +84,13 @@ class DetailPanelsUiTest {
 
     private fun top(text: String) = compose.onNode(hasText(text) and hasClickAction()).getBoundsInRoot().top.value
 
+    /** The open panel's list (its window is the last), scrolled to [text]: a row out of sight is not composed. */
+    private fun scrollPanelTo(text: String) = compose.waitAdvancingClock(stepMs = 50) {
+        runCatching { compose.onAllNodes(hasScrollToNodeAction()).onLast().performScrollToNode(hasText(text)) }.isSuccess
+    }
+
     private val more =
-        listOf("Mark as watched", "Add to favourites", "Cast and crew", "About this film", "Technical info", "Links", "Delete…")
+        listOf("Mark as watched", "Add to favourites", "Cast and crew", "Technical info", "Links", "Delete…")
 
     /** More…'s options are all there, in the board's order (the panel is open). */
     private fun moreListed() {
@@ -138,29 +149,22 @@ class DetailPanelsUiTest {
     }
 
     @Test
-    fun `About this film lists its facts`() {
+    fun `the film page shows the release date and the original title, and More… has no About`() {
         filmPage()
+        // The server's date in place of the year (MyTVPlayer 1.35.4, the owner, 2026-11-24).
+        val released = formatDate(LocalDate.of(2021, 3, 12))
+        assertTrue(released, shown(released, substring = true))
+        assertTrue(shown("Original title: El puerto largo"))
         compose.click("More…")
-        compose.waitForText("About this film", stepMs = 50)
-        compose.click("About this film")
-        compose.waitForText("North Light Films", stepMs = 50)
-        listOf("El puerto largo", "Spain, United Kingdom", "Island stories", "Mia Ortega, Sam Reid").forEach {
-            assertTrue(it, shown(it))
-        }
-        listOf("Original title", "Released", "Added", "Studio", "Countries", "Collections", "Producers").forEach {
-            assertTrue(it, shown(it))
-        }
+        compose.waitForText("Technical info", stepMs = 50)
+        assertFalse(shown("About this film"))
     }
 
     @Test
-    fun `About this film leaves out a line with no data`() {
+    fun `a film with no original title or date shows neither`() {
         show(Screen.MovieDetails(source, 12))
         compose.waitForText("Sintel", stepMs = 50)
-        compose.click("More…")
-        compose.waitForText("About this film", stepMs = 50)
-        compose.click("About this film")
-        compose.waitForText("Added", stepMs = 50)
-        assertTrue(listOf("Original title", "Studio", "Countries", "Collections", "Producers").none { shown(it) })
+        assertFalse(shown("Original title", substring = true))
     }
 
     @Test
@@ -208,6 +212,7 @@ class DetailPanelsUiTest {
         compose.waitForText("Cast and crew", stepMs = 50)
         compose.click("Cast and crew")
         // Who directed and wrote it, after the cast.
+        scrollPanelTo("Paul Okafor")
         compose.waitForText("Paul Okafor", stepMs = 50)
         assertTrue(shown("Writer"))
     }

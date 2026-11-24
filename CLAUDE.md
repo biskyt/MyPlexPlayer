@@ -277,6 +277,11 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     `LogoLook` deleted, `ChannelLogoTileUiTest` on FakePlex), and the Misc settings page (`Screen.MiscSettings`,
     `AskToShowLauncherRows`, `MiscSettingsUiTest`). Here Misc holds only "Show on the TV's home screen" and the VPN
     warning: no radio, downloads or proxy here.
+  - In 1.16.4, by hand: 1.35.4 (`803214d`; merge `aa760c1`): no About for films (the owner, 2026-11-24, in place of
+    the 2026-11-22 ruling: "Match MyTVPlayer"; its date added, collections, producers, studio and countries go too),
+    the film page's release date and "Original title: …" (here from the server's `originallyAvailableAt` and
+    `originalTitle`), the plot one line shorter under that line, and Cast and crew's 72 photos and larger text
+    (`CastPanelUiTest`). A show keeps About this show.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

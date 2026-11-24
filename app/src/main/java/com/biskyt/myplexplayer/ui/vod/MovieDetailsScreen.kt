@@ -37,6 +37,7 @@ import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.tmdb.TmdbTitle
 import com.biskyt.myplexplayer.core.vod.CastMember
 import com.biskyt.myplexplayer.core.vod.VodDetails
+import com.biskyt.myplexplayer.data.airDateOf
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.MovieEntity
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
@@ -52,6 +53,7 @@ import com.biskyt.myplexplayer.ui.common.LocalTopBarInset
 import com.biskyt.myplexplayer.ui.common.Poster
 import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.favouriteAction
+import com.biskyt.myplexplayer.ui.common.formatDate
 import com.biskyt.myplexplayer.ui.common.formatDuration
 import com.biskyt.myplexplayer.ui.common.markWatched
 import com.biskyt.myplexplayer.ui.common.onOptionsKey
@@ -124,7 +126,7 @@ class MovieDetailsViewModel(private val c: AppContainer, private val playlistId:
 }
 
 /** The panels over the film page. */
-private enum class FilmPanel { NONE, MORE, CAST, ABOUT, TECH, TRAILERS }
+private enum class FilmPanel { NONE, MORE, CAST, TECH, TRAILERS }
 
 @Composable
 fun MovieDetailsScreen(screen: Screen.MovieDetails) {
@@ -200,7 +202,6 @@ private fun FilmPanels(
                         null
                     },
                     showCast = { show(FilmPanel.CAST) },
-                    showAbout = { show(FilmPanel.ABOUT) },
                     showTech = { show(FilmPanel.TECH) }
                 ) + listOfNotNull(if (canDelete) deleteAction(movie.title) { vm.delete(gone) } else null)
             BoardActionsPanel(movie.title, panelLine(movie.year ?: d?.year, d?.genres.orEmpty()), actions, close)
@@ -209,7 +210,6 @@ private fun FilmPanels(
             val crew = remember(d) { castAndCrew(d) }
             CastPanel(movie.title, crew, stringResource(R.string.vod_cast_crew), castFocus, { openPerson(it, crew[it]) }, close)
         }
-        FilmPanel.ABOUT -> AboutPanel(film = true, d, close, vm::loadDetails)
         FilmPanel.TECH -> TechnicalInfoPanel(d, close, vm::loadDetails)
         FilmPanel.TRAILERS ->
             OtherTrailersPanel(movie.title, vm.trailers, { Screen.VodPlayer(movie.playlistId, movie.streamId, trailer = it) }, close)
@@ -248,8 +248,20 @@ fun FilmPage(
                     modifier = Modifier.boardLineBox(32, 1.1f)
                 )
                 FilmFacts(movie, d)
+                val original = d?.let { originalTitle(movie.title, it) }
+                original?.let {
+                    Text(
+                        stringResource(R.string.vod_original_title_is, it),
+                        style = SmallMuted.current,
+                        color = Palette.textDim,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 d?.scores?.let { ScoresRow(it) }
-                d?.plot?.let { PlotWithMore(movie.title, it, FilmPlot.current, maxLines = 3) }
+                // One line fewer under the original title's line, so that the buttons stay above the cast.
+                val lines = if (original != null && d?.cast?.isNotEmpty() == true) 2 else 3
+                d?.plot?.let { PlotWithMore(movie.title, it, FilmPlot.current, maxLines = lines) }
                 d?.let {
                     people(it.directors, it.writers)
                 }?.let { Text(it, style = SmallMuted.current, color = Palette.textDim, maxLines = 1, overflow = TextOverflow.Ellipsis) }
@@ -270,11 +282,14 @@ fun FilmPage(
     }
 }
 
-/** "2021 · 1 h 52 min · Drama, Mystery", then the age rating in its box. */
+/**
+ * "15 Sept 2021 · 1 h 52 min · Drama, Mystery", then the age rating in its box. The release date, when the server has
+ * it, in place of the year (MyTVPlayer 1.35.4, the owner, 2026-11-24).
+ */
 @Composable
 private fun FilmFacts(movie: MovieEntity, d: VodDetails?) {
     val facts = listOfNotNull(
-        (movie.year ?: d?.year)?.toString(),
+        d?.released?.let(::airDateOf)?.let(::formatDate) ?: (movie.year ?: d?.year)?.toString(),
         runtimeOf(d?.durationSec),
         genresOf(d?.genres.orEmpty()),
         starRating(d?.rating)
@@ -364,6 +379,10 @@ private fun CastCard(person: CastMember, onClick: () -> Unit) {
 private val CardShape = RoundedCornerShape(12.bd)
 private val PhotoShape = RoundedCornerShape(10.bd)
 private val CARD_PAD = 4.bd
+
+/** A film's original title, from the server, when it is not the [title] shown (case aside). */
+fun originalTitle(title: String, d: VodDetails): String? =
+    d.originalTitle?.takeUnless { it.isBlank() || it.equals(title, ignoreCase = true) }
 
 /** "Directed by Ana Ruiz · Written by Ana Ruiz, Paul Okafor", where known (also on a TMDB title's page). */
 internal fun people(directors: List<CastMember>, writers: List<CastMember>): String? = listOfNotNull(

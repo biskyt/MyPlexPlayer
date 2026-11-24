@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -19,13 +18,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.core.plex.TitleLink
 import com.biskyt.myplexplayer.core.tmdb.TmdbVideo
 import com.biskyt.myplexplayer.core.vod.CastMember
+import com.biskyt.myplexplayer.ui.theme.BoardStyle
+import com.biskyt.myplexplayer.ui.theme.EXTRA_BOLD
+import com.biskyt.myplexplayer.ui.theme.Palette
+import com.biskyt.myplexplayer.ui.theme.SEMI_BOLD
 import com.biskyt.myplexplayer.ui.theme.bd
 
 /**
@@ -79,14 +81,25 @@ fun trailerActions(trailers: List<TmdbVideo>): List<ItemAction> {
     }
 }
 
-/** One of the cast: photo (loaded only when shown), name and part. */
+/**
+ * One of the cast: photo (loaded only when shown), name and part. Larger than a panel's options (the owner, 2026-11-24):
+ * the name 18, the part 14.
+ */
 @Composable
 fun CastPerson(person: CastMember, photo: Dp, modifier: Modifier = Modifier) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.bd), verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
         CirclePhoto(person.photoUrl, person.name, photo)
-        Column(Modifier.width(150.dp)) {
-            Text(person.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            person.role?.let { Muted(it) }
+        Column {
+            Text(
+                person.name,
+                style = CastNameText.current,
+                color = LocalContentColor.current,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            person.role?.let {
+                Text(it, style = CastRoleText.current, color = cardColor(Palette.textDim), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }
@@ -116,9 +129,14 @@ fun CastPanel(
             itemsIndexed(cast) { i, person ->
                 val modifier = if (i == first) rememberFirstFocus() else Modifier
                 BoardRow({ if (person.id != null) open(i) }, modifier) {
-                    CastPerson(person, 48.dp, Modifier.padding(horizontal = 10.bd, vertical = 6.bd))
+                    CastPerson(person, CAST_PHOTO, Modifier.padding(horizontal = 14.bd, vertical = 6.bd))
                 }
             }
         }
     }
 }
+
+/** A cast panel's photos: half as large again as the 48 they were (the owner, 2026-11-24). */
+private val CAST_PHOTO = 72.bd
+private val CastNameText = BoardStyle(18, EXTRA_BOLD)
+private val CastRoleText = BoardStyle(14, SEMI_BOLD)

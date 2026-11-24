@@ -24,6 +24,7 @@ import com.biskyt.myplexplayer.testutil.waitForText
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -85,16 +86,15 @@ class TitleExtrasUiTest {
         compose.onAllNodes(hasText(option) and hasClickAction()).onLast().performSemanticsAction(SemanticsActions.OnClick)
 
     @Test
-    fun `a film's Continue watching card offers its page's options, and About opens with the server's facts`() {
+    fun `a film's Continue watching card offers its page's options, with no About`() {
         showHome()
         waitFor("The Long Harbour")
         options("The Long Harbour", first = true)
         waitFor("Remove from Continue watching")
         // Once the server answers, as on the film's page.
         waitFor("Cast and crew")
-        waitFor("About this film")
-        choose("About this film")
-        waitFor("North Light Films")
+        waitFor("Technical info")
+        assertFalse(compose.onAllNodes(hasText("About this film")).fetchSemanticsNodes().isNotEmpty())
     }
 
     @Test

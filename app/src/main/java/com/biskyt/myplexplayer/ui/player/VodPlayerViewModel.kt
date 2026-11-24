@@ -168,8 +168,8 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
             null
         },
         showCast = { details?.let { d -> showCast(CastList(showTitle, castAndCrew(d), d.cast.size)) } },
-        // Only once the details are read: the About panel shows what they hold.
-        showAbout = { openPanel(TitlePanel.About) }.takeIf { details != null },
+        // A show's only, once the details are read: the About panel shows what they hold.
+        showAbout = { openPanel(TitlePanel.About) }.takeIf { details != null && series != null },
         film = series == null,
     ) + listOfNotNull(playedCastAction())
 
