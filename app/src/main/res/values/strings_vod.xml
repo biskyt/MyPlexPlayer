@@ -55,6 +55,7 @@
     <string name="vod_more_info">More info</string>
     <string name="vod_links">Links</string>
     <string name="vod_original_title">Original title</string>
+    <string name="vod_original_title_is">Original title: %1$s</string>
     <string name="vod_released">Released</string>
     <string name="vod_studio">Studio</string>
     <string name="vod_countries">Countries</string>
@@ -109,8 +110,6 @@
     <!-- Film page, More…: what the panels opened from it are called, and the help line under each. -->
     <string name="vod_cast_crew">Cast and crew</string>
     <string name="vod_cast_crew_help">Everyone, with their photos</string>
-    <string name="vod_about_this_film">About this film</string>
-    <string name="vod_about_film_help">Original title, release, studio, collections</string>
     <string name="vod_about_this_show">About this show</string>
     <string name="vod_tech_info">Technical info</string>
     <string name="vod_play_trailer">Play trailer</string>

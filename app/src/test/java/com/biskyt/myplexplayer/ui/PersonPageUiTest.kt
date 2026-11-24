@@ -7,6 +7,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.lifecycle.ViewModelProvider
@@ -88,6 +89,11 @@ class PersonPageUiTest {
 
     private fun shown(text: String) = compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()
 
+    /** The open panel's list (its window is the last), scrolled to [text]: a row out of sight is not composed. */
+    private fun scrollPanelTo(text: String) = compose.waitAdvancingClock(stepMs = 50) {
+        runCatching { compose.onAllNodes(hasScrollToNodeAction()).onLast().performScrollToNode(hasText(text)) }.isSuccess
+    }
+
     /** Back, as the app's own Back does: the screen under it again. */
     private fun back() {
         compose.runOnIdle { navigator.pop() }
@@ -164,8 +170,8 @@ class PersonPageUiTest {
         compose.click("More…")
         compose.waitForText("Cast and crew", stepMs = 50)
         compose.click("Cast and crew")
-        // A writer: no part in the film, so no "… in The Long Harbour".
-        compose.waitForText("Paul Okafor", stepMs = 50)
+        // A writer: no part in the film, so no "… in The Long Harbour". Below the panel's fold.
+        scrollPanelTo("Paul Okafor")
         compose.click("Paul Okafor")
         compose.waitAdvancingClock(stepMs = 50) { (screen as? Screen.Person)?.name == "Paul Okafor" }
         assertEquals(null, (screen as Screen.Person).role)
@@ -213,7 +219,8 @@ class PersonPageUiTest {
         compose.runOnIdle { (vm.menuActions().first { it.label == "Cast and crew" } as ItemAction.Run).run() }
         compose.waitForText("Kofi Mensah", stepMs = 50)
         // The crew too (its writer is in no part), as the film page's Cast and crew lists them (the owner, 2026-11-22).
-        compose.waitForText("Paul Okafor", stepMs = 50)
+        scrollPanelTo("Paul Okafor")
+        scrollPanelTo("Kofi Mensah")
         compose.click("Kofi Mensah")
         compose.waitAdvancingClock(stepMs = 50) { (screen as? Screen.Person)?.name == "Kofi Mensah" }
         compose.waitForText("Sam in The Long Harbour", stepMs = 50)

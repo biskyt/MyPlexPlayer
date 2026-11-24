@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.16.4
+- A film's page shows its release date and original title.
+- A film's More menu no longer has About this film.
+- Cast and crew shows larger photos and text.
+
 ## 1.16.3
 - Every channel logo shows on a light background.
 - The settings have a new Misc page.

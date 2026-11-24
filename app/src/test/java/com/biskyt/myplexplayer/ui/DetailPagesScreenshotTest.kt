@@ -115,16 +115,6 @@ class DetailPagesScreenshotTest {
         capture("screenshots/redesign-plex-film-tech.png")
     }
 
-    @Test
-    fun `about the film`() {
-        filmPage()
-        compose.click("More…")
-        compose.waitForText("About this film", stepMs = 50)
-        compose.click("About this film")
-        compose.waitForText("North Light Films", stepMs = 50)
-        capture("screenshots/redesign-plex-film-about.png")
-    }
-
     /** The series page with episode 4 open, its picture loaded. */
     private fun seriesPage(show: String = "Coastline", long: Boolean = false) {
         start({ Screen.SeriesDetails(it, BoardTitles.SHOW.toLong()) }, show = show, long = long)

@@ -96,7 +96,7 @@ class OtherTrailersUiTest {
         // The extras come with the film's details: no request of their own.
         assertTrue(plex.paths.none { it.endsWith("/extras") })
         compose.click("More…")
-        compose.waitForText("About this film", stepMs = 50)
+        compose.waitForText("Technical info", stepMs = 50)
     }
 
     private fun shown(text: String) = compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()

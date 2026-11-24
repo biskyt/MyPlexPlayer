@@ -46,6 +46,7 @@
     <string name="vod_more_info">Mais informações</string>
     <string name="vod_links">Links</string>
     <string name="vod_original_title">Título original</string>
+    <string name="vod_original_title_is">Título original: %1$s</string>
     <string name="vod_released">Lançamento</string>
     <string name="vod_studio">Estúdio</string>
     <string name="vod_countries">Países</string>
@@ -91,8 +92,6 @@
     <string name="vod_read_more">Ler mais</string>
     <string name="vod_cast_crew">Elenco e equipe</string>
     <string name="vod_cast_crew_help">Todos, com suas fotos</string>
-    <string name="vod_about_this_film">Sobre este filme</string>
-    <string name="vod_about_film_help">Título original, lançamento, estúdio, coleções</string>
     <string name="vod_about_this_show">Sobre esta série</string>
     <string name="vod_tech_info">Informações técnicas</string>
     <string name="vod_play_trailer">Assistir ao trailer</string>

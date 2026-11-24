@@ -79,7 +79,7 @@ class TmdbTrailerUiTest {
         }
         compose.waitForFilmPage()
         compose.click("More…")
-        compose.waitForText("About this film", stepMs = 50)
+        compose.waitForText("Technical info", stepMs = 50)
     }
 
     private fun shown(text: String) = compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()

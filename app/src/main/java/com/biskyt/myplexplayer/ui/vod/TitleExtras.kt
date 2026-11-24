@@ -106,7 +106,7 @@ fun titleExtraActions(
         otherTrailers = { open(TitlePanel.Trailers) }.takeIf { extras.trailers.more },
         similar = if (tmdbOn) { tmdbId -> Screen.MoreLike(playlistId, tmdbId, series = !film, title, tabOf(film)) } else null,
         showCast = { open(TitlePanel.Cast) },
-        showAbout = { open(TitlePanel.About) },
+        showAbout = if (film) null else ({ open(TitlePanel.About) }),
         showTech = if (film) {
             { open(TitlePanel.Tech) }
         } else {
@@ -129,7 +129,7 @@ fun TitlePanels(open: TitlePanel?, playlistId: Long, id: Long, title: String, ex
                 personScreen(playlistId, crew[i], title, tabOf(film), i < acting)?.let(nav::push)
             }, onDismiss = close)
         }
-        TitlePanel.About -> AboutPanel(film, extras?.details, close)
+        TitlePanel.About -> AboutPanel(extras?.details, close)
         TitlePanel.Tech -> TechnicalInfoPanel(extras?.details, close)
         TitlePanel.Trailers -> extras?.let {
             OtherTrailersPanel(title, it.trailers, { t -> trailerScreen(playlistId, id, film, t) }, close)

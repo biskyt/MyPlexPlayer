@@ -81,7 +81,7 @@ fun OtherTrailersPanel(title: String, trailers: TitleTrailers, open: (Long) -> S
  * What a film's or show's More… shares: its [trailer] (see [trailerAction]), Other trailers ([otherTrailers] opens
  * them, given only when there is more than one, see [TitleTrailers]), More like this ([similar]
  * opens it with the title's TMDB id: given only with a TMDB key, and offered only when the server gives the id), its
- * cast and crew ([showCast], where known), About ([showAbout], when given), a film's Technical info ([showTech]: a film's page has
+ * cast and crew ([showCast], where known), a show's About ([showAbout]; a film has none, the owner, 2026-11-24), a film's Technical info ([showTech]: a film's page has
  * one, a show not) and its links in one row. A [film]'s items have a help line under them, as its board draws them.
  */
 @Suppress("LongParameterList") // one action for each option
@@ -91,7 +91,7 @@ fun titleActions(
     otherTrailers: (() -> Unit)?,
     similar: ((Int) -> Screen)?,
     showCast: () -> Unit,
-    showAbout: (() -> Unit)?,
+    showAbout: (() -> Unit)? = null,
     showTech: (() -> Unit)? = null,
     film: Boolean = showTech != null
 ): List<ItemAction> {
@@ -104,7 +104,7 @@ fun titleActions(
             details?.tmdbId?.let { ItemAction.Open(appString(R.string.vod_similar), open(it), help(R.string.vod_similar_help)) }
         },
         if (crew) ItemAction.Run(appString(R.string.vod_cast_crew), help(R.string.vod_cast_crew_help), run = showCast) else null,
-        showAbout?.let { ItemAction.Run(aboutLabel(film), help(R.string.vod_about_film_help), run = it) },
+        showAbout?.let { ItemAction.Run(appString(R.string.vod_about_this_show), run = it) },
         showTech?.let { ItemAction.Run(appString(R.string.vod_tech_info), help(R.string.vod_tech_help), run = it) },
         details?.links?.takeIf { it.isNotEmpty() }?.let { ItemAction.Links(appString(R.string.vod_links), it) },
     )
@@ -138,9 +138,6 @@ fun episodeAndShowActions(episode: List<ItemAction>, show: List<ItemAction>): Li
 fun crewOf(directors: List<CastMember>, writers: List<CastMember>): List<CastMember> =
     directors.map { p -> p.copy(role = appString(R.string.vod_role_director)) } +
         writers.map { p -> p.copy(role = appString(R.string.vod_role_writer)) }
-
-/** "About this film", or for a show "About this show": the option that opens About. */
-fun aboutLabel(film: Boolean) = appString(if (film) R.string.vod_about_this_film else R.string.vod_about_this_show)
 
 /** Two genres at most: "Drama, Mystery". */
 fun genresOf(genres: List<String>): String? = genres.take(2).takeIf { it.isNotEmpty() }?.joinToString(", ")

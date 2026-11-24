@@ -92,7 +92,7 @@ class TrailerUiTest {
         show(Screen.MovieDetails(source, 12))
         compose.waitForText("Sintel", stepMs = 50)
         compose.click("More…")
-        compose.waitForText("About this film", stepMs = 50)
+        compose.waitForText("Technical info", stepMs = 50)
         assertFalse(shown("Play trailer"))
     }
 

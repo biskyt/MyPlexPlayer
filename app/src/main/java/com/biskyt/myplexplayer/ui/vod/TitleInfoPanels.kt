@@ -34,22 +34,20 @@ import com.biskyt.myplexplayer.ui.player.pictureSize
 import com.biskyt.myplexplayer.ui.theme.bd
 import kotlin.coroutines.cancellation.CancellationException
 
-// The film's More… › About this film and Technical info (boards "PlexFilmAbout" and "PlexFilmTech"), and a show's
-// About this show. Each is read from the details its page already has, so they ask the server for nothing; when a
-// film's page has none (the server was out of reach), the panel asks for them, with Retry if that fails too. Each fact
-// takes the remote in turn, so that a long list scrolls.
+// The film's More… › Technical info (board "PlexFilmTech") and a show's About this show (board "PlexFilmAbout").
+// A film has no About: its page shows its original title and release date (MyTVPlayer 1.35.4, the owner,
+// 2026-11-24). Each is read from the details its page already has, so they ask the server for nothing. When a film's
+// page has none (the server was out of reach), the panel asks for them, with Retry if that fails too. Each fact takes
+// the remote in turn, so that a long list scrolls.
 
 /**
- * About this film (or this show, when not [film]): its original title, when it was released and added, its studio,
- * countries, collections and producers. A line with no data is left out. Without [details], they are read with [load].
+ * About this show: its original title, when it was first shown and added, its studio, countries, collections and
+ * producers. A line with no data is left out. Without [details], they are read with [load].
  */
 @Composable
-fun AboutPanel(film: Boolean, details: VodDetails?, onDismiss: () -> Unit, load: (suspend () -> VodDetails)? = null) {
+fun AboutPanel(details: VodDetails?, onDismiss: () -> Unit, load: (suspend () -> VodDetails)? = null) {
     BoardPanel(onDismiss) {
-        BoardPanelTitle(
-            stringResource(if (film) R.string.vod_about_this_film else R.string.vod_about_this_show),
-            Modifier.padding(bottom = 3.bd)
-        )
+        BoardPanelTitle(stringResource(R.string.vod_about_this_show), Modifier.padding(bottom = 3.bd))
         Loaded(details, load) { d ->
             remember(d) { aboutFacts(d) }.forEachIndexed { i, (label, value) -> BoardFact(label, value, ABOUT_LABEL, first(i == 0)) }
         }

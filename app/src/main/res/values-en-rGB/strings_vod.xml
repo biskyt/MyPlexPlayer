@@ -4,7 +4,6 @@
 <resources>
     <string name="vod_no_favourites">No favourites yet. Open a title and choose “Add to favourites”.</string>
     <string name="vod_season">Series %1$d</string>
-    <string name="vod_about_this_film">About this film</string>
     <plurals name="vod_season_count">
         <item quantity="one">%1$d series</item>
         <item quantity="other">%1$d series</item>
