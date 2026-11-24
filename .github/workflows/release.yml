@@ -12,6 +12,9 @@ on:
 
 permissions:
   contents: write
+  # To find the pull request merged as this commit, and its CI's results.
+  pull-requests: read
+  checks: read
 
 # One release at a time (a tag push and a hand-started run could otherwise both publish and upload to Play).
 concurrency:
@@ -61,6 +64,31 @@ jobs:
             *) fail "Couldn't check for an existing release (HTTP $release)" ;;
           esac
 
+      # The release does not run the checks and tests again (the owner, 2026-11-24): the pull request's CI ran them.
+      # So the commit must be a pull request's merge, its CI must have passed on the pull request's last commit, and
+      # that commit must hold all of main before the merge. Then the merge is the code that CI tested.
+      - name: Pull request CI passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+          api() { gh api "repos/$GITHUB_REPOSITORY/$1" "${@:2}"; }
+          head=$(api "commits/$GITHUB_SHA/pulls" \
+            --jq '[.[] | select(.merged_at != null and .merge_commit_sha == env.GITHUB_SHA)][0].head.sha // empty') ||
+            fail "Couldn't look for the pull request merged as $GITHUB_SHA"
+          [ -n "$head" ] || fail "$GITHUB_SHA is not a pull request's merge: only a merged pull request is released"
+          # main before the merge is the merge's first parent. A pull request that was behind it was not tested with it.
+          base=$(api "commits/$GITHUB_SHA" --jq '.parents[0].sha') || fail "Couldn't read $GITHUB_SHA's parents"
+          behind=$(api "compare/$base...$head" --jq .behind_by) || fail "Couldn't compare $head with $base"
+          [ "$behind" = 0 ] ||
+            fail "The pull request was $behind commit(s) behind main when it was merged: merge main into it, and let CI pass"
+          runs=$(api "commits/$head/check-runs?per_page=100" \
+            --jq '.check_runs[] | "\(.name)|\(.status)|\(.conclusion)"') || fail "Couldn't read $head's check runs"
+          echo "$runs"
+          echo "$runs" | grep -qx 'build|completed|success' || fail "CI's build did not pass on $head"
+          bad=$(echo "$runs" | grep -v -e '|completed|success$' -e '|completed|skipped$' -e '|completed|neutral$' || true)
+          [ -z "$bad" ] || fail "Not every check passed on $head: $bad"
+
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -68,9 +96,9 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
 
-      # Robolectric's Android images (about 250 MB), outside Gradle's cache. Saved here, on main, after the tests when
-      # they were not cached yet: CI runs on pull requests only, which read caches from main. setup-gradle saves
-      # Gradle's own cache from main too.
+      # Robolectric's Android images (about 250 MB), outside Gradle's cache. Saved here, on main, when they were not
+      # cached yet: CI runs on pull requests only, which read caches from main. setup-gradle saves Gradle's own cache
+      # from main too.
       - name: Robolectric cache key
         id: robolectric
         run: echo "key=$(.github/scripts/robolectric-cache-key.sh)" >> "$GITHUB_OUTPUT"
@@ -106,22 +134,10 @@ jobs:
             echo "SIGNED_WITH=development" >> "$GITHUB_ENV"
           fi
 
-      # Separate steps, as in CI: run together (org.gradle.parallel), lint takes the CPU the UI tests' waits need.
-      - name: Check
-        run: ./gradlew ktlintCheck detekt lintDebug
-
-      - name: Test
-        id: test
-        run: ./gradlew :core:test :app:testDebugUnitTest
-
-      # A test that fails here only now and then: its results (with the thread dump a timed-out wait prints) are
-      # kept, so that its cause can be found.
-      - uses: actions/upload-artifact@v6
-        if: failure() && steps.test.outcome == 'failure'
-        with:
-          name: test-results
-          retention-days: 14
-          path: '**/build/test-results/'
+      # With no cached images: one small Robolectric test fetches them, so that the save below has them.
+      - name: Fill the Robolectric cache
+        if: steps.robolectric-cache.outputs.cache-hit != 'true'
+        run: ./gradlew :app:testDebugUnitTest --tests 'com.biskyt.myplexplayer.AppTextTest'
 
       - uses: actions/cache/save@v5
         # From main only: a pull request reads caches from its own branch and main, never from a tag.
