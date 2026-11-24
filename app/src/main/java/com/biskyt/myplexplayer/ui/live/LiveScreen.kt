@@ -53,12 +53,14 @@ import com.biskyt.myplexplayer.data.programmeTitle
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
+import com.biskyt.myplexplayer.ui.common.AmbientSource
 import com.biskyt.myplexplayer.ui.common.CategoryEntry
 import com.biskyt.myplexplayer.ui.common.ChannelLogo
 import com.biskyt.myplexplayer.ui.common.FilteredCategoryColumn
 import com.biskyt.myplexplayer.ui.common.FlashLabel
 import com.biskyt.myplexplayer.ui.common.KeepInView
 import com.biskyt.myplexplayer.ui.common.ListHeader
+import com.biskyt.myplexplayer.ui.common.LocalAmbience
 import com.biskyt.myplexplayer.ui.common.MovableTile
 import com.biskyt.myplexplayer.ui.common.MoveBackHandler
 import com.biskyt.myplexplayer.ui.common.MoveHint
@@ -73,6 +75,7 @@ import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.TabScaffold
 import com.biskyt.myplexplayer.ui.common.TvCard
 import com.biskyt.myplexplayer.ui.common.afterRemoval
+import com.biskyt.myplexplayer.ui.common.ambientSource
 import com.biskyt.myplexplayer.ui.common.categoryEntries
 import com.biskyt.myplexplayer.ui.common.collectIds
 import com.biskyt.myplexplayer.ui.common.digit
@@ -290,7 +293,12 @@ fun ChannelRow(
     /** MyPlexPlayer's own: the channel is recording now (Plex's DVR). */
     recording: Boolean = false
 ) {
-    TvCard(onClick = onClick, onLongClick = onLongClick, modifier = modifier.fillMaxWidth().height(64.dp), color = Palette.surfaceLow) {
+    TvCard(
+        onClick = onClick,
+        onLongClick = onLongClick,
+        modifier = modifier.ambientSource(LocalAmbience.current, AmbientSource.logo(ch.logoUrl)).fillMaxWidth().height(64.dp),
+        color = Palette.surfaceLow
+    ) {
         Row(
             Modifier.fillMaxSize().padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,

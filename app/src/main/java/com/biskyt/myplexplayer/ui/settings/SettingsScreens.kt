@@ -18,7 +18,9 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -43,6 +45,7 @@ import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.container
 import com.biskyt.myplexplayer.core.player.SubtitleMode
 import com.biskyt.myplexplayer.core.ui.AccentPalette
+import com.biskyt.myplexplayer.core.ui.BackdropLevel
 import com.biskyt.myplexplayer.data.BufferSize
 import com.biskyt.myplexplayer.data.Settings
 import com.biskyt.myplexplayer.data.accentName
@@ -341,8 +344,9 @@ private fun LanguageRow() {
 fun AppearanceScreen() {
     val vm = appViewModel { SettingsViewModel(it) }
     val s = vm.settings.collectAsState().value ?: return
+    // It scrolls: the rows under the colours can be below the screen's edge.
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 96.dp, vertical = 40.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 96.dp, vertical = 40.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(stringResource(R.string.settings_appearance_title), style = MaterialTheme.typography.headlineLarge)
@@ -381,6 +385,15 @@ fun AppearanceScreen() {
         SettingRow(stringResource(R.string.settings_large_text), stringResource(R.string.settings_large_text_help), {
             vm.update { it.copy(largeText = !it.largeText) }
         }) { Toggle(s.largeText) }
+        // How bright the browsing screens' background is (see AmbientBackground), as MyTVLauncher's setting.
+        val level = s.backdropLevel
+        CycleSettingRow(
+            stringResource(R.string.settings_backdrop),
+            stringResource(R.string.settings_backdrop_help),
+            if (level == 0) stringResource(R.string.settings_backdrop_off) else stringResource(R.string.settings_backdrop_value, level),
+            // Round from the last to the first, as the other settings: OK and a tap only step forward.
+            { d -> vm.update { it.copy(backdropLevel = BackdropLevel.CHOICES.cycle(BackdropLevel.valid(it.backdropLevel), d)) } }
+        )
     }
 }
 

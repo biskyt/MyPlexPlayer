@@ -45,14 +45,17 @@ import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Navigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
+import com.biskyt.myplexplayer.ui.common.AmbientSource
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.ItemActionsPanel
+import com.biskyt.myplexplayer.ui.common.LocalAmbience
 import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.RecordingDot
 import com.biskyt.myplexplayer.ui.common.SectionTitle
 import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.TabScaffold
 import com.biskyt.myplexplayer.ui.common.TvCard
+import com.biskyt.myplexplayer.ui.common.ambientSource
 import com.biskyt.myplexplayer.ui.common.formatDayTime
 import com.biskyt.myplexplayer.ui.common.formatTime
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
@@ -253,7 +256,7 @@ private fun LazyListScope.recorded(
     if (airings.isEmpty()) return
     item { SectionTitle(stringResource(R.string.dvr_recent_title), Modifier.padding(top = SECTION_GAP)) }
     items(airings, key = ::rowKey) { a ->
-        Row2(null, a.title, listOfNotNull(episodeLine(a), whenAndWhere(a, channels)), focus(rowKey(a)), onClick = {
+        Row2(null, a.title, listOfNotNull(episodeLine(a), whenAndWhere(a, channels)), focus(rowKey(a)), logo(a, channels), onClick = {
             play(a)
         }, onLongClick = { options(a) })
     }
@@ -279,7 +282,8 @@ private fun AiringCard(
     // Not recorded: no mark (it isn't set to record any more), and what Plex says instead.
     val problem = !a.isScheduled && !a.isRecording
     val status = if (problem) stringResource(R.string.dvr_status, a.status) else null
-    Row2(if (problem) null else state.mark(a), a.title, listOfNotNull(episode, whenAndWhere(a, channels), status), modifier, onClick)
+    val lines = listOfNotNull(episode, whenAndWhere(a, channels), status)
+    Row2(if (problem) null else state.mark(a), a.title, lines, modifier, logo(a, channels), onClick)
 }
 
 @Composable
@@ -288,7 +292,8 @@ private fun SeriesCard(row: SeriesRow, channels: Map<String, ChannelEntity>, mod
         ?: stringResource(R.string.dvr_series_none)
     val count = if (row.toCome > 0) pluralStringResource(R.plurals.dvr_to_come, row.toCome, row.toCome) else null
     val episodes = stringResource(R.string.dvr_series_episodes, stringResource(episodesLabel(row.rule)))
-    Row2(RecordingMark.SERIES, row.rule.subjectTitle, listOfNotNull(next, count, episodes), modifier, onClick)
+    val ambient = row.next?.let { logo(it, channels) } ?: AmbientSource.Plain
+    Row2(RecordingMark.SERIES, row.rule.subjectTitle, listOfNotNull(next, count, episodes), modifier, ambient, onClick)
 }
 
 /** Which episodes series [rule] records. */
@@ -299,20 +304,31 @@ private fun episodesLabel(rule: PlexRecordingRule) = if (rule.isNewOnly) R.strin
 @Composable
 private fun OtherCard(rule: PlexRecordingRule, modifier: Modifier, onClick: () -> Unit) {
     val episode = rule.subject?.takeIf { it.grandparentTitle != null }?.title?.ifEmpty { null }
-    Row2(RecordingMark.EPISODE, rule.subjectTitle, listOfNotNull(episode, stringResource(R.string.dvr_other_waiting)), modifier, onClick)
+    val lines = listOfNotNull(episode, stringResource(R.string.dvr_other_waiting))
+    Row2(RecordingMark.EPISODE, rule.subjectTitle, lines, modifier, AmbientSource.Plain, onClick)
 }
 
-/** A row: its [mark] (if any), [title] and [lines] under it. Holding OK does as OK, unless it has [onLongClick]. */
+/** What the background shows while [a]'s row has focus: its channel's logo (see AmbientBackground). */
+private fun logo(a: PlexScheduledRecording, channels: Map<String, ChannelEntity>) =
+    AmbientSource.logo(a.airing?.channelIdentifier?.let(channels::get)?.logoUrl)
+
+/**
+ * A row: its [mark] (if any), [title] and [lines] under it, and what the background shows while it has focus
+ * ([ambient]). Holding OK does as OK, unless it has [onLongClick].
+ */
 @Composable
+@Suppress("LongParameterList") // a row: what it shows and what it does
 private fun Row2(
     mark: RecordingMark?,
     title: String,
     lines: List<String>,
     modifier: Modifier,
+    ambient: AmbientSource,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null
 ) {
-    TvCard(onClick = onClick, onLongClick = onLongClick ?: onClick, modifier = modifier.fillMaxWidth(), color = Palette.surfaceLow) {
+    val card = modifier.ambientSource(LocalAmbience.current, ambient).fillMaxWidth()
+    TvCard(onClick = onClick, onLongClick = onLongClick ?: onClick, modifier = card, color = Palette.surfaceLow) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.width(DOT_SPACE)) { mark?.let { RecordingDot(it) } }
             Column {

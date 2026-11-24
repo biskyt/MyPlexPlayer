@@ -69,6 +69,7 @@ import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.PickedLists
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
+import com.biskyt.myplexplayer.ui.common.AmbientSource
 import com.biskyt.myplexplayer.ui.common.AppIcons
 import com.biskyt.myplexplayer.ui.common.FavouriteMover
 import com.biskyt.myplexplayer.ui.common.GLOW_ROOM
@@ -518,7 +519,7 @@ private fun GridCard(
     // Only the poster grows and glows, as on Home (see PosterTile). A screen reader reads the title and the line under
     // it, also while that line is not shown. (The poster's initials are not read.)
     val line = cardLine(card, movie)
-    PosterTile(onClick, onLongClick, modifier, listOf(card.title, line), width, {
+    PosterTile(onClick, onLongClick, modifier, listOf(card.title, line), width, AmbientSource.picture(card.imageUrl), {
         Box {
             Poster(card.imageUrl, card.title, width, Modifier.clearAndSetSemantics {})
             Marks(card, favourite)
