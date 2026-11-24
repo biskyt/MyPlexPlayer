@@ -269,6 +269,10 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     checkout, `AAC_MAX_OUTPUT_CHANNELS`, core's `countryName()` (CategoryLanguageDetector and CoreText) and AGP 8.13.2.
     Left out: `Languages.locale()` (nothing here calls `Locale(code)`) and its episode description parts (here every
     screen already uses `TmdbRepository.describe`).
+  - In 1.16.2: 1.35.2 (`41392a0`; merge `3d231c7`): Kotlin 2.3.21, KSP 2.3.14, kotlinx-serialization 1.11.0, ktlint plugin
+    14.2.0 and Kover 0.9.11 (Gradle stays 8.14.3: AGP 8.x does not work on Gradle 9.6+), and the licences list. Here
+    `PlexIdNumber.serialize` opts in to `encodeNull`. Left out: its player description hunk (here the panel reads the
+    current value as it draws) and its Kotlin 2.3 fixes in MyTVPlayer-only files.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

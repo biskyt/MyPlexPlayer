@@ -122,6 +122,7 @@ internal object PlexIdNumber : KSerializer<Long?> {
     override fun deserialize(decoder: Decoder): Long? =
         ((decoder as JsonDecoder).decodeJsonElement() as? JsonPrimitive)?.contentOrNull?.toLongOrNull()
 
+    @OptIn(ExperimentalSerializationApi::class) // encodeNull, experimental since kotlinx-serialization 1.11
     override fun serialize(encoder: Encoder, value: Long?) = if (value == null) encoder.encodeNull() else encoder.encodeLong(value)
 }
 
