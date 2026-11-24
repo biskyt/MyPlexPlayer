@@ -111,7 +111,17 @@ jobs:
         run: ./gradlew ktlintCheck detekt lintDebug
 
       - name: Test
+        id: test
         run: ./gradlew :core:test :app:testDebugUnitTest
+
+      # A test that fails here only now and then: its results (with the thread dump a timed-out wait prints) are
+      # kept, so that its cause can be found.
+      - uses: actions/upload-artifact@v6
+        if: failure() && steps.test.outcome == 'failure'
+        with:
+          name: test-results
+          retention-days: 14
+          path: '**/build/test-results/'
 
       - uses: actions/cache/save@v5
         # From main only: a pull request reads caches from its own branch and main, never from a tag.
