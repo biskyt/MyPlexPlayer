@@ -208,6 +208,8 @@ class PersonPageUiTest {
         val vm = ViewModelProvider(navigator.current)[VodPlayerViewModel::class.java]
         compose.waitAdvancingClock { vm.engine?.player?.currentMediaItem != null }
         compose.runOnIdle { vm.engine!!.player.seekTo(PLACE_MS) }
+        // Offered once the film's details are read, as on its page.
+        compose.waitAdvancingClock(stepMs = 50) { vm.menuActions().any { it.label == "Cast and crew" } }
         compose.runOnIdle { (vm.menuActions().first { it.label == "Cast and crew" } as ItemAction.Run).run() }
         compose.waitForText("Kofi Mensah", stepMs = 50)
         // The crew too (its writer is in no part), as the film page's Cast and crew lists them (the owner, 2026-11-22).

@@ -2,6 +2,11 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.16.0
+- Episodes now have their own Cast and crew.
+- Episode descriptions now show the score, director and writer.
+- The player's More menu now has the same options as the series page.
+
 ## 1.15.1
 - Films and episodes that stop loading try again after 20 seconds.
 

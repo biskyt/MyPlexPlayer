@@ -91,7 +91,7 @@ fun titleExtraActions(
 ): List<ItemAction> {
     val playTrailer = rememberTrailerOpener()
     val tmdbOn by c.tmdb.on.collectAsState(initial = false)
-    val episode = described?.let { d -> episodeDescriptionAction(d.episode) { open(TitlePanel.Describe(d)) } }
+    val episode = described?.let { d -> episodeDescriptionAction(d) { open(TitlePanel.Describe(d)) } }
     extras ?: return listOfNotNull(episode)
     val trailer = trailerAction(
         extras.details?.trailer,

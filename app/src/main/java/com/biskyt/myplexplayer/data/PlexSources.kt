@@ -620,8 +620,9 @@ class PlexSources(
     /** Deletes a film or an episode on the server, its file included. */
     suspend fun delete(p: PlaylistEntity, ratingKey: Long) = client(p).delete(ratingKey.toString())
 
-    /** A title's cast, from its details on the server. */
-    suspend fun cast(p: PlaylistEntity, ratingKey: Long): List<CastMember> = client(p).let { castOf(it, it.item(ratingKey.toString())) }
+    /** An episode's own scores and people, from the full episode on the server. */
+    suspend fun episodeFacts(p: PlaylistEntity, ratingKey: Long): EpisodeFacts =
+        client(p).let { episodeFactsOf(it, it.item(ratingKey.toString())) }
 
     suspend fun autoDeleteWatched(p: PlaylistEntity, show: Long): PlexAutoDelete? = client(p).autoDeleteWatched(show.toString())
 
@@ -720,6 +721,10 @@ fun PlexItem.playState() = PlexItem(
 /** When it was last played, in ms (the server gives seconds). */
 val PlexItem.lastViewedMs: Long? get() = lastViewedAt?.times(1000)
 
+/** [item]'s review scores and people, as the server lists them. */
+fun episodeFactsOf(client: PlexClient, item: PlexItem) =
+    EpisodeFacts(scores(item), castOf(client, item), people(client, item.directors), people(client, item.writers))
+
 /** [item]'s cast, as the server lists them, with photos made small (loaded only where shown). */
 fun castOf(client: PlexClient, item: PlexItem): List<CastMember> = people(client, item.roles)
 
@@ -782,12 +787,8 @@ class PlexPlayback(
     // it opens is the one closed.
     private val streamLock = Mutex()
 
-    /** Who's in it, as the server lists them (photos made small, loaded only where shown). */
-    val cast: List<CastMember> by lazy { castOf(client, item) }
-
-    /** Who directed it and who wrote it, as the server lists them (an episode's are its own). */
-    val directors: List<CastMember> by lazy { people(client, item.directors) }
-    val writers: List<CastMember> by lazy { people(client, item.writers) }
+    /** Its scores, who's in it, and who directed and wrote it, as the server lists them (an episode's are its own). */
+    val facts: EpisodeFacts by lazy { episodeFactsOf(client, item) }
 
     /** The file's container, as Playback info names it ("MKV"), if the server says. */
     val container: String? by lazy { PlexMediaInfo.containerOf(item) }

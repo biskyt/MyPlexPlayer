@@ -255,6 +255,15 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     left out: Plex Live TV is HLS here). Here `READ_TIMEOUT_MS` stays `HTTP_READ_TIMEOUT_MS` (60 s, a tune's wait): the
     stall watch gives a silent film its new try at 20 s. The direct-stream switch keeps 60 s (`DIRECT_STREAM_WAIT_MS`):
     the server repackages the file as it goes. FakePlex's file switches are one `files` (`FileReply`).
+  - In 1.16.0: 1.35.0 (`049ddc5`; merge `8a6fa5e`): core TMDB's episode score, people and `episodeCredits()` as they
+    are, `ItemActionRow`, `menuTitle()`, `episodeAndShowActions()`, `episodeCastAction()` and the episode's own Cast and
+    crew. The owner, 2026-11-24, in place of the 2026-11-22 ruling: the player's More matches MyTVPlayer's (This
+    episode, The show, no trailers, the series page's description panel, no `Sheet.DESCRIPTION`), with this app's
+    Playback info, and Plex data before TMDB's. So an episode's scores and people come from its full item on the server
+    (`EpisodeFacts`, `PlexPlayback.facts`), and TMDB fills only the parts the server leaves empty (`episodeExtras`). A
+    TMDB person has no server id, so their page does not open. The series page and the player build the description
+    with one call (`TmdbRepository.describe`). The player asks TMDB for it only when its More first opens, after the
+    details' read. `VodRepository.episodeFacts` keeps each episode's facts, so its full item is read once.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

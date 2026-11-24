@@ -13,7 +13,6 @@ import com.biskyt.myplexplayer.core.plex.PlexException
 import com.biskyt.myplexplayer.core.plex.PlexItem
 import com.biskyt.myplexplayer.core.plex.PlexPlayState
 import com.biskyt.myplexplayer.core.plex.PlexType
-import com.biskyt.myplexplayer.core.vod.CastMember
 import com.biskyt.myplexplayer.core.vod.EpisodeInfo
 import com.biskyt.myplexplayer.core.vod.SeriesDetails
 import com.biskyt.myplexplayer.core.vod.VodDetails
@@ -339,9 +338,12 @@ class VodRepository(
         return read.also { autoDelete.put("$playlistId:$seriesId", it) }
     }
 
-    /** A title's cast, read from the server (a series' for an episode with none of its own); empty when unknown. */
-    suspend fun cast(playlistId: Long, id: Long): List<CastMember> =
-        playlists.get(playlistId)?.let { offlineOk { plex.cast(it, id) } }.orEmpty()
+    /** Each episode's own scores and people, once the server gave them: kept, so its full item is read once. */
+    private val facts = java.util.concurrent.ConcurrentHashMap<Pair<Long, Long>, EpisodeFacts>()
+
+    /** Episode [id]'s own scores and people, read from the server once; null when the server did not answer. */
+    suspend fun episodeFacts(playlistId: Long, id: Long): EpisodeFacts? = facts[playlistId to id]
+        ?: playlists.get(playlistId)?.let { offlineOk { plex.episodeFacts(it, id) } }?.also { facts[playlistId to id] = it }
 
     /** Sets it; false, with a notice, if the server couldn't be reached or refused. */
     suspend fun setAutoDeleteWatched(playlistId: Long, seriesId: Long, policy: PlexAutoDelete): Boolean {
