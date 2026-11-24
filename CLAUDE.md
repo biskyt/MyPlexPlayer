@@ -282,6 +282,14 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     the film page's release date and "Original title: …" (here from the server's `originallyAvailableAt` and
     `originalTitle`), the plot one line shorter under that line, and Cast and crew's 72 photos and larger text
     (`CastPanelUiTest`). A show keeps About this show.
+  - In 1.17.0: 1.36.0 (`4274d50`; merge `2d5812e`): every channel logo trimmed and fitted (`ui/common/LogoTile.kt`:
+    `LogoTrim`, `LogoFit`), a black logo made white (core's `LogoLook` back, as MyTVPlayer has it), the dark
+    see-through `LOGO_TILE`, the background that follows the card with focus (`ui/common/Ambient.kt` as it is), the
+    Background brightness setting (`backdropLevel`, core `BackdropLevel`) and `assertColourAcross`'s `tolerance`. The
+    owner, 2026-11-24: the background shows only where a screen has no picture of its own. So `hasAmbience` in
+    AppRoot.kt is Live TV, Movies, TV Shows, DVR and Search, and only these screens get `LocalAmbience` (a DVR row
+    gives its channel's logo). Left out: Home (it keeps the focused title's own art, `Backdrop.kt`), so its
+    `CarryOnCard` hunk, and Catch-up (none here). `AmbientUiTest` is on FakePlex, with a check that Home has none.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -582,6 +590,8 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
   the page's own size (`artUrl`, saved at each sync), so the server sizes each picture once. Every title's art loads
   through `ui/common/Backdrop.kt` (`backdropRequest`), kept by its server, Plex's path and size, not the token (`backdropCacheKey`),
   so the app keeps one copy of each picture.
+  - The background that follows the card with focus (`Ambient.kt`, 1.17.0) is never on Home, the title pages or the
+    player: only on screens with no picture of their own (the owner, 2026-11-24; `hasAmbience` in AppRoot.kt).
 - **Favourites** for channels, films and series stay as in MyTVPlayer.
 - **Audio passthrough** (Dolby Atmos and other surround formats go to the soundbar or TV) is on by default, with a
   setting to turn it off.

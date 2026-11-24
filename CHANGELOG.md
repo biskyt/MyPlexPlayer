@@ -2,6 +2,12 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.17.0
+- Channel logos are trimmed and the same size, on a see-through tile.
+- Black channel logos show in white.
+- Live TV, Movies, TV Shows, DVR and Search show a soft background from the selected card.
+- Settings › Appearance › Background brightness sets how bright it is.
+
 ## 1.16.4
 - A film's page shows its release date and original title.
 - A film's More menu no longer has About this film.

@@ -38,7 +38,10 @@ import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
 import com.biskyt.myplexplayer.data.db.VOD_EPISODE
 import com.biskyt.myplexplayer.data.db.VOD_MOVIE
+import com.biskyt.myplexplayer.ui.common.Ambience
+import com.biskyt.myplexplayer.ui.common.AmbientBackground
 import com.biskyt.myplexplayer.ui.common.LeaveLiveTvWithoutIt
+import com.biskyt.myplexplayer.ui.common.LocalAmbience
 import com.biskyt.myplexplayer.ui.common.LocalTopBarInset
 import com.biskyt.myplexplayer.ui.common.NoticeToast
 import com.biskyt.myplexplayer.ui.common.RecordingToasts
@@ -137,13 +140,21 @@ fun AppRoot() {
             }
         }
         val hasPlaylist = s.activePlaylistId != 0L
+        // The browsing screens' background follows the card with focus (see AmbientBackground).
+        val ambience = remember { Ambience() }
         Box(
             Modifier.fillMaxSize().background(Palette.background)
                 // Clear of a phone's camera cutout (TVs have none).
                 .windowInsetsPadding(WindowInsets.displayCutout)
                 .guideButton(nav, hasPlaylist, container.liveTvShown)
         ) {
-            NavHost(nav) { screen -> ScreenContent(screen, hasPlaylist) }
+            AmbientBackground(ambience, s.backdropLevel, shown = nav.current.screen.hasAmbience)
+            NavHost(nav) { screen ->
+                // Only the screens that show the background tell it which card has focus: Home's cards do not.
+                CompositionLocalProvider(LocalAmbience provides ambience.takeIf { screen.hasAmbience }) {
+                    ScreenContent(screen, hasPlaylist)
+                }
+            }
             SyncToast(nav, Modifier.align(Alignment.BottomEnd).padding(24.dp))
             NoticeToast(nav, Modifier.align(Alignment.BottomStart).padding(24.dp))
             RecordingToasts()
@@ -293,6 +304,18 @@ private val Screen.drawsOwnTopBar: Boolean
         is Screen.PlexSignIn, is Screen.Categories, Screen.PlaybackSettings, Screen.Appearance, Screen.MiscSettings,
         Screen.Backup, Screen.About, Screen.Licences -> false
     }
+
+/**
+ * The browsing screens with no picture of their own, which have the background that follows the card with focus (see
+ * AmbientBackground). Not Home: it shows the focused title's own art (see Backdrop.kt). Not the film and series pages
+ * or the player: they have their own pictures (the owner, 2026-11-24).
+ */
+internal val Screen.hasAmbience: Boolean
+    get() = this is Screen.Live ||
+        this is Screen.Movies ||
+        this is Screen.Series ||
+        this == Screen.Dvr ||
+        this is Screen.Search
 
 /** The tab a screen comes under in the top bar, if any. */
 private val Screen.tab: Tab?
