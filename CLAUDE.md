@@ -373,7 +373,8 @@ See also:
      step ("Pull request CI passed") refuses a commit that is not a pull request's merge, a pull request whose last
      commit was behind `main` when it was merged, and one whose CI's `build` (or any other check) did not pass. So
      merge `main` into a pull request that is behind, and let CI pass, before the merge. With no cached Robolectric
-     images, the release runs `AppTextTest` only to fetch them for the cache that pull requests read.
+     images, the release runs one small test for each SDK level in the cache key (28, 30 and 31, 34), only to fetch
+     them for the cache that pull requests read. A test with a new SDK level needs a test of it in that step too.
    - **From a Claude session, run the workflow by hand:** tag pushes from a cloud session have failed with HTTP 403
      (with either repo name as the remote), while pushes to the working branch work. Use the GitHub MCP tool
      `actions_run_trigger` with method `run_workflow`, `workflow_id` `release.yml` and ref `main`. It tags

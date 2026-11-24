@@ -134,10 +134,14 @@ jobs:
             echo "SIGNED_WITH=development" >> "$GITHUB_ENV"
           fi
 
-      # With no cached images: one small Robolectric test fetches them, so that the save below has them.
+      # With no cached images: small tests fetch them, one for each SDK level in the cache key (every @Config(sdk = …),
+      # see robolectric-cache-key.sh), so that the save below has them all. BackupFileTest is 28, AllAudioChannelsTest
+      # 30 and 31, and AppTextTest 34. A new level in a test needs a test of it here too.
       - name: Fill the Robolectric cache
         if: steps.robolectric-cache.outputs.cache-hit != 'true'
-        run: ./gradlew :app:testDebugUnitTest --tests 'com.biskyt.myplexplayer.AppTextTest'
+        run: |
+          ./gradlew :app:testDebugUnitTest --tests 'com.biskyt.myplexplayer.data.BackupFileTest' \
+            --tests 'com.biskyt.myplexplayer.player.AllAudioChannelsTest' --tests 'com.biskyt.myplexplayer.AppTextTest'
 
       - uses: actions/cache/save@v5
         # From main only: a pull request reads caches from its own branch and main, never from a tag.
