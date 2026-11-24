@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.16.3
+- Every channel logo shows on a light background.
+- The settings have a new Misc page.
+
 ## 1.16.2
 - The app is now built with Kotlin 2.3.
 

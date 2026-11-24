@@ -102,6 +102,7 @@ sealed interface Screen {
     data class Categories(val playlistId: Long, val firstRun: Boolean = false) : Screen
     data object PlaybackSettings : Screen
     data object Appearance : Screen
+    data object MiscSettings : Screen
     data object Backup : Screen
     data object About : Screen
     data object Licences : Screen

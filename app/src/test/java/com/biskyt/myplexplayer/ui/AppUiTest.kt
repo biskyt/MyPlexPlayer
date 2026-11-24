@@ -44,6 +44,7 @@ import com.biskyt.myplexplayer.ui.search.SearchScreen
 import com.biskyt.myplexplayer.ui.settings.AppearanceScreen
 import com.biskyt.myplexplayer.ui.settings.BackupScreen
 import com.biskyt.myplexplayer.ui.settings.CategoriesScreen
+import com.biskyt.myplexplayer.ui.settings.MiscSettingsScreen
 import com.biskyt.myplexplayer.ui.settings.PlaybackSettingsScreen
 import com.biskyt.myplexplayer.ui.settings.PlaylistsScreen
 import com.biskyt.myplexplayer.ui.settings.SettingsScreen
@@ -117,6 +118,7 @@ class AppUiTest {
             is Screen.Live -> LiveScreen(screen.filter, screen.guide)
             Screen.PlaybackSettings -> PlaybackSettingsScreen()
             Screen.Appearance -> AppearanceScreen()
+            Screen.MiscSettings -> MiscSettingsScreen()
             Screen.Backup -> BackupScreen()
             Screen.Welcome -> WelcomeScreen()
             is Screen.Categories -> CategoriesScreen(screen.playlistId, screen.firstRun)

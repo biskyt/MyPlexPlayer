@@ -86,6 +86,7 @@ fun SettingsPage(title: String, content: LazyListScope.() -> Unit) {
 fun SettingsScreen() {
     val nav = LocalNavigator.current
     val pid = LocalContext.current.container.settings.settings.collectAsState(initial = null).value?.activePlaylistId ?: 0
+    AskToShowLauncherRows()
     SettingsPage(stringResource(R.string.common_settings)) {
         item {
             SettingRow(
@@ -111,8 +112,11 @@ fun SettingsScreen() {
                 nav.push(Screen.Appearance)
             })
         }
-        item { LauncherRow() }
-        item { VpnWarningRows() }
+        item {
+            SettingRow(stringResource(R.string.settings_misc_title), stringResource(R.string.settings_misc_help), {
+                nav.push(Screen.MiscSettings)
+            })
+        }
         item { TmdbRow() }
         item {
             SettingRow(stringResource(R.string.settings_backup_title), stringResource(R.string.settings_backup_help), {
@@ -127,17 +131,22 @@ fun SettingsScreen() {
     }
 }
 
+/** Whether the app runs on a TV: only there can its rows show on the home screen. */
+@Composable
+private fun onTv(): Boolean {
+    val context = LocalContext.current
+    return remember { context.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) }
+}
+
 /**
- * "Show on the TV's home screen" (see LauncherSync), off by default: only on a TV. Turned on, the TV is asked to show each
- * of the app's rows there, the first time it is made (the TV can ask the user).
+ * Asks the TV to show each of the app's rows on its home screen, the first time it is made (the TV can ask the user).
+ * Both the main settings list and the Misc page do this, because a row can be made after the user leaves Misc.
  */
 @Composable
-private fun LauncherRow() {
+private fun AskToShowLauncherRows() {
+    if (!onTv()) return
     val context = LocalContext.current
     val activity = LocalActivity.current
-    if (!remember { context.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) }) return
-    val vm = appViewModel { SettingsViewModel(it) }
-    val s = vm.settings.collectAsState().value ?: return
     LaunchedEffect(activity) {
         activity ?: return@LaunchedEffect // (kept for later: no activity to ask from)
         val made = context.container.launcherSync.madeChannels
@@ -147,9 +156,17 @@ private fun LauncherRow() {
             made.update { it - ids } // (after asking: kept if Settings closes first; not those made meanwhile)
         }
     }
+}
+
+/** "Show on the TV's home screen" (see LauncherSync), off by default: only on a TV. */
+@Composable
+private fun LauncherRow(modifier: Modifier = Modifier) {
+    if (!onTv()) return
+    val vm = appViewModel { SettingsViewModel(it) }
+    val s = vm.settings.collectAsState().value ?: return
     SettingRow(stringResource(R.string.settings_launcher), stringResource(R.string.settings_launcher_help), {
         vm.update { it.copy(launcherRows = !it.launcherRows) }
-    }) { Toggle(s.launcherRows) }
+    }, modifier) { Toggle(s.launcherRows) }
 }
 
 /**
@@ -157,13 +174,13 @@ private fun LauncherRow() {
  * address" (see ExternalIp), next to it.
  */
 @Composable
-private fun VpnWarningRows() {
+private fun VpnWarningRows(modifier: Modifier = Modifier) {
     val vm = appViewModel { SettingsViewModel(it) }
     val s = vm.settings.collectAsState().value ?: return
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SettingRow(stringResource(R.string.settings_warn_vpn), stringResource(R.string.settings_warn_vpn_help), {
             vm.update { it.copy(warnVpn = !it.warnVpn) }
-        }) { Toggle(s.warnVpn) }
+        }, modifier) { Toggle(s.warnVpn) }
         if (s.warnVpn) {
             SettingRow(stringResource(R.string.settings_external_ip), stringResource(R.string.settings_external_ip_help), {
                 vm.update { it.copy(showExternalIp = !it.showExternalIp) }
@@ -275,6 +292,20 @@ fun PlaybackSettingsScreen() {
                 Toggle(s.zapWithUpDown)
             }
         }
+    }
+}
+
+/** Misc settings (MyTVPlayer 1.35.3): the TV's home screen and the VPN warning. */
+@Composable
+fun MiscSettingsScreen() {
+    // The settings first: the rows read them too, and the first one must be there when it asks for the focus.
+    appViewModel { SettingsViewModel(it) }.settings.collectAsState().value ?: return
+    AskToShowLauncherRows()
+    val tv = onTv()
+    SettingsPage(stringResource(R.string.settings_misc_title)) {
+        // The first row takes the focus: on a phone, the home screen row is not there.
+        if (tv) item { LauncherRow(rememberFirstFocus(once = true)) }
+        item { VpnWarningRows(if (tv) Modifier else rememberFirstFocus(once = true)) }
     }
 }
 
