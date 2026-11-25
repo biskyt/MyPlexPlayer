@@ -122,7 +122,7 @@ class FavouriteMarksUiTest {
     @Test
     fun `settings shows the app's version on the About row`() {
         show(Screen.Settings)
-        waitFor("Playlists")
+        waitFor("Servers")
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("About"))
         waitFor("Version ${BuildConfig.VERSION_NAME},")
     }

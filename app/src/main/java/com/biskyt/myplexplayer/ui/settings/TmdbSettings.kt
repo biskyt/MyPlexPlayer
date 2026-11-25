@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -35,6 +37,7 @@ import com.biskyt.myplexplayer.ui.common.SettingRow
 import com.biskyt.myplexplayer.ui.common.SidePanel
 import com.biskyt.myplexplayer.ui.common.TvTextField
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
@@ -101,8 +104,13 @@ internal fun TmdbKeyPanel(saved: String, onDismiss: () -> Unit) {
     var key by remember { mutableStateOf(saved) }
     LaunchedEffect(Unit) { vm.forgetCheck() }
     val save = { if (key.isNotBlank()) vm.save(key) }
+    val tv = LocalFormFactor.current.isTv
     SidePanel(onDismiss, width = 520.dp) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // On a touch screen, the panel is a sheet over the keyboard: it scrolls, so that Save stays in reach.
+        Column(
+            if (tv) Modifier else Modifier.verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             Text(stringResource(R.string.settings_tmdb), style = MaterialTheme.typography.titleLarge)
             Muted(stringResource(R.string.settings_tmdb_explain), maxLines = 6)
             TvTextField(
@@ -116,9 +124,12 @@ internal fun TmdbKeyPanel(saved: String, onDismiss: () -> Unit) {
                 onDone = save
             )
             vm.check?.let { Muted(stringResource(checkText(it)), maxLines = 3) }
-            PhoneKeyEntry { sent ->
-                key = sent
-                save()
+            // On a TV only: on a phone or a tablet, the key is typed or pasted in the box above.
+            if (tv) {
+                PhoneKeyEntry { sent ->
+                    key = sent
+                    save()
+                }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PillButton(stringResource(R.string.settings_tmdb_save), save, primary = true)

@@ -280,7 +280,7 @@ class AppUiTest {
     fun `backup saves to Downloads and restores after confirming`() {
         homePlex()
         show(Screen.Backup)
-        waitFor("No backup on this TV yet.")
+        waitFor("No backup on this device yet.")
         compose.onNode(hasText("Back up now")).performSemanticsAction(SemanticsActions.OnClick)
         waitFor("Saved to Download/MyPlexPlayer/myplexplayer-backup.json")
         compose.onRoot().captureRoboImage("screenshots/settings-backup.png")
@@ -301,7 +301,7 @@ class AppUiTest {
     fun `settings ends with ways to support the app, each with a QR code to scan`() {
         homePlex()
         show(Screen.Settings)
-        waitFor("Playlists")
+        waitFor("Servers")
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Ko-fi"))
         compose.onNode(hasText("Ko-fi") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         waitFor("ko-fi.com/biskyt")

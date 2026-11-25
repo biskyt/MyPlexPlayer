@@ -56,7 +56,7 @@ class SettingsListFocusUiTest {
         shadowOf(app.packageManager).setSystemFeature(PackageManager.FEATURE_LEANBACK, true)
         val navigator = navigators.new(Screen.Settings)
         compose.setContent { MyPlexTheme { NavHost(remember { navigator }) { ScreenContent(it) } } }
-        compose.waitForText("Playlists", stepMs = 50)
+        compose.waitForText("Servers", stepMs = 50)
         compose.waitAdvancingClock(stepMs = 50) { compose.focusedText().isNotEmpty() }
 
         // Down to the bottom, noting each row, until focus stays where it is.

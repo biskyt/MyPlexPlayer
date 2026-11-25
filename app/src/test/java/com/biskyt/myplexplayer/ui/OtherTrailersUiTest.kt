@@ -17,6 +17,7 @@ import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
 import com.biskyt.myplexplayer.testutil.click
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.settle
+import com.biskyt.myplexplayer.testutil.topRoot
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForFilmPage
 import com.biskyt.myplexplayer.testutil.waitForText
@@ -101,8 +102,14 @@ class OtherTrailersUiTest {
 
     private fun shown(text: String) = compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()
 
-    /** How far down [text] is (its panel's own window). */
-    private fun top(text: String) = compose.onAllNodes(hasText(text)).fetchSemanticsNodes().single().boundsInRoot.top
+    /**
+     * How far down [text] is in the Other trailers panel (its own window). Only the panel's rows count: the page has a
+     * Trailer button of its own too.
+     */
+    private fun top(text: String): Float {
+        val panel = compose.topRoot().fetchSemanticsNode().root
+        return compose.onAllNodes(hasText(text)).fetchSemanticsNodes().single { it.root == panel }.boundsInRoot.top
+    }
 
     private fun otherTrailers() {
         compose.waitForText("Other trailers", stepMs = 50)

@@ -49,7 +49,7 @@ class SettingsReturnFocusUiTest {
         shadowOf(app.packageManager).setSystemFeature(PackageManager.FEATURE_LEANBACK, true)
         val navigator = navigators.new(Screen.Settings)
         compose.setContent { MyPlexTheme { NavHost(remember { navigator }) { ScreenContent(it) } } }
-        compose.waitForText("Playlists", stepMs = 50)
+        compose.waitForText("Servers", stepMs = 50)
         compose.waitAdvancingClock(stepMs = 50) { compose.focusedText().isNotEmpty() }
 
         repeat(MAX_KEYS) { if (ROW !in compose.focusedText()) compose.pressAndRead(Key.DirectionDown) }

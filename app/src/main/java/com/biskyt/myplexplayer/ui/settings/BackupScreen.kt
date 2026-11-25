@@ -13,8 +13,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -239,8 +239,8 @@ fun BackupScreen() {
 
     SettingsPage(stringResource(R.string.settings_backup_title)) {
         item {
-            Column(Modifier.width(760.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Muted(stringResource(R.string.settings_backup_intro), maxLines = 4)
+            Column(Modifier.widthIn(max = 760.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Muted(stringResource(R.string.settings_backup_intro), maxLines = touchLines(4, 6))
                 val last = vm.saved?.let { s ->
                     listOfNotNull(s.modifiedAt.takeIf { it > 0 }?.let(::formatDayTime), s.path).joinToString(" · ")
                 }
@@ -258,7 +258,7 @@ fun BackupScreen() {
             if (vm.confirming != null) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(stringResource(R.string.settings_backup_confirm), style = MaterialTheme.typography.titleMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ButtonRow {
                         PillButton(stringResource(R.string.settings_backup_restore), {
                             vm.restore { hasPlaylists -> nav.reset(if (hasPlaylists) Screen.Home else Screen.Welcome) }
                         }, rememberFirstFocus(), primary = true)
@@ -266,7 +266,7 @@ fun BackupScreen() {
                     }
                 }
             } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ButtonRow {
                     PillButton(stringResource(R.string.settings_backup_now), backUp, rememberFirstFocus(), primary = true)
                     val s = vm.saved
                     if (s != null) PillButton(stringResource(R.string.settings_backup_restore), { vm.ask(s.uri) })

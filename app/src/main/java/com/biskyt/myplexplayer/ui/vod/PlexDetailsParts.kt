@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
@@ -22,11 +23,13 @@ import com.biskyt.myplexplayer.core.tmdb.TmdbVideo
 import com.biskyt.myplexplayer.core.vod.CastMember
 import com.biskyt.myplexplayer.core.vod.VodDetails
 import com.biskyt.myplexplayer.data.db.PlaylistEntity
+import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.common.BoardActionsPanel
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.TrailersPanel
 import com.biskyt.myplexplayer.ui.common.formatRuntime
+import com.biskyt.myplexplayer.ui.common.perform
 import com.biskyt.myplexplayer.ui.common.trailerActions
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
 import com.biskyt.myplexplayer.ui.theme.EXTRA_BOLD
@@ -52,6 +55,20 @@ fun trailerAction(
     val help = if (film) appString(R.string.vod_play_trailer_help) else null
     return serverTrailer?.let { ItemAction.Open(label, open(it), help) }
         ?: tmdbTrailer?.let { v -> ItemAction.Run(label, help) { openTmdb(v.url) } }
+}
+
+/**
+ * What a page's Trailer button does (the owner, 2026-11-25: as in MyTVPlayer): as "Play trailer" ([trailerAction]), it
+ * plays the server's trailer [serverTrailer] in the app (the screen [open] gives), else opens TMDB's best one
+ * ([tmdbTrailer], with [openTmdb]). Null when there is neither: then the page has no Trailer button.
+ */
+@Composable
+fun trailerButton(serverTrailer: Long?, open: (Long) -> Screen, tmdbTrailer: TmdbVideo?, openTmdb: (String) -> Unit): (() -> Unit)? {
+    val nav = LocalNavigator.current
+    // Kept between recompositions, so that the page can skip when a panel over it opens or closes.
+    return remember(serverTrailer, open, tmdbTrailer, openTmdb, nav) {
+        trailerAction(serverTrailer, open, tmdbTrailer, openTmdb, film = false)?.let { action -> { action.perform(nav, close = {}) } }
+    }
 }
 
 /**

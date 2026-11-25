@@ -2,9 +2,8 @@ package com.biskyt.myplexplayer.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
@@ -38,6 +37,7 @@ import com.biskyt.myplexplayer.ui.common.QrCode
 import com.biskyt.myplexplayer.ui.common.openLink
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.Palette
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -45,7 +45,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Signs in to Plex with a code the user enters at plex.tv/link (on a phone or computer: typing a password with a
- * remote is no fun), then adds the account's servers. Already signed in (from Settings › Playlists), it only looks
+ * remote is no fun), then adds the account's servers. Already signed in (from Settings › Servers), it only looks
  * for servers again.
  */
 class PlexSignInViewModel(private val c: AppContainer) : ViewModel() {
@@ -153,11 +153,15 @@ fun PlexSignInScreen(firstRun: Boolean) {
     val leave: () -> Unit = { if (firstRun) nav.reset(Screen.Home) else nav.pop() }
     if (state is PlexSignInViewModel.State.Done && state.unreachable.isEmpty()) LaunchedEffect(Unit) { leave() }
     var problem by remember { mutableStateOf<String?>(null) }
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 96.dp, vertical = 72.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
-    ) {
-        Text(stringResource(R.string.settings_plex_sign_in), style = MaterialTheme.typography.displaySmall)
+    val tv = LocalFormFactor.current.isTv
+    // On a touch screen, it scrolls: the steps and the code can be taller than the screen.
+    SettingsColumn(spacing = 18.dp, scroll = !tv, tvPadding = PaddingValues(horizontal = 96.dp, vertical = 72.dp)) {
+        // On first launch, the page took Welcome's place: nothing to go back to.
+        SettingsTitle(
+            stringResource(R.string.settings_plex_sign_in),
+            style = MaterialTheme.typography.displaySmall,
+            onBack = if (firstRun) null else PreviousPage
+        )
         when (state) {
             is PlexSignInViewModel.State.Failed -> {
                 Text(state.message, Modifier.widthIn(max = 820.dp), style = MaterialTheme.typography.titleMedium, color = Palette.warning)
@@ -174,22 +178,28 @@ fun PlexSignInScreen(firstRun: Boolean) {
                 )
                 PillButton(stringResource(R.string.common_continue), { leave() }, rememberFirstFocus(state), primary = true)
             }
+            // The QR code of plex.tv/link beside the steps on a TV only: a touch screen opens the page on the same device
+            // (the owner, 2026-11-25).
             is PlexSignInViewModel.State.Code -> Row(
                 horizontalArrangement = Arrangement.spacedBy(48.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.widthIn(max = 560.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Muted(stringResource(R.string.settings_plex_steps), maxLines = 3)
+                    Muted(stringResource(R.string.settings_plex_steps), maxLines = touchLines(3, 5))
                     // The theme's own large style (displayMedium isn't one: it would be black on the dark background).
                     Text(state.code, style = MaterialTheme.typography.displaySmall, color = LocalAccent.current.color)
-                    Muted(stringResource(R.string.settings_plex_waiting))
-                    // On a phone, plex.tv/link can open right here.
-                    PillButton(stringResource(R.string.common_link_open_here), { problem = openLink(c, LINK) }, rememberFirstFocus(state))
+                    Muted(stringResource(R.string.settings_plex_waiting), maxLines = touchLines(1, 2))
+                    // plex.tv/link can open on this device too.
+                    PillButton(stringResource(R.string.common_link_open_here), {
+                        problem = openLink(c, LINK)
+                    }, rememberFirstFocus(state))
                     problem?.let { Muted(it, maxLines = 2) }
                 }
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    QrCode(LINK, Modifier.size(200.dp))
-                    Muted(stringResource(R.string.settings_plex_scan), maxLines = 2)
+                if (tv) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        QrCode(LINK, Modifier.size(200.dp))
+                        Muted(stringResource(R.string.settings_plex_scan), maxLines = 2)
+                    }
                 }
             }
         }

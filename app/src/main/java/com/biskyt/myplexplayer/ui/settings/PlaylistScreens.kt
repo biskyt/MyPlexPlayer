@@ -1,7 +1,6 @@
 package com.biskyt.myplexplayer.ui.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -104,11 +103,11 @@ fun PlaylistsScreen() {
         items(playlists.size) { i ->
             val p = playlists[i]
             val isActive = p.id == active
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            CardWithButtons(hasButtons = true, card = { size ->
                 TvCard(
                     onClick = { vm.activate(p) { nav.reset(Screen.Home) } },
                     selected = isActive,
-                    modifier = (if (i == 0) rememberFirstFocus(once = true) else Modifier).weight(1f),
+                    modifier = (if (i == 0) rememberFirstFocus(once = true) else Modifier).then(size),
                     fill = true
                 ) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -146,6 +145,7 @@ fun PlaylistsScreen() {
                         }
                     }
                 }
+            }) {
                 // Only the source in use is updated (see SyncManager).
                 if (isActive) PillButton(stringResource(R.string.settings_playlist_update_now), { vm.update(p) })
                 // A Plex server has nothing to type in (its address and token come from the account): only removing.
@@ -160,7 +160,7 @@ fun PlaylistsScreen() {
                 primary = playlists.isEmpty()
             )
         }
-        item { Muted(stringResource(R.string.settings_playlist_select_hint)) }
+        item { Muted(stringResource(R.string.settings_playlist_select_hint), maxLines = touchLines(1, 3)) }
     }
 }
 
