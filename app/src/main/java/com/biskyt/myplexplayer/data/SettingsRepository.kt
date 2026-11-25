@@ -23,6 +23,12 @@ import kotlinx.serialization.Serializable
 
 enum class BufferSize { SMALL, NORMAL, LARGE }
 
+/**
+ * The screens' layout (the owner, 2026-11-25): found from the device (the default), or the TV's or the phone's whatever
+ * the device is (see FormFactor).
+ */
+enum class LayoutMode { AUTO, TV, TOUCH }
+
 /** Serializable for backups (see BackupRepository). */
 @Serializable
 data class Settings(
@@ -44,6 +50,7 @@ data class Settings(
     val lastChannelId: Long = 0,
     val accent: Int = AccentPalette.DEFAULT,
     val largeText: Boolean = false,
+    val layout: LayoutMode = LayoutMode.AUTO,
     /** How bright the browsing screens' background is (see BackdropLevel and AmbientBackground). */
     val backdropLevel: Int = BackdropLevel.DEFAULT,
     /** Seconds the Skip pill counts down before skipping an intro by itself; [AUTO_SKIP_OFF]: only when pressed. */
@@ -88,6 +95,7 @@ class SettingsRepository(private val context: Context) {
         val lastChannel = longPreferencesKey("last_channel")
         val accent = intPreferencesKey("accent")
         val largeText = booleanPreferencesKey("large_text")
+        val layout = stringPreferencesKey("layout")
         val backdrop = intPreferencesKey("backdrop_level")
         val autoSkipIntro = intPreferencesKey("auto_skip_intro")
         val autoSkipCredits = intPreferencesKey("auto_skip_credits_after")
@@ -140,6 +148,7 @@ class SettingsRepository(private val context: Context) {
             lastChannelId = valueOr(K.lastChannel, d.lastChannelId),
             accent = valueOr(K.accent, d.accent),
             largeText = valueOr(K.largeText, d.largeText),
+            layout = enumOr(this[K.layout], d.layout),
             backdropLevel = BackdropLevel.valid(valueOr(K.backdrop, d.backdropLevel)),
             autoSkipIntroSec = valueOr(K.autoSkipIntro, d.autoSkipIntroSec),
             autoSkipCreditsSec = valueOr(K.autoSkipCredits, d.autoSkipCreditsSec),
@@ -175,6 +184,7 @@ class SettingsRepository(private val context: Context) {
             prefs[K.lastChannel] = s.lastChannelId
             prefs[K.accent] = s.accent
             prefs[K.largeText] = s.largeText
+            prefs[K.layout] = s.layout.name
             prefs[K.backdrop] = s.backdropLevel
             prefs[K.autoSkipIntro] = s.autoSkipIntroSec
             prefs[K.autoSkipCredits] = s.autoSkipCreditsSec

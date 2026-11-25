@@ -1,10 +1,12 @@
 package com.biskyt.myplexplayer.ui
 
+import android.content.pm.ActivityInfo
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
@@ -54,6 +56,8 @@ import com.biskyt.myplexplayer.ui.common.vodDetails
 import com.biskyt.myplexplayer.ui.dvr.DvrScreen
 import com.biskyt.myplexplayer.ui.home.HomeScreen
 import com.biskyt.myplexplayer.ui.live.LiveScreen
+import com.biskyt.myplexplayer.ui.phone.PhoneRailWidth
+import com.biskyt.myplexplayer.ui.phone.PhoneTabBarHeight
 import com.biskyt.myplexplayer.ui.player.PlayerScreen
 import com.biskyt.myplexplayer.ui.player.VodPlayerScreen
 import com.biskyt.myplexplayer.ui.search.SearchScreen
@@ -68,8 +72,12 @@ import com.biskyt.myplexplayer.ui.settings.PlaylistsScreen
 import com.biskyt.myplexplayer.ui.settings.PlexSignInScreen
 import com.biskyt.myplexplayer.ui.settings.SettingsScreen
 import com.biskyt.myplexplayer.ui.settings.WelcomeScreen
+import com.biskyt.myplexplayer.ui.theme.FormFactor
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import com.biskyt.myplexplayer.ui.theme.Palette
+import com.biskyt.myplexplayer.ui.theme.TvCanvas
+import com.biskyt.myplexplayer.ui.theme.looksLikeTv
 import com.biskyt.myplexplayer.ui.vod.MoreLikeScreen
 import com.biskyt.myplexplayer.ui.vod.MovieDetailsScreen
 import com.biskyt.myplexplayer.ui.vod.PersonScreen
@@ -106,7 +114,7 @@ fun AppRoot() {
     }
     // Only the first settings value decides the start screen; later changes (e.g. last channel) mustn't recompose the app.
     val initial = remember { s }
-    MyPlexTheme(accentArgb = s.accent, largeText = s.largeText) {
+    MyPlexTheme(accentArgb = s.accent, largeText = s.largeText, layout = s.layout) {
         LaunchedEffect(Unit) {
             if (root.navigator == null) root.navigator = firstScreen(container, initial, root.safeStart)
         }
@@ -148,6 +156,7 @@ fun AppRoot() {
                 .windowInsetsPadding(WindowInsets.displayCutout)
                 .guideButton(nav, hasPlaylist, container.liveTvShown)
         ) {
+            PhoneOrientation(nav.current.screen)
             AmbientBackground(ambience, s.backdropLevel, shown = nav.current.screen.hasAmbience)
             NavHost(nav) { screen ->
                 // Only the screens that show the background tell it which card has focus: Home's cards do not.
@@ -155,8 +164,9 @@ fun AppRoot() {
                     ScreenContent(screen, hasPlaylist)
                 }
             }
-            SyncToast(nav, Modifier.align(Alignment.BottomEnd).padding(24.dp))
-            NoticeToast(nav, Modifier.align(Alignment.BottomStart).padding(24.dp))
+            val toasts = toastPadding(LocalFormFactor.current, nav.current.screen)
+            SyncToast(nav, Modifier.align(Alignment.BottomEnd).padding(toasts))
+            NoticeToast(nav, Modifier.align(Alignment.BottomStart).padding(toasts))
             RecordingToasts()
         }
         LeaveLiveTvWithoutIt(nav)
@@ -261,6 +271,11 @@ internal fun guideButtonOpensGuide(screen: Screen, liveTv: Boolean) =
  */
 @Composable
 internal fun ScreenContent(screen: Screen, hasPlaylist: Boolean = true) {
+    // A phone or an unfolded foldable (the owner, 2026-11-25): a screen with a phone layout draws its own frame; any other is
+    // drawn as on a TV, on the TV's canvas.
+    if (!LocalFormFactor.current.isTv) {
+        return if (screen.hasPhoneLayout) ScreenBody(screen) else TvCanvas { ScreenContent(screen, hasPlaylist) }
+    }
     if (screen.drawsOwnTopBar) return ScreenBody(screen)
     // The screen stays in one place with or without the bar, so it keeps its state as the bar comes (a backup restored
     // during set-up adds the first playlist) or goes.
@@ -304,6 +319,62 @@ private val Screen.drawsOwnTopBar: Boolean
         is Screen.PlexSignIn, is Screen.Categories, Screen.PlaybackSettings, Screen.Appearance, Screen.MiscSettings,
         Screen.Backup, Screen.About, Screen.Licences -> false
     }
+
+/**
+ * The screens with a phone layout (the owner, 2026-11-25): the rest are drawn as on a TV, on a phone too (see TvCanvas).
+ * The film and series pages, DVR and the person's page get theirs in later steps of 1.18.0.
+ */
+internal val Screen.hasPhoneLayout: Boolean
+    get() = this == Screen.Home ||
+        (this is Screen.Live && !guide) ||
+        this is Screen.Movies ||
+        this is Screen.Series ||
+        isPlayback
+
+/**
+ * The room around the corner messages (SyncToast, NoticeToast): 24 dp, and clear of a phone's tab bar at the bottom or
+ * an unfolded screen's rail at the side, on the screens that have them.
+ */
+internal fun toastPadding(form: FormFactor, screen: Screen): PaddingValues {
+    val bars = screen.hasPhoneLayout && !screen.isPlayback
+    return PaddingValues(
+        start = TOAST_GAP + if (bars && form == FormFactor.UNFOLDED) PhoneRailWidth else 0.dp,
+        end = TOAST_GAP,
+        top = TOAST_GAP,
+        bottom = TOAST_GAP + if (bars && form == FormFactor.PHONE) PhoneTabBarHeight else 0.dp
+    )
+}
+
+private val TOAST_GAP = 24.dp
+
+/**
+ * Which way up the screen is on a touch screen (the owner, 2026-11-25): on a phone, the phone layouts upright, and the
+ * player and the screens drawn as on a TV sideways; unfolded, the phone layouts turn freely and the others stay
+ * sideways; the TV's layout chosen on a touch screen sideways. A real TV is left as it is.
+ */
+@Composable
+private fun PhoneOrientation(screen: Screen) {
+    val form = LocalFormFactor.current
+    val activity = LocalActivity.current ?: return
+    // A real TV is never turned, whichever layout is chosen.
+    val tv = remember(activity) { activity.looksLikeTv() }
+    LaunchedEffect(screen, form, tv) {
+        if (tv) return@LaunchedEffect
+        activity.requestedOrientation = when (form) {
+            // The TV's layout chosen on a touch screen: it is drawn for a landscape screen.
+            FormFactor.TV -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            // Unfolded, the phone layouts turn freely; a screen drawn as on a TV stays sideways, where it fits.
+            FormFactor.UNFOLDED ->
+                if (screen.hasPhoneLayout) ActivityInfo.SCREEN_ORIENTATION_FULL_USER else ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            FormFactor.PHONE ->
+                if (screen.hasPhoneLayout && !screen.isPlayback) {
+                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                } else {
+                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                }
+        }
+    }
+}
 
 /**
  * The browsing screens with no picture of their own, which have the background that follows the card with focus (see

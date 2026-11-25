@@ -252,14 +252,33 @@ fun <F> CategoryColumn(
             }
         }
     }
-    options?.let { cat ->
-        HidePanel(cat, { options = null }) {
-            val next = entries.shownAfterHiding(cat)
-            next?.let(onSelect)
-            onHide?.invoke(cat)
-            // Its entry goes, and focus goes to the one now selected (none, if it was the only one).
-            next?.let { refocus = Refocus(it) }
-        }
+    // Its entry goes, and focus goes to the one now selected (none, if it was the only one).
+    CategoryOptionsHost(options, entries, { options = null }, onSelect, { onHide?.invoke(it) }, shown = { refocus = Refocus(it) })
+}
+
+/**
+ * A category's options, for [cat] (none: closed), on a TV's column and a phone's chips: hiding it, which first selects
+ * the entry shown in its place ([onSelect], then [shown] with it). [close] closes them. On a touch screen any chip can be
+ * held, so [selected] is the entry shown: hiding another category leaves it shown. A TV's column (null) opens them on
+ * the entry with focus, which is the one shown.
+ */
+@Composable
+fun <F> CategoryOptionsHost(
+    cat: CategoryEntity?,
+    entries: List<CategoryEntry<F>>,
+    close: () -> Unit,
+    onSelect: (F) -> Unit,
+    onHide: (CategoryEntity) -> Unit,
+    selected: F? = null,
+    shown: (F) -> Unit = {}
+) {
+    cat ?: return
+    HidePanel(cat, close) {
+        val showing = selected == null || entries.any { e -> e.filter == selected && e.category?.categoryId == cat.categoryId }
+        val next = if (showing) entries.shownAfterHiding(cat) else null
+        next?.let(onSelect)
+        onHide(cat)
+        next?.let(shown)
     }
 }
 

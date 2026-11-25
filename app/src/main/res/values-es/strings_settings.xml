@@ -9,9 +9,15 @@
     <string name="settings_appearance_title">Apariencia</string>
     <string name="settings_appearance_help">Color de acento y tamaño del texto</string>
     <string name="settings_misc_title">Varios</string>
-    <string name="settings_misc_help">Pantalla de inicio del televisor, avisos de red</string>
+    <string name="settings_misc_help">Pantalla de inicio del televisor, avisos de red, diseño</string>
     <string name="settings_backup_title">Copia de seguridad</string>
     <string name="settings_backup_help">Guarda tus listas y preferencias en un archivo o restáuralas</string>
+    <string name="settings_layout">Diseño</string>
+    <string name="settings_layout_help">TV para un mando, móvil y tableta para una pantalla táctil</string>
+    <string name="settings_layout_help_tv">Un televisor solo tiene el diseño de TV: un mando no puede usar el diseño táctil</string>
+    <string name="settings_layout_auto">Automático</string>
+    <string name="settings_layout_tv">TV</string>
+    <string name="settings_layout_touch">Móvil y tableta</string>
     <string name="settings_about_title">Acerca de</string>
     <string name="settings_about_help">Versión %1$s, licencias, almacenamiento</string>
 

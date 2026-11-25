@@ -2,6 +2,14 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.18.0
+- Phones and tablets get their own layout, with a tab bar.
+- Home, Movies, TV Shows and Live TV are made for touch.
+- The player has large touch controls on a phone.
+- A tablet or an unfolded phone gets wider layouts.
+- Settings › Misc › Layout chooses the TV or the touch layout.
+- After a restore, film and series categories show no count until they load.
+
 ## 1.17.0
 - Channel logos are trimmed and the same size, on a see-through tile.
 - Black channel logos show in white.

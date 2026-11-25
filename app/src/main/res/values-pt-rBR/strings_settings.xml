@@ -9,9 +9,15 @@
     <string name="settings_appearance_title">Aparência</string>
     <string name="settings_appearance_help">Cor de destaque e tamanho do texto</string>
     <string name="settings_misc_title">Diversos</string>
-    <string name="settings_misc_help">Tela inicial da TV, avisos de rede</string>
+    <string name="settings_misc_help">Tela inicial da TV, avisos de rede, layout</string>
     <string name="settings_backup_title">Backup e restauração</string>
     <string name="settings_backup_help">Salve suas playlists e escolhas em um arquivo ou restaure-as</string>
+    <string name="settings_layout">Layout</string>
+    <string name="settings_layout_help">TV para um controle remoto, celular e tablet para uma tela sensível ao toque</string>
+    <string name="settings_layout_help_tv">Uma TV tem só o layout de TV: um controle remoto não consegue usar o layout de toque</string>
+    <string name="settings_layout_auto">Automático</string>
+    <string name="settings_layout_tv">TV</string>
+    <string name="settings_layout_touch">Celular e tablet</string>
     <string name="settings_about_title">Sobre</string>
     <string name="settings_about_help">Versão %1$s, licenças, armazenamento</string>
 

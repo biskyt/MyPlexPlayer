@@ -100,8 +100,10 @@ import com.biskyt.myplexplayer.ui.common.sidewaysOnly
 import com.biskyt.myplexplayer.ui.common.titledRow
 import com.biskyt.myplexplayer.ui.common.vodActions
 import com.biskyt.myplexplayer.ui.common.vodDetails
+import com.biskyt.myplexplayer.ui.phone.PhoneHome
 import com.biskyt.myplexplayer.ui.player.DescribedEpisode
 import com.biskyt.myplexplayer.ui.player.describe
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.vod.TitleOptions
 import com.biskyt.myplexplayer.ui.vod.carryOnEpisode
 import com.biskyt.myplexplayer.ui.vod.rememberTitleExtras
@@ -293,6 +295,16 @@ private fun WatchProgressEntity.cardKey() = seriesId?.let { "series$it" } ?: "$k
 fun HomeScreen() {
     val vm = appViewModel { HomeViewModel(it) }
     vm.nowNext.PauseWhenHidden()
+    // A phone or an unfolded foldable (the owner, 2026-11-25): its own layout, from the same rows.
+    if (LocalFormFactor.current.isTv) TvHome(vm) else PhoneHome(vm)
+}
+
+/**
+ * Home on a TV: Continue watching, recently added series and movies, favourite series and movies, then Live TV, with
+ * the art of the title that has the remote behind them.
+ */
+@Composable
+private fun TvHome(vm: HomeViewModel) {
     val nav = LocalNavigator.current
     // States, read where used: shown() below must see a row change after its card is taken off, and Home recomposes
     // when what it shows changes, not with every row's update (as during a sync).
@@ -496,7 +508,7 @@ private fun HomeBackdrop(vm: HomeViewModel) {
  * A Home card whose options are open: a channel (from [list]: favourites or recently watched), a title carried on, or a
  * favourite movie or series.
  */
-private sealed interface HomeTile {
+internal sealed interface HomeTile {
     data class Channel(val ch: ChannelEntity, val list: ChannelFilter) : HomeTile
 
     data class CarryOn(val p: WatchProgressEntity) : HomeTile
@@ -579,7 +591,7 @@ private fun LazyListScope.channelRows(
 
 /** Holding OK on a Home card: watch it, and favourites and the guide source, or take it off its row. */
 @Composable
-private fun TileOptions(tile: HomeTile, vm: HomeViewModel, pid: Long, onDismiss: (removed: Boolean) -> Unit) {
+internal fun TileOptions(tile: HomeTile, vm: HomeViewModel, pid: Long, onDismiss: (removed: Boolean) -> Unit) {
     val close = { onDismiss(false) }
     when (tile) {
         is HomeTile.Channel -> {
@@ -595,7 +607,7 @@ private fun TileOptions(tile: HomeTile, vm: HomeViewModel, pid: Long, onDismiss:
                         if (!favourite && tile.list == ChannelFilter.Favourites) onDismiss(true)
                     }
                 )
-                if (tile.list == ChannelFilter.Favourites) add(moveAction(vm.mover, CAT_LIVE, ch.streamId, close, CHANNEL_ROW_LIMIT))
+                if (tile.list == ChannelFilter.Favourites) moveAction(vm.mover, CAT_LIVE, ch.streamId, close, CHANNEL_ROW_LIMIT)?.let(::add)
                 if (tile.list == ChannelFilter.Recent) {
                     add(
                         ItemAction.Run(removeRecent) {
@@ -670,7 +682,7 @@ private fun FavouriteOptions(tile: HomeTile.Vod, vm: HomeViewModel, pid: Long, o
     val base = vodActions(pid, tile.type, tile.card.id, favourite = true) { favourite ->
         vm.setVodFavourite(tile.type, tile.card.id, favourite)
         if (!favourite) onDismiss(true)
-    } + moveAction(vm.mover, tile.type, tile.card.id, close, VOD_ROW_LIMIT)
+    } + listOfNotNull(moveAction(vm.mover, tile.type, tile.card.id, close, VOD_ROW_LIMIT))
     val extras = rememberTitleExtras(c, pid, tile.type, tile.card.id)
     TitleOptions(c, pid, tile.card.id, tile.type == CAT_MOVIE, tile.card.title, extras, described = null, base, close)
 }
@@ -753,16 +765,7 @@ private fun CarryOnRow(
 /** A movie or episode carried on: its poster with how far it got, its title, and what's left or up next. */
 @Composable
 private fun CarryOnCard(p: WatchProgressEntity, modifier: Modifier, onLongClick: () -> Unit, onClick: () -> Unit) {
-    val left = when {
-        // A finished episode with another after it that has no card of its own (saved before 0.16.0, or
-        // watched already): the card leads on to that one.
-        p.finished -> stringResource(R.string.home_up_next_after, episodeCode(p))
-        // (The next one up, its running time not known: no time.)
-        p.season != null && p.episode != null ->
-            if (p.durationMs > 0) "${episodeCode(p)} ${shortLeft(p.remainingMs)}" else episodeCode(p)
-        p.durationMs > 0 -> shortLeft(p.remainingMs)
-        else -> ""
-    }
+    val left = carryOnLeft(p)
     PosterTile(
         onClick,
         onLongClick,
@@ -773,13 +776,32 @@ private fun CarryOnCard(p: WatchProgressEntity, modifier: Modifier, onLongClick:
                 // (Its initials, shown until the picture loads, are not read: the card's texts are.)
                 Poster(p.imageUrl, p.title, POSTER_WIDTH, Modifier.clearAndSetSemantics {})
                 // (Not before it has been started: an episode up next.)
-                if (!p.finished && p.started) ProgressLine(p.fraction, Modifier.align(Alignment.BottomCenter).padding(6.dp))
+                p.carryOnProgress?.let { ProgressLine(it, Modifier.align(Alignment.BottomCenter).padding(6.dp)) }
             }
         }
     ) { focused ->
         OneLine(p.title, MaterialTheme.typography.labelLarge, focused = focused)
         Muted(left)
     }
+}
+
+/**
+ * How far a Continue watching card got, for the line along its poster: none before it starts (an episode up next) or
+ * once it is finished.
+ */
+internal val WatchProgressEntity.carryOnProgress: Float? get() = fraction.takeIf { !finished && started }
+
+/** What is left of a Continue watching card, short: "S1E3 42m", "1h 5m", or the episode up next. */
+@Composable
+internal fun carryOnLeft(p: WatchProgressEntity): String = when {
+    // A finished episode with another after it that has no card of its own (saved before 0.16.0, or
+    // watched already): the card leads on to that one.
+    p.finished -> stringResource(R.string.home_up_next_after, episodeCode(p))
+    // (The next one up, its running time not known: no time.)
+    p.season != null && p.episode != null ->
+        if (p.durationMs > 0) "${episodeCode(p)} ${shortLeft(p.remainingMs)}" else episodeCode(p)
+    p.durationMs > 0 -> shortLeft(p.remainingMs)
+    else -> ""
 }
 
 /** An episode, short, as a card has room for: "S1E2". */
@@ -802,9 +824,9 @@ private const val MINUTES_PER_HOUR = 60
 
 /** The title of Home's row of recently added movies or series ([type]). */
 @StringRes
-private fun newestRowTitle(type: String) =
+internal fun newestRowTitle(type: String) =
     if (type == CAT_MOVIE) R.string.home_recently_added_movies else R.string.home_recently_added_series
 
 /** The title of Home's row of favourite movies or series ([type]). */
 @StringRes
-private fun favouriteRowTitle(type: String) = if (type == CAT_MOVIE) R.string.home_favourite_movies else R.string.home_favourite_series
+internal fun favouriteRowTitle(type: String) = if (type == CAT_MOVIE) R.string.home_favourite_movies else R.string.home_favourite_series
