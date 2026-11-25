@@ -2,8 +2,10 @@ package com.biskyt.myplexplayer.ui.phone
 
 import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import com.biskyt.myplexplayer.data.Notice
 import com.biskyt.myplexplayer.testutil.FakePlex
@@ -53,5 +55,24 @@ class PhoneToastUiTest {
         val bar = compose.onNode(hasText("Home")).fetchSemanticsNode().boundsInRoot
         val screen = compose.onRoot().fetchSemanticsNode().boundsInRoot
         assertTrue("$notice over the tab bar ($bar, screen $screen)", notice.bottom <= bar.top)
+    }
+
+    @Test
+    fun `a notice on a film page, which has no tab bar, is at the bottom of the screen`() {
+        compose.setContent { AppRoot() }
+        compose.waitForText("Recently added movies")
+        compose.onNode(hasText("Big Buck Bunny") and hasClickAction()).performClick()
+        compose.waitForText("A giant rabbit takes on three bullies.")
+        app.container.notices.post(Notice("Not saved", null))
+        compose.waitForText("Not saved")
+        val notice = compose.onNode(hasText("Not saved")).fetchSemanticsNode().boundsInRoot
+        val screen = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        // 24 dp from the bottom (72 px here, at 3 px a dp), not lifted over a tab bar that is not there.
+        assertTrue("$notice on $screen", notice.bottom >= screen.bottom - CLEAR_OF_THE_BOTTOM_PX)
+    }
+
+    private companion object {
+        /** More than the 24 dp gap, less than the gap and a tab bar's 64 dp. */
+        const val CLEAR_OF_THE_BOTTOM_PX = 150
     }
 }

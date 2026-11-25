@@ -139,13 +139,8 @@ fun AppRoot() {
             onDispose { nav.onLeave = null }
         }
         BackHandler {
-            when {
-                nav.pop() -> Unit
-                nav.current.screen != Screen.Home && nav.current.screen != Screen.Welcome ->
-                    nav.reset(Screen.Home)
-                // Closes the app, and takes it off the recent apps too: Back from Home means "close".
-                else -> activity?.finishAndRemoveTask()
-            }
+            // From Home: closes the app, and takes it off the recent apps too. Back from Home means "close".
+            if (!nav.back()) activity?.finishAndRemoveTask()
         }
         val hasPlaylist = s.activePlaylistId != 0L
         // The browsing screens' background follows the card with focus (see AmbientBackground).
@@ -322,21 +317,21 @@ private val Screen.drawsOwnTopBar: Boolean
 
 /**
  * The screens with a phone layout (the owner, 2026-11-25): the rest are drawn as on a TV, on a phone too (see TvCanvas).
- * The film and series pages, DVR and the person's page get theirs in later steps of 1.18.0.
+ * DVR and the person's page get theirs in step 3 of 1.18.0.
  */
 internal val Screen.hasPhoneLayout: Boolean
-    get() = this == Screen.Home ||
-        (this is Screen.Live && !guide) ||
-        this is Screen.Movies ||
-        this is Screen.Series ||
-        isPlayback
+    get() = hasTabBar || this is Screen.MovieDetails || this is Screen.SeriesDetails || isPlayback
+
+/** The phone screens drawn in PhoneScaffold, with its tab bar at the bottom (or its rail at the side, unfolded). */
+internal val Screen.hasTabBar: Boolean
+    get() = this == Screen.Home || (this is Screen.Live && !guide) || this is Screen.Movies || this is Screen.Series
 
 /**
  * The room around the corner messages (SyncToast, NoticeToast): 24 dp, and clear of a phone's tab bar at the bottom or
  * an unfolded screen's rail at the side, on the screens that have them.
  */
 internal fun toastPadding(form: FormFactor, screen: Screen): PaddingValues {
-    val bars = screen.hasPhoneLayout && !screen.isPlayback
+    val bars = screen.hasTabBar
     return PaddingValues(
         start = TOAST_GAP + if (bars && form == FormFactor.UNFOLDED) PhoneRailWidth else 0.dp,
         end = TOAST_GAP,

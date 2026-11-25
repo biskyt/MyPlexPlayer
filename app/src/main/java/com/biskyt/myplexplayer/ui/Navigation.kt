@@ -165,6 +165,19 @@ class Navigator(start: Screen) {
     }
 
     /** Returns false when there is nothing left to go back to. */
+    /**
+     * Back from a screen: to the one under it, else to Home (a screen opened on its own, such as from a card on the
+     * TV's home screen). False on Home and set-up's first screen, where there is nothing to go back to.
+     */
+    fun back(): Boolean = when {
+        pop() -> true
+        current.screen != Screen.Home && current.screen != Screen.Welcome -> {
+            reset(Screen.Home)
+            true
+        }
+        else -> false
+    }
+
     fun pop(): Boolean {
         if (stack.size <= 1) return false
         if (current.id == launcherEntry) {

@@ -3,6 +3,7 @@ package com.biskyt.myplexplayer.ui.common
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,9 +19,11 @@ import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.core.plex.TitleLink
 import com.biskyt.myplexplayer.ui.LocalNavigator
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.Palette
 import com.biskyt.myplexplayer.ui.theme.bd
 import com.biskyt.myplexplayer.ui.vod.SourceLogo
+import com.biskyt.myplexplayer.ui.vod.WrapRow
 import com.biskyt.myplexplayer.ui.vod.linkLogo
 
 // The Plex-only parts of the film and series pages' panels (boards "PlexFilmMore" and "PlexSeriesMore"), made of the
@@ -47,19 +50,34 @@ fun BoardCycle(label: String, value: String, onStep: (Int) -> Unit, modifier: Mo
 @Composable
 fun BoardLinksRow(label: String, links: List<TitleLink>, modifier: Modifier = Modifier) {
     val open = rememberLinkOpener()
+    // On a phone's narrow sheet, the label goes over the links, which would otherwise squeeze it.
+    if (!LocalFormFactor.current.isTv) {
+        Column(Modifier.padding(horizontal = 14.bd, vertical = 4.bd), verticalArrangement = Arrangement.spacedBy(8.bd)) {
+            Text(label, style = BoardOptionText.current)
+            // The pills that do not fit go on the next line.
+            WrapRow(8.bd) { LinkPills(links, open, modifier) }
+        }
+        return
+    }
     Row(
         Modifier.padding(horizontal = 14.bd, vertical = 4.bd),
         horizontalArrangement = Arrangement.spacedBy(8.bd),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(label, style = BoardOptionText.current, modifier = Modifier.weight(1f))
-        links.forEachIndexed { i, link ->
-            Box(Modifier.clip(PillShape).background(Palette.surfaceHigh)) {
-                AccentFillSurface({ open(link) }, PillShape, if (i == 0) modifier else Modifier) {
-                    val padding = Modifier.padding(horizontal = 14.bd, vertical = 8.bd)
-                    linkLogo(link.name)?.let { SourceLogo(it, link.name, padding, height = LINK_LOGO) }
-                        ?: Text(link.name, style = BoardOptionText.current, color = LocalContentColor.current, modifier = padding)
-                }
+        LinkPills(links, open, modifier)
+    }
+}
+
+/** Each of [links] as a pill with its logo (or its name), which [open] opens; the first gets [modifier]. */
+@Composable
+private fun LinkPills(links: List<TitleLink>, open: (TitleLink) -> Unit, modifier: Modifier) {
+    links.forEachIndexed { i, link ->
+        Box(Modifier.clip(PillShape).background(Palette.surfaceHigh)) {
+            AccentFillSurface({ open(link) }, PillShape, if (i == 0) modifier else Modifier) {
+                val padding = Modifier.padding(horizontal = 14.bd, vertical = 8.bd)
+                linkLogo(link.name)?.let { SourceLogo(it, link.name, padding, height = LINK_LOGO) }
+                    ?: Text(link.name, style = BoardOptionText.current, color = LocalContentColor.current, modifier = padding)
             }
         }
     }
@@ -106,6 +124,21 @@ fun BoardActionsPanel(
         }
         more?.invoke()
     }
+}
+
+/**
+ * [confirm]'s question on its own in a panel, under [title], for a button with no options panel to ask in (a series
+ * with no episodes): its safe answer (with the remote) and its yes. Either answer, or Back, closes it ([onDismiss]).
+ */
+@Composable
+fun ConfirmPanel(title: String, confirm: ItemAction.Confirmed, onDismiss: () -> Unit) = BoardPanel(onDismiss) {
+    BoardPanelTitle(title, Modifier.padding(bottom = 6.bd))
+    ConfirmQuestion(
+        confirm,
+        onNo = onDismiss,
+        onDismiss = onDismiss,
+        question = { BoardPanelText(it, Modifier.padding(bottom = 8.bd)) }
+    ) { label, modifier, yes, click -> BoardOption(label, modifier = modifier, danger = yes, onClick = click) }
 }
 
 private val PillShape = RoundedCornerShape(50)

@@ -2,6 +2,7 @@ package com.biskyt.myplexplayer.ui.vod
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -154,11 +155,13 @@ suspend fun AppContainer.source(playlistId: Long): PlaylistEntity =
 
 /**
  * The picture and sound labels ("4K", "Dolby Vision", "Dolby Atmos 7.1"), 8 apart; [small] on the series page's open
- * episode, on the page's background.
+ * episode, on the page's background. With [wrap] (a phone's narrow page), the labels that do not fit go on the next
+ * line.
  */
 @Composable
-fun LabelRow(labels: List<String>, modifier: Modifier = Modifier, small: Boolean = false) {
-    Row(modifier.testTag("labels"), horizontalArrangement = Arrangement.spacedBy(if (small) 6.bd else 8.bd)) {
+fun LabelRow(labels: List<String>, modifier: Modifier = Modifier, small: Boolean = false, wrap: Boolean = false) {
+    val gap = if (small) 6.bd else 8.bd
+    val each = @Composable {
         labels.forEach {
             Text(
                 it,
@@ -168,6 +171,11 @@ fun LabelRow(labels: List<String>, modifier: Modifier = Modifier, small: Boolean
                     .padding(horizontal = if (small) 7.bd else 8.bd, vertical = if (small) 1.bd else 2.bd)
             )
         }
+    }
+    if (wrap) {
+        Box(modifier.testTag("labels")) { WrapRow(gap, each) }
+    } else {
+        Row(modifier.testTag("labels"), horizontalArrangement = Arrangement.spacedBy(gap)) { each() }
     }
 }
 
