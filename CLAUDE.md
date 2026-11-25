@@ -300,10 +300,20 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     the grid, `PhoneLive` marks a channel that records, and the players keep the skip pill, Watch from start and
     About this programme. The tab bar has DVR (`AppIcons.Record`). Restored film and series categories count 0.
     TestApp and PlainApp set `autoFindsTv = { true }`; the phone tests (`ui/phone/`) are on FakePlex. Left out: its
-    catch-up, radio, proxy and parental parts (none here). Step 2: the film and series pages (`PhoneFilm`,
-    `PhoneSeries`, MovieDetails and SeriesDetails in `hasPhoneLayout`, `TvSeriesPage`, `filmFacts`, `seriesFacts` and
-    their screenshot test), with this app's own extras (scores, Cast and crew, trailers, DVR, Delete). Step 3: DVR and
-    the person's page. Until then they, Search and Settings are drawn on the TV canvas. This app's review fixes, for MyTVPlayer too: the
+    catch-up, radio, proxy and parental parts (none here). Step 2 (done): the film and series pages
+    (`ui/phone/PhoneFilm.kt`, `PhoneSeries.kt`; MovieDetails and SeriesDetails in `hasPhoneLayout`), on this app's own
+    view models, with `TvSeriesPage`, `filmFacts`, `resumeLabel`, `seriesFacts`, `continueText`, `partWatched` and
+    `episodeLength` shared with the TV pages. The header shows the title's art at full strength through
+    `backdropRequest`. The film page has the scores and age badge (`PhoneBadges`), the picture and sound labels and the
+    cast row (a tap opens the person's page); Play trailer, Other trailers, More like this, the links and Delete stay
+    in More. The series page has Discover's status lines, the season chips, the episodes with their marks and progress
+    (a long press opens "This episode" and "The show", with auto-delete), and Delete the series when it has none.
+    On a touch layout, `BoardLinksRow` puts its label over the links, and the links and the film's labels wrap
+    (`WrapRow`). Its review fixes: the corner messages clear only a screen with a tab bar (`hasTabBar`), a series with
+    no episodes asks before its delete on a TV too (`ConfirmPanel`), and Back on a page with nothing under it goes to
+    Home (`Navigator.back`, also AppRoot's Back). `PhoneDetailPagesTest` and `PhoneDeleteUiTest` are on FakePlex
+    (`BoardTitles`). Step 3: DVR and the person's page (`Screen.Dvr` and `Screen.Person` in `hasPhoneLayout`). Until
+    then they, Search and Settings are drawn on the TV canvas. This app's review fixes, for MyTVPlayer too: the
     sheet ignores a held OK (`ignoreHeldButtons`), the phone's live controls keep Back with no channel, the corner
     messages clear the tab bar and rail (`toastPadding`), a flash message sits under the top row, the time left uses
     `common_time_left`, and a TV (`findsTv`) is not offered the touch layout.

@@ -5,6 +5,8 @@ Each version's section becomes its GitHub release notes, so it is written for th
 ## 1.18.0
 - Phones and tablets get their own layout, with a tab bar.
 - Home, Movies, TV Shows and Live TV are made for touch.
+- Film and series pages are made for touch, with menus as sheets.
+- Deleting a series with no episodes now asks first.
 - The player has large touch controls on a phone.
 - A tablet or an unfolded phone gets wider layouts.
 - Settings › Misc › Layout chooses the TV or the touch layout.

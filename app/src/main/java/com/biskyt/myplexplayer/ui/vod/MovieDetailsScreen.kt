@@ -60,9 +60,11 @@ import com.biskyt.myplexplayer.ui.common.onOptionsKey
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.rememberTrailerOpener
 import com.biskyt.myplexplayer.ui.common.timeLeft
+import com.biskyt.myplexplayer.ui.phone.PhoneFilmPage
 import com.biskyt.myplexplayer.ui.theme.BOLD
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
 import com.biskyt.myplexplayer.ui.theme.EXTRA_BOLD
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.MEDIUM
 import com.biskyt.myplexplayer.ui.theme.Palette
 import com.biskyt.myplexplayer.ui.theme.bd
@@ -232,6 +234,11 @@ fun FilmPage(
     more: () -> Unit,
     openPerson: (CastMember) -> Unit
 ) {
+    // A phone or an unfolded foldable (the owner, 2026-11-25): its own layout. The panels stay MovieDetailsScreen's.
+    if (!LocalFormFactor.current.isTv) {
+        PhoneFilmPage(movie, d, resumable, play, more, openPerson)
+        return
+    }
     Box(Modifier.fillMaxSize().onOptionsKey(more)) {
         Backdrop(d?.backdropUrl)
         Row(
@@ -288,12 +295,7 @@ fun FilmPage(
  */
 @Composable
 private fun FilmFacts(movie: MovieEntity, d: VodDetails?) {
-    val facts = listOfNotNull(
-        d?.released?.let(::airDateOf)?.let(::formatDate) ?: (movie.year ?: d?.year)?.toString(),
-        runtimeOf(d?.durationSec),
-        genresOf(d?.genres.orEmpty()),
-        starRating(d?.rating)
-    ).joinToString(" · ")
+    val facts = filmFacts(movie, d)
     val rating = d?.contentRating
     if (facts.isEmpty() && rating == null) return
     Row(horizontalArrangement = Arrangement.spacedBy(10.bd), verticalAlignment = Alignment.CenterVertically) {
@@ -312,22 +314,47 @@ private fun FilmFacts(movie: MovieEntity, d: VodDetails?) {
 }
 
 /**
+ * A film's facts, for a TV's page and a phone's: "15 Sept 2021 · 1 h 52 min · Drama, Mystery · ★ 8.1". The release
+ * date, when the server has it, in place of the year.
+ */
+@Composable
+internal fun filmFacts(movie: MovieEntity, d: VodDetails?): String = listOfNotNull(
+    d?.released?.let(::airDateOf)?.let(::formatDate) ?: (movie.year ?: d?.year)?.toString(),
+    runtimeOf(d?.durationSec),
+    genresOf(d?.genres.orEmpty()),
+    starRating(d?.rating)
+).joinToString(" · ")
+
+/** This progress if some of the film was played: a film to resume. Else null. */
+internal fun WatchProgressEntity?.resumePoint(): WatchProgressEntity? = this?.takeIf { it.positionMs > 0 }
+
+/**
+ * A film's main button, for a TV's page and a phone's: "Resume · 38 min left" for one [started] ("Resume from
+ * 1:14:02" when its length is not known), else "Play".
+ */
+@Composable
+internal fun resumeLabel(started: WatchProgressEntity?): String {
+    val timed = started?.takeIf { it.durationMs > 0 }
+    return when {
+        timed != null -> stringResource(R.string.vod_resume_left, timeLeft(timed))
+        started != null -> stringResource(R.string.vod_resume_from, formatDuration(started.positionMs))
+        else -> stringResource(R.string.common_play)
+    }
+}
+
+/**
  * With progress: "Resume · 38 min left" (the progress along its bottom; "Resume from 1:14:02" when the length is not
  * known), Restart, More…. Without: Play, More…. Holding
  * OK on any of them opens [more] too.
  */
 @Composable
 private fun FilmButtons(resumable: WatchProgressEntity?, play: (Boolean) -> Unit, more: () -> Unit) {
-    val started = resumable?.takeIf { it.positionMs > 0 }
+    val started = resumable.resumePoint()
     // With its length known: the time left, and the progress along the button. Without: where it stopped.
     val timed = started?.takeIf { it.durationMs > 0 }
     // One button either way, so the focus it has stays when the progress loads after the page.
     DetailButton(
-        when {
-            timed != null -> stringResource(R.string.vod_resume_left, timeLeft(timed))
-            started != null -> stringResource(R.string.vod_resume_from, formatDuration(started.positionMs))
-            else -> stringResource(R.string.common_play)
-        },
+        resumeLabel(started),
         { play(false) },
         rememberFirstFocus(),
         strong = true,

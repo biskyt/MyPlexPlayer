@@ -47,17 +47,17 @@ class FormFactorTest {
     }
 
     @Test
-    fun `Home, the channel list, the films, the series and the players have phone layouts`() {
+    fun `Home, the channel list, the films, the series, their pages and the players have phone layouts`() {
         assertTrue(Screen.Home.hasPhoneLayout)
         assertTrue(Screen.Live().hasPhoneLayout)
         assertTrue(Screen.Movies().hasPhoneLayout)
         assertTrue(Screen.Series().hasPhoneLayout)
         assertTrue(Screen.VodPlayer(1, 2).hasPhoneLayout)
         assertTrue(Screen.Player(1, 2, ChannelFilter.All).hasPhoneLayout)
-        // Drawn as on a TV for now: the guide, the title pages (step 2), DVR and a person's page (step 3), Settings.
+        assertTrue(Screen.MovieDetails(1, 2).hasPhoneLayout)
+        assertTrue(Screen.SeriesDetails(1, 2).hasPhoneLayout)
+        // Drawn as on a TV for now: the guide, DVR and a person's page (step 3), Settings.
         assertFalse(Screen.Live(guide = true).hasPhoneLayout)
-        assertFalse(Screen.MovieDetails(1, 2).hasPhoneLayout)
-        assertFalse(Screen.SeriesDetails(1, 2).hasPhoneLayout)
         assertFalse(Screen.Dvr.hasPhoneLayout)
         assertFalse(Screen.Settings.hasPhoneLayout)
     }

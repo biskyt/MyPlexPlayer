@@ -149,11 +149,19 @@ class DeleteUiTest {
     }
 
     @Test
-    fun `a series with no episodes offers to delete it`() {
+    fun `a series with no episodes offers to delete it, once confirmed`() {
         plex.episodes = emptyList()
         seriesPage()
         compose.waitForText("This series has no episodes. Do you want to delete it from the Plex server?", stepMs = 50)
+        // It asks first, as every delete does: kept, nothing is deleted.
         click("Delete the series")
+        compose.waitForText("Keep it", stepMs = 50)
+        click("Keep it")
+        compose.waitForText("Delete the series", stepMs = 50)
+        assertTrue(plex.deleted.isEmpty())
+        click("Delete the series")
+        compose.waitForText("Keep it", stepMs = 50)
+        click("Delete")
         compose.waitAdvancingClock(stepMs = 50) { plex.deleted == listOf("21") && series() == null }
         compose.waitAdvancingClock(stepMs = 50) { compose.onAllNodes(hasText("Test Show")).fetchSemanticsNodes().isEmpty() }
     }
