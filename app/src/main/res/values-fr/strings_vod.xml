@@ -38,6 +38,7 @@
     <string name="vod_not_deleted">Impossible de le supprimer</string>
     <string name="vod_auto_delete">Supprimer les épisodes vus</string>
     <string name="vod_auto_delete_not_saved">Impossible de changer quand les épisodes vus sont supprimés</string>
+    <string name="vod_watched_not_saved">Impossible de le marquer comme vu ou non vu</string>
     <string name="vod_auto_delete_never">Jamais</string>
     <string name="vod_auto_delete_day">Après un jour</string>
     <string name="vod_auto_delete_week">Après une semaine</string>

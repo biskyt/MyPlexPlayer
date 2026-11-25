@@ -38,6 +38,7 @@
     <string name="vod_not_deleted">No se pudo eliminar</string>
     <string name="vod_auto_delete">Eliminar episodios vistos</string>
     <string name="vod_auto_delete_not_saved">No se pudo cambiar cuándo se eliminan los episodios vistos</string>
+    <string name="vod_watched_not_saved">No se pudo marcar como visto o no visto</string>
     <string name="vod_auto_delete_never">Nunca</string>
     <string name="vod_auto_delete_day">Al cabo de un día</string>
     <string name="vod_auto_delete_week">Al cabo de una semana</string>

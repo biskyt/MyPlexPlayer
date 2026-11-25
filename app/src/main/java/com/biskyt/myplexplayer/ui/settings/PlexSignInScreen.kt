@@ -39,6 +39,7 @@ import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
 import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.Palette
+import com.biskyt.myplexplayer.ui.theme.showsQrCodes
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -178,7 +179,7 @@ fun PlexSignInScreen(firstRun: Boolean) {
                 )
                 PillButton(stringResource(R.string.common_continue), { leave() }, rememberFirstFocus(state), primary = true)
             }
-            // The QR code of plex.tv/link beside the steps on a TV only: a touch screen opens the page on the same device
+            // The QR code of plex.tv/link beside the steps on a TV only: a phone or tablet opens the page on the same device
             // (the owner, 2026-11-25).
             is PlexSignInViewModel.State.Code -> Row(
                 horizontalArrangement = Arrangement.spacedBy(48.dp),
@@ -195,7 +196,7 @@ fun PlexSignInScreen(firstRun: Boolean) {
                     }, rememberFirstFocus(state))
                     problem?.let { Muted(it, maxLines = 2) }
                 }
-                if (tv) {
+                if (showsQrCodes()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         QrCode(LINK, Modifier.size(200.dp))
                         Muted(stringResource(R.string.settings_plex_scan), maxLines = 2)

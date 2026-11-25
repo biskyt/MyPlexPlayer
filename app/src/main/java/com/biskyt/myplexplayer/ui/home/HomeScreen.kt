@@ -48,6 +48,7 @@ import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.container
 import com.biskyt.myplexplayer.data.CHANNEL_ROW_LIMIT
 import com.biskyt.myplexplayer.data.ChannelFilter
+import com.biskyt.myplexplayer.data.VodRepository
 import com.biskyt.myplexplayer.data.db.CAT_LIVE
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.data.db.CAT_SERIES
@@ -85,6 +86,7 @@ import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.TabScaffold
 import com.biskyt.myplexplayer.ui.common.channelActions
 import com.biskyt.myplexplayer.ui.common.collectIds
+import com.biskyt.myplexplayer.ui.common.favouriteAction
 import com.biskyt.myplexplayer.ui.common.glowRoom
 import com.biskyt.myplexplayer.ui.common.glowRoomPadding
 import com.biskyt.myplexplayer.ui.common.guideNowNext
@@ -104,9 +106,16 @@ import com.biskyt.myplexplayer.ui.phone.PhoneHome
 import com.biskyt.myplexplayer.ui.player.DescribedEpisode
 import com.biskyt.myplexplayer.ui.player.describe
 import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
+import com.biskyt.myplexplayer.ui.vod.TitleExtras
 import com.biskyt.myplexplayer.ui.vod.TitleOptions
+import com.biskyt.myplexplayer.ui.vod.TitlePanel
 import com.biskyt.myplexplayer.ui.vod.carryOnEpisode
+import com.biskyt.myplexplayer.ui.vod.deleteAction
+import com.biskyt.myplexplayer.ui.vod.episodeAndShowActions
+import com.biskyt.myplexplayer.ui.vod.episodeOwnActions
+import com.biskyt.myplexplayer.ui.vod.filmOwnActions
 import com.biskyt.myplexplayer.ui.vod.rememberTitleExtras
+import com.biskyt.myplexplayer.ui.vod.titleExtraActions
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -222,7 +231,21 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
 
     fun forget(p: WatchProgressEntity) = viewModelScope.launch { c.vod.forgetProgress(p) }
 
-    fun setWatched(p: WatchProgressEntity) = viewModelScope.launch { c.vod.setWatched(p.playlistId, p.itemId, p.seriesId, watched = true) }
+    // Marks it on the server. If the server refuses or is out of reach, a notice says so (see VodRepository).
+    // [done] gets whether the server took the mark, on the main thread.
+    fun setWatched(playlistId: Long, id: Long, series: Long?, watched: Boolean, done: (Boolean) -> Unit) {
+        viewModelScope.launch { done(c.vod.setWatched(playlistId, id, series, watched)) }
+    }
+
+    // Deletes on the server (it asked first). If the server refuses or is out of reach, a notice says so.
+    // [done] gets whether the title went, on the main thread.
+    fun deleteMovie(playlistId: Long, id: Long, done: (Boolean) -> Unit) {
+        viewModelScope.launch { done(c.vod.deleteMovie(playlistId, id)) }
+    }
+
+    fun deleteEpisode(playlistId: Long, series: Long, id: Long, done: (Boolean) -> Unit) {
+        viewModelScope.launch { done(c.vod.deleteEpisode(playlistId, series, id) != VodRepository.EpisodeDeleted.NOTHING) }
+    }
 
     val nowNext = guideNowNext(viewModelScope, c) { playlistId.value }
 
@@ -457,13 +480,15 @@ private fun TvHome(vm: HomeViewModel) {
         }
     }
     options?.let { tile ->
+        val key = (tile as? HomeTile.CarryOn)?.p?.cardKey()
+        // The card's place as the panel opens. A server's answer can come after the card has gone from the row.
+        val place = remember(tile) { carryOn.orEmpty().indexOfFirst { it.cardKey() == key } }
         TileOptions(tile, vm, pid) { removed ->
-            options = null
+            // A server's answer can come after this panel closed: it does not close another card's panel.
+            if (options === tile) options = null
             if (!removed) return@TileOptions
             // Taken off Continue watching: the card now in its place has the remote (or its own, moved on to the
             // next episode). Else the row on top's first card.
-            val key = (tile as? HomeTile.CarryOn)?.p?.cardKey()
-            val place = carryOn.orEmpty().indexOfFirst { it.cardKey() == key }
             scope.launch {
                 snapshotFlow { shown(tile) }.first { !it }
                 vm.focusAfterRemoving(key, place, carryOn.orEmpty()) { refocus++ }
@@ -630,9 +655,10 @@ internal fun TileOptions(tile: HomeTile, vm: HomeViewModel, pid: Long, onDismiss
 }
 
 /**
- * A Continue watching card's options: play it, its page, take it off the row, mark it watched, then what its page's
- * More… offers (the description of the episode that Play plays, the trailer, Cast and crew, More like this…), which
- * come in once the server answers.
+ * A Continue watching card's options (MyTVPlayer 1.39.0, the owner, 2026-11-25): play it, take it off the row, its page
+ * (a series' All episodes), then what its page's More… offers for it, once the server answers. For a film: Watched,
+ * favourites, the trailer, Cast and crew, More like this… and Delete. For an episode (the one that Play plays, as its
+ * description tells of it): its own options (description, cast and crew, Watched, Delete), then the show's.
  */
 @Composable
 private fun CarryOnOptions(p: WatchProgressEntity, vm: HomeViewModel, onDismiss: (removed: Boolean) -> Unit) {
@@ -640,24 +666,12 @@ private fun CarryOnOptions(p: WatchProgressEntity, vm: HomeViewModel, onDismiss:
     val series = p.seriesId
     val c = LocalContext.current.container
     val extras = rememberTitleExtras(c, p.playlistId, if (series == null) CAT_MOVIE else CAT_SERIES, series ?: p.itemId)
-    val episode = series?.let { extras?.episodes?.let { carryOnEpisode(it, p.itemId, p.finished) } }
-    // As the series page and the player describe it: the server's words, scores and people, then TMDB's where it has none.
-    val described by produceState<DescribedEpisode?>(null, episode, extras?.details?.tmdbId) {
-        val e = episode ?: return@produceState
-        value = DescribedEpisode(p.title, e)
-        val server = c.vod.episodeFacts(p.playlistId, e.id) ?: return@produceState
-        value = c.tmdb.describe(p.title, e, server, extras?.details?.tmdbId)
-    }
-    val base = listOf(
+    val canDelete by produceState(false, p.playlistId) { value = c.vod.canDelete(p.playlistId) }
+    val card = listOf(
         ItemAction.Open(
             stringResource(if (p.upNext) R.string.home_play_next_episode else R.string.home_resume),
             Screen.VodPlayer(p.playlistId, p.itemId, series, continueSeries = true)
         ),
-        if (series == null) {
-            ItemAction.Open(stringResource(R.string.common_about_movie), Screen.MovieDetails(p.playlistId, p.itemId))
-        } else {
-            ItemAction.Open(stringResource(R.string.common_all_episodes), Screen.SeriesDetails(p.playlistId, series, p.season, p.episode))
-        },
         ItemAction.Run(
             stringResource(R.string.home_remove_carry_on),
             stringResource(if (series == null) R.string.home_forget_movie else R.string.home_forget_series)
@@ -665,12 +679,125 @@ private fun CarryOnOptions(p: WatchProgressEntity, vm: HomeViewModel, onDismiss:
             vm.forget(p)
             onDismiss(true)
         },
-        markWatched(watched = false) {
-            vm.setWatched(p)
-            onDismiss(true)
+        if (series == null) {
+            ItemAction.Open(stringResource(R.string.common_about_movie), Screen.MovieDetails(p.playlistId, p.itemId))
+        } else {
+            ItemAction.Open(stringResource(R.string.common_all_episodes), Screen.SeriesDetails(p.playlistId, series, p.season, p.episode))
         }
     )
-    TitleOptions(c, p.playlistId, series ?: p.itemId, film = series == null, p.title, extras, described, base, close)
+    TitleOptions(c, p.playlistId, series ?: p.itemId, film = series == null, p.title, extras, card, close) { open ->
+        if (series == null) {
+            filmMore(p, vm, extras, canDelete, open, onDismiss)
+        } else {
+            episodeMore(p, series, vm, extras, canDelete, open, onDismiss)
+        }
+    }
+}
+
+/**
+ * What the film page's More… offers for film [p]. These are Watched, favourites and then the server's details' options.
+ * [open] opens their panels. Delete shows when the server allows it ([canDelete]). Watched and Delete call [onAnswer]
+ * when the server answers, and this closes the panel. The answer is true if the server took the change, as the card
+ * then goes.
+ */
+@Composable
+@Suppress("LongParameterList") // the card and what its options need
+private fun filmMore(
+    p: WatchProgressEntity,
+    vm: HomeViewModel,
+    extras: TitleExtras?,
+    canDelete: Boolean,
+    open: (TitlePanel) -> Unit,
+    onAnswer: (removed: Boolean) -> Unit
+): List<ItemAction> {
+    val c = LocalContext.current.container
+    // A film on the row is not watched yet.
+    return filmOwnActions(
+        p.title,
+        watched = false,
+        setWatched = { watched -> vm.setWatched(p.playlistId, p.itemId, series = null, watched, onAnswer) },
+        rememberVodFavourite(c, p.playlistId, CAT_MOVIE, p.itemId),
+        { vm.setVodFavourite(CAT_MOVIE, p.itemId, it) },
+        titleExtraActions(c, p.playlistId, p.itemId, film = true, p.title, extras, open),
+        delete = if (canDelete) {
+            { vm.deleteMovie(p.playlistId, p.itemId, onAnswer) }
+        } else {
+            null
+        }
+    )
+}
+
+/** Whether film or series [id] ([type] CAT_MOVIE or CAT_SERIES) on [playlistId] is a favourite: null until read. */
+@Composable
+private fun rememberVodFavourite(c: AppContainer, playlistId: Long, type: String, id: Long): Boolean? {
+    val favourite by remember(playlistId, type, id) { c.vod.observeFavourite(playlistId, type, id) }.collectAsState(initial = null)
+    return favourite
+}
+
+/**
+ * What the series page's More… offers under "This episode" and "The show" for card [p] of [series]. [open] opens
+ * their panels. "This episode" is the episode that Play plays, once the server has listed the episodes ([extras]).
+ * Until then, or if the list does not come, it is the card's own episode, with only Watched and Delete.
+ * Watched, Not watched and Delete call [onAnswer] when the server answers, and this closes the panel. The answer is
+ * true only if the card's own episode changed, as only then does the card go from the row.
+ */
+@Composable
+@Suppress("LongParameterList") // the card and what its options need
+private fun episodeMore(
+    p: WatchProgressEntity,
+    series: Long,
+    vm: HomeViewModel,
+    extras: TitleExtras?,
+    canDelete: Boolean,
+    open: (TitlePanel) -> Unit,
+    onAnswer: (removed: Boolean) -> Unit
+): List<ItemAction> {
+    val c = LocalContext.current.container
+    val episode = extras?.episodes?.let { carryOnEpisode(it, p.itemId, p.finished) }
+    // As the series page and the player describe it: the server's words, scores and people, then TMDB's where it has none.
+    val described by produceState<DescribedEpisode?>(null, episode, extras?.details?.tmdbId) {
+        val e = episode ?: return@produceState
+        value = DescribedEpisode(p.title, e)
+        val server = c.vod.episodeFacts(p.playlistId, e.id) ?: return@produceState
+        value = c.tmdb.describe(p.title, e, server, extras?.details?.tmdbId)
+    }
+
+    // A change to another episode (the next one, after one watched) leaves the card on the row.
+    fun setWatched(id: Long): (Boolean) -> Unit = { watched ->
+        vm.setWatched(p.playlistId, id, series, watched) { onAnswer(it && id == p.itemId) }
+    }
+    fun delete(id: Long): (() -> Unit)? = if (canDelete) {
+        { vm.deleteEpisode(p.playlistId, series, id) { onAnswer(it && id == p.itemId) } }
+    } else {
+        null
+    }
+    val d = described
+    val own = if (d == null || episode == null) {
+        // No episode list yet: the card's own episode, as the card shows it.
+        listOfNotNull(
+            if (!p.finished) markWatched(false, setWatched(p.itemId)) else null,
+            if (p.started) markWatched(true, setWatched(p.itemId)) else null,
+            delete(p.itemId)?.let { deleteAction(p.episodeTitle ?: p.title, it) }
+        )
+    } else {
+        val e = d.episode
+        // The card's own episode has its progress. The next one, after one watched, has none yet.
+        val same = e.id == p.itemId
+        episodeOwnActions(
+            d,
+            finished = same && p.finished,
+            started = same && p.started,
+            describe = { open(TitlePanel.Describe(d)) },
+            showCast = { open(TitlePanel.EpisodeCast(d)) },
+            setWatched = setWatched(e.id),
+            delete = delete(e.id)
+        )
+    }
+    val favourite = rememberVodFavourite(c, p.playlistId, CAT_SERIES, series)
+    // The owner, 2026-11-25: the card can delete its episode, but not the series or its watched episodes.
+    val show = titleExtraActions(c, p.playlistId, series, film = false, p.title, extras, open) +
+        listOfNotNull(favourite?.let { f -> favouriteAction(f) { vm.setVodFavourite(CAT_SERIES, series, it) } })
+    return episodeAndShowActions(own, show)
 }
 
 /** A favourite film's or series' options: open it, favourites and Move, then what its page's More… offers. */
@@ -684,7 +811,7 @@ private fun FavouriteOptions(tile: HomeTile.Vod, vm: HomeViewModel, pid: Long, o
         if (!favourite) onDismiss(true)
     } + listOfNotNull(moveAction(vm.mover, tile.type, tile.card.id, close, VOD_ROW_LIMIT))
     val extras = rememberTitleExtras(c, pid, tile.type, tile.card.id)
-    TitleOptions(c, pid, tile.card.id, tile.type == CAT_MOVIE, tile.card.title, extras, described = null, base, close)
+    TitleOptions(c, pid, tile.card.id, tile.type == CAT_MOVIE, tile.card.title, extras, base, close)
 }
 
 @Composable

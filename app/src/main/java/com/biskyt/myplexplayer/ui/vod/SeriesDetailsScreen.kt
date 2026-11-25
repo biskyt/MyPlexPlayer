@@ -88,7 +88,6 @@ import com.biskyt.myplexplayer.ui.common.favouriteAction
 import com.biskyt.myplexplayer.ui.common.focusGlow
 import com.biskyt.myplexplayer.ui.common.formatDate
 import com.biskyt.myplexplayer.ui.common.formatDuration
-import com.biskyt.myplexplayer.ui.common.markWatched
 import com.biskyt.myplexplayer.ui.common.onOptionsKey
 import com.biskyt.myplexplayer.ui.common.onOptionsKeyAfter
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
@@ -96,11 +95,11 @@ import com.biskyt.myplexplayer.ui.common.rememberTrailerOpener
 import com.biskyt.myplexplayer.ui.common.restoreFocusIf
 import com.biskyt.myplexplayer.ui.common.shortEpisodeLabel
 import com.biskyt.myplexplayer.ui.common.timeLeft
+import com.biskyt.myplexplayer.ui.phone.PhoneArt
 import com.biskyt.myplexplayer.ui.phone.PhoneSeriesPage
 import com.biskyt.myplexplayer.ui.player.DescribedEpisode
 import com.biskyt.myplexplayer.ui.player.EpisodeDescriptionPanel
 import com.biskyt.myplexplayer.ui.player.describe
-import com.biskyt.myplexplayer.ui.player.episodeDescriptionAction
 import com.biskyt.myplexplayer.ui.player.episodeName
 import com.biskyt.myplexplayer.ui.theme.BOLD
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
@@ -139,6 +138,12 @@ class SeriesDetailsViewModel(
 
     /** The show's trailers for Other trailers: the server's (with its details), then TMDB's (with a key). */
     val trailers by derivedStateOf { TitleTrailers(details?.info?.trailers.orEmpty(), tmdb?.trailers.orEmpty()) }
+
+    /** Whether the server's details and TMDB (with a key) have both answered or failed: no more art will come. */
+    private var settled by mutableStateOf(false)
+
+    /** The art a phone's page can show at its top: the server's, then TMDB's. */
+    val art by derivedStateOf { PhoneArt(listOfNotNull(details?.info?.backdropUrl, tmdb?.backdropUrl), settled) }
 
     /** The show as a whole (its status, counts and next episode), from Discover, then TMDB. */
     val status by derivedStateOf { seriesStatusOf(discover, tmdb) }
@@ -181,24 +186,32 @@ class SeriesDetailsViewModel(
     }
 
     fun load() = viewModelScope.launch {
-        error = null
-        series = c.vod.series(playlistId, seriesId)
+        // With no details yet (Try again after a failed read), more art can still come. A read again after a delete
+        // keeps the page's details, so its header does not change size.
+        if (details == null) settled = false
         try {
-            // The seasons already read from TMDB fill the server's new details too.
-            details = c.vod.seriesDetails(c.source(playlistId), seriesId).filledFrom(tmdbSeasons)
-        } catch (e: java.io.IOException) {
-            error = e.message ?: appString(R.string.vod_episodes_failed)
+            error = null
+            series = c.vod.series(playlistId, seriesId)
+            try {
+                // The seasons already read from TMDB fill the server's new details too.
+                details = c.vod.seriesDetails(c.source(playlistId), seriesId).filledFrom(tmdbSeasons)
+            } catch (e: java.io.IOException) {
+                error = e.message ?: appString(R.string.vod_episodes_failed)
+            }
+            details?.info?.let { loadExtras(it) }
+        } finally {
+            settled = true
         }
-        details?.info?.let(::loadExtras)
     }
 
     /**
      * What Discover and TMDB (with a key) add to the show's page, each read once when the page opens, while the page
-     * shows the server's details. A part that cannot be read is left out.
+     * shows the server's details. A part that cannot be read is left out. Discover's read goes on after this returns.
      */
-    private fun loadExtras(info: VodDetails) {
+    private suspend fun loadExtras(info: VodDetails) {
         if (discover == null) info.discoverId?.let { id -> viewModelScope.launch { discover = offlineOk { c.plex.discoverTitle(id) } } }
-        if (tmdb == null) info.tmdbId?.let { id -> viewModelScope.launch { tmdb = c.tmdb.title(series = true, id) } }
+        val id = info.tmdbId
+        if (tmdb == null && id != null) tmdb = c.tmdb.title(series = true, id)
     }
 
     /**
@@ -464,12 +477,7 @@ private fun SeriesPanels(
         SeriesPanel.About -> AboutPanel(d?.info, close)
         SeriesPanel.Trailers -> OtherTrailersPanel(title, vm.trailers, vm::trailer, close)
         is SeriesPanel.Describe -> EpisodeDescriptionPanel(vm.described(p.e), close)
-        is SeriesPanel.EpisodeCast -> vm.described(p.e).extras?.credits?.let { credits ->
-            val crew = remember(credits) { castAndCrew(credits) }
-            val name = episodeLabel(p.e)
-            val acting = credits.acting()
-            CastPanel(name, crew, stringResource(R.string.vod_cast_crew), vm.castFocus, { openPerson(it, crew[it], it < acting) }, close)
-        }
+        is SeriesPanel.EpisodeCast -> EpisodeCastPanel(vm.described(p.e), vm.castFocus, openPerson, close)
     }
 }
 
@@ -689,19 +697,21 @@ private fun EpisodeOptions(
         close()
         play(e, fromStart)
     }
-    val described = vm.described(e)
     // One partly watched can be counted as watched, or started again (its progress forgotten).
     val episode = listOfNotNull(
         resumable?.let { ItemAction.Run(appString(R.string.vod_resume_from, formatDuration(it.positionMs))) { start(false) } },
         resumable?.let { ItemAction.Run(appString(R.string.common_from_start)) { start(true) } },
-        episodeDescriptionAction(described) { vm.open = SeriesPanel.Describe(e) },
-        episodeCastAction(described.extras?.credits) {
+    ) + episodeOwnActions(
+        vm.described(e),
+        finished = saved?.finished == true,
+        started = saved?.started == true,
+        describe = { vm.open = SeriesPanel.Describe(e) },
+        showCast = {
             vm.castFocus = 0
             vm.open = SeriesPanel.EpisodeCast(e)
         },
-        if (saved?.finished != true) markWatched(false, set) else null,
-        if (saved?.started == true) markWatched(true, set) else null,
-        if (canDelete) deleteAction(episodeName(e)) { vm.delete(e) } else null,
+        setWatched = set,
+        delete = if (canDelete) ({ vm.delete(e) }) else null,
     )
     val showActions = titleActions(
         d?.info,

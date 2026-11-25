@@ -7,6 +7,7 @@ import androidx.paging.PagingData
 import androidx.room.withTransaction
 import androidx.sqlite.db.SimpleSQLiteQuery
 import com.biskyt.myplexplayer.R
+import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.core.plex.PlexAutoDelete
 import com.biskyt.myplexplayer.core.plex.PlexClient
 import com.biskyt.myplexplayer.core.plex.PlexException
@@ -242,11 +243,13 @@ class VodRepository(
 
     /**
      * Marks a film, episode or whole series ([id]; [series]: the series it is or is in, null for a film) watched or
-     * unwatched on its Plex server; false if it couldn't be told.
+     * unwatched on its Plex server; false, with a notice, if it couldn't be told.
      */
     suspend fun setWatched(playlistId: Long, id: Long, series: Long?, watched: Boolean): Boolean {
-        val source = playlists.get(playlistId) ?: return false
-        return (send { plex.setWatched(source, id, series, watched) } == Sent.SENT).also { if (it) onStopped() }
+        val source = playlists.get(playlistId)
+        val sent = source != null && send { plex.setWatched(source, id, series, watched) } == Sent.SENT
+        if (sent) onStopped() else notices.post(Notice(appString(R.string.vod_watched_not_saved), null))
+        return sent
     }
 
     /**

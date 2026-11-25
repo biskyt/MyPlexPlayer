@@ -38,6 +38,7 @@ import com.biskyt.myplexplayer.ui.common.SidePanel
 import com.biskyt.myplexplayer.ui.common.TvTextField
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
+import com.biskyt.myplexplayer.ui.theme.showsQrCodes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
@@ -125,7 +126,7 @@ internal fun TmdbKeyPanel(saved: String, onDismiss: () -> Unit) {
             )
             vm.check?.let { Muted(stringResource(checkText(it)), maxLines = 3) }
             // On a TV only: on a phone or a tablet, the key is typed or pasted in the box above.
-            if (tv) {
+            if (showsQrCodes()) {
                 PhoneKeyEntry { sent ->
                     key = sent
                     save()

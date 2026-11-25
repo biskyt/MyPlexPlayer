@@ -2,6 +2,13 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.20.0
+- Continue watching cards now offer most options from the title's More menu.
+- On a phone, film and series pages have the tab bar.
+- On a phone, a page with no backdrop has no empty space at the top.
+- On a phone, the crash page opens the report with a button, not a QR code.
+- On a phone, pages drawn as on a TV show no QR code.
+
 ## 1.19.0
 - Settings and sign-in now work by touch on phones and tablets.
 - A tap on a country in Categories opens its categories under it.
