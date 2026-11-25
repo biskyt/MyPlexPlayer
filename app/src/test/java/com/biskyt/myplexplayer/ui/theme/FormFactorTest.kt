@@ -6,7 +6,9 @@ import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.LayoutMode
 import com.biskyt.myplexplayer.testutil.PlainApp
 import com.biskyt.myplexplayer.ui.Screen
+import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.hasPhoneLayout
+import com.biskyt.myplexplayer.ui.hasTabBar
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -47,7 +49,7 @@ class FormFactorTest {
     }
 
     @Test
-    fun `Home, the channel list, the films, the series, their pages and the players have phone layouts`() {
+    fun `the tabs, the title pages, a person's page and the players have phone layouts`() {
         assertTrue(Screen.Home.hasPhoneLayout)
         assertTrue(Screen.Live().hasPhoneLayout)
         assertTrue(Screen.Movies().hasPhoneLayout)
@@ -56,9 +58,23 @@ class FormFactorTest {
         assertTrue(Screen.Player(1, 2, ChannelFilter.All).hasPhoneLayout)
         assertTrue(Screen.MovieDetails(1, 2).hasPhoneLayout)
         assertTrue(Screen.SeriesDetails(1, 2).hasPhoneLayout)
-        // Drawn as on a TV for now: the guide, DVR and a person's page (step 3), Settings.
+        assertTrue(Screen.Dvr.hasPhoneLayout)
+        assertTrue(Screen.Person(1, 2, null, "Ana Ruiz", null, null, "The Harbour", Tab.MOVIES).hasPhoneLayout)
+        // Drawn as on a TV: the guide, Search and Settings.
         assertFalse(Screen.Live(guide = true).hasPhoneLayout)
-        assertFalse(Screen.Dvr.hasPhoneLayout)
+        assertFalse(Screen.Search().hasPhoneLayout)
         assertFalse(Screen.Settings.hasPhoneLayout)
+    }
+
+    @Test
+    fun `the tabs have the tab bar, and the title pages, a person's page and the players do not`() {
+        listOf(Screen.Home, Screen.Live(), Screen.Movies(), Screen.Series(), Screen.Dvr).forEach { assertTrue("$it", it.hasTabBar) }
+        listOf(
+            Screen.MovieDetails(1, 2),
+            Screen.SeriesDetails(1, 2),
+            Screen.Person(1, 2, null, "Ana Ruiz", null, null, "The Harbour", Tab.MOVIES),
+            Screen.VodPlayer(1, 2),
+            Screen.Live(guide = true)
+        ).forEach { assertFalse("$it", it.hasTabBar) }
     }
 }

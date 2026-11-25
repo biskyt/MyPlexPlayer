@@ -97,6 +97,8 @@ class RecordUiTest {
         compose.waitForText("Stop recording the series", stepMs = 50)
         assertTrue(compose.onAllNodes(hasText("Record series")).fetchSemanticsNodes().isEmpty())
         choose("Stop recording the series")
+        // It asks first, as every delete does.
+        choose("Stop recording")
         compose.waitAdvancingClock(50) { plex.rules.isEmpty() && !marked("Series set to record") }
     }
 
@@ -112,7 +114,27 @@ class RecordUiTest {
 
         press(Key.MediaRecord)
         choose("Cancel this recording")
+        choose("Cancel the recording")
         compose.waitAdvancingClock(50) { plex.rules.isEmpty() && !marked("Set to record") }
+    }
+
+    @Test
+    fun `Cancel this recording asks first, and Keep it cancels nothing`() {
+        guide()
+        press(Key.MediaRecord)
+        choose("Record")
+        compose.waitAdvancingClock(50) { plex.rules.isNotEmpty() && marked("Set to record") }
+
+        press(Key.MediaRecord)
+        choose("Cancel this recording")
+        compose.waitAdvancingClock(50) {
+            compose.onAllNodes(hasText("Cancel the recording of", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+        assertEquals(1, plex.rules.size)
+        choose("Keep it")
+        compose.idleFrames()
+        assertEquals(1, plex.rules.size)
+        assertTrue(marked("Set to record"))
     }
 
     @Test

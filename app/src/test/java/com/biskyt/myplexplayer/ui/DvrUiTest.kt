@@ -90,6 +90,14 @@ class DvrUiTest {
         compose.waitForText("Nothing to record yet", stepMs = 50) // its one airing is recording now
 
         choose("Film 1", "Cancel this recording")
+        // It asks first: kept, nothing is cancelled.
+        compose.waitForText("Cancel the recording of “Film 1”?", stepMs = 50)
+        compose.onNode(hasText("Keep it") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForText("Cancel this recording", stepMs = 50)
+        assertTrue(plex.rules.any { it.key == "2" })
+        compose.onNode(hasText("Cancel this recording") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForText("Cancel the recording", stepMs = 50)
+        compose.onNode(hasText("Cancel the recording") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitAdvancingClock(50) { plex.rules.none { it.key == "2" } }
         compose.waitAdvancingClock(50) { compose.onAllNodes(hasText("Film 1")).fetchSemanticsNodes().isEmpty() }
     }
@@ -101,6 +109,9 @@ class DvrUiTest {
         compose.waitForText("Other recordings", stepMs = 50)
         compose.waitForText("Waiting for it to be in the TV guide", stepMs = 50)
         choose("Waiting for it", "Cancel this recording")
+        compose.waitForText("Cancel the recording", stepMs = 50)
+        assertTrue(plex.rules.isNotEmpty())
+        compose.onNode(hasText("Cancel the recording") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitAdvancingClock(50) { plex.rules.isEmpty() }
         compose.waitForText("Nothing is set to record", stepMs = 50)
     }
@@ -123,6 +134,10 @@ class DvrUiTest {
         compose.waitAdvancingClock(50) { "New and repeats" in compose.focusedText() }
 
         compose.onNode(hasText("Stop recording the series") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        // It asks first: nothing stops until the user says yes.
+        compose.waitForText("Stop recording “Show 0”? This also cancels its episodes set to record.", stepMs = 50)
+        assertEquals(1, plex.rules.size)
+        compose.onNode(hasText("Stop recording") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitAdvancingClock(50) { plex.rules.isEmpty() }
         compose.waitForText("Nothing is set to record", stepMs = 50)
         assertEquals(0, plex.rules.size)

@@ -1,17 +1,20 @@
 package com.biskyt.myplexplayer.ui.dvr
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -21,10 +24,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.tv.material3.MaterialTheme
@@ -45,6 +52,7 @@ import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Navigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
+import com.biskyt.myplexplayer.ui.common.Ambience
 import com.biskyt.myplexplayer.ui.common.AmbientSource
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.ItemActionsPanel
@@ -56,9 +64,17 @@ import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.TabScaffold
 import com.biskyt.myplexplayer.ui.common.TvCard
 import com.biskyt.myplexplayer.ui.common.ambientSource
+import com.biskyt.myplexplayer.ui.common.cancelRecordingAction
 import com.biskyt.myplexplayer.ui.common.formatDayTime
 import com.biskyt.myplexplayer.ui.common.formatTime
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
+import com.biskyt.myplexplayer.ui.common.stopSeriesAction
+import com.biskyt.myplexplayer.ui.phone.PhoneCard
+import com.biskyt.myplexplayer.ui.phone.PhoneGutter
+import com.biskyt.myplexplayer.ui.phone.PhoneScaffold
+import com.biskyt.myplexplayer.ui.phone.PhoneSectionTitle
+import com.biskyt.myplexplayer.ui.phone.touchCard
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.Palette
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -197,34 +213,42 @@ fun DvrScreen() {
         ?: lists.series.firstOrNull()?.let { ruleKey(it.rule) }
         ?: lists.problems.firstOrNull()?.let(::rowKey)
         ?: lists.others.firstOrNull()?.let { ruleKey(it) }
-    val first = rememberFirstFocus(firstRow != null)
+    // A phone or an unfolded foldable (the owner, 2026-11-25): the same lists in the phone's frame, with no focus to move.
+    val phone = !LocalFormFactor.current.isTv
+    val first = if (phone) Modifier else rememberFirstFocus(firstRow != null)
     val tabFocus = remember { FocusRequester() }
-    if (firstRow == null) LaunchedEffect(Unit) { runCatching { tabFocus.requestFocus() } }
+    if (firstRow == null && !phone) LaunchedEffect(Unit) { runCatching { tabFocus.requestFocus() } }
     fun focus(key: String) = if (key == firstRow) first else Modifier
-    TabScaffold(Tab.DVR, tabFocus = tabFocus) {
+    val list = @Composable {
+        val side = if (phone) PhoneGutter else 56.dp
         LazyColumn(
-            contentPadding = PaddingValues(start = 56.dp, end = 56.dp, bottom = 40.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            contentPadding = PaddingValues(start = side, end = side, bottom = 40.dp),
+            verticalArrangement = Arrangement.spacedBy(if (phone) 8.dp else 6.dp)
         ) {
-            if (lists.isEmpty) item { Muted(stringResource(R.string.dvr_nothing), maxLines = 3) }
+            if (lists.isEmpty) {
+                item {
+                    Muted(stringResource(R.string.dvr_nothing), Modifier.padding(top = if (phone) 12.dp else 0.dp), maxLines = 3)
+                }
+            }
             airings(R.string.dvr_now_title, lists.now, state, channels, ::focus) { picked = Picked.Airing(it) }
             recorded(lists.recent, channels, ::focus, { picked = Picked.Recorded(it) }) { vm.openRecorded(it, page = false, nav) }
             airings(R.string.dvr_coming_up, lists.comingUp, state, channels, ::focus) { picked = Picked.Airing(it) }
             if (lists.series.isNotEmpty()) {
-                item { SectionTitle(stringResource(R.string.dvr_series_title), Modifier.padding(top = SECTION_GAP)) }
+                item { DvrSectionTitle(stringResource(R.string.dvr_series_title)) }
                 items(lists.series, key = { ruleKey(it.rule) }) { row ->
                     SeriesCard(row, channels, focus(ruleKey(row.rule))) { picked = Picked.Rule(row.rule) }
                 }
             }
             airings(R.string.dvr_problems, lists.problems, state, channels, ::focus) { picked = Picked.Airing(it) }
             if (lists.others.isNotEmpty()) {
-                item { SectionTitle(stringResource(R.string.dvr_others_title), Modifier.padding(top = SECTION_GAP)) }
+                item { DvrSectionTitle(stringResource(R.string.dvr_others_title)) }
                 items(lists.others, key = { ruleKey(it) }) { rule ->
                     OtherCard(rule, focus(ruleKey(rule))) { picked = Picked.Rule(rule) }
                 }
             }
         }
     }
+    if (phone) PhoneScaffold(Tab.DVR, stringResource(Tab.DVR.label)) { list() } else TabScaffold(Tab.DVR, tabFocus = tabFocus) { list() }
     picked?.let { DvrOptions(it, pid, state, channels, vm) { picked = null } }
 }
 
@@ -241,7 +265,7 @@ private fun LazyListScope.airings(
     open: (PlexScheduledRecording) -> Unit
 ) {
     if (airings.isEmpty()) return
-    item { SectionTitle(stringResource(title), Modifier.padding(top = SECTION_GAP)) }
+    item { DvrSectionTitle(stringResource(title)) }
     items(airings, key = ::rowKey) { a -> AiringCard(a, state, channels, focus(rowKey(a))) { open(a) } }
 }
 
@@ -254,11 +278,22 @@ private fun LazyListScope.recorded(
     play: (PlexScheduledRecording) -> Unit
 ) {
     if (airings.isEmpty()) return
-    item { SectionTitle(stringResource(R.string.dvr_recent_title), Modifier.padding(top = SECTION_GAP)) }
+    item { DvrSectionTitle(stringResource(R.string.dvr_recent_title)) }
     items(airings, key = ::rowKey) { a ->
         Row2(null, a.title, listOfNotNull(episodeLine(a), whenAndWhere(a, channels)), focus(rowKey(a)), logo(a, channels), onClick = {
             play(a)
         }, onLongClick = { options(a) })
+    }
+}
+
+/** A section's title: as on a TV's other tabs, or on a phone as Home's are (18, extra bold). */
+@Composable
+private fun DvrSectionTitle(text: String) {
+    if (LocalFormFactor.current.isTv) {
+        SectionTitle(text, Modifier.padding(top = SECTION_GAP))
+    } else {
+        // The list has the gutter already.
+        PhoneSectionTitle(text, gutter = false)
     }
 }
 
@@ -327,7 +362,13 @@ private fun Row2(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null
 ) {
-    val card = modifier.ambientSource(LocalAmbience.current, ambient).fillMaxWidth()
+    val ambience = LocalAmbience.current
+    if (!LocalFormFactor.current.isTv) {
+        // At touch size: a tap does OK's job, and a long press holding OK's (the options).
+        PhoneRow(mark, title, lines, ambience, ambient, onClick, onLongClick ?: onClick)
+        return
+    }
+    val card = modifier.ambientSource(ambience, ambient).fillMaxWidth()
     TvCard(onClick = onClick, onLongClick = onLongClick ?: onClick, modifier = card, color = Palette.surfaceLow) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.width(DOT_SPACE)) { mark?.let { RecordingDot(it) } }
@@ -335,6 +376,38 @@ private fun Row2(
                 Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1)
                 lines.forEach { Muted(it) }
             }
+        }
+    }
+}
+
+/** A DVR row on a phone: the mark, then the title and its lines, on a card that a finger can hit. */
+@Composable
+@Suppress("LongParameterList") // a row: what it shows and what it does
+private fun PhoneRow(
+    mark: RecordingMark?,
+    title: String,
+    lines: List<String>,
+    ambience: Ambience?,
+    ambient: AmbientSource,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 64.dp).clip(RoundedCornerShape(14.dp))
+            .background(PhoneCard).touchCard(ambience, ambient, onLongClick, onClick).padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.width(DOT_SPACE)) { mark?.let { RecordingDot(it) } }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                title,
+                color = Palette.text,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            lines.forEach { Text(it, color = Palette.textDim, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }
         }
     }
 }
@@ -361,8 +434,15 @@ private fun DvrOptions(
     close: () -> Unit
 ) {
     val recordings = vm.recordings
-    val stopLabel = stringResource(R.string.dvr_stop_series)
-    fun stop(rule: PlexRecordingRule, label: String = stopLabel) = ItemAction.Run(label) {
+
+    /** Cancels what is titled [name] once the user says yes (see cancelRecordingAction). */
+    fun cancel(name: String, run: () -> Unit) = cancelRecordingAction(name) {
+        close()
+        run()
+    }
+
+    /** Stops series [rule], with its episodes set to record, once the user says yes. */
+    fun stop(rule: PlexRecordingRule) = stopSeriesAction(rule.subjectTitle) {
         close()
         recordings.remove(pid, rule)
     }
@@ -374,10 +454,7 @@ private fun DvrOptions(
             val watch = stringResource(R.string.common_watch)
             a.title to listOfNotNull(
                 channel?.let { ItemAction.Open(watch, Screen.Player(pid, it.streamId, ChannelFilter.All)) },
-                ItemAction.Run(stringResource(R.string.dvr_cancel)) {
-                    close()
-                    recordings.cancel(pid, a, rule)
-                },
+                cancel(a.title) { recordings.cancel(pid, a, rule) },
                 rule?.takeIf { it.isSeries }?.let(::stop)
             )
         }
@@ -393,7 +470,7 @@ private fun DvrOptions(
                     stop(rule)
                 )
             } else {
-                listOf(stop(rule, stringResource(R.string.dvr_cancel)))
+                listOf(cancel(rule.subjectTitle) { recordings.remove(pid, rule) })
             }
         }
     }

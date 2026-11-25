@@ -6,6 +6,10 @@
     <string name="dvr_record_series_help">Episódios novos, em qualquer canal</string>
     <string name="dvr_cancel">Cancelar esta gravação</string>
     <string name="dvr_stop_series">Parar de gravar a série</string>
+    <string name="dvr_cancel_confirm">Cancelar a gravação de “%1$s”?</string>
+    <string name="dvr_cancel_yes">Cancelar a gravação</string>
+    <string name="dvr_stop_series_confirm">Parar de gravar “%1$s”? Os episódios programados também são cancelados.</string>
+    <string name="dvr_stop_series_yes">Parar de gravar</string>
     <string name="dvr_set_to_record">Programado para gravar</string>
     <string name="dvr_series_set_to_record">Série programada para gravar</string>
     <string name="dvr_recording_now">Gravando</string>

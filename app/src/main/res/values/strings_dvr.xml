@@ -7,6 +7,10 @@
     <string name="dvr_record_series_help">New episodes, on any channel</string>
     <string name="dvr_cancel">Cancel this recording</string>
     <string name="dvr_stop_series">Stop recording the series</string>
+    <string name="dvr_cancel_confirm">Cancel the recording of “%1$s”?</string>
+    <string name="dvr_cancel_yes">Cancel the recording</string>
+    <string name="dvr_stop_series_confirm">Stop recording “%1$s”? This also cancels its episodes set to record.</string>
+    <string name="dvr_stop_series_yes">Stop recording</string>
     <string name="dvr_set_to_record">Set to record</string>
     <string name="dvr_series_set_to_record">Series set to record</string>
     <string name="dvr_recording_now">Recording</string>
