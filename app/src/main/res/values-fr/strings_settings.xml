@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="settings_playlists_title">Playlists</string>
-    <string name="settings_playlists_help">Ajouter, modifier ou changer de compte IPTV</string>
+    <string name="settings_playlists_title">Serveurs</string>
+    <string name="settings_playlists_help">Se connecter ou changer de serveur</string>
     <string name="settings_playback_title">Lecture</string>
     <string name="settings_playback_help">Sauts, passthrough audio, sous-titres, mémoire tampon</string>
     <string name="settings_categories_title">Langues et catégories</string>
@@ -11,7 +11,7 @@
     <string name="settings_misc_title">Divers</string>
     <string name="settings_misc_help">Écran d\'accueil du téléviseur, alertes réseau, disposition</string>
     <string name="settings_backup_title">Sauvegarde et restauration</string>
-    <string name="settings_backup_help">Enregistrer vos playlists et vos choix dans un fichier, ou les restaurer</string>
+    <string name="settings_backup_help">Enregistrer vos serveurs et vos choix dans un fichier, ou les restaurer</string>
     <string name="settings_layout">Disposition</string>
     <string name="settings_layout_help">TV pour une télécommande, téléphone et tablette pour un écran tactile</string>
     <string name="settings_layout_help_tv">Un téléviseur n\'a que la disposition TV : une télécommande ne peut pas utiliser la disposition tactile</string>
@@ -81,7 +81,7 @@
     <string name="settings_lib_lifecycle">État des écrans</string>
     <string name="settings_lib_room">Base de données des chaînes, du guide et de la progression</string>
     <string name="settings_lib_paging">Longues listes de chaînes</string>
-    <string name="settings_lib_work">Actualisation des playlists et des guides en arrière-plan</string>
+    <string name="settings_lib_work">Actualisation des serveurs et des guides en arrière-plan</string>
     <string name="settings_lib_tvprovider">Reprendre la lecture et les rangées de l\'Accueil sur l\'écran d\'accueil de la TV</string>
     <string name="settings_lib_datastore">Paramètres</string>
     <string name="settings_lib_coil">Logos des chaînes et affiches</string>
@@ -108,7 +108,7 @@
     <string name="settings_plex_try_again">Réessayer</string>
     <string name="settings_playlist_add_plex">Ajouter mes serveurs Plex</string>
 
-    <string name="settings_backup_permission_denied">Sans l\'autorisation d\'accès au stockage, la sauvegarde ne peut pas être enregistrée. Autorisez-la dans les Paramètres du téléviseur › Applications › MyPlexPlayer › Autorisations.</string>
+    <string name="settings_backup_permission_denied">Sans l\'autorisation d\'accès au stockage, la sauvegarde ne peut pas être enregistrée. Autorisez-la dans les Paramètres de l\'appareil › Applications › MyPlexPlayer › Autorisations.</string>
     <string name="settings_backup_saving">Enregistrement…</string>
     <string name="settings_backup_saved_to">Enregistrée dans %1$s</string>
     <string name="settings_backup_find_failed">Impossible de rechercher une sauvegarde : %1$s</string>
@@ -116,11 +116,11 @@
     <string name="settings_backup_restoring">Restauration…</string>
     <string name="settings_backup_failed">Un problème est survenu : %1$s</string>
     <string name="settings_backup_choose_file">Choisir le fichier de sauvegarde</string>
-    <string name="settings_backup_no_picker">Ce téléviseur ne permet pas de choisir un fichier. Ouvrez la sauvegarde avec MyPlexPlayer depuis un gestionnaire de fichiers comme X-plore (Ouvrir avec, ou Partager), ou installez-en un et réessayez.</string>
+    <string name="settings_backup_no_picker">Cet appareil ne permet pas de choisir un fichier. Ouvrez la sauvegarde avec MyPlexPlayer depuis un gestionnaire de fichiers comme X-plore (Ouvrir avec, ou Partager), ou installez-en un et réessayez.</string>
     <string name="settings_backup_intro">Enregistre dans un fichier vos serveurs Plex (avec leurs jetons d\'accès), vos choix de chaînes et de catégories, vos favoris et vos paramètres. Copiez-le avec un gestionnaire de fichiers pour le conserver ailleurs. Le fichier n\'est pas chiffré : gardez-le en lieu sûr.</string>
     <string name="settings_backup_last">Dernière sauvegarde : %1$s</string>
-    <string name="settings_backup_none">Aucune sauvegarde sur ce téléviseur pour l\'instant.</string>
-    <string name="settings_backup_confirm">Vos playlists et paramètres seront remplacés par ceux de la sauvegarde. Restaurer ?</string>
+    <string name="settings_backup_none">Aucune sauvegarde sur cet appareil pour l\'instant.</string>
+    <string name="settings_backup_confirm">Vos serveurs et paramètres seront remplacés par ceux de la sauvegarde. Restaurer ?</string>
     <string name="settings_backup_restore">Restaurer</string>
     <string name="settings_backup_cancel">Annuler</string>
     <string name="settings_backup_now">Sauvegarder</string>
@@ -129,7 +129,7 @@
     <string name="settings_backup_not_a_backup">Ce fichier n\'est pas une sauvegarde MyPlexPlayer.</string>
     <string name="settings_backup_newer">Cette sauvegarde provient d\'une version plus récente de MyPlexPlayer. Mettez d\'abord l\'appli à jour.</string>
     <string name="settings_backup_need_permission">MyPlexPlayer a besoin d\'une autorisation pour enregistrer dans le dossier Download.</string>
-    <string name="settings_backup_no_storage">Le stockage de ce téléviseur n\'est pas disponible pour le moment : la sauvegarde ne peut pas être enregistrée.</string>
+    <string name="settings_backup_no_storage">Le stockage de cet appareil n\'est pas disponible pour le moment : la sauvegarde ne peut pas être enregistrée.</string>
     <string name="settings_backup_no_folder">Impossible de créer le dossier Download/MyPlexPlayer pour la sauvegarde.</string>
     <string name="settings_backup_save_failed">Impossible d\'enregistrer le fichier de sauvegarde</string>
     <string name="settings_backup_create_failed">Impossible de créer le fichier de sauvegarde</string>
@@ -166,7 +166,7 @@
     <string name="settings_playlist_update_failed">Impossible de mettre à jour %1$s</string>
     <string name="settings_playlist_in_use">ACTIVE</string>
     <string name="settings_playlist_update_now">Mettre à jour</string>
-    <string name="settings_playlist_select_hint">Sélectionnez une playlist pour l\'utiliser.</string>
+    <string name="settings_playlist_select_hint">Sélectionnez un serveur pour l\'utiliser.</string>
     <string name="settings_warn_vpn">Avertir si le VPN n\'est pas connecté</string>
     <string name="settings_warn_vpn_help">Indique dans la barre du haut si Android signale un VPN sur cet appareil. Un VPN configuré sur votre box ou sur un autre appareil ne peut pas être détecté.</string>
     <string name="settings_external_ip">Afficher votre adresse IP externe</string>

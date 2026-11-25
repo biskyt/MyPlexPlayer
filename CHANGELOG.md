@@ -2,6 +2,13 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.19.0
+- Settings and sign-in now work by touch on phones and tablets.
+- A tap on a country in Categories opens its categories under it.
+- Film pages, and series pages on a phone, have a Trailer button.
+- Settings › Playlists is now Settings › Servers.
+- Sign-in and web links on a phone show no QR code.
+
 ## 1.18.0
 - Phones and tablets get their own layout, with a tab bar.
 - Home, Movies, TV Shows and Live TV now work by touch.

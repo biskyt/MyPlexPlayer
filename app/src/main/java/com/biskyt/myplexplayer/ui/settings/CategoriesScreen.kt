@@ -13,16 +13,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -58,6 +61,7 @@ import com.biskyt.myplexplayer.ui.common.formatCount
 import com.biskyt.myplexplayer.ui.common.matchesFilter
 import com.biskyt.myplexplayer.ui.common.restoreFocusIf
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.Palette
 import java.text.Collator
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -208,54 +212,57 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
     }
     BackHandler(onBack = done)
 
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 72.dp, vertical = 36.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.settings_categories_title), style = MaterialTheme.typography.headlineLarge)
-                Muted(stringResource(R.string.settings_categories_intro), maxLines = 2)
-            }
-            val included = categories.count { it.included }
-            val loading = pluralStringResource(R.plurals.settings_categories_loading, categories.size, included, categories.size)
-            Muted(loading, Modifier.padding(end = 16.dp))
-            PillButton(
-                stringResource(if (firstRun) R.string.common_continue else R.string.settings_categories_done),
-                done,
-                primary = true
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+    SettingsColumn(spacing = 14.dp, tvPadding = PaddingValues(horizontal = 72.dp, vertical = 36.dp)) {
+        CategoriesHeader(categories, firstRun, done)
+        ButtonRow(spacing = 8.dp, verticalAlignment = Alignment.CenterVertically) {
             vm.types.collectAsState().value.forEach { t ->
                 PillButton(stringResource(typeLabel(t)), { vm.showType(t) }, selected = t == type)
             }
         }
-        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            LazyColumn(
-                Modifier.width(380.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-                contentPadding = PaddingValues(bottom = 24.dp)
-            ) {
-                item {
-                    FilterField(vm.query, vm::filter, stringResource(R.string.settings_categories_filter), Modifier.fillMaxWidth())
-                }
-                item {
-                    Text(
-                        stringResource(R.string.settings_categories_detected),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Palette.textMuted
-                    )
-                }
-                // Every language at once (while filtering, the matching ones).
-                if (groups.isNotEmpty()) {
-                    item {
-                        val all = if (query.isEmpty()) R.string.settings_categories_all else R.string.settings_categories_all_matching
-                        SelectAllRow(stringResource(all), vm::setAll)
-                    }
-                }
-                if (groups.isEmpty() && query.isNotEmpty()) item { Muted(stringResource(R.string.settings_categories_no_match, query)) }
-                items(groups, key = { it.code ?: "" }) { g ->
+        val shownHidden = if (type == CAT_LIVE) hiddenShown else emptyList()
+        val lists = remember(vm, categories, groups, query, shownHidden) { CategoryLists(vm, categories, groups, query, shownHidden) }
+        if (LocalFormFactor.current.isTv) TvCategoryLists(lists) else TouchCategoryList(lists, type)
+    }
+}
+
+/** The title, what the page is for, how many categories load, and Done (or Continue, on first run: [firstRun]). */
+@Composable
+private fun CategoriesHeader(categories: List<CategoryEntity>, firstRun: Boolean, done: () -> Unit) {
+    val included = categories.count { it.included }
+    // On a touch screen, the title's back arrow does what Done does.
+    SettingsHeader(stringResource(R.string.settings_categories_title), stringResource(R.string.settings_categories_intro), done) {
+        Muted(
+            pluralStringResource(R.plurals.settings_categories_loading, categories.size, included, categories.size),
+            Modifier.padding(end = 16.dp)
+        )
+        PillButton(stringResource(if (firstRun) R.string.common_continue else R.string.settings_categories_done), done, primary = true)
+    }
+}
+
+/** What both layouts of the lists show: the groups (countries and languages) and, for live TV, the hidden channels. */
+private class CategoryLists(
+    val vm: CategoriesViewModel,
+    val categories: List<CategoryEntity>,
+    val groups: List<LanguageGroup>,
+    val query: String,
+    val hidden: List<ChannelEntity>
+)
+
+/**
+ * On a TV: the groups on the left, and on the right the categories of the group with focus, as the remote moves
+ * through the groups.
+ */
+@Composable
+private fun TvCategoryLists(lists: CategoryLists) {
+    val vm = lists.vm
+    Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+        LazyColumn(
+            Modifier.width(380.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            contentPadding = PaddingValues(bottom = 24.dp)
+        ) {
+            groupList(lists) {
+                items(lists.groups, key = { it.code ?: "" }) { g ->
                     var focused by remember { mutableStateOf(false) }
                     TvCard(
                         onClick = { vm.toggleGroup(g) },
@@ -264,83 +271,58 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
                         selected = g.code == vm.selectedGroup && !focused,
                         color = Palette.surfaceLow,
                         fill = true,
-                        modifier = Modifier.restoreFocusIf(vm.firstFocusPending && g == groups.first()) { vm.firstFocusPending = false }
+                        modifier = Modifier.restoreFocusIf(vm.firstFocusPending && g == lists.groups.first()) {
+                            vm.firstFocusPending = false
+                        }
                             .fillMaxWidth()
                             .onFocusChanged {
                                 focused = it.isFocused
                                 if (it.isFocused) vm.selectedGroup = g.code
                             }
-                    ) {
-                        Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(g.label, style = MaterialTheme.typography.titleSmall)
-                                Muted(pluralStringResource(R.plurals.settings_categories_count, g.total, g.included, g.total))
-                            }
-                            Toggle(g.included > 0)
-                        }
-                    }
-                }
-                if (type == CAT_LIVE && hiddenShown.isNotEmpty()) {
-                    item {
-                        Text(
-                            stringResource(R.string.settings_categories_hidden),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Palette.textMuted,
-                            modifier = Modifier.padding(top = 16.dp)
-                        )
-                    }
-                    items(hiddenShown, key = { "h${it.streamId}" }) { ch ->
-                        TvCard(onClick = { vm.unhide(ch) }, color = Palette.surfaceLow, modifier = Modifier.fillMaxWidth(), fill = true) {
-                            Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                                Text(
-                                    ch.name,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    modifier = Modifier.weight(1f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    stringResource(R.string.settings_categories_unhide),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = cardColor(LocalAccent.current.color)
-                                )
-                            }
-                        }
-                    }
+                    ) { GroupText(g) }
                 }
             }
-            val selected = vm.selectedGroup
-            val shown = remember(categories, selected, query) { vm.shown(categories, selected, query) }
-            LazyColumn(
-                Modifier.weight(1f).background(Palette.surfaceLow).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                // Just this language's categories: all of them, say, without choosing every language.
-                if (shown.isNotEmpty()) {
-                    item {
-                        SelectAllRow(stringResource(R.string.settings_categories_all_in, groupLabel(selected))) {
-                            vm.setGroup(selected, it)
-                        }
-                    }
+        }
+        GroupCategories(vm, lists.categories, lists.query, Modifier.weight(1f))
+    }
+}
+
+/**
+ * On a touch screen (the owner, 2026-11-25), one list: a tap on a group opens its categories under it, with "select
+ * all" and "none" for them, and a tap on it again closes them. A tap cannot move the focus that picks the group on a TV.
+ */
+@Composable
+private fun TouchCategoryList(lists: CategoryLists, type: String) {
+    val vm = lists.vm
+    // The group open: the one selected (the first, at the start), until a tap on it closes it. Another type or filter
+    // starts again with its first group open, as the selection does.
+    var closed by rememberSaveable(type, lists.query) { mutableStateOf(false) }
+    val open = vm.selectedGroup.takeUnless { closed }
+    val shown = remember(lists.categories, open, lists.query, closed) {
+        if (closed) emptyList() else vm.shown(lists.categories, open, lists.query)
+    }
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+        groupList(lists) {
+            lists.groups.forEach { g ->
+                val isOpen = !closed && g.code == vm.selectedGroup
+                item(key = "g${g.code}") {
+                    TvCard(
+                        onClick = {
+                            closed = isOpen
+                            vm.selectedGroup = g.code
+                        },
+                        selected = isOpen,
+                        color = Palette.surfaceLow,
+                        fill = true,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { GroupText(g, toggle = false) }
                 }
-                items(shown, key = { it.categoryId }) { cat ->
-                    TvCard(onClick = { vm.toggleCategory(cat) }, color = Palette.surface, modifier = Modifier.fillMaxWidth(), fill = true) {
-                        Row(
-                            Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Toggle(cat.included)
-                            Text(
-                                cat.label,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = cardColor(if (cat.included) Palette.text else Palette.textDim),
-                                modifier = Modifier.weight(1f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            if (cat.channelCount > 0) Muted(formatCount(cat.channelCount))
-                        }
+                if (isOpen) {
+                    item(key = "a${g.code}") {
+                        SelectAllRow(stringResource(R.string.settings_categories_all_in, groupLabel(g.code))) { vm.setGroup(g.code, it) }
+                    }
+                    items(shown, key = { "c${it.categoryId}" }) { cat ->
+                        CategoryCard(cat, Palette.surface, Modifier.padding(start = 16.dp)) { vm.toggleCategory(cat) }
                     }
                 }
             }
@@ -348,10 +330,128 @@ fun CategoriesScreen(playlistId: Long, firstRun: Boolean) {
     }
 }
 
+/**
+ * The list of groups, for either layout: the filter, "select all" and "none" for every group, the groups ([groups]
+ * adds their items), and the hidden channels, which a tap shows again.
+ */
+private fun LazyListScope.groupList(lists: CategoryLists, groups: LazyListScope.() -> Unit) {
+    val vm = lists.vm
+    item {
+        FilterField(vm.query, vm::filter, stringResource(R.string.settings_categories_filter), Modifier.fillMaxWidth())
+    }
+    item {
+        Text(
+            stringResource(R.string.settings_categories_detected),
+            style = MaterialTheme.typography.labelMedium,
+            color = Palette.textMuted
+        )
+    }
+    // Every language at once (while filtering, the matching ones).
+    if (lists.groups.isNotEmpty()) {
+        item {
+            val all = if (lists.query.isEmpty()) R.string.settings_categories_all else R.string.settings_categories_all_matching
+            SelectAllRow(stringResource(all), vm::setAll)
+        }
+    }
+    if (lists.groups.isEmpty() && lists.query.isNotEmpty()) {
+        item { Muted(stringResource(R.string.settings_categories_no_match, lists.query)) }
+    }
+    groups()
+    if (lists.hidden.isNotEmpty()) {
+        item {
+            Text(
+                stringResource(R.string.settings_categories_hidden),
+                style = MaterialTheme.typography.labelMedium,
+                color = Palette.textMuted,
+                modifier = Modifier.padding(top = 16.dp)
+            )
+        }
+        items(lists.hidden, key = { "h${it.streamId}" }) { ch ->
+            TvCard(onClick = { vm.unhide(ch) }, color = Palette.surfaceLow, modifier = Modifier.fillMaxWidth(), fill = true) {
+                Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                    Text(
+                        ch.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        stringResource(R.string.settings_categories_unhide),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = cardColor(LocalAccent.current.color)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * A group's card: its name, how many of its categories load, and with [toggle], on if any loads (on a TV, where OK
+ * turns the group on or off; a tap on a touch screen opens it).
+ */
+@Composable
+private fun GroupText(g: LanguageGroup, toggle: Boolean = true) {
+    Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(g.label, style = MaterialTheme.typography.titleSmall)
+            Muted(pluralStringResource(R.plurals.settings_categories_count, g.total, g.included, g.total))
+        }
+        if (toggle) Toggle(g.included > 0)
+    }
+}
+
+/** The right-hand list: the categories of the group selected on the left, and "select all" and "none" for them. */
+@Composable
+private fun GroupCategories(vm: CategoriesViewModel, categories: List<CategoryEntity>, query: String, modifier: Modifier) {
+    val selected = vm.selectedGroup
+    val shown = remember(categories, selected, query) { vm.shown(categories, selected, query) }
+    LazyColumn(
+        modifier.background(Palette.surfaceLow).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        // Just this language's categories: all of them, say, without choosing every language.
+        if (shown.isNotEmpty()) {
+            item {
+                SelectAllRow(stringResource(R.string.settings_categories_all_in, groupLabel(selected))) {
+                    vm.setGroup(selected, it)
+                }
+            }
+        }
+        items(shown, key = { it.categoryId }) { cat ->
+            CategoryCard(cat, Palette.surface, Modifier) { vm.toggleCategory(cat) }
+        }
+    }
+}
+
+/** A category's card, on [color]: on or off, its name, and how many channels or titles it has. */
+@Composable
+private fun CategoryCard(cat: CategoryEntity, color: Color, modifier: Modifier, onClick: () -> Unit) {
+    TvCard(onClick = onClick, color = color, modifier = modifier.fillMaxWidth(), fill = true) {
+        Row(
+            Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Toggle(cat.included)
+            Text(
+                cat.label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = cardColor(if (cat.included) Palette.text else Palette.textDim),
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (cat.channelCount > 0) Muted(formatCount(cat.channelCount))
+        }
+    }
+}
+
 /** "Select all" ([all] names it) and "select none" for the list below. */
 @Composable
 private fun SelectAllRow(all: String, set: (included: Boolean) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    ButtonRow(spacing = 8.dp) {
         PillButton(all, { set(true) })
         PillButton(stringResource(R.string.settings_categories_none), { set(false) })
     }

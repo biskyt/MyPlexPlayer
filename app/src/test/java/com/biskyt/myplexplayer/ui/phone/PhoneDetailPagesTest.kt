@@ -9,6 +9,7 @@ import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
+import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.testutil.BoardTitles
 import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
@@ -64,9 +65,10 @@ class PhoneDetailPagesTest {
         shadowOf(app.packageManager).setSystemFeature(PackageManager.FEATURE_TOUCHSCREEN, true)
         autoFindsTv = { false } // the phone layout (TestApp sets the TV's)
         plex.images = BoardTitles::art
-        plex.movies = listOf(BoardTitles.film())
-        plex.shows = listOf(BoardTitles.show())
+        plex.movies = listOf(FakePlex.withTrailer(BoardTitles.film(), FILM_TRAILER))
+        plex.shows = listOf(FakePlex.withTrailer(BoardTitles.show(), SHOW_TRAILER))
         plex.episodes = BoardTitles.episodes()
+        plex.extras = listOf(FakePlex.trailer(FILM_TRAILER), FakePlex.trailer(SHOW_TRAILER))
         BoardTitles.watch(plex)
         source = runBlocking { app.container.addSyncedHomePlex(plex) }
     }
@@ -122,6 +124,38 @@ class PhoneDetailPagesTest {
         assertTrue("$option on a screen $screen high", option.top > screen * SHEET_TOP)
         assertEquals(2, compose.onAllNodes(isRoot()).fetchSemanticsNodes().size)
     }
+
+    @Test
+    fun `the film's Trailer tile, between Restart and More, plays the server's trailer`() {
+        filmPage()
+        compose.waitForText("Trailer", stepMs = 50)
+        val restart = bounds("Restart")
+        val trailer = bounds("Trailer")
+        assertTrue("$restart, $trailer, ${bounds("More")}", restart.right <= trailer.left && trailer.right <= bounds("More").left)
+        compose.click("Trailer")
+        compose.waitAdvancingClock(stepMs = 50) { navigator.current.screen is Screen.VodPlayer }
+        assertEquals(
+            Screen.VodPlayer(source, BoardTitles.FILM.toLong(), trailer = FILM_TRAILER.toLong()),
+            navigator.current.screen
+        )
+    }
+
+    @Test
+    fun `the series' Trailer tile, between Favourite and More, plays the show's trailer`() {
+        seriesPage()
+        compose.waitForText("Trailer", stepMs = 50)
+        val trailer = bounds("Trailer")
+        assertTrue(
+            "$trailer",
+            trailer.left >= bounds(app.getString(R.string.common_favourite_mark)).right && trailer.right <= bounds("More").left
+        )
+        compose.click("Trailer")
+        compose.waitAdvancingClock(stepMs = 50) { navigator.current.screen is Screen.VodPlayer }
+        val show = BoardTitles.SHOW.toLong()
+        assertEquals(Screen.VodPlayer(source, show, show, trailer = SHOW_TRAILER.toLong()), navigator.current.screen)
+    }
+
+    private fun bounds(text: String) = compose.onNode(hasText(text) and hasClickAction()).fetchSemanticsNode().boundsInRoot
 
     @Test
     fun `a tap on an episode plays it`() {
@@ -197,5 +231,7 @@ class PhoneDetailPagesTest {
         /** The highest a sheet's top comes: 15 % down the screen. */
         const val SHEET_TOP = 0.15f
         const val SETTLE_STEPS = 10
+        const val FILM_TRAILER = "900"
+        const val SHOW_TRAILER = "901"
     }
 }

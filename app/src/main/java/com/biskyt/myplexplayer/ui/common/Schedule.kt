@@ -40,6 +40,8 @@ import com.biskyt.myplexplayer.container
 import com.biskyt.myplexplayer.data.db.ChannelProgramme
 import com.biskyt.myplexplayer.data.programmeTitle
 import com.biskyt.myplexplayer.hideSystemBars
+import com.biskyt.myplexplayer.ui.phone.PhoneSheet
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.Palette
 import com.biskyt.myplexplayer.ui.theme.bd
 
@@ -123,6 +125,8 @@ fun SidePanel(
     padding: PaddingValues = PaddingValues(28.dp),
     content: @Composable () -> Unit
 ) {
+    // On a phone or an unfolded screen: a sheet from the bottom, as the other panels there (see BoardPanel).
+    if (!LocalFormFactor.current.isTv) return PhoneSheet(onDismiss, dim, content)
     PanelWindow(onDismiss, hideBars = LocalTouch.current) {
         Box(
             Modifier.fillMaxSize().ignoreHeldButtons()

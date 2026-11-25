@@ -141,13 +141,17 @@ fun MovieDetailsScreen(screen: Screen.MovieDetails) {
     var open by rememberSaveable { mutableStateOf(FilmPanel.NONE) }
     var castFocus by rememberSaveable { mutableIntStateOf(0) }
     val more = { open = FilmPanel.MORE }
+    // Out here, so that the trailer's panel (where nothing can open it) stays while the panels change.
+    val openTmdb = rememberTrailerOpener()
+    val trailerScreen = { id: Long -> Screen.VodPlayer(screen.playlistId, movie.streamId, trailer = id) }
     FilmPage(
         movie,
         vm.details,
         progress?.takeUnless { it.finished },
         play = { fromStart -> nav.push(Screen.VodPlayer(screen.playlistId, movie.streamId, fromStart = fromStart)) },
         more = more,
-        openPerson = { person -> personScreen(screen.playlistId, person, movie.title, Tab.MOVIES, acting = true)?.let(nav::push) }
+        openPerson = { person -> personScreen(screen.playlistId, person, movie.title, Tab.MOVIES, acting = true)?.let(nav::push) },
+        playTrailer = trailerButton(vm.details?.trailer, trailerScreen, vm.trailers.tmdbTrailer, openTmdb)
     )
     val openCrew: (Int, CastMember) -> Unit = { i, person ->
         castFocus = i
@@ -159,7 +163,7 @@ fun MovieDetailsScreen(screen: Screen.MovieDetails) {
         if (panel == FilmPanel.CAST) castFocus = 0
         open = panel
     }
-    FilmPanels(vm, movie, progress?.finished == true, open, castFocus, openCrew, show) { nav.pop() }
+    FilmPanels(vm, movie, progress?.finished == true, open, castFocus, openCrew, show, openTmdb, trailerScreen) { nav.pop() }
 }
 
 /** The panel [open] over the film page ([show] changes it): its own composable, so the page does not recompose with it. */
@@ -173,12 +177,12 @@ private fun FilmPanels(
     castFocus: Int,
     openPerson: (Int, CastMember) -> Unit,
     show: (FilmPanel) -> Unit,
+    playTrailer: (String) -> Unit,
+    trailerScreen: (Long) -> Screen,
     gone: () -> Unit
 ) {
     val d = vm.details
     val close = { show(FilmPanel.NONE) }
-    // Out here, so that the trailer's panel (where nothing can open it) stays while the panels change.
-    val playTrailer = rememberTrailerOpener()
     when (open) {
         FilmPanel.NONE -> Unit
         FilmPanel.MORE -> {
@@ -190,7 +194,7 @@ private fun FilmPanels(
                     d,
                     trailerAction(
                         d?.trailer,
-                        { Screen.VodPlayer(movie.playlistId, movie.streamId, trailer = it) },
+                        trailerScreen,
                         vm.trailers.tmdbTrailer,
                         playTrailer,
                         film = true
@@ -214,7 +218,7 @@ private fun FilmPanels(
         }
         FilmPanel.TECH -> TechnicalInfoPanel(d, close, vm::loadDetails)
         FilmPanel.TRAILERS ->
-            OtherTrailersPanel(movie.title, vm.trailers, { Screen.VodPlayer(movie.playlistId, movie.streamId, trailer = it) }, close)
+            OtherTrailersPanel(movie.title, vm.trailers, trailerScreen, close)
     }
 }
 
@@ -232,11 +236,12 @@ fun FilmPage(
     resumable: WatchProgressEntity?,
     play: (fromStart: Boolean) -> Unit,
     more: () -> Unit,
-    openPerson: (CastMember) -> Unit
+    openPerson: (CastMember) -> Unit,
+    playTrailer: (() -> Unit)?
 ) {
     // A phone or an unfolded foldable (the owner, 2026-11-25): its own layout. The panels stay MovieDetailsScreen's.
     if (!LocalFormFactor.current.isTv) {
-        PhoneFilmPage(movie, d, resumable, play, more, openPerson)
+        PhoneFilmPage(movie, d, resumable, play, more, openPerson, playTrailer)
         return
     }
     Box(Modifier.fillMaxSize().onOptionsKey(more)) {
@@ -275,7 +280,7 @@ fun FilmPage(
                 // 12 above the labels (with the column's 8) and 18 below them, as the board has them.
                 d?.media?.badges?.takeIf { it.isNotEmpty() }?.let { LabelRow(it, Modifier.padding(top = 4.bd)) }
                 Row(Modifier.padding(top = 10.bd), horizontalArrangement = Arrangement.spacedBy(10.bd)) {
-                    FilmButtons(resumable, play, more)
+                    FilmButtons(resumable, play, more, playTrailer)
                 }
             }
         }
@@ -344,11 +349,11 @@ internal fun resumeLabel(started: WatchProgressEntity?): String {
 
 /**
  * With progress: "Resume · 38 min left" (the progress along its bottom; "Resume from 1:14:02" when the length is not
- * known), Restart, More…. Without: Play, More…. Holding
- * OK on any of them opens [more] too.
+ * known), Restart, Trailer, More…. Without: Play, Trailer, More…. Trailer only when there is one ([playTrailer]).
+ * Holding OK on any of them opens [more] too.
  */
 @Composable
-private fun FilmButtons(resumable: WatchProgressEntity?, play: (Boolean) -> Unit, more: () -> Unit) {
+private fun FilmButtons(resumable: WatchProgressEntity?, play: (Boolean) -> Unit, more: () -> Unit, playTrailer: (() -> Unit)?) {
     val started = resumable.resumePoint()
     // With its length known: the time left, and the progress along the button. Without: where it stopped.
     val timed = started?.takeIf { it.durationMs > 0 }
@@ -364,6 +369,7 @@ private fun FilmButtons(resumable: WatchProgressEntity?, play: (Boolean) -> Unit
         onLongClick = more
     )
     if (started != null) DetailButton(stringResource(R.string.vod_restart), { play(true) }, onLongClick = more)
+    playTrailer?.let { DetailButton(stringResource(R.string.vod_trailer), it, onLongClick = more) }
     DetailButton(stringResource(R.string.vod_more), more, onLongClick = more)
 }
 

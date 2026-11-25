@@ -44,6 +44,7 @@ import com.biskyt.myplexplayer.ui.common.ProgressLine
 import com.biskyt.myplexplayer.ui.common.Thumbnail
 import com.biskyt.myplexplayer.ui.common.favouriteIcon
 import com.biskyt.myplexplayer.ui.common.favouriteLabel
+import com.biskyt.myplexplayer.ui.common.rememberTrailerOpener
 import com.biskyt.myplexplayer.ui.common.shortEpisodeLabel
 import com.biskyt.myplexplayer.ui.player.episodeName
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
@@ -57,6 +58,7 @@ import com.biskyt.myplexplayer.ui.vod.partWatched
 import com.biskyt.myplexplayer.ui.vod.seasonName
 import com.biskyt.myplexplayer.ui.vod.seriesFacts
 import com.biskyt.myplexplayer.ui.vod.seriesStatusLine
+import com.biskyt.myplexplayer.ui.vod.trailerButton
 
 // The series page on a phone or an unfolded foldable (the owner, 2026-11-25): the film page's header (PhoneFilm.kt),
 // then the seasons and their episodes. Its panels (an episode's options, Cast and crew, About this show) stay
@@ -64,8 +66,8 @@ import com.biskyt.myplexplayer.ui.vod.seriesStatusLine
 
 /**
  * The series page on a phone: the header (the season's facts, the age badge and scores, and the show's status and
- * next episode from Discover), Continue (or Play) across the page, then Favourite and More (the options of [next],
- * the episode to carry on with); the plot; the seasons as chips that scroll sideways, and [season]'s episodes. A tap
+ * next episode from Discover), Continue (or Play) across the page, then Favourite, Trailer and More (the options of
+ * [next], the episode to carry on with); the plot; the seasons as chips that scroll sideways, and [season]'s episodes. A tap
  * on an episode plays it ([play]); a long press opens its options, as a held OK does on a TV. Unfolded, the seasons
  * and episodes are on the right. [d] is null while it loads. [asked] is the episode the page was opened at (the
  * player's Episodes button, the TV guide): the page scrolls to it.
@@ -101,7 +103,10 @@ fun PhoneSeriesPage(
     )
 }
 
-/** Continue (or Play) across the page, then Favourite and More (the options of [next], the episode to carry on with). */
+/**
+ * Continue (or Play) across the page, then Favourite, Trailer (the show's, only when it has one) and More (the options
+ * of [next], the episode to carry on with).
+ */
 @Composable
 private fun SeriesButtons(
     vm: SeriesDetailsViewModel,
@@ -110,6 +115,8 @@ private fun SeriesButtons(
     play: (EpisodeInfo) -> Unit
 ) {
     val favourite by vm.favourite.collectAsState()
+    // The show's trailer, as "Play trailer" under "The show" plays it (the owner, 2026-11-25: as in MyTVPlayer).
+    val trailer = trailerButton(vm.details?.info?.trailer, vm::trailer, vm.trailers.tmdbTrailer, rememberTrailerOpener())
     Column(Modifier.padding(start = PhoneGutter, end = PhoneGutter, top = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         val options = next?.let { e -> { vm.openOptions(e) } }
         if (next != null) {
@@ -123,6 +130,7 @@ private fun SeriesButtons(
                 tile,
                 iconDescription = favouriteLabel(favourite)
             ) { vm.toggleFavourite() }
+            trailer?.let { PhoneTileButton(AppIcons.Trailer, stringResource(R.string.vod_trailer), tile, onClick = it) }
             options?.let { PhoneTileButton(AppIcons.More, moreLabel(), tile, onClick = it) }
         }
     }

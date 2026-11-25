@@ -88,12 +88,32 @@ class TrailerUiTest {
     }
 
     @Test
+    fun `a film page's Trailer button, between Restart and More…, plays the server's trailer`() {
+        show(Screen.MovieDetails(source, BoardTitles.FILM.toLong()))
+        compose.waitForFilmPage()
+        compose.waitForText("Trailer", stepMs = 50)
+        val restart = bounds("Restart")
+        val trailer = bounds("Trailer")
+        assertTrue("$restart, $trailer", restart.right <= trailer.left && trailer.right <= bounds("More…").left)
+        compose.click("Trailer")
+        compose.waitAdvancingClock(stepMs = 50) { navigator.current.screen is Screen.VodPlayer }
+        assertEquals(
+            Screen.VodPlayer(source, BoardTitles.FILM.toLong(), trailer = FILM_TRAILER.toLong()),
+            navigator.current.screen
+        )
+    }
+
+    private fun bounds(text: String) = compose.onNode(hasText(text) and hasClickAction()).fetchSemanticsNode().boundsInRoot
+
+    @Test
     fun `a film with no trailer offers none`() {
         show(Screen.MovieDetails(source, 12))
         compose.waitForText("Sintel", stepMs = 50)
         compose.click("More…")
         compose.waitForText("Technical info", stepMs = 50)
         assertFalse(shown("Play trailer"))
+        // The details are in (More… has Technical info): no Trailer button on the page either.
+        assertFalse(shown("Trailer"))
     }
 
     @Test

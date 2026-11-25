@@ -90,7 +90,7 @@ class MiscSettingsUiTest {
     fun `the main settings list opens Misc in place of the VPN warning`() {
         val navigator = navigators.new(Screen.Settings)
         compose.setContent { MyPlexTheme { NavHost(remember { navigator }) { ScreenContent(it) } } }
-        compose.waitForText("Playlists")
+        compose.waitForText("Servers")
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Misc"))
         // Scrolling looks through the whole list.
         assertThrows(AssertionError::class.java) {

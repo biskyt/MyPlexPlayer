@@ -80,9 +80,9 @@ import com.biskyt.myplexplayer.ui.vod.resumePoint
 
 /**
  * The film page on a phone: the title's art at the top, which fades into the page, with the poster beside the title and
- * the facts; Play or Resume across the page, then Restart and More in a row; the plot, who made it, and the cast in a
- * row that scrolls sideways (a tap opens a person's page, [openPerson]). The page scrolls. Unfolded, the poster, facts
- * and buttons are on the left, and the plot and cast on the right. The arguments are FilmPage's.
+ * the facts; Play or Resume across the page, then Restart, Trailer and More in a row; the plot, who made it, and the
+ * cast in a row that scrolls sideways (a tap opens a person's page, [openPerson]). The page scrolls. Unfolded, the
+ * poster, facts and buttons are on the left, and the plot and cast on the right. The arguments are FilmPage's.
  */
 @Composable
 @Suppress("LongParameterList") // FilmPage's, passed on as they are
@@ -92,7 +92,8 @@ fun PhoneFilmPage(
     resumable: WatchProgressEntity?,
     play: (fromStart: Boolean) -> Unit,
     more: () -> Unit,
-    openPerson: (CastMember) -> Unit
+    openPerson: (CastMember) -> Unit,
+    playTrailer: (() -> Unit)?
 ) {
     PhoneDetailLayout(
         left = {
@@ -104,7 +105,7 @@ fun PhoneFilmPage(
                 if (facts.isNotEmpty()) PhoneFacts(facts)
                 PhoneBadges(d?.contentRating, d?.scores.orEmpty())
             }
-            FilmButtons(resumable, play, more)
+            FilmButtons(resumable, play, more, playTrailer)
         },
         right = { unfolded ->
             d?.plot?.let { PhonePlot(movie.title, it, if (unfolded) UNFOLDED_PLOT_LINES else PLOT_LINES) }
@@ -205,9 +206,12 @@ internal fun PhoneDetailHeader(backdrop: String?, poster: String?, title: String
     }
 }
 
-/** Play or Resume (with what is left, and its progress along the bottom), then Restart and More. Holding Play opens More too. */
+/**
+ * Play or Resume (with what is left, and its progress along the bottom), then Restart, Trailer (only when there is one:
+ * [playTrailer]) and More. Holding Play opens More too.
+ */
 @Composable
-private fun FilmButtons(resumable: WatchProgressEntity?, play: (Boolean) -> Unit, more: () -> Unit) {
+private fun FilmButtons(resumable: WatchProgressEntity?, play: (Boolean) -> Unit, more: () -> Unit, playTrailer: (() -> Unit)?) {
     val started = resumable.resumePoint()
     Column(Modifier.padding(start = PhoneGutter, end = PhoneGutter, top = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         PhoneMainButton(
@@ -218,6 +222,7 @@ private fun FilmButtons(resumable: WatchProgressEntity?, play: (Boolean) -> Unit
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             val tile = Modifier.weight(1f)
             if (started != null) PhoneTileButton(AppIcons.SkipBack, stringResource(R.string.vod_restart), tile) { play(true) }
+            playTrailer?.let { PhoneTileButton(AppIcons.Trailer, stringResource(R.string.vod_trailer), tile, onClick = it) }
             PhoneTileButton(AppIcons.More, moreLabel(), tile, onClick = more)
         }
     }

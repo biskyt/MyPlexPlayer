@@ -238,7 +238,7 @@ fun PillButton(
     TvCard(
         onClick = onClick,
         onLongClick = onLongClick,
-        modifier = modifier,
+        modifier = modifier.touchHeight(),
         selected = primary || selected,
         shape = RoundedCornerShape(50),
         color = bg,
@@ -246,7 +246,10 @@ fun PillButton(
         fill = true,
         contentColor = fg
     ) {
-        Row(Modifier.padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.padding(horizontal = 20.dp, vertical = 10.dp).align(Alignment.CenterStart),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             if (leading != null) {
                 leading()
                 Box(Modifier.width(8.dp))

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Settings menu: each row has a title and a one-line description below it. -->
-    <string name="settings_playlists_title">Playlists</string>
-    <string name="settings_playlists_help">Add, edit or switch IPTV accounts</string>
+    <string name="settings_playlists_title">Servers</string>
+    <string name="settings_playlists_help">Sign in, or switch servers</string>
     <string name="settings_playback_title">Playback</string>
     <string name="settings_playback_help">Skip times, audio passthrough, subtitles, buffer</string>
     <string name="settings_categories_title">Languages &amp; categories</string>
@@ -18,7 +18,7 @@
     <string name="settings_layout_tv">TV</string>
     <string name="settings_layout_touch">Phone and tablet</string>
     <string name="settings_backup_title">Backup &amp; restore</string>
-    <string name="settings_backup_help">Save your playlists and choices to a file, or restore them</string>
+    <string name="settings_backup_help">Save your servers and choices to a file, or restore them</string>
     <string name="settings_about_title">About</string>
     <!-- %1$s is the app's version, such as 1.2.0 -->
     <string name="settings_about_help">Version %1$s, licences, storage</string>
@@ -100,7 +100,7 @@
     <string name="settings_lib_lifecycle">Screen state</string>
     <string name="settings_lib_room">The channels, guide and progress database</string>
     <string name="settings_lib_paging">Long channel lists</string>
-    <string name="settings_lib_work">Refreshing playlists and guides in the background</string>
+    <string name="settings_lib_work">Refreshing servers and guides in the background</string>
     <string name="settings_lib_tvprovider">Continue watching and Home\'s rows on the TV\'s home screen</string>
     <string name="settings_lib_datastore">Settings</string>
     <string name="settings_lib_coil">Channel logos and posters</string>
@@ -130,7 +130,7 @@
 
     <!-- Backup & restore page. "MyPlexPlayer" is the app's name; "Settings › Apps › MyPlexPlayer › Permissions" is the
          path through the TV's own settings menus. -->
-    <string name="settings_backup_permission_denied">Without storage permission the backup can\'t be saved. Allow it in the TV\'s Settings › Apps › MyPlexPlayer › Permissions.</string>
+    <string name="settings_backup_permission_denied">Without storage permission the backup can\'t be saved. Allow it in the device\'s Settings › Apps › MyPlexPlayer › Permissions.</string>
     <string name="settings_backup_saving">Saving…</string>
     <!-- %1$s: where the file is, e.g. "Download/MyPlexPlayer/myplexplayer-backup.json". -->
     <string name="settings_backup_saved_to">Saved to %1$s</string>
@@ -144,12 +144,12 @@
     <!-- Title of the system's app chooser. -->
     <string name="settings_backup_choose_file">Choose the backup file</string>
     <!-- "X-plore" is an app's name; "Open with" and "Share" are Android's menu items. -->
-    <string name="settings_backup_no_picker">This TV has no way to choose a file. Open the backup with MyPlexPlayer from a file manager app such as X-plore (Open with, or Share), or install one and try again.</string>
+    <string name="settings_backup_no_picker">This device has no way to choose a file. Open the backup with MyPlexPlayer from a file manager app such as X-plore (Open with, or Share), or install one and try again.</string>
     <string name="settings_backup_intro">Saves your Plex servers (with their access tokens), channel and category choices, favourites and settings to a file. Copy it with a file manager app to keep it somewhere else. The file isn\'t encrypted, so keep it private.</string>
     <!-- %1$s: when and where, e.g. "Mon 12 Mar 18:30 · Download/MyPlexPlayer/myplexplayer-backup.json". -->
     <string name="settings_backup_last">Last backup: %1$s</string>
-    <string name="settings_backup_none">No backup on this TV yet.</string>
-    <string name="settings_backup_confirm">This replaces your playlists and settings with the backup\'s. Restore?</string>
+    <string name="settings_backup_none">No backup on this device yet.</string>
+    <string name="settings_backup_confirm">This replaces your servers and settings with the backup\'s. Restore?</string>
     <!-- Buttons. -->
     <string name="settings_backup_restore">Restore</string>
     <string name="settings_backup_cancel">Cancel</string>
@@ -160,7 +160,7 @@
     <string name="settings_backup_not_a_backup">This isn\'t a MyPlexPlayer backup file.</string>
     <string name="settings_backup_newer">This backup is from a newer version of MyPlexPlayer. Update the app first.</string>
     <string name="settings_backup_need_permission">MyPlexPlayer needs permission to save to the Download folder.</string>
-    <string name="settings_backup_no_storage">This TV\'s storage isn\'t available right now, so the backup can\'t be saved.</string>
+    <string name="settings_backup_no_storage">This device\'s storage isn\'t available right now, so the backup can\'t be saved.</string>
     <!-- "Download/MyPlexPlayer" is a folder's name: don't translate it. -->
     <string name="settings_backup_no_folder">Couldn\'t create the folder Download/MyPlexPlayer for the backup.</string>
     <string name="settings_backup_save_failed">Couldn\'t save the backup file</string>
@@ -215,7 +215,7 @@
     <string name="settings_playlist_in_use">IN USE</string>
     <!-- Buttons. -->
     <string name="settings_playlist_update_now">Update now</string>
-    <string name="settings_playlist_select_hint">Select a playlist to switch to it.</string>
+    <string name="settings_playlist_select_hint">Select a server to switch to it.</string>
     <string name="settings_warn_vpn">Warn if VPN is not connected</string>
     <string name="settings_warn_vpn_help">Shows in the top bar whether Android reports a VPN on this device. A VPN set up on your router or on another device cannot be detected.</string>
     <string name="settings_external_ip">Show your external IP address</string>

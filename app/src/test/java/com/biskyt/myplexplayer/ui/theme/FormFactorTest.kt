@@ -18,7 +18,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** Which layout the app draws (the owner, 2026-11-25), and which screens have a phone layout in this step. */
+/** Which layout the app draws (the owner, 2026-11-25), and which screens have a phone layout. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = PlainApp::class)
 class FormFactorTest {
@@ -60,10 +60,31 @@ class FormFactorTest {
         assertTrue(Screen.SeriesDetails(1, 2).hasPhoneLayout)
         assertTrue(Screen.Dvr.hasPhoneLayout)
         assertTrue(Screen.Person(1, 2, null, "Ana Ruiz", null, null, "The Harbour", Tab.MOVIES).hasPhoneLayout)
-        // Drawn as on a TV: the guide, Search and Settings.
+        // Drawn as on a TV: the guide, Search, More like this and a TMDB title's page.
         assertFalse(Screen.Live(guide = true).hasPhoneLayout)
         assertFalse(Screen.Search().hasPhoneLayout)
-        assertFalse(Screen.Settings.hasPhoneLayout)
+        assertFalse(Screen.MoreLike(1, 2, series = false, title = "The Harbour", tab = Tab.MOVIES).hasPhoneLayout)
+    }
+
+    @Test
+    fun `Settings, every page under it and the first launch's pages have phone layouts, with no tab bar`() {
+        listOf(
+            Screen.Welcome,
+            Screen.Settings,
+            Screen.Playlists,
+            Screen.PlexSignIn(),
+            Screen.PlexSignIn(firstRun = true),
+            Screen.Categories(1),
+            Screen.PlaybackSettings,
+            Screen.Appearance,
+            Screen.MiscSettings,
+            Screen.Backup,
+            Screen.About,
+            Screen.Licences
+        ).forEach {
+            assertTrue("$it", it.hasPhoneLayout)
+            assertFalse("$it", it.hasTabBar)
+        }
     }
 
     @Test

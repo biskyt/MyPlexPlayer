@@ -92,7 +92,7 @@ class TopBarScreensUiTest {
     }
 
     @Test
-    fun `settings has the top bar`() = hasTopBar(Screen.Settings, "Playlists")
+    fun `settings has the top bar`() = hasTopBar(Screen.Settings, "Servers")
 
     @Test
     fun `the servers' page has the top bar`() = hasTopBar(Screen.Playlists, "Update now")

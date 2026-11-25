@@ -323,12 +323,39 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
       3 lines, the poster rows and All credits. Full biography shows only when the biography is cut. Its sheet gives no
       paragraph the focus on a touch layout.
     - `PhoneDvrAndPersonTest` is on FakePlex.
-    - On a touch layout, these screens still use the TV canvas: Search, Settings and its pages, the TV guide, sign-in
-      and set-up (Welcome, Playlists), More like this, a TMDB title's page, Backup, About and Licences.
+    - On a touch layout, these screens still use the TV canvas: Search, the TV guide, More like this and a TMDB title's
+      page. Settings, its pages, sign-in and set-up have touch layouts since 1.19.0.
     - Step 1's review fixes, for MyTVPlayer too: the sheet ignores a held OK (`ignoreHeldButtons`), the phone's live
       controls keep Back with no channel, the corner messages clear the tab bar and rail (`toastPadding`), a flash
       message sits under the top row, the time left uses `common_time_left`, and a TV (`findsTv`) is not offered the
       touch layout.
+  - In 1.19.0: 1.38.0 (`bbbb4d1`; merge `58ac1e0`), the touch layouts for Settings and the pages under it.
+    - `ui/settings/SettingsLayout.kt` is copied as it is: `SettingsColumn`, `SettingsTitle`, `SettingsHeader`,
+      `ButtonRow`, `FormRow`, `CardWithButtons`, `backToPrevious`, `PreviousPage` and `touchLines`.
+    - The shared parts are as MyTVPlayer has them. `Screen.isSettings` in Navigation.kt lists every screen, and
+      `hasPhoneLayout` includes it. `PhoneBackButton` is in PhoneParts.kt. `Modifier.touchHeight` is in Touch.kt
+      (`PillButton` and the board rows use it).
+    - On a touch layout, `SidePanel` is a `PhoneSheet`, and the sheet moves up above the keyboard (`imePadding`).
+      `rememberFirstFocus` and `restoreFocusIf` do nothing there.
+    - The pages: the main Settings list, Playback, Appearance (the accents two to a row on a phone), Misc, Categories
+      (one list on touch: a tap on a country opens its categories under it), Playlists (the server list: on a phone, a
+      server's Update now and Remove go under its card), Plex sign-in, Welcome, Backup, TMDB, About, Licences and
+      Support.
+    - Plex sign-in (`Screen.PlexSignIn`) is this app's own. On a touch screen, the page scrolls and has no QR code.
+      On first launch, it has no back arrow, as it took Welcome's place.
+    - The owner, 2026-11-25: link and backup texts say "this device", not "this TV". Sign-in on a touch screen has
+      no QR code. Settings › Playlists is Settings › Servers, with Plex wording (no IPTV accounts or playlists).
+    - The TMDB panel has no phone key page on a touch screen: the key is typed or pasted in its box.
+    - On a TV, nothing changes, pixel for pixel.
+    - `PhoneSettingsUiTest` and `PhoneSettingsScreenshotTest` are on FakePlex, with this app's pages.
+    - Left out: Guide sources and Guide matching (removed in 0.6.0), and `PlaylistEditScreen`'s parts
+      (`EditButtons`, `FormRow` in the form): a Plex server has nothing to type in.
+    - Also from MyTVPlayer origin/main: the film page's Trailer button and the phone series page's Trailer tile (see
+      **Details pages**).
+    - Also 1.38.1 (`3ca857c`; merge `739b915`), core's part only. `VodTitles.clean(name, series)` takes off what a
+      provider adds in brackets after a name, in one pass. `VodTitles.key` uses the series rules. `TmdbTitle.title` is
+      TMDB's own title, and `TmdbClient.match` cleans a series' name with the series rules. Left out: its download
+      names and `M3uVod.FILING` (no downloads or M3U here).
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -336,6 +363,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
 - **Where a change is made first** (the owner, 2026-10-25): a feature or fix both apps need (the player, remote keys,
   menus, the guide's screens) is made in MyTVPlayer first, then cherry-picked here, so the shared code stays the same
   and ports apply cleanly. Plex-only work (sign-in, servers, play state, Live TV, DVR) is made here only.
+  - New phone and tablet layouts are made in MyTVPlayer first, then ported here (the owner, 2026-11-25). This covers
+    Search, the TV guide and any screen still on the TV canvas.
   - Home's rows, the menu's order and search results' order differ from MyTVPlayer on purpose (Live TV last, 0.5.0):
     a port touching HomeScreen, TopBar's `Tab` or SearchScreen's results expects conflicts there.
   - The TV guide goes 8 days ahead here (`GUIDE_DAYS` in `data/PlaylistRepository.kt`, 0.17.3: as far as Plex's own
@@ -532,7 +561,7 @@ See also:
 - **Plex Live TV** (0.4.0, `data/PlexLive.kt`): channels sync with the server (`PlaylistRepository.syncChannels`), each
   with a stable id from its key (`plexChannelId`, so favourites stay) and the key in `providerEpgId`. The guide is
   saved as the server's own guide source (`EpgRepository.savePlexGuide`, url `plex:<id>`), with why it last failed,
-  if it did, shown on the server's row in Settings › Playlists. A channel is tuned once (`PlexLive`), its tuner let go before the next tune and on leaving; a
+  if it did, shown on the server's row in Settings › Servers. A channel is tuned once (`PlexLive`), its tuner let go before the next tune and on leaving; a
   server that refuses Live TV (a friend's) just has no channels.
   - **Reconnect never tunes again** (1.15.0): the stall watch, `reconnect()` and the network callback never tune. A
     stall or failure calls `reconnect()`, which only does `prepare()` again on the same session's address (with no
@@ -658,6 +687,12 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
   - Trailers (1.5.0, docs/plex-api.md row 30): "Play trailer" in a film's More… and under "The show", only when the
     title has `primaryExtraKey`. `Screen.VodPlayer(trailer = id)` direct plays the extra's file from the start, and
     saves and reports nothing (it is not the title itself).
+  - The owner, 2026-11-25: the film page has a Trailer button, as in MyTVPlayer (TV and phone), and the phone series
+    page a Trailer tile. A phone's Home has no title art, and the phone header art is at full strength, as in
+    MyTVPlayer.
+    - The button plays what "Play trailer" plays: the server's trailer first, else TMDB's best (`trailerButton` in
+      PlexDetailsParts.kt). It shows only when there is a trailer. Holding OK on it opens More….
+    - "Play trailer" and "Other trailers" stay in More… too. The TV series page has no Trailer button.
   - Keep `Board.kt`, `BoardPanel.kt`, `DetailsParts.kt` and `TopBar.kt` as MyTVPlayer has them, so ports apply; put Plex-only parts in
     the Plex files above.
 - **Cast member's page** (1.4.0, board "Cast member's page"): OK on a cast photo, or on a row of Cast and crew (the

@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -44,11 +45,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
+import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.data.RecordingMark
 import com.biskyt.myplexplayer.data.db.CategoryEntity
 import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.ui.common.Ambience
 import com.biskyt.myplexplayer.ui.common.AmbientSource
+import com.biskyt.myplexplayer.ui.common.AppIcons
 import com.biskyt.myplexplayer.ui.common.CategoryEntry
 import com.biskyt.myplexplayer.ui.common.CategoryOptionsHost
 import com.biskyt.myplexplayer.ui.common.ChannelLogo
@@ -140,6 +143,11 @@ internal fun PhoneIconButton(
         number?.let { Text(it, color = tint, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold) }
     }
 }
+
+/** The back arrow at the start of a top row: a phone page's, or the player's on a phone. */
+@Composable
+internal fun PhoneBackButton(onClick: () -> Unit, modifier: Modifier = Modifier) =
+    PhoneIconButton(AppIcons.Back, stringResource(R.string.player_back), onClick, modifier, fill = Color.Transparent, iconSize = 24.dp)
 
 /** A row of chips that scrolls sideways, with the chosen one ([selected]) kept in view, and the one before it showing. */
 @Composable

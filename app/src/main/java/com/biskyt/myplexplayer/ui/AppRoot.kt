@@ -316,11 +316,16 @@ private val Screen.drawsOwnTopBar: Boolean
     }
 
 /**
- * The screens with a phone layout (the owner, 2026-11-25): the rest (Search, Settings, the TV guide, sign-in and set-up,
- * More like this and a TMDB title's page) are drawn as on a TV, on a phone too (see TvCanvas).
+ * The screens with a phone layout (the owner, 2026-11-25): the rest (Search, the TV guide, More like this and a TMDB
+ * title's page) are drawn as on a TV, on a phone too (see TvCanvas).
  */
 internal val Screen.hasPhoneLayout: Boolean
-    get() = hasTabBar || this is Screen.MovieDetails || this is Screen.SeriesDetails || this is Screen.Person || isPlayback
+    get() = hasTabBar ||
+        this is Screen.MovieDetails ||
+        this is Screen.SeriesDetails ||
+        this is Screen.Person ||
+        isPlayback ||
+        isSettings
 
 /** The phone screens drawn in PhoneScaffold, with its tab bar at the bottom (or its rail at the side, unfolded). */
 internal val Screen.hasTabBar: Boolean
