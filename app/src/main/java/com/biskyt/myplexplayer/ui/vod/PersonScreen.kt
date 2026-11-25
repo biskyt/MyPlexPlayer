@@ -64,7 +64,9 @@ import com.biskyt.myplexplayer.ui.common.formatDate
 import com.biskyt.myplexplayer.ui.common.initials
 import com.biskyt.myplexplayer.ui.common.quietFocus
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
+import com.biskyt.myplexplayer.ui.phone.PhonePersonPage
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.MEDIUM
 import com.biskyt.myplexplayer.ui.theme.Palette
 import com.biskyt.myplexplayer.ui.theme.SEMI_BOLD
@@ -144,26 +146,28 @@ fun PersonScreen(screen: Screen.Person) {
     val scope = rememberCoroutineScope()
     var reading by remember { mutableStateOf<Job?>(null) }
     var biography by rememberSaveable { mutableStateOf(false) }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
-        item { Header(screen, page) { biography = true } }
-        val error = vm.error
-        when {
-            error != null -> item { Box(Modifier.padding(start = SIDE, top = 40.dp)) { ErrorRetry(error) { vm.load() } } }
-            page == null -> item { Muted(stringResource(R.string.common_loading), Modifier.padding(start = SIDE, top = 40.dp)) }
-            else -> sections(
-                page,
-                first = page.biography == null,
-                open = { t ->
-                    nav.push(if (t.show) Screen.SeriesDetails(screen.playlistId, t.id) else Screen.MovieDetails(screen.playlistId, t.id))
-                },
-                openTmdb = if (tmdbOn) {
-                    // One read at a time: a second OK while it runs does not open a second page.
-                    { c -> if (reading?.isActive != true) reading = scope.launch { vm.tmdbScreen(c)?.let(nav::push) } }
-                } else {
-                    null
-                },
-            )
+    val open = { t: LibraryTitle ->
+        nav.push(if (t.show) Screen.SeriesDetails(screen.playlistId, t.id) else Screen.MovieDetails(screen.playlistId, t.id))
+    }
+    val openTmdb: ((PersonCredit) -> Unit)? = if (tmdbOn) {
+        // One read at a time: a second OK while it runs does not open a second page.
+        { c -> if (reading?.isActive != true) reading = scope.launch { vm.tmdbScreen(c)?.let(nav::push) } }
+    } else {
+        null
+    }
+    if (LocalFormFactor.current.isTv) {
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
+            item { Header(screen, page) { biography = true } }
+            val error = vm.error
+            when {
+                error != null -> item { Box(Modifier.padding(start = SIDE, top = 40.dp)) { ErrorRetry(error) { vm.load() } } }
+                page == null -> item { Muted(stringResource(R.string.common_loading), Modifier.padding(start = SIDE, top = 40.dp)) }
+                else -> sections(page, first = page.biography == null, open, openTmdb)
+            }
         }
+    } else {
+        // A phone or an unfolded foldable (the owner, 2026-11-25): its own layout, with the same parts.
+        PhonePersonPage(screen, vm, open, openTmdb) { biography = true }
     }
     if (biography) page?.let { p -> p.biography?.let { BiographyPanel(p.name, it) { biography = false } } }
 }
@@ -291,11 +295,13 @@ private fun CreditRow(c: PersonCredit, modifier: Modifier) {
  * Down scroll it.
  */
 @Composable
-private fun BiographyPanel(name: String, biography: String, onDismiss: () -> Unit) {
+internal fun BiographyPanel(name: String, biography: String, onDismiss: () -> Unit) {
+    // On a touch layout, a sheet that scrolls by touch: no part takes focus, so none shows a dark fill (as PlotPanel).
+    val tv = LocalFormFactor.current.isTv
     BoardPanel(onDismiss, gap = 10.bd) {
         BoardPanelTitle(name)
         remember(biography) { bioParts(biography) }.forEachIndexed { i, part ->
-            BoardPanelText(part, (if (i == 0) rememberFirstFocus() else Modifier).quietFocus())
+            BoardPanelText(part, if (tv) (if (i == 0) rememberFirstFocus() else Modifier).quietFocus() else Modifier)
         }
     }
 }
@@ -316,7 +322,7 @@ fun aboutLine(page: PersonPage?, role: String?, title: String): String? = listOf
 ).joinToString(" · ").ifEmpty { null }
 
 /** Under a card: "TV show · Mara" or "2019 · Director". */
-private fun cardLine(show: Boolean, year: Int?, role: String?, kind: String?): String? = listOfNotNull(
+internal fun cardLine(show: Boolean, year: Int?, role: String?, kind: String?): String? = listOfNotNull(
     if (show) appString(R.string.vod_person_tv_show) else year?.toString(),
     role ?: kind?.let(::creditKind),
 ).joinToString(" · ").ifEmpty { null }
@@ -356,7 +362,7 @@ private val SENTENCE_END = Regex("(?<=[.!?])\\s+")
 private val FIRST_GAP = 44.dp
 private val PHOTO = 200.dp
 
-private const val BIO_LINES = 3
+internal const val BIO_LINES = 3
 private const val BIO_PART = 500
 
 private val PhotoGrey = Color(0xFF3B4048)

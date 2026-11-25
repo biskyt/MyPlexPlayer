@@ -181,7 +181,8 @@ private fun PhoneSection(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-internal fun PhoneSectionTitle(title: String, modifier: Modifier = Modifier) {
+internal fun PhoneSectionTitle(title: String, modifier: Modifier = Modifier, gutter: Boolean = true) {
+    val side = if (gutter) PhoneGutter else 0.dp
     Text(
         title,
         color = Palette.text,
@@ -189,7 +190,7 @@ internal fun PhoneSectionTitle(title: String, modifier: Modifier = Modifier) {
         fontWeight = FontWeight.ExtraBold,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = modifier.padding(start = PhoneGutter, end = PhoneGutter, top = 12.dp)
+        modifier = modifier.padding(start = side, end = side, top = 12.dp)
     )
 }
 

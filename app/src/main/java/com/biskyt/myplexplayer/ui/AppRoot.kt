@@ -316,15 +316,19 @@ private val Screen.drawsOwnTopBar: Boolean
     }
 
 /**
- * The screens with a phone layout (the owner, 2026-11-25): the rest are drawn as on a TV, on a phone too (see TvCanvas).
- * DVR and the person's page get theirs in step 3 of 1.18.0.
+ * The screens with a phone layout (the owner, 2026-11-25): the rest (Search, Settings, the TV guide, sign-in and set-up,
+ * More like this and a TMDB title's page) are drawn as on a TV, on a phone too (see TvCanvas).
  */
 internal val Screen.hasPhoneLayout: Boolean
-    get() = hasTabBar || this is Screen.MovieDetails || this is Screen.SeriesDetails || isPlayback
+    get() = hasTabBar || this is Screen.MovieDetails || this is Screen.SeriesDetails || this is Screen.Person || isPlayback
 
 /** The phone screens drawn in PhoneScaffold, with its tab bar at the bottom (or its rail at the side, unfolded). */
 internal val Screen.hasTabBar: Boolean
-    get() = this == Screen.Home || (this is Screen.Live && !guide) || this is Screen.Movies || this is Screen.Series
+    get() = this == Screen.Home ||
+        (this is Screen.Live && !guide) ||
+        this is Screen.Movies ||
+        this is Screen.Series ||
+        this == Screen.Dvr
 
 /**
  * The room around the corner messages (SyncToast, NoticeToast): 24 dp, and clear of a phone's tab bar at the bottom or

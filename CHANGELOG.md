@@ -4,13 +4,15 @@ Each version's section becomes its GitHub release notes, so it is written for th
 
 ## 1.18.0
 - Phones and tablets get their own layout, with a tab bar.
-- Home, Movies, TV Shows and Live TV are made for touch.
-- Film and series pages are made for touch, with menus as sheets.
-- Deleting a series with no episodes now asks first.
+- Home, Movies, TV Shows and Live TV now work by touch.
+- Film and series pages now work by touch, with menus as sheets.
+- DVR and the person's page now work by touch.
 - The player has large touch controls on a phone.
 - A tablet or an unfolded phone gets wider layouts.
 - Settings › Misc › Layout chooses the TV or the touch layout.
-- After a restore, film and series categories show no count until they load.
+- Deleting a series with no episodes now asks first.
+- Cancelling a recording or a series now asks first.
+- After a restore, film and series categories show no count until their titles load.
 
 ## 1.17.0
 - Channel logos are trimmed and the same size, on a see-through tile.

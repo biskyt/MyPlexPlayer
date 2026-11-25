@@ -123,8 +123,8 @@ class PhoneTouchUiTest {
     }
 
     @Test
-    fun `a screen with no phone layout yet is drawn as on a TV, with the TV's top bar`() {
-        show(Screen.Dvr)
+    fun `a screen with no phone layout is drawn as on a TV, with the TV's top bar`() {
+        show(Screen.Search())
         compose.waitForText("Movies", stepMs = 50)
         // Only the phone's tab bar has Search in words (the TV's top bar has its icon).
         assertTrue(compose.onAllNodes(hasText("Search")).fetchSemanticsNodes().isEmpty())

@@ -312,11 +312,23 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     (`WrapRow`). Its review fixes: the corner messages clear only a screen with a tab bar (`hasTabBar`), a series with
     no episodes asks before its delete on a TV too (`ConfirmPanel`), and Back on a page with nothing under it goes to
     Home (`Navigator.back`, also AppRoot's Back). `PhoneDetailPagesTest` and `PhoneDeleteUiTest` are on FakePlex
-    (`BoardTitles`). Step 3: DVR and the person's page (`Screen.Dvr` and `Screen.Person` in `hasPhoneLayout`). Until
-    then they, Search and Settings are drawn on the TV canvas. This app's review fixes, for MyTVPlayer too: the
-    sheet ignores a held OK (`ignoreHeldButtons`), the phone's live controls keep Back with no channel, the corner
-    messages clear the tab bar and rail (`toastPadding`), a flash message sits under the top row, the time left uses
-    `common_time_left`, and a TV (`findsTv`) is not offered the touch layout.
+    (`BoardTitles`). Step 3 is done, so all three steps are in:
+    - DVR is drawn in PhoneScaffold (`hasTabBar`). Each row is a touch card. A tap does what OK does. A long press
+      does what holding OK does, and opens the row's options as a sheet. Every TV section, mark and option stays. A
+      row's channel logo sets the ambient background, as on the other tabs.
+    - Cancel this recording and Stop recording the series ask first, on a TV too. This applies in the DVR tab and in
+      every programme's recording options (`RecordOptions`: the guide, the channel options, the player and Search).
+      Both use `cancelRecordingAction` and `stopSeriesAction` (`ui/common/RecordingQuestions.kt`).
+    - The person's page is `ui/phone/PhonePerson.kt`. It has Back, the photo, the name, the line, the biography cut to
+      3 lines, the poster rows and All credits. Full biography shows only when the biography is cut. Its sheet gives no
+      paragraph the focus on a touch layout.
+    - `PhoneDvrAndPersonTest` is on FakePlex.
+    - On a touch layout, these screens still use the TV canvas: Search, Settings and its pages, the TV guide, sign-in
+      and set-up (Welcome, Playlists), More like this, a TMDB title's page, Backup, About and Licences.
+    - Step 1's review fixes, for MyTVPlayer too: the sheet ignores a held OK (`ignoreHeldButtons`), the phone's live
+      controls keep Back with no channel, the corner messages clear the tab bar and rail (`toastPadding`), a flash
+      message sits under the top row, the time left uses `common_time_left`, and a TV (`findsTv`) is not offered the
+      touch layout.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
