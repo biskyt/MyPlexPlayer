@@ -81,6 +81,15 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
     /** The episode after this one, if any. */
     private var nextEpisode: EpisodeInfo? = null
 
+    /** The next episode's player, for the phone player's Next episode button (the owner, 2026-11-25); null when there is none. */
+    var nextEpisodeScreen by mutableStateOf<Screen?>(null)
+        private set
+
+    /** The series page at this episode, for the phone player's Episodes button. Null for a film and a trailer. */
+    val seriesPage: Screen.SeriesDetails?
+        get() = series?.takeIf { screen.trailer == null }
+            ?.let { Screen.SeriesDetails(screen.playlistId, it, current?.episode?.season, current?.episode?.number) }
+
     override val isLive = false
     override val failureMessage = R.string.player_failure_vod
 
@@ -354,6 +363,7 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
         title = show?.title ?: episodeName(e)
         subtitle = episodeLabel(e)
         nextEpisode = episodes.getOrNull(index + 1)
+        nextEpisodeScreen = nextEpisode?.let { Screen.VodPlayer(p.id, it.id, seriesId) }
         // Saved for Continue watching: the provider's words only, never the app's (they'd stay in today's language).
         val stream = c.vod.episodeStream(p, e.id)
         play(p, Playing(VOD_EPISODE, e.id, show?.title ?: e.title, show?.coverUrl ?: e.imageUrl, stream, e, show?.title), fromStart)

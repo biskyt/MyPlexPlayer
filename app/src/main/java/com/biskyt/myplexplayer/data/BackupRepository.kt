@@ -6,6 +6,7 @@ import androidx.room.withTransaction
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.data.db.AppDatabase
+import com.biskyt.myplexplayer.data.db.CAT_LIVE
 import com.biskyt.myplexplayer.data.db.CategoryEntity
 import com.biskyt.myplexplayer.data.db.ChannelEntity
 import com.biskyt.myplexplayer.data.db.FavouriteEntity
@@ -140,7 +141,8 @@ class BackupRepository(
             dao.insert(
                 // Never downloaded on this TV: zero times make everything refresh straight away.
                 playlists.map { it.copy(lastSyncAt = 0) },
-                backup.categories.filter { it.playlistId in ids },
+                // A backup has no films or series: their categories count none until they are loaded here.
+                backup.categories.filter { it.playlistId in ids }.map { if (it.type == CAT_LIVE) it else it.copy(channelCount = 0) },
                 backup.channels.filter { it.playlistId in ids },
                 backup.favourites.filter { it.playlistId in ids },
                 backup.vodFavourites.filter { it.playlistId in ids },
@@ -148,8 +150,9 @@ class BackupRepository(
             )
         }
         val active = backup.settings.activePlaylistId.takeIf { it in ids } ?: playlists.firstOrNull()?.id ?: 0
-        // Whether this TV shows its cards on its home screen stays (a phone has none, and it is off unless turned on here).
-        settings.update { backup.settings.copy(activePlaylistId = active, launcherRows = it.launcherRows) }
+        // Whether this TV shows its cards on its home screen stays (a phone has none, and it is off unless turned on here),
+        // and so does this device's layout (a backup from a TV must not give a phone the TV's layout).
+        settings.update { backup.settings.copy(activePlaylistId = active, launcherRows = it.launcherRows, layout = it.layout) }
         // The guide went with the rest: open guides read it again.
         epg.reload()
         return ids.isNotEmpty()

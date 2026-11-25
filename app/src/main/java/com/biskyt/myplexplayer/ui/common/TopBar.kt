@@ -107,17 +107,7 @@ fun TopBar(selected: Tab?, selectedFocus: FocusRequester? = null) {
     ) {
         shownTabs().forEach { tab ->
             BarItem(
-                {
-                    nav.reset(
-                        when (tab) {
-                            Tab.HOME -> Screen.Home
-                            Tab.LIVE -> Screen.Live()
-                            Tab.MOVIES -> Screen.Movies()
-                            Tab.SERIES -> Screen.Series()
-                            Tab.DVR -> Screen.Dvr
-                        }
-                    )
-                },
+                { nav.reset(tab.screen) },
                 if (tab == selected && selectedFocus != null) Modifier.focusRequester(selectedFocus) else Modifier
             ) { TabLabel(stringResource(tab.label), tab == selected) }
         }
@@ -142,6 +132,16 @@ fun TopBar(selected: Tab?, selectedFocus: FocusRequester? = null) {
         }
     }
 }
+
+/** The screen a tab opens. */
+val Tab.screen: Screen
+    get() = when (this) {
+        Tab.HOME -> Screen.Home
+        Tab.LIVE -> Screen.Live()
+        Tab.MOVIES -> Screen.Movies()
+        Tab.SERIES -> Screen.Series()
+        Tab.DVR -> Screen.Dvr
+    }
 
 /** The tabs' and the clock's text: 14, bold, muted. */
 private val BarText = BoardStyle(14, 700)
@@ -226,6 +226,19 @@ class StatusLook(
             gap = 4.bd,
             // A long IPv6 address is cut, not let to widen the bar.
             ipWidth = 150.dp,
+            offPill = true
+        )
+
+        /** Small, in a phone screen's title row: a warning on a pill, as in the top bar. */
+        val Phone = StatusLook(
+            label = { MaterialTheme.typography.labelMedium },
+            offLabel = { MaterialTheme.typography.labelMedium },
+            ipText = { MaterialTheme.typography.labelSmall },
+            connectedText = Palette.textDim,
+            icon = 14.dp,
+            offIcon = 14.dp,
+            gap = 4.dp,
+            ipWidth = 120.dp,
             offPill = true
         )
 

@@ -39,6 +39,8 @@ import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.formatDuration
 import com.biskyt.myplexplayer.ui.common.isSelect
+import com.biskyt.myplexplayer.ui.phone.PhoneVodControls
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.vod.AboutPanel
 import com.biskyt.myplexplayer.ui.vod.TitlePanel
 
@@ -88,10 +90,11 @@ private fun BoxScope.SkipPillButton(pill: SkipPill, vm: VodPlayerViewModel) {
     val clockLine = with(LocalDensity.current) {
         (if (clockStyle.lineHeight.isSp) clockStyle.lineHeight else clockStyle.fontSize * 1.3f).toDp()
     }
-    val place = if (vm.overlay == OverlayState.NONE) {
-        Modifier.align(Alignment.BottomEnd).padding(48.dp)
-    } else {
-        Modifier.align(Alignment.TopEnd).padding(top = 27.dp + 12.dp + clockLine + 16.dp, end = 56.dp)
+    val place = when {
+        vm.overlay == OverlayState.NONE -> Modifier.align(Alignment.BottomEnd).padding(48.dp)
+        // A phone's controls: under their top row, clear of the buttons in the middle and at the bottom.
+        !LocalFormFactor.current.isTv -> Modifier.align(Alignment.TopEnd).padding(top = 64.dp, end = 24.dp)
+        else -> Modifier.align(Alignment.TopEnd).padding(top = 27.dp + 12.dp + clockLine + 16.dp, end = 56.dp)
     }
     PillButton(text, vm::skipNow, place.focusProperties { canFocus = false }, primary = true)
 }
@@ -118,6 +121,7 @@ private fun Modifier.skipKeys(vm: VodPlayerViewModel): Modifier {
 
 @Composable
 private fun VodControls(vm: VodPlayerViewModel, buttons: FocusRequester, root: FocusRequester) {
+    if (!LocalFormFactor.current.isTv) return PhoneVodControls(vm)
     ControlsPanel {
         Column {
             if (vm.subtitle.isNotEmpty()) Muted(vm.subtitle)
@@ -131,22 +135,14 @@ private fun VodControls(vm: VodPlayerViewModel, buttons: FocusRequester, root: F
 /** Its own composable, so the once-a-second time update redraws only this row. */
 @Composable
 private fun Position(vm: VodPlayerViewModel) {
-    val dur = vm.durationSec
-    val scrub = vm.scrubMs
     // While scrubbing, the time shown is where playback will go.
-    val pos = scrub?.div(1000) ?: vm.positionSec
+    val pos = vm.scrubMs?.div(1000) ?: vm.positionSec
     // Known once playback has started.
-    val totalMs = (dur * 1000).takeIf { it > 0 }
-    fun fraction(sec: Long) = totalMs?.let { sec * 1000f / it } ?: 0f
+    val totalMs = (vm.durationSec * 1000).takeIf { it > 0 }
+    val bar = vm.vodBar()
     // The bar the whole width; under it, how far in of how long, and how long is left.
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        SeekBar(
-            fraction(vm.positionSec),
-            scrub?.let { fraction(it / 1000) },
-            handle = LocalBarSelected.current,
-            onSeek = totalMs?.let { t -> { vm.scrubTo(0L..t, it) } },
-            modifier = Modifier.fillMaxWidth()
-        )
+        SeekBar(bar.fraction, bar.scrub, handle = LocalBarSelected.current, onSeek = bar.onSeek, modifier = Modifier.fillMaxWidth())
         Row {
             Muted(formatDuration(pos * 1000) + totalMs?.let { " / " + formatDuration(it) }.orEmpty())
             Spacer(Modifier.weight(1f))

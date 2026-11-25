@@ -104,7 +104,9 @@ import com.biskyt.myplexplayer.ui.common.reveal
 import com.biskyt.myplexplayer.ui.common.rowsInView
 import com.biskyt.myplexplayer.ui.common.vodActions
 import com.biskyt.myplexplayer.ui.common.vodDetails
+import com.biskyt.myplexplayer.ui.phone.PhoneBrowse
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -153,6 +155,9 @@ class VodBrowseViewModel(
             .distinctUntilChanged()
             .flatMapLatest { (pid, v) -> c.vod.pageCards(type, pid, v) }
             .cachedIn(viewModelScope)
+
+    /** The tab this screen comes under. */
+    val tab: Tab get() = if (isMovies) Tab.MOVIES else Tab.SERIES
 
     /** A poster whose options are open. */
     var optionsFor by mutableStateOf<VodCard?>(null)
@@ -246,6 +251,11 @@ class VodBrowseViewModel(
 fun VodBrowseScreen(type: String, initialView: VodView?) {
     val nav = LocalNavigator.current
     val vm = appViewModel(key = "vod-$type") { VodBrowseViewModel(it, type, initialView, nav.picked) }
+    // A phone or an unfolded foldable (the owner, 2026-11-25): its own layout, from the same lists.
+    if (!LocalFormFactor.current.isTv) {
+        PhoneBrowse(vm)
+        return
+    }
     val view by vm.view.collectAsState()
     val categories by vm.categories.collectAsState()
     val playlist by vm.playlist.collectAsState()
@@ -257,16 +267,15 @@ fun VodBrowseScreen(type: String, initialView: VodView?) {
     // the first title does not take it from there when it comes. With nothing focused again ("Load now" gone once
     // the titles are in), it does. (The first title taking focus ends it too.)
     val firstTitleWaits = Modifier.onFocusChanged { if (vm.focusId == null) vm.restoreFocusPending = !it.hasFocus }
-    TabScaffold(if (vm.isMovies) Tab.MOVIES else Tab.SERIES, firstTitleWaits, tabFocus = tab) {
+    TabScaffold(vm.tab, firstTitleWaits, tabFocus = tab) {
         Column(Modifier.fillMaxSize().padding(horizontal = 56.dp)) {
             Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.End) {
                 Row(
                     Modifier.onGloballyPositioned { pillsLeft = it.boundsInRoot().left },
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    val category = view.category?.let { id -> categories.firstOrNull { it.categoryId == id }?.label }
                     PillButton(
-                        stringResource(R.string.vod_pill_category, category ?: stringResource(R.string.vod_all)),
+                        categoryPill(view, categories),
                         { vm.picking = VodBrowseViewModel.Pick.CATEGORY },
                         Modifier.focusRequester(pills)
                     )
@@ -284,20 +293,58 @@ fun VodBrowseScreen(type: String, initialView: VodView?) {
             PosterGrid(vm, playlist?.id ?: 0, GridRoutes(tab, pills) { pillsLeft })
         }
     }
-    // A category no longer listed (hidden in Settings, gone from the server): back to all of them.
+    VodBrowsePanels(vm, view, categories, playlist?.id ?: 0)
+}
+
+/**
+ * What the grid opens over itself, on a TV and a touch screen: a poster's options and a pill's choices. Also, a category
+ * no longer listed (hidden in Settings, gone from the server) goes back to all of them.
+ */
+@Composable
+internal fun VodBrowsePanels(vm: VodBrowseViewModel, view: VodView, categories: List<CategoryEntity>, pid: Long) {
     LaunchedEffect(categories, view.category) {
         if (categories.isNotEmpty() && view.category != null && categories.none { it.categoryId == view.category }) {
             vm.show(view.copy(category = null))
         }
     }
-    vm.optionsFor?.let { card -> PosterOptions(vm, card, view, playlist?.id ?: 0) }
+    vm.optionsFor?.let { card -> PosterOptions(vm, card, view, pid) }
     vm.picking?.let { Picker(vm, it, view, categories) }
+}
+
+/** The Category pill's text: "Category: All", or the category shown. */
+@Composable
+internal fun categoryPill(view: VodView, categories: List<CategoryEntity>): String {
+    val category = view.category?.let { id -> categories.firstOrNull { it.categoryId == id }?.label }
+    return stringResource(R.string.vod_pill_category, category ?: stringResource(R.string.vod_all))
+}
+
+/**
+ * What a list with no titles shows, on a TV and a touch screen: its [message] and its buttons ([actions], the first the
+ * main one).
+ */
+internal class EmptyTitles(@param:StringRes val message: Int, val actions: List<Pair<Int, () -> Unit>> = emptyList())
+
+/**
+ * Favourites with none: how to add some. A category or filter with none: that none are shown. Everything with none: Load
+ * now, and Choose categories.
+ */
+@Composable
+internal fun emptyTitles(vm: VodBrowseViewModel, pid: Long, view: VodView): EmptyTitles {
+    val nav = LocalNavigator.current
+    return when {
+        view.show == VodShow.FAVOURITES -> EmptyTitles(R.string.vod_no_favourites)
+        view.category != null || view.show != VodShow.ALL -> EmptyTitles(R.string.vod_none_shown)
+        else -> EmptyTitles(
+            R.string.vod_nothing_here,
+            listOf(R.string.vod_load_now to vm::loadNow, R.string.vod_choose_categories to { nav.push(Screen.Categories(pid)) })
+        )
+    }
 }
 
 /** Where the remote goes from the grid's top row: up to the menu's [tab] or the [pills], right to them from a short row. */
 private class GridRoutes(val tab: FocusRequester, val pills: FocusRequester, val pillsLeft: () -> Float)
 
-private fun showName(show: VodShow) = appString(
+internal fun showName(show: VodShow) = appString(
     when (show) {
         VodShow.ALL -> R.string.vod_all
         VodShow.UNWATCHED -> R.string.vod_unwatched
@@ -305,7 +352,7 @@ private fun showName(show: VodShow) = appString(
     }
 )
 
-private fun sortName(sort: VodSort, movies: Boolean) = appString(
+internal fun sortName(sort: VodSort, movies: Boolean) = appString(
     when (sort) {
         VodSort.NEWEST -> if (movies) R.string.vod_recently_added else R.string.vod_newest_episode
         VodSort.TITLE -> R.string.vod_sort_title
@@ -350,7 +397,7 @@ private fun PosterOptions(vm: VodBrowseViewModel, card: VodCard, view: VodView, 
             vm.removedId = card.id
         }
     } + listOfNotNull(
-        if (inFavourites && favourite == true) moveAction(vm.mover, vm.type, card.id, close) else null,
+        moveAction(vm.mover, vm.type, card.id, close)?.takeIf { inFavourites && favourite == true },
         // Last: it's read once the menu is open, and mustn't move the entries above it.
         watched?.let { w ->
             markWatched(w) {
@@ -375,17 +422,14 @@ private fun PosterGrid(vm: VodBrowseViewModel, pid: Long, routes: GridRoutes) {
     val favourites = vm.favouriteIds.collectIds()
     val view by vm.view.collectAsState()
     if (items.itemCount == 0) {
-        when {
-            view.show == VodShow.FAVOURITES -> Muted(stringResource(R.string.vod_no_favourites), Modifier.padding(top = 24.dp))
-            view.category != null || view.show != VodShow.ALL -> Muted(
-                stringResource(R.string.vod_none_shown),
-                Modifier.padding(top = 24.dp)
-            )
-            else -> Column(Modifier.padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Muted(stringResource(R.string.vod_nothing_here), maxLines = 2)
+        val empty = emptyTitles(vm, pid, view)
+        if (empty.actions.isEmpty()) {
+            Muted(stringResource(empty.message), Modifier.padding(top = 24.dp))
+        } else {
+            Column(Modifier.padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Muted(stringResource(empty.message), maxLines = 2)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    PillButton(stringResource(R.string.vod_load_now), vm::loadNow, primary = true)
-                    PillButton(stringResource(R.string.vod_choose_categories), { nav.push(Screen.Categories(pid)) })
+                    empty.actions.forEachIndexed { i, (label, action) -> PillButton(stringResource(label), action, primary = i == 0) }
                 }
             }
         }

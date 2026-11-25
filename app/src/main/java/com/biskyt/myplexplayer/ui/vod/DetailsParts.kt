@@ -37,6 +37,7 @@ import com.biskyt.myplexplayer.ui.theme.BOLD
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
 import com.biskyt.myplexplayer.ui.theme.EXTRA_BOLD
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.Palette
 import com.biskyt.myplexplayer.ui.theme.bd
 
@@ -136,14 +137,21 @@ fun PlotWithMore(title: String, plot: String, style: TextStyle, maxLines: Int, m
     var open by remember(plot) { mutableStateOf(false) }
     Text(plot, style = style, maxLines = maxLines, overflow = TextOverflow.Ellipsis, onTextLayout = { cut = it.hasVisualOverflow })
     if (cut) DetailButton(stringResource(R.string.vod_read_more), { open = true }, moreModifier, horizontal = 14.bd, vertical = 6.bd)
-    if (open) {
-        // Its text does not scroll (the remote has nothing in it to move to): it is cut at what fits.
-        BoardPanel({ open = false }, dim = false, scroll = false) {
-            // Focused, so that Back reaches the panel and closes it.
-            Column(rememberFirstFocus().focusable(), verticalArrangement = Arrangement.spacedBy(8.bd)) {
-                BoardPanelTitle(title)
-                BoardPanelText(plot, maxLines = PLOT_LINES)
-            }
+    if (open) PlotPanel(title, plot) { open = false }
+}
+
+/**
+ * The whole of a [plot], with [title], in a panel. On a TV its text does not scroll (the remote has nothing in it to
+ * move to): it is cut at what fits, and the page stays in view. On a touch screen, it is a sheet that scrolls.
+ */
+@Composable
+internal fun PlotPanel(title: String, plot: String, onDismiss: () -> Unit) {
+    val tv = LocalFormFactor.current.isTv
+    BoardPanel(onDismiss, dim = !tv, scroll = !tv) {
+        // Focused, so that Back reaches the panel and closes it.
+        Column(rememberFirstFocus().focusable(), verticalArrangement = Arrangement.spacedBy(8.bd)) {
+            BoardPanelTitle(title)
+            BoardPanelText(plot, maxLines = if (tv) PLOT_LINES else Int.MAX_VALUE)
         }
     }
 }

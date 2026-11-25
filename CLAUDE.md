@@ -290,6 +290,23 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     AppRoot.kt is Live TV, Movies, TV Shows, DVR and Search, and only these screens get `LocalAmbience` (a DVR row
     gives its channel's logo). Left out: Home (it keeps the focused title's own art, `Backdrop.kt`), so its
     `CarryOnCard` hunk, and Catch-up (none here). `AmbientUiTest` is on FakePlex, with a check that Home has none.
+  - In 1.18.0, step 1 of 3 (the owner, 2026-11-25: one release, built in several PRs): from 1.37.0 (`b02b7e1`, PR
+    182), the phone and tablet layouts' shared parts. `ui/theme/FormFactor.kt` (TV, PHONE, UNFOLDED from 600 dp;
+    `autoFindsTv`, `TvCanvas`), the Layout setting in Misc (`LayoutMode`, key `layout`; a restore keeps this device's),
+    `PhoneOrientation` and `Screen.hasPhoneLayout` in AppRoot.kt, `ui/phone/` (`PhoneScaffold`, `PhoneParts.kt`,
+    `PhoneSheet`, `PhonePlayerControls`), `PlayBar.kt`, `nowLine`, `PlotPanel`, `CategoryOptionsHost` and `moveAction`
+    null on touch. The phone views are built on this app's own view models: `PhoneHome` has Home's rows in Home's
+    order (no title art behind it: a touch moves no focus), `PhoneBrowse` has the Category, Filter and Sort pills over
+    the grid, `PhoneLive` marks a channel that records, and the players keep the skip pill, Watch from start and
+    About this programme. The tab bar has DVR (`AppIcons.Record`). Restored film and series categories count 0.
+    TestApp and PlainApp set `autoFindsTv = { true }`; the phone tests (`ui/phone/`) are on FakePlex. Left out: its
+    catch-up, radio, proxy and parental parts (none here). Step 2: the film and series pages (`PhoneFilm`,
+    `PhoneSeries`, MovieDetails and SeriesDetails in `hasPhoneLayout`, `TvSeriesPage`, `filmFacts`, `seriesFacts` and
+    their screenshot test), with this app's own extras (scores, Cast and crew, trailers, DVR, Delete). Step 3: DVR and
+    the person's page. Until then they, Search and Settings are drawn on the TV canvas. This app's review fixes, for MyTVPlayer too: the
+    sheet ignores a held OK (`ignoreHeldButtons`), the phone's live controls keep Back with no channel, the corner
+    messages clear the tab bar and rail (`toastPadding`), a flash message sits under the top row, the time left uses
+    `common_time_left`, and a TV (`findsTv`) is not offered the touch layout.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

@@ -47,6 +47,7 @@ import com.biskyt.myplexplayer.core.player.SubtitleMode
 import com.biskyt.myplexplayer.core.ui.AccentPalette
 import com.biskyt.myplexplayer.core.ui.BackdropLevel
 import com.biskyt.myplexplayer.data.BufferSize
+import com.biskyt.myplexplayer.data.LayoutMode
 import com.biskyt.myplexplayer.data.Settings
 import com.biskyt.myplexplayer.data.accentName
 import com.biskyt.myplexplayer.launcher.TvLauncher
@@ -63,6 +64,7 @@ import com.biskyt.myplexplayer.ui.common.cycle
 import com.biskyt.myplexplayer.ui.common.displayLanguage
 import com.biskyt.myplexplayer.ui.common.nativeLanguageName
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
+import com.biskyt.myplexplayer.ui.theme.findsTv
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
@@ -309,7 +311,32 @@ fun MiscSettingsScreen() {
         // The first row takes the focus: on a phone, the home screen row is not there.
         if (tv) item { LauncherRow(rememberFirstFocus(once = true)) }
         item { VpnWarningRows(if (tv) Modifier else rememberFirstFocus(once = true)) }
+        item { LayoutRow() }
     }
+}
+
+/**
+ * The TV's or the phone's screens, whatever the device (the owner, 2026-11-25): Automatic finds them. A TV has no
+ * touch layout to choose: with a remote, its screens could not be used to set this back.
+ */
+@Composable
+private fun LayoutRow() {
+    val vm = appViewModel { SettingsViewModel(it) }
+    val s = vm.settings.collectAsState().value ?: return
+    val context = LocalContext.current
+    val tv = remember { context.findsTv() }
+    val choices = if (tv) listOf(LayoutMode.AUTO, LayoutMode.TV) else LayoutMode.entries
+    val label = when (s.layout) {
+        LayoutMode.AUTO -> R.string.settings_layout_auto
+        LayoutMode.TV -> R.string.settings_layout_tv
+        LayoutMode.TOUCH -> R.string.settings_layout_touch
+    }
+    CycleSettingRow(
+        stringResource(R.string.settings_layout),
+        stringResource(if (tv) R.string.settings_layout_help_tv else R.string.settings_layout_help),
+        stringResource(label),
+        { d -> vm.update { it.copy(layout = choices.cycle(it.layout, d)) } }
+    )
 }
 
 /** Off, then 0 to 10 seconds. */

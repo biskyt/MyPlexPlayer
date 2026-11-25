@@ -1,9 +1,14 @@
 package com.biskyt.myplexplayer.ui.settings
 
 import androidx.compose.runtime.remember
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.test.core.app.ApplicationProvider
+import com.biskyt.myplexplayer.data.LayoutMode
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
@@ -14,6 +19,9 @@ import com.biskyt.myplexplayer.ui.NavHost
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.ScreenContent
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
+import com.biskyt.myplexplayer.ui.theme.autoFindsTv
+import kotlinx.coroutines.runBlocking
+import org.junit.After
 import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
@@ -30,6 +38,8 @@ class MiscSettingsUiTest {
     @get:Rule(order = Navigators.ORDER)
     val navigators = Navigators()
 
+    private val app = ApplicationProvider.getApplicationContext<TestApp>()
+
     @Test
     fun `misc settings hold the VPN warning, which takes the focus away from a TV`() {
         val navigator = navigators.new(Screen.MiscSettings)
@@ -37,6 +47,43 @@ class MiscSettingsUiTest {
         compose.waitForText("Warn if VPN is not connected")
         // Not a TV here: the home screen row is not there, so the first row is the VPN warning.
         compose.waitAdvancingClock { "Warn if VPN is not connected" in compose.focusedText() }
+    }
+
+    @After
+    fun tearDown() {
+        autoFindsTv = { true } // as TestApp sets it
+    }
+
+    private fun stepLayout(to: LayoutMode, shown: String) {
+        compose.onNode(hasText("Layout") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitAdvancingClock { runBlocking { app.container.settings.current().layout } == to }
+        compose.waitForText(shown)
+    }
+
+    private fun openLayout() {
+        val navigator = navigators.new(Screen.MiscSettings)
+        compose.setContent { MyPlexTheme { NavHost(remember { navigator }) { ScreenContent(it) } } }
+        compose.waitForText("Layout")
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Layout"))
+        compose.waitForText("Automatic")
+    }
+
+    @Test
+    fun `on a touch screen, Layout steps through Automatic, TV, and Phone and tablet, and saves the choice`() {
+        autoFindsTv = { false }
+        openLayout()
+        compose.waitForText("TV for a remote, phone and tablet for a touch screen")
+        stepLayout(LayoutMode.TV, "TV")
+        stepLayout(LayoutMode.TOUCH, "Phone and tablet")
+        stepLayout(LayoutMode.AUTO, "Automatic")
+    }
+
+    @Test
+    fun `on a TV, Layout offers no touch layout, which a remote could not use to set it back`() {
+        openLayout()
+        compose.waitForText("A TV has the TV layout only: a remote cannot use the touch layout")
+        stepLayout(LayoutMode.TV, "TV")
+        stepLayout(LayoutMode.AUTO, "Automatic")
     }
 
     @Test

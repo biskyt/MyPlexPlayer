@@ -33,6 +33,7 @@ import com.biskyt.myplexplayer.ui.common.numberLabel
 import com.biskyt.myplexplayer.ui.common.rememberDetails
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.rememberSchedule
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.bd
 
 /** Long-press options for a channel (agreed "LiveMenu" design). */
@@ -96,7 +97,8 @@ fun ChannelOptionsSheet(ch: ChannelEntity, vm: LiveViewModel, play: (ChannelEnti
                 close()
                 vm.showGuide(!vm.guideMode, moveFocus = true)
             }
-            if (vm.canMoveFavourite) {
+            // A touch layout has no way to move it (a TV moves it with the arrows).
+            if (vm.canMoveFavourite && LocalFormFactor.current.isTv) {
                 BoardOption(stringResource(R.string.common_move)) {
                     close()
                     vm.mover.start(CAT_LIVE, ch.streamId)

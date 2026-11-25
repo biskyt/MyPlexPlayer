@@ -33,6 +33,7 @@ import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
 import com.biskyt.myplexplayer.data.Favourites
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -114,12 +115,17 @@ class FavouriteMover(private val scope: CoroutineScope, private val favourites: 
 
 /**
  * "Move", in a favourite's options: starts moving it ([type] CAT_LIVE, CAT_SERIES or CAT_MOVIE; its list shows [shown]
- * of them) once [close] closes them.
+ * of them) once [close] closes them. Null on a touch layout, which has no way to move it (a TV moves it with the arrows).
  */
-fun moveAction(mover: FavouriteMover, type: String, id: Long, close: () -> Unit, shown: Int = Int.MAX_VALUE) =
-    ItemAction.Run(appString(R.string.common_move)) {
-        close()
-        mover.start(type, id, shown)
+@Composable
+fun moveAction(mover: FavouriteMover, type: String, id: Long, close: () -> Unit, shown: Int = Int.MAX_VALUE): ItemAction? =
+    if (!LocalFormFactor.current.isTv) {
+        null
+    } else {
+        ItemAction.Run(appString(R.string.common_move)) {
+            close()
+            mover.start(type, id, shown)
+        }
     }
 
 /**

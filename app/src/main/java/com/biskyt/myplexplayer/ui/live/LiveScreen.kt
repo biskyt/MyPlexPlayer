@@ -66,6 +66,7 @@ import com.biskyt.myplexplayer.ui.common.MoveBackHandler
 import com.biskyt.myplexplayer.ui.common.MoveHint
 import com.biskyt.myplexplayer.ui.common.MoveLayout
 import com.biskyt.myplexplayer.ui.common.Muted
+import com.biskyt.myplexplayer.ui.common.NowLine
 import com.biskyt.myplexplayer.ui.common.NowNext
 import com.biskyt.myplexplayer.ui.common.PageFocus
 import com.biskyt.myplexplayer.ui.common.PillButton
@@ -79,10 +80,10 @@ import com.biskyt.myplexplayer.ui.common.ambientSource
 import com.biskyt.myplexplayer.ui.common.categoryEntries
 import com.biskyt.myplexplayer.ui.common.collectIds
 import com.biskyt.myplexplayer.ui.common.digit
-import com.biskyt.myplexplayer.ui.common.formatTime
 import com.biskyt.myplexplayer.ui.common.glowRoom
 import com.biskyt.myplexplayer.ui.common.glowRoomPadding
 import com.biskyt.myplexplayer.ui.common.isGuide
+import com.biskyt.myplexplayer.ui.common.nowLine
 import com.biskyt.myplexplayer.ui.common.numberLabel
 import com.biskyt.myplexplayer.ui.common.onRecordKey
 import com.biskyt.myplexplayer.ui.common.pageItem
@@ -93,6 +94,8 @@ import com.biskyt.myplexplayer.ui.common.rememberRecordings
 import com.biskyt.myplexplayer.ui.common.restoreFocusIf
 import com.biskyt.myplexplayer.ui.common.reveal
 import com.biskyt.myplexplayer.ui.common.rowsInView
+import com.biskyt.myplexplayer.ui.phone.PhoneLive
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.Palette
 
 @Composable
@@ -106,6 +109,8 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
         vm.focusStreamId = ch.streamId
         nav.push(Screen.Player(pid, ch.streamId, filter))
     }
+    // A phone or an unfolded foldable (the owner, 2026-11-25): the list drawn for touch. The guide stays the TV's.
+    if (!LocalFormFactor.current.isTv && !initialGuide) return PhoneLive(vm, play)
 
     LaunchedEffect(Unit) { vm.restoreFocusPending = true }
     // Right from the categories enters the guide's programmes (see GuideGrid).
@@ -172,20 +177,25 @@ private fun BackToFilter(filterBox: FocusRequester, inside: MutableState<Boolean
 
 @Composable
 private fun LiveCategories(vm: LiveViewModel, selected: ChannelFilter, right: FocusRequester) {
+    FilteredCategoryColumn(liveEntries(vm), fixed = 3, selected, vm.filters::focus, vm.filters::select, vm::hideCategory, right)
+}
+
+/** The lists to pick from, for a TV's column and a phone's chips: Favourites, Recently watched and All channels, then the categories A to Z. */
+@Composable
+internal fun liveEntries(vm: LiveViewModel): List<CategoryEntry<ChannelFilter>> {
     val categories by vm.categories.collectAsState()
     val favourites = stringResource(R.string.common_favourites)
     val recent = stringResource(R.string.common_recent)
     val all = stringResource(R.string.live_all_channels)
     // The count the list's heading shows for All channels too.
     val total by vm.totalCount.collectAsState()
-    val entries = remember(categories, favourites, recent, all, total) {
+    return remember(categories, favourites, recent, all, total) {
         listOf<CategoryEntry<ChannelFilter>>(
             CategoryEntry(ChannelFilter.Favourites, favourites),
             CategoryEntry(ChannelFilter.Recent, recent),
             CategoryEntry(ChannelFilter.All, all, total)
         ) + categoryEntries<ChannelFilter>(categories) { ChannelFilter.Category(it.categoryId) }
     }
-    FilteredCategoryColumn(entries, fixed = 3, selected, vm.filters::focus, vm.filters::select, vm::hideCategory, right)
 }
 
 @Composable
@@ -333,8 +343,7 @@ fun ChannelRow(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            nn.next?.let { stringResource(R.string.live_next, formatTime(it.startMs), programmeTitle(it.title)) }
-                                ?: stringResource(R.string.live_until, formatTime(nn.now.stopMs)),
+                            nowLine(nn, NowLine.NEXT),
                             style = MaterialTheme.typography.bodySmall,
                             color = Palette.textDim,
                             maxLines = 1,
