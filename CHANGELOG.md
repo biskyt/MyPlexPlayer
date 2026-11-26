@@ -7,6 +7,7 @@ Each version's section becomes its GitHub release notes, so it is written for th
 - The TV guide shows programmes that overlap without moving the later ones.
 - On a phone, a new list in the TV guide starts at the top.
 - On a phone, quick taps on Earlier or Later each scroll a full step.
+- In the TV guide, OK opens the highlighted programme when programmes overlap.
 
 ## 1.21.0
 - On a phone, Search, the TV guide and More like this work by touch.

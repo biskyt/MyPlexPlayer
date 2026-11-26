@@ -136,13 +136,14 @@ private fun TimeButtons(window: GuideWindow, scroll: ScrollState) {
     val last = remember { arrayOfNulls<Job>(1) }
     val target = remember { intArrayOf(0) }
     val step: (Int) -> Unit = { dir ->
-        val from = if (last[0]?.isActive == true) target[0] else scroll.value
+        val running = last[0]?.isActive == true
+        val from = if (running) target[0] else scroll.value
         val to = (from + dir * scroll.viewportSize * PAGE_PART).roundToInt().coerceIn(0, scroll.maxValue)
         if (to != from) {
             target[0] = to
             last[0] = scope.launch { scroll.animateScrollTo(to) }
-        } else {
-            last[0]?.cancel()
+        } else if (!running) {
+            // At the edge with no scroll that runs: the window moves. A tap while a scroll runs to the edge does nothing.
             window.move(dir, null)
         }
     }

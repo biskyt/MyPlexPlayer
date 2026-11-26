@@ -37,12 +37,13 @@ class GuideBlocksTest {
     }
 
     @Test
-    fun `after the last programme ends, the highlight names the last one drawn, not one hidden inside it`() {
-        // 0:00 to 2:00, with 0:30 to 1:00 inside it, last: at 2:30, cellAt falls back to the hidden one.
+    fun `after the last programme, the highlight is on the drawn block, not one inside it`() {
+        // 0:00 to 2:00, with 0:30 to 1:00 inside it and last: at 2:30, after both, the highlight is on the one that ends
+        // last, which is drawn, not on the last in the list, which is not (MyPlexPlayer's review of 1.40.1).
         val visible = listOf(p(0, 120), p(30, 60))
-        val i = cellAt(visible, 150 * MIN)
-        assertEquals(1, i)
-        assertEquals(0, drawnCell(blocks(visible, 0, 240 * MIN), i))
+        assertEquals(0, cellAt(visible, 150 * MIN))
+        // Programmes in turn: still the last one.
+        assertEquals(1, cellAt(listOf(p(0, 60), p(60, 90)), 150 * MIN))
     }
 
     private companion object {

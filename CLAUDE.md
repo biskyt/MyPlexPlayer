@@ -391,8 +391,9 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
       on the controls. Here the phone's live controls lose their About button too. Then come "Watch from start" or
       "Watch live", then the favourite.
     - `blocks()`, `GuideBlock` and `drawnCell` in GuideGrid.kt: the TV and phone guides draw an overlap without moving
-      the later programmes (`GuideBlocksTest`). Here each block keeps its recording mark, and `GuideHighlight.at()`
-      names the programme drawn under the highlight (this app's review).
+      the later programmes (`GuideBlocksTest`). Here each block keeps its recording mark. Also 1.40.2 (`2d5bdea`, from
+      this app's review): `cellAt` falls back to the programme that ends last (it is drawn), and a tap while a scroll
+      runs to the edge does not move the window.
     - `NewListToTop` in PhoneLive.kt (a new list starts at the top, also after an empty one), and Earlier and Later
       that go on from the running scroll's target.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix

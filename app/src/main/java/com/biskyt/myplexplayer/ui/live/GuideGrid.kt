@@ -215,9 +215,13 @@ internal fun blocks(visible: List<ChannelProgramme>, start: Long, end: Long): Li
     }
 }
 
-/** The programme on [time], else the next one after it, else the last: what a highlight on [time] shows. */
+/**
+ * The programme on [time], else the next one after it, else the one that ends last: what a highlight on [time] shows.
+ * The one that ends last is drawn, where the last in the list can be inside the one before it, and not drawn
+ * (MyPlexPlayer's review of 1.40.1).
+ */
 internal fun cellAt(visible: List<ChannelProgramme>, time: Long): Int =
-    visible.indexOfFirst { it.stopMs > time }.takeIf { it >= 0 } ?: visible.lastIndex
+    visible.indexOfFirst { it.stopMs > time }.takeIf { it >= 0 } ?: visible.indices.maxByOrNull { visible[it].stopMs } ?: -1
 
 /**
  * A time for the highlight on the programme after ([dir] 1) or before (-1) [visible]`[i]`: the first that a time can
@@ -423,15 +427,11 @@ private class GuideHighlight(
     /** The channel in row [row], once its page is loaded (paging throws for a row it doesn't have yet). */
     private fun channelAt(row: Int) = if (row in 0 until items.itemCount) items.peek(row) else null
 
-    /**
-     * The channel and programme the highlight is on: the one drawn there. A programme inside the one before it is not
-     * drawn (see blocks), so the info line and OK name the one it is inside, as the highlight shows.
-     */
+    /** The channel and programme the highlight is on. */
     fun at(): Pair<ChannelEntity, ChannelProgramme?>? {
         val ch = channelAt(cursor.row) ?: return null
         val (visible, i) = rows.inWindow(ch, cursor.time)
-        val shown = drawnCell(blocks(visible, window.start, window.end), i) ?: i
-        return ch to visible.getOrNull(shown)
+        return ch to visible.getOrNull(i)
     }
 
     fun place(row: Int) {
