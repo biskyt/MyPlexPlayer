@@ -88,11 +88,18 @@ class FormFactorTest {
     }
 
     @Test
-    fun `the tabs have the tab bar, and the title pages, a person's page and the players do not`() {
-        listOf(Screen.Home, Screen.Live(), Screen.Movies(), Screen.Series(), Screen.Dvr).forEach { assertTrue("$it", it.hasTabBar) }
+    fun `the tabs and the title pages have the tab bar, and a person's page and the players do not`() {
         listOf(
+            Screen.Home,
+            Screen.Live(),
+            Screen.Movies(),
+            Screen.Series(),
+            Screen.Dvr,
             Screen.MovieDetails(1, 2),
-            Screen.SeriesDetails(1, 2),
+            Screen.SeriesDetails(1, 2)
+        )
+            .forEach { assertTrue("$it", it.hasTabBar) }
+        listOf(
             Screen.Person(1, 2, null, "Ana Ruiz", null, null, "The Harbour", Tab.MOVIES),
             Screen.VodPlayer(1, 2),
             Screen.Live(guide = true)

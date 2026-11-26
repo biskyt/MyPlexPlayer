@@ -58,7 +58,7 @@ class PhoneToastUiTest {
     }
 
     @Test
-    fun `a notice on a film page, which has no tab bar, is at the bottom of the screen`() {
+    fun `a notice on a film page, which has the tab bar since 1_20_0, is above it too`() {
         compose.setContent { AppRoot() }
         compose.waitForText("Recently added movies")
         compose.onNode(hasText("Big Buck Bunny") and hasClickAction()).performClick()
@@ -66,13 +66,7 @@ class PhoneToastUiTest {
         app.container.notices.post(Notice("Not saved", null))
         compose.waitForText("Not saved")
         val notice = compose.onNode(hasText("Not saved")).fetchSemanticsNode().boundsInRoot
-        val screen = compose.onRoot().fetchSemanticsNode().boundsInRoot
-        // 24 dp from the bottom (72 px here, at 3 px a dp), not lifted over a tab bar that is not there.
-        assertTrue("$notice on $screen", notice.bottom >= screen.bottom - CLEAR_OF_THE_BOTTOM_PX)
-    }
-
-    private companion object {
-        /** More than the 24 dp gap, less than the gap and a tab bar's 64 dp. */
-        const val CLEAR_OF_THE_BOTTOM_PX = 150
+        val bar = compose.onNode(hasText("Home")).fetchSemanticsNode().boundsInRoot
+        assertTrue("$notice over the tab bar ($bar)", notice.bottom <= bar.top)
     }
 }

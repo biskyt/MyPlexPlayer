@@ -38,6 +38,7 @@
     <string name="vod_not_deleted">Não foi possível excluir</string>
     <string name="vod_auto_delete">Excluir episódios assistidos</string>
     <string name="vod_auto_delete_not_saved">Não foi possível mudar quando os episódios assistidos são excluídos</string>
+    <string name="vod_watched_not_saved">Não foi possível marcar como assistido ou não assistido</string>
     <string name="vod_auto_delete_never">Nunca</string>
     <string name="vod_auto_delete_day">Depois de um dia</string>
     <string name="vod_auto_delete_week">Depois de uma semana</string>

@@ -146,7 +146,8 @@ fun PhoneHome(vm: HomeViewModel) {
             }
         }
     }
-    options?.let { tile -> TileOptions(tile, vm, pid) { options = null } }
+    // A server's answer can come after this sheet closed: it does not close another card's sheet.
+    options?.let { tile -> TileOptions(tile, vm, pid) { if (options === tile) options = null } }
 }
 
 /** A row of posters for each type of [rows] that has any ([key] tells the rows apart), titled by [title]. */

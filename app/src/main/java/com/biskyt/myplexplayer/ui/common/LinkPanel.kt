@@ -17,12 +17,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.appString
-import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.bd
+import com.biskyt.myplexplayer.ui.theme.showsQrCodes
 
 /**
  * A web page as a QR code to scan with a phone (paying or reading on a TV isn't for everyone), with its address, an
- * optional [note], and a way to open it here. A touch screen shows no QR code.
+ * optional [note], and a way to open it here. A phone or tablet shows no QR code, also on a page drawn as on a TV.
  */
 @Composable
 fun LinkPanel(title: String, url: String, note: String? = null, onDismiss: () -> Unit) {
@@ -30,8 +30,8 @@ fun LinkPanel(title: String, url: String, note: String? = null, onDismiss: () ->
     var problem by remember { mutableStateOf<String?>(null) }
     BoardPanel(onDismiss, gap = 10.bd) {
         BoardPanelTitle(title)
-        // On a touch screen, no QR code to scan with the same phone (the owner, 2026-11-25).
-        if (LocalFormFactor.current.isTv) {
+        // On a phone or tablet, no QR code to scan with the same device (the owner, 2026-11-25).
+        if (showsQrCodes()) {
             BoardPanelSubtitle(stringResource(R.string.common_link_scan_hint))
             QrCode(url, Modifier.size(240.dp).align(Alignment.CenterHorizontally))
         }

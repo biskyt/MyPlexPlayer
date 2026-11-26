@@ -24,8 +24,10 @@ import com.biskyt.myplexplayer.ui.NavHost
 import com.biskyt.myplexplayer.ui.Navigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.ScreenContent
+import com.biskyt.myplexplayer.ui.common.LinkPanel
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import com.biskyt.myplexplayer.ui.theme.Palette
+import com.biskyt.myplexplayer.ui.theme.TvCanvas
 import com.biskyt.myplexplayer.ui.theme.autoFindsTv
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -141,5 +143,31 @@ class PhoneSettingsUiTest {
         tap("|AR| NEWS")
         compose.waitAdvancingClock(stepMs = 50) { included() != before }
         assertTrue(("|AR| NEWS" in before) != ("|AR| NEWS" in included()))
+    }
+
+    private fun qrCodes() = compose.onAllNodes(hasContentDescription("QR code", substring = true)).fetchSemanticsNodes()
+
+    @Test
+    fun `a link panel has no QR code to scan with the same phone`() {
+        compose.setContent { MyPlexTheme { LinkPanel("Ko-fi", "https://ko-fi.com/biskyt") {} } }
+        compose.waitForText("Open on this device", stepMs = 50)
+        assertTrue(qrCodes().isEmpty())
+    }
+
+    @Test
+    fun `a link panel on a page drawn as on a TV has no QR code either (MyTVPlayer 1_39_1)`() {
+        // A screen with no phone layout (Search, the TV guide) is drawn as on a TV (TvCanvas), on the phone.
+        compose.setContent { MyPlexTheme { TvCanvas { LinkPanel("Ko-fi", "https://ko-fi.com/biskyt") {} } } }
+        compose.waitForText("Open on this device", stepMs = 50)
+        assertTrue(qrCodes().isEmpty())
+    }
+
+    @Test
+    fun `sign-in drawn as on a TV, on a phone, has no QR code`() {
+        runBlocking { app.container.settings.setPlexToken(null) }
+        val navigator = navigators.new(Screen.PlexSignIn(firstRun = false))
+        compose.setContent { MyPlexTheme { TvCanvas { NavHost(remember { navigator }) { ScreenContent(it) } } } }
+        compose.waitForText("ABCD", stepMs = 500)
+        assertTrue(qrCodes().isEmpty())
     }
 }

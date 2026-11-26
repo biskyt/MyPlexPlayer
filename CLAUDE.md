@@ -356,6 +356,26 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
       provider adds in brackets after a name, in one pass. `VodTitles.key` uses the series rules. `TmdbTitle.title` is
       TMDB's own title, and `TmdbClient.match` cleans a series' name with the series rules. Left out: its download
       names and `M3uVod.FILING` (no downloads or M3U here).
+  - In 1.20.0: 1.39.0 (`f45f3b6`; merge `fd3d7fb`) and 1.39.1 (`0991355`; merge `3593b6d`).
+    - A Continue watching card's options (the owner, 2026-11-25) are Resume, Remove from Continue watching, and About
+      this movie or Go to series. Then they show what the title's More… shows (`filmMore`, `episodeMore` in HomeScreen).
+    - A film gets Watched, its favourite, the server's details' options and Delete.
+    - An episode gets its own options (with Delete), then the show's (`episodeAndShowActions`). The owner, 2026-11-25:
+      the card has no Delete the series and no "Delete watched episodes". Here the episode is the one that
+      Play plays (`carryOnEpisode`, the 1.14.0 ruling), not always the card's own.
+    - `ui/vod/VodItemActions.kt` is this app's own: `filmOwnActions` (Watched, favourite, the title's options, Delete)
+      and `episodeOwnActions` (description, Cast and crew, Watched, Delete). The film and series pages use them too.
+    - A mark that the server does not take posts a notice (`vod_watched_not_saved`, from `VodRepository.setWatched`,
+      so every screen shows it), in place of MyTVPlayer's Toast. `EpisodeCastPanel` (PlexDetailsParts.kt) is the
+      episode's own Cast and crew on Home and on the series page. `TitleOptions` takes the options as `more`.
+    - On a phone, the film and series pages have the tab bar (`PhoneTabFrame`, `hasTabBar`). The header tries the
+      server's art, then TMDB's (`PhoneArt`). With none, the poster comes up under Back once the reads are done.
+    - `LocalDeviceFormFactor` and `showsQrCodes()` (FormFactor.kt, as MyTVPlayer has them) replace 1.19.0's
+      `LocalFormFactor.current.isTv` checks for the QR codes. So a TvCanvas page on a phone shows none either: the link
+      panel, sign-in, the TMDB key panel and the crash page ("Open the report").
+    - Left out: Download (no downloads here), `downloadMovie`, `downloadEpisode`, `episodeOf` and `setEpisodeWatched`
+      (`VodRepository.setWatched` does it here), `TitleInfo.settled` (no `TitleInfo` here), Google's sign-in code and
+      the sync texts. The "this device" texts and the TMDB key panel's scroll were here already (1.19.0).
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

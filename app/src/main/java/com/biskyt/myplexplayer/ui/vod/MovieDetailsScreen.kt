@@ -52,14 +52,13 @@ import com.biskyt.myplexplayer.ui.common.CirclePhoto
 import com.biskyt.myplexplayer.ui.common.LocalTopBarInset
 import com.biskyt.myplexplayer.ui.common.Poster
 import com.biskyt.myplexplayer.ui.common.Tab
-import com.biskyt.myplexplayer.ui.common.favouriteAction
 import com.biskyt.myplexplayer.ui.common.formatDate
 import com.biskyt.myplexplayer.ui.common.formatDuration
-import com.biskyt.myplexplayer.ui.common.markWatched
 import com.biskyt.myplexplayer.ui.common.onOptionsKey
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.rememberTrailerOpener
 import com.biskyt.myplexplayer.ui.common.timeLeft
+import com.biskyt.myplexplayer.ui.phone.PhoneArt
 import com.biskyt.myplexplayer.ui.phone.PhoneFilmPage
 import com.biskyt.myplexplayer.ui.theme.BOLD
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
@@ -99,6 +98,12 @@ class MovieDetailsViewModel(private val c: AppContainer, private val playlistId:
     /** The film on TMDB, read with a TMDB key when the server gives the film's TMDB id; null otherwise, or until read. */
     private var tmdb by mutableStateOf<TmdbTitle?>(null)
 
+    /** Whether the server's details and TMDB (with a key) have both answered or failed: no more art will come. */
+    private var settled by mutableStateOf(false)
+
+    /** The art a phone's page can show at its top: the server's, then TMDB's. */
+    val art by derivedStateOf { PhoneArt(listOfNotNull(details?.backdropUrl, tmdb?.backdropUrl), settled) }
+
     /**
      * The film's trailers for Other trailers: the server's (with its details), then TMDB's (with a key). "Play trailer"
      * plays TMDB's best ([TitleTrailers.tmdbTrailer]) only when the server has no trailer of its own.
@@ -107,8 +112,12 @@ class MovieDetailsViewModel(private val c: AppContainer, private val playlistId:
 
     init {
         viewModelScope.launch {
-            val id = firstLoad.await()?.tmdbId ?: return@launch
-            tmdb = c.tmdb.title(series = false, id)
+            try {
+                val id = firstLoad.await()?.tmdbId ?: return@launch
+                tmdb = c.tmdb.title(series = false, id)
+            } finally {
+                settled = true
+            }
         }
     }
 
@@ -144,15 +153,18 @@ fun MovieDetailsScreen(screen: Screen.MovieDetails) {
     // Out here, so that the trailer's panel (where nothing can open it) stays while the panels change.
     val openTmdb = rememberTrailerOpener()
     val trailerScreen = { id: Long -> Screen.VodPlayer(screen.playlistId, movie.streamId, trailer = id) }
-    FilmPage(
-        movie,
-        vm.details,
-        progress?.takeUnless { it.finished },
-        play = { fromStart -> nav.push(Screen.VodPlayer(screen.playlistId, movie.streamId, fromStart = fromStart)) },
-        more = more,
-        openPerson = { person -> personScreen(screen.playlistId, person, movie.title, Tab.MOVIES, acting = true)?.let(nav::push) },
-        playTrailer = trailerButton(vm.details?.trailer, trailerScreen, vm.trailers.tmdbTrailer, openTmdb)
-    )
+    val resumable = progress?.takeUnless { it.finished }
+    val play: (Boolean) -> Unit = { fromStart -> nav.push(Screen.VodPlayer(screen.playlistId, movie.streamId, fromStart = fromStart)) }
+    val openPerson: (CastMember) -> Unit = { person ->
+        personScreen(screen.playlistId, person, movie.title, Tab.MOVIES, acting = true)?.let(nav::push)
+    }
+    val playTrailer = trailerButton(vm.details?.trailer, trailerScreen, vm.trailers.tmdbTrailer, openTmdb)
+    // A phone or an unfolded foldable (the owner, 2026-11-25): its own layout. The panels below are the same.
+    if (LocalFormFactor.current.isTv) {
+        FilmPage(movie, vm.details, resumable, play, more, openPerson, playTrailer)
+    } else {
+        PhoneFilmPage(movie, vm.details, resumable, play, more, openPerson, playTrailer, vm.art)
+    }
     val openCrew: (Int, CastMember) -> Unit = { i, person ->
         castFocus = i
         val acting = i < vm.details?.cast.orEmpty().size
@@ -189,27 +201,27 @@ private fun FilmPanels(
             val favourite by vm.favourite.collectAsState()
             val canDelete by produceState(false) { value = vm.canDelete() }
             val tmdbOn by vm.tmdbOn.collectAsState()
-            val actions = listOf(markWatched(watched) { vm.setWatched(it) }, favouriteAction(favourite) { vm.toggleFavourite() }) +
-                titleActions(
-                    d,
-                    trailerAction(
-                        d?.trailer,
-                        trailerScreen,
-                        vm.trailers.tmdbTrailer,
-                        playTrailer,
-                        film = true
-                    ),
-                    otherTrailers = { show(FilmPanel.TRAILERS) }.takeIf { vm.trailers.more },
-                    similar = if (tmdbOn) {
-                        { id ->
-                            Screen.MoreLike(movie.playlistId, id, series = false, movie.title, Tab.MOVIES)
-                        }
-                    } else {
-                        null
-                    },
-                    showCast = { show(FilmPanel.CAST) },
-                    showTech = { show(FilmPanel.TECH) }
-                ) + listOfNotNull(if (canDelete) deleteAction(movie.title) { vm.delete(gone) } else null)
+            val details = titleActions(
+                d,
+                trailerAction(d?.trailer, trailerScreen, vm.trailers.tmdbTrailer, playTrailer, film = true),
+                otherTrailers = { show(FilmPanel.TRAILERS) }.takeIf { vm.trailers.more },
+                similar = if (tmdbOn) {
+                    { id -> Screen.MoreLike(movie.playlistId, id, series = false, movie.title, Tab.MOVIES) }
+                } else {
+                    null
+                },
+                showCast = { show(FilmPanel.CAST) },
+                showTech = { show(FilmPanel.TECH) }
+            )
+            val actions = filmOwnActions(
+                movie.title,
+                watched,
+                { vm.setWatched(it) },
+                favourite,
+                { vm.toggleFavourite() },
+                details,
+                delete = if (canDelete) ({ vm.delete(gone) }) else null
+            )
             BoardActionsPanel(movie.title, panelLine(movie.year ?: d?.year, d?.genres.orEmpty()), actions, close)
         }
         FilmPanel.CAST -> {
@@ -239,11 +251,6 @@ fun FilmPage(
     openPerson: (CastMember) -> Unit,
     playTrailer: (() -> Unit)?
 ) {
-    // A phone or an unfolded foldable (the owner, 2026-11-25): its own layout. The panels stay MovieDetailsScreen's.
-    if (!LocalFormFactor.current.isTv) {
-        PhoneFilmPage(movie, d, resumable, play, more, openPerson, playTrailer)
-        return
-    }
     Box(Modifier.fillMaxSize().onOptionsKey(more)) {
         Backdrop(d?.backdropUrl)
         Row(

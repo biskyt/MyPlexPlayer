@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -58,6 +59,7 @@ import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.common.AppIcons
 import com.biskyt.myplexplayer.ui.common.CirclePhoto
 import com.biskyt.myplexplayer.ui.common.Poster
+import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.backdropRequest
 import com.biskyt.myplexplayer.ui.theme.FormFactor
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
@@ -82,10 +84,11 @@ import com.biskyt.myplexplayer.ui.vod.resumePoint
  * The film page on a phone: the title's art at the top, which fades into the page, with the poster beside the title and
  * the facts; Play or Resume across the page, then Restart, Trailer and More in a row; the plot, who made it, and the
  * cast in a row that scrolls sideways (a tap opens a person's page, [openPerson]). The page scrolls. Unfolded, the
- * poster, facts and buttons are on the left, and the plot and cast on the right. The arguments are FilmPage's.
+ * poster, facts and buttons are on the left, and the plot and cast on the right. The arguments are FilmPage's, then
+ * [art] for the top (see [PhoneDetailHeader]).
  */
 @Composable
-@Suppress("LongParameterList") // FilmPage's, passed on as they are
+@Suppress("LongParameterList") // FilmPage's, and the art
 fun PhoneFilmPage(
     movie: MovieEntity,
     d: VodDetails?,
@@ -93,11 +96,13 @@ fun PhoneFilmPage(
     play: (fromStart: Boolean) -> Unit,
     more: () -> Unit,
     openPerson: (CastMember) -> Unit,
-    playTrailer: (() -> Unit)?
+    playTrailer: (() -> Unit)?,
+    art: PhoneArt
 ) {
     PhoneDetailLayout(
+        Tab.MOVIES,
         left = {
-            PhoneDetailHeader(d?.backdropUrl, movie.posterUrl ?: d?.posterUrl, movie.title) {
+            PhoneDetailHeader(art, movie.posterUrl ?: d?.posterUrl, movie.title) {
                 d?.let { originalTitle(movie.title, it) }?.let {
                     PhoneSmallText(stringResource(R.string.vod_original_title_is, it), maxLines = 2)
                 }
@@ -130,10 +135,14 @@ internal fun PhoneBadges(rating: String?, scores: List<Score>) {
 
 /**
  * A phone page in one column that scrolls, [left] over [right]. Unfolded, it is two panes side by side, and each pane
- * scrolls. [right] is told which.
+ * scrolls. [right] is told which. The tabs are with it, [tab] the current one (see PhoneTabFrame).
  */
 @Composable
-internal fun PhoneDetailLayout(left: @Composable ColumnScope.() -> Unit, right: @Composable ColumnScope.(unfolded: Boolean) -> Unit) {
+internal fun PhoneDetailLayout(
+    tab: Tab,
+    left: @Composable ColumnScope.() -> Unit,
+    right: @Composable ColumnScope.(unfolded: Boolean) -> Unit
+) = PhoneTabFrame(tab) {
     val page = Modifier.fillMaxSize().background(Palette.background)
     if (LocalFormFactor.current == FormFactor.UNFOLDED) {
         Row(page) {
@@ -155,26 +164,47 @@ internal fun PhoneDetailLayout(left: @Composable ColumnScope.() -> Unit, right: 
 }
 
 /**
- * The top of a film or series page: the title's art ([backdrop]) 230 high, which fades into the page, with a back
- * button on it (see [com.biskyt.myplexplayer.ui.Navigator.back]). Then the [poster] over its bottom edge, and beside it
- * the [title] and [lines] (the facts).
+ * The art that a film or series page can show at its top ([backdrops]). The best comes first: the server's, then
+ * TMDB's. [settled] is true when the page's reads have all answered or failed, so no more art will come. These reads
+ * are the server's details and, with a key, TMDB's.
+ */
+data class PhoneArt(val backdrops: List<String>, val settled: Boolean)
+
+/**
+ * The top of a film or series page. The title's art is 230 high and fades into the page. A back button is on it (see
+ * [com.biskyt.myplexplayer.ui.Navigator.back]). The [poster] goes over the art's bottom edge. The [title] and [lines]
+ * (the facts) go beside the poster.
+ *
+ * The header tries [art]'s backdrops in turn, the server's first and then TMDB's. When none loads, or there is none,
+ * the poster comes up under the back button, with no empty space (the owner, 2026-11-25). While a backdrop loads, or
+ * the page's reads go on, the space stays. Thus the page does not move when a backdrop comes.
  */
 @Composable
-internal fun PhoneDetailHeader(backdrop: String?, poster: String?, title: String, lines: @Composable ColumnScope.() -> Unit) {
+internal fun PhoneDetailHeader(art: PhoneArt, poster: String?, title: String, lines: @Composable ColumnScope.() -> Unit) {
     val nav = LocalNavigator.current
+    // The addresses that failed: not tried again when TMDB's answer adds one.
+    val failed = remember { mutableStateListOf<String>() }
+    val backdrop = art.backdrops.firstOrNull { it !in failed }
+    val height = if (backdrop != null || !art.settled) BACKDROP_HEIGHT else NO_BACKDROP_HEIGHT
     Box(Modifier.fillMaxWidth()) {
-        Box(Modifier.fillMaxWidth().height(BACKDROP_HEIGHT).background(Palette.surfaceHigh)) {
-            if (backdrop != null) {
+        if (backdrop != null) {
+            Box(Modifier.fillMaxWidth().height(BACKDROP_HEIGHT).background(Palette.surfaceHigh)) {
                 // The same request as the TV page's art (Backdrop.kt): one copy of it, kept without the server's token.
                 val context = LocalContext.current
                 val request = remember(backdrop) { backdropRequest(context, backdrop) }
-                AsyncImage(request, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().testTag("backdrop"))
-            }
-            Box(
-                Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(0.4f to Palette.background.copy(alpha = 0f), 1f to Palette.background)
+                AsyncImage(
+                    request,
+                    null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().testTag("backdrop"),
+                    onError = { failed += backdrop }
                 )
-            )
+                Box(
+                    Modifier.fillMaxSize().background(
+                        Brush.verticalGradient(0.4f to Palette.background.copy(alpha = 0f), 1f to Palette.background)
+                    )
+                )
+            }
         }
         PhoneIconButton(
             AppIcons.Back,
@@ -185,7 +215,7 @@ internal fun PhoneDetailHeader(backdrop: String?, poster: String?, title: String
             iconSize = 22.dp
         )
         Row(
-            Modifier.padding(start = PhoneGutter, end = PhoneGutter, top = BACKDROP_HEIGHT - POSTER_OVER),
+            Modifier.padding(start = PhoneGutter, end = PhoneGutter, top = height - POSTER_OVER),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.Bottom
         ) {
@@ -385,5 +415,8 @@ private val POSTER_WIDTH = 104.dp
 
 /** How far the poster comes up over the backdrop. */
 private val POSTER_OVER = 70.dp
+
+/** In place of a backdrop: the back button's room at the top (14 + 44 + 14), so the poster's top is just under it. */
+private val NO_BACKDROP_HEIGHT = 72.dp + POSTER_OVER
 private const val PLOT_LINES = 4
 private const val UNFOLDED_PLOT_LINES = 10

@@ -321,19 +321,22 @@ private val Screen.drawsOwnTopBar: Boolean
  */
 internal val Screen.hasPhoneLayout: Boolean
     get() = hasTabBar ||
-        this is Screen.MovieDetails ||
-        this is Screen.SeriesDetails ||
         this is Screen.Person ||
         isPlayback ||
         isSettings
 
-/** The phone screens drawn in PhoneScaffold, with its tab bar at the bottom (or its rail at the side, unfolded). */
+/**
+ * The phone screens with the tab bar at the bottom (or the rail at the side, unfolded; see PhoneTabFrame): the browsing
+ * screens, and a film's or series' page (the owner, 2026-11-25).
+ */
 internal val Screen.hasTabBar: Boolean
     get() = this == Screen.Home ||
         (this is Screen.Live && !guide) ||
         this is Screen.Movies ||
         this is Screen.Series ||
-        this == Screen.Dvr
+        this == Screen.Dvr ||
+        this is Screen.MovieDetails ||
+        this is Screen.SeriesDetails
 
 /**
  * The room around the corner messages (SyncToast, NoticeToast): 24 dp, and clear of a phone's tab bar at the bottom or

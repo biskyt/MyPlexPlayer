@@ -26,11 +26,13 @@ import com.biskyt.myplexplayer.data.db.PlaylistEntity
 import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.common.BoardActionsPanel
+import com.biskyt.myplexplayer.ui.common.CastPanel
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.TrailersPanel
 import com.biskyt.myplexplayer.ui.common.formatRuntime
 import com.biskyt.myplexplayer.ui.common.perform
 import com.biskyt.myplexplayer.ui.common.trailerActions
+import com.biskyt.myplexplayer.ui.player.DescribedEpisode
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
 import com.biskyt.myplexplayer.ui.theme.EXTRA_BOLD
 import com.biskyt.myplexplayer.ui.theme.Palette
@@ -136,6 +138,18 @@ fun castAndCrew(c: TmdbCredits): List<CastMember> = c.cast + c.guestStars + crew
 
 /** How many of [castAndCrew]'s first act in it: their role is their part. */
 fun TmdbCredits.acting() = cast.size + guestStars.size
+
+/**
+ * An episode's own Cast and crew in a side panel ([d]'s people; nothing while they are unknown). [focus] is the place
+ * that has the remote as it opens. OK on a person calls [open] with their place, them, and whether their role is their
+ * part.
+ */
+@Composable
+fun EpisodeCastPanel(d: DescribedEpisode, focus: Int, open: (Int, CastMember, Boolean) -> Unit, onDismiss: () -> Unit) {
+    val credits = d.extras?.credits ?: return
+    val (crew, acting) = remember(credits) { castAndCrew(credits) to credits.acting() }
+    CastPanel(episodeLabel(d.episode), crew, stringResource(R.string.vod_cast_crew), focus, { open(it, crew[it], it < acting) }, onDismiss)
+}
 
 /** "Cast and crew" for an episode's own people ([open] opens them); null while unknown, or when nobody is known. */
 fun episodeCastAction(credits: TmdbCredits?, open: () -> Unit): ItemAction? =

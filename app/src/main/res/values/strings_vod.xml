@@ -47,6 +47,8 @@
     <string name="vod_not_deleted">Couldn’t delete it</string>
     <string name="vod_auto_delete">Delete watched episodes</string>
     <string name="vod_auto_delete_not_saved">Couldn’t change when watched episodes are deleted</string>
+    <!-- Shown wherever a mark as watched or unwatched fails: the Plex server refused it or was out of reach. -->
+    <string name="vod_watched_not_saved">Couldn’t mark it as watched or unwatched</string>
     <string name="vod_auto_delete_never">Never</string>
     <string name="vod_auto_delete_day">After a day</string>
     <string name="vod_auto_delete_week">After a week</string>

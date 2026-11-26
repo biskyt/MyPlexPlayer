@@ -134,6 +134,7 @@ fun MyPlexTheme(
         LocalDensity provides scaled,
         LocalTouch provides touch,
         LocalFormFactor provides form,
+        LocalDeviceFormFactor provides form,
         LocalLargeText provides largeText,
         LocalOnAccentTypography provides onAccentType
     ) {

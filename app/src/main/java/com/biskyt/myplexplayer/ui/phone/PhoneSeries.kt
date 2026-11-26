@@ -41,6 +41,7 @@ import com.biskyt.myplexplayer.data.db.SeriesEntity
 import com.biskyt.myplexplayer.data.db.WatchProgressEntity
 import com.biskyt.myplexplayer.ui.common.AppIcons
 import com.biskyt.myplexplayer.ui.common.ProgressLine
+import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.Thumbnail
 import com.biskyt.myplexplayer.ui.common.favouriteIcon
 import com.biskyt.myplexplayer.ui.common.favouriteLabel
@@ -87,8 +88,9 @@ fun PhoneSeriesPage(
     val info = d?.info
     val current = d?.seasons?.firstOrNull { it.number == season }
     PhoneDetailLayout(
+        Tab.SERIES,
         left = {
-            PhoneDetailHeader(info?.backdropUrl, current?.posterUrl ?: show.coverUrl ?: info?.posterUrl, show.title) {
+            PhoneDetailHeader(vm.art, current?.posterUrl ?: show.coverUrl ?: info?.posterUrl, show.title) {
                 val facts = seriesFacts(show, d, vm.status, season)
                 if (facts.isNotEmpty()) PhoneFacts(facts)
                 PhoneBadges(info?.contentRating, info?.scores.orEmpty())
