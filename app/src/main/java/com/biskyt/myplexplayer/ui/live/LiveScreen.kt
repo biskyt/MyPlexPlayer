@@ -94,6 +94,7 @@ import com.biskyt.myplexplayer.ui.common.rememberRecordings
 import com.biskyt.myplexplayer.ui.common.restoreFocusIf
 import com.biskyt.myplexplayer.ui.common.reveal
 import com.biskyt.myplexplayer.ui.common.rowsInView
+import com.biskyt.myplexplayer.ui.phone.PhoneGuide
 import com.biskyt.myplexplayer.ui.phone.PhoneLive
 import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.Palette
@@ -109,8 +110,8 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
         vm.focusStreamId = ch.streamId
         nav.push(Screen.Player(pid, ch.streamId, filter))
     }
-    // A phone or an unfolded foldable (the owner, 2026-11-25): the list drawn for touch. The guide stays the TV's.
-    if (!LocalFormFactor.current.isTv && !initialGuide) return PhoneLive(vm, play)
+    // A phone or an unfolded foldable (the owner, 2026-11-25): the list drawn for touch, and the guide too (2026-11-26).
+    if (!LocalFormFactor.current.isTv) return if (initialGuide) PhoneGuide(vm, play) else PhoneLive(vm, play)
 
     LaunchedEffect(Unit) { vm.restoreFocusPending = true }
     // Right from the categories enters the guide's programmes (see GuideGrid).

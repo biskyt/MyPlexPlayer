@@ -46,7 +46,9 @@ import com.biskyt.myplexplayer.ui.common.formatDate
 import com.biskyt.myplexplayer.ui.common.quietFocus
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.rememberTrailerOpener
+import com.biskyt.myplexplayer.ui.phone.PhoneTmdbTitle
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.MEDIUM
 import com.biskyt.myplexplayer.ui.theme.Palette
 import com.biskyt.myplexplayer.ui.theme.SEMI_BOLD
@@ -116,6 +118,11 @@ class TmdbTitleViewModel(private val c: AppContainer, private val screen: Screen
 @Composable
 fun TmdbTitleScreen(screen: Screen.TmdbTitle) {
     val vm = appViewModel { TmdbTitleViewModel(it, screen) }
+    if (LocalFormFactor.current.isTv) TvTmdbTitle(screen, vm) else PhoneTmdbTitle(screen, vm)
+}
+
+@Composable
+private fun TvTmdbTitle(screen: Screen.TmdbTitle, vm: TmdbTitleViewModel) {
     val nav = LocalNavigator.current
     val info = vm.info
     val playTrailer = rememberTrailerOpener()
@@ -233,14 +240,14 @@ private fun EpisodeLine(e: TmdbEpisode) {
 
 /** "2023 · Drama, Crime · TMDB 78%": the parts that are known; null when none is. */
 @Composable
-private fun aboutLine(info: TmdbTitle): String? = listOfNotNull(
+internal fun aboutLine(info: TmdbTitle): String? = listOfNotNull(
     info.released?.year?.toString(),
     genresOf(info.genres),
     info.score?.let { stringResource(R.string.vod_score_tmdb_value, percentOf(it)) },
 ).joinToString(" · ").ifEmpty { null }
 
 /** TMDB's original title, when a search for it can find more than one for [title]; else null. */
-private fun originalTitle(info: TmdbTitle?, title: String): String? =
+internal fun originalTitle(info: TmdbTitle?, title: String): String? =
     info?.originalTitle?.takeIf { VodTitles.key(it) != VodTitles.key(title) }
 
 private const val PLOT_LINES = 6

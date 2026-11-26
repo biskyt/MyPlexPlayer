@@ -69,7 +69,7 @@ import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.Palette
 
 // Live TV on a phone or an unfolded foldable (the owner, 2026-11-25). The same ViewModel, lists and options as the TV
-// screen (LiveScreen), drawn for touch. The guide stays the TV's screen.
+// screen (LiveScreen), drawn for touch. The guide is a screen of its own on top (PhoneGuide).
 
 /**
  * The channel list on a touch screen. A tap plays the channel ([play]), and a long press opens the channel's options,
@@ -83,7 +83,7 @@ fun PhoneLive(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
     val entries = liveEntries(vm)
     val onHide: (CategoryEntity) -> Unit = { vm.hideCategory(it) }
     val openGuide = { nav.push(Screen.Live(filter, guide = true)) }
-    // The options' "Switch to grid view" asks for the guide: here it opens the TV guide's screen.
+    // The options' "Switch to grid view" asks for the guide: here it opens the guide's screen on top.
     LaunchedEffect(vm.guideMode) {
         if (vm.guideMode) {
             vm.showGuide(false, moveFocus = false)
@@ -108,7 +108,7 @@ fun PhoneLive(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
     vm.optionsFor?.let { ch -> ChannelOptionsSheet(ch, vm, play) }
 }
 
-/** The header's button that opens the TV guide (drawn as on a TV). */
+/** The header's button that opens the TV guide (see PhoneGuide). */
 @Composable
 private fun GuideButton(onClick: () -> Unit) {
     Row(

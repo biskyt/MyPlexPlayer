@@ -92,6 +92,7 @@ import com.biskyt.myplexplayer.ui.common.pageStep
 import com.biskyt.myplexplayer.ui.common.pageTarget
 import com.biskyt.myplexplayer.ui.common.rememberDetails
 import com.biskyt.myplexplayer.ui.common.rememberMinuteClock
+import com.biskyt.myplexplayer.ui.common.rememberRecordings
 import com.biskyt.myplexplayer.ui.common.returnsFocus
 import com.biskyt.myplexplayer.ui.common.reveal
 import com.biskyt.myplexplayer.ui.common.rowsInView
@@ -108,7 +109,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
-private const val HALF_HOUR = 30 * 60_000L
+internal const val HALF_HOUR = 30 * 60_000L
 private const val HOUR = 2 * HALF_HOUR
 
 // The window is as many half hours as the screen has room for (see [span]): on a TV, an hour and a half.
@@ -141,12 +142,12 @@ private class GuideCursor(row: Int, time: Long) {
     var moves = 0
 }
 
-/** The rows' programmes: fetched per 6-hour chunk, for rows on screen only (see [BatchLoader]). */
-private class GuideRows(
+/** The rows' programmes: fetched per 6-hour chunk, for rows on screen only (see [BatchLoader]). The phone's guide uses them too. */
+internal class GuideRows(
     private val scope: CoroutineScope,
     private val epg: EpgRepository,
     private val playlistId: () -> Long,
-    private val window: GuideWindow
+    val window: GuideWindow
 ) {
     private var chunk = Long.MIN_VALUE
     private var guide: BatchLoader<List<ChannelProgramme>>? = null
@@ -188,7 +189,7 @@ private class GuideRows(
     }
 }
 
-private fun visibleIn(programmes: List<ChannelProgramme>, windowStart: Long, windowEnd: Long): List<ChannelProgramme> =
+internal fun visibleIn(programmes: List<ChannelProgramme>, windowStart: Long, windowEnd: Long): List<ChannelProgramme> =
     programmes.filter { it.stopMs > windowStart && it.startMs < windowEnd }
 
 /** The programme on [time], else the next one after it, else the last: what a highlight on [time] shows. */
@@ -216,6 +217,22 @@ private val ChannelColumn = 288.dp
 private val arrowKeys = setOf(Key.DirectionUp, Key.DirectionDown, Key.DirectionLeft, Key.DirectionRight)
 
 /**
+ * The guide's rows for [vm]'s server, with their time window, for the TV's grid and the phone's: reloaded after a guide
+ * update (keeping the rows shown meanwhile). Another server's guide opens at now.
+ */
+@Composable
+internal fun rememberGuideRows(vm: LiveViewModel): GuideRows {
+    val container = LocalContext.current.container
+    val scope = rememberCoroutineScope()
+    val playlistId by vm.playlistId.collectAsState()
+    val window = remember(playlistId) { GuideWindow() }
+    val rows = remember(window) { GuideRows(scope, container.epg, { vm.playlistId.value }, window) }
+    val guideVersion by container.epg.changes.collectAsState()
+    LaunchedEffect(guideVersion) { rows.guide().refreshAll() }
+    return rows
+}
+
+/**
  * The full TV guide grid. Rows come from the same paged channel list; programmes are fetched only for rows on
  * screen and only around the visible time window.
  *
@@ -233,25 +250,19 @@ fun GuideGrid(
     /** Where Up from the first row goes (the filter box). */
     up: FocusRequester
 ) {
-    val container = LocalContext.current.container
     val scope = rememberCoroutineScope()
-    val guideVersion by container.epg.changes.collectAsState()
     val now by rememberMinuteClock()
     val playlistId by vm.playlistId.collectAsState()
     val favourites = vm.favouriteIds.collectIds()
-    val window = remember(playlistId) { GuideWindow() } // another source's guide opens at now
-    val rows = remember(window) { GuideRows(scope, container.epg, { vm.playlistId.value }, window) }
+    val rows = rememberGuideRows(vm)
+    val window = rows.window
     val cursor = remember { GuideCursor(vm.focusIndex ?: 0, System.currentTimeMillis()) }
     val open by rememberUpdatedState(play)
     val highlight = remember(rows, items) { GuideHighlight(cursor, rows, window, items, vm, scope, entry, up) { ch, _ -> open(ch) } }
     var hasFocus by remember { mutableStateOf(false) }
     val noGuide = stringResource(R.string.common_no_guide)
-    // After a guide update, reload the rows already shown (keeping them on screen meanwhile).
-    LaunchedEffect(guideVersion) { rows.guide().refreshAll() }
     // What's set to record (MyPlexPlayer's own: Plex's DVR), read again each time the guide opens.
-    val recordings by remember(playlistId) {
-        container.recordings.observe(playlistId)
-    }.collectAsState(container.recordings.current(playlistId))
+    val recordings by rememberRecordings(playlistId, refresh = true)
 
     // Arriving (from the list, the player or another tab): the highlight goes to what's on now on the channel last
     // used. Focus comes too, unless the view was switched with its buttons (they keep it).
@@ -493,13 +504,16 @@ private class GuideHighlight(
 }
 
 /** What a programme's cell says: its title, or, without one, [noGuide] (null: not loaded). */
-private fun cellTitle(p: ChannelProgramme?, noGuide: String?): String = p?.let { programmeTitle(it.title) } ?: noGuide.orEmpty()
+internal fun cellTitle(p: ChannelProgramme?, noGuide: String?): String = p?.let { programmeTitle(it.title) } ?: noGuide.orEmpty()
 
 /** Local midnight within the window [span], if there is one. */
-private fun midnightIn(span: Span): Long? {
+private fun midnightIn(span: Span): Long? = midnightIn(span.start, span.end)
+
+/** Local midnight from [start] until [end], if there is one. */
+internal fun midnightIn(start: Long, end: Long): Long? {
     val zone = ZoneId.systemDefault()
-    val next = Instant.ofEpochMilli(span.start).atZone(zone).toLocalDate().plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-    return next.takeIf { it < span.end }
+    val next = Instant.ofEpochMilli(start).atZone(zone).toLocalDate().plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+    return next.takeIf { it < end }
 }
 
 /** A line down the grid at the time [at] in the window: now, or where a day begins. */

@@ -49,21 +49,23 @@ class FormFactorTest {
     }
 
     @Test
-    fun `the tabs, the title pages, a person's page and the players have phone layouts`() {
-        assertTrue(Screen.Home.hasPhoneLayout)
-        assertTrue(Screen.Live().hasPhoneLayout)
-        assertTrue(Screen.Movies().hasPhoneLayout)
-        assertTrue(Screen.Series().hasPhoneLayout)
-        assertTrue(Screen.VodPlayer(1, 2).hasPhoneLayout)
-        assertTrue(Screen.Player(1, 2, ChannelFilter.All).hasPhoneLayout)
-        assertTrue(Screen.MovieDetails(1, 2).hasPhoneLayout)
-        assertTrue(Screen.SeriesDetails(1, 2).hasPhoneLayout)
-        assertTrue(Screen.Dvr.hasPhoneLayout)
-        assertTrue(Screen.Person(1, 2, null, "Ana Ruiz", null, null, "The Harbour", Tab.MOVIES).hasPhoneLayout)
-        // Drawn as on a TV: the guide, Search, More like this and a TMDB title's page.
-        assertFalse(Screen.Live(guide = true).hasPhoneLayout)
-        assertFalse(Screen.Search().hasPhoneLayout)
-        assertFalse(Screen.MoreLike(1, 2, series = false, title = "The Harbour", tab = Tab.MOVIES).hasPhoneLayout)
+    fun `every screen has a phone layout`() {
+        listOf(
+            Screen.Home,
+            Screen.Live(),
+            Screen.Live(guide = true),
+            Screen.Movies(),
+            Screen.Series(),
+            Screen.Dvr,
+            Screen.Search(),
+            Screen.VodPlayer(1, 2),
+            Screen.Player(1, 2, ChannelFilter.All),
+            Screen.MovieDetails(1, 2),
+            Screen.SeriesDetails(1, 2),
+            Screen.Person(1, 2, null, "Ana Ruiz", null, null, "The Harbour", Tab.MOVIES),
+            Screen.MoreLike(1, 2, series = false, title = "The Harbour", tab = Tab.MOVIES),
+            Screen.TmdbTitle(1, 2, series = false, title = "The Harbour", posterUrl = null, tab = Tab.MOVIES)
+        ).forEach { assertTrue("$it", it.hasPhoneLayout) }
     }
 
     @Test
@@ -88,20 +90,24 @@ class FormFactorTest {
     }
 
     @Test
-    fun `the tabs and the title pages have the tab bar, and a person's page and the players do not`() {
+    fun `the tabs, Search and the pages opened from them have the tab bar, and the guide and the players do not`() {
         listOf(
             Screen.Home,
             Screen.Live(),
             Screen.Movies(),
             Screen.Series(),
             Screen.Dvr,
+            Screen.Search(),
             Screen.MovieDetails(1, 2),
-            Screen.SeriesDetails(1, 2)
+            Screen.SeriesDetails(1, 2),
+            Screen.Person(1, 2, null, "Ana Ruiz", null, null, "The Harbour", Tab.MOVIES),
+            Screen.MoreLike(1, 2, series = false, title = "The Harbour", tab = Tab.MOVIES),
+            Screen.TmdbTitle(1, 2, series = false, title = "The Harbour", posterUrl = null, tab = Tab.MOVIES)
         )
             .forEach { assertTrue("$it", it.hasTabBar) }
         listOf(
-            Screen.Person(1, 2, null, "Ana Ruiz", null, null, "The Harbour", Tab.MOVIES),
             Screen.VodPlayer(1, 2),
+            Screen.Player(1, 2, ChannelFilter.All),
             Screen.Live(guide = true)
         ).forEach { assertFalse("$it", it.hasTabBar) }
     }

@@ -123,14 +123,14 @@ class PhoneTouchUiTest {
     }
 
     @Test
-    fun `a screen with no phone layout is drawn as on a TV, with the TV's top bar`() {
+    fun `Search is drawn for touch, with the phone's tab bar (every screen has a phone layout)`() {
         show(Screen.Search())
         compose.waitForText("Movies", stepMs = 50)
         // Only the phone's tab bar has Search in words (the TV's top bar has its icon).
-        assertTrue(compose.onAllNodes(hasText("Search")).fetchSemanticsNodes().isEmpty())
-        // On the TV's 1280-unit canvas (0.91 px a unit on this 1170 px wide screen) the tab is about 30 px high; at the
-        // phone's own density (3 px a dp) it would be over three times that.
+        assertTrue(compose.onAllNodes(hasText("Search")).fetchSemanticsNodes().isNotEmpty())
+        // At the phone's own density (3 px a dp) the tab is over 60 px high; on the TV's 1280-unit canvas it would be
+        // about 30 px.
         val tab = compose.onNode(hasText("Movies")).fetchSemanticsNode()
-        assertTrue("${tab.size.height} px", tab.size.height < 60)
+        assertTrue("${tab.size.height} px", tab.size.height > 60)
     }
 }

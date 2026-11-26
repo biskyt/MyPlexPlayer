@@ -316,18 +316,15 @@ private val Screen.drawsOwnTopBar: Boolean
     }
 
 /**
- * The screens with a phone layout (the owner, 2026-11-25): the rest (Search, the TV guide, More like this and a TMDB
- * title's page) are drawn as on a TV, on a phone too (see TvCanvas).
+ * The screens with a phone layout: every one (the owner, 2026-11-26). [TvCanvas] stays for a screen added without one.
+ * The TV guide's has no tab bar, as it is opened on top of a list.
  */
 internal val Screen.hasPhoneLayout: Boolean
-    get() = hasTabBar ||
-        this is Screen.Person ||
-        isPlayback ||
-        isSettings
+    get() = hasTabBar || isPlayback || isSettings || this is Screen.Live
 
 /**
  * The phone screens with the tab bar at the bottom (or the rail at the side, unfolded; see PhoneTabFrame): the browsing
- * screens, and a film's or series' page (the owner, 2026-11-25).
+ * screens, Search, a film's or series' page (the owner, 2026-11-25), and the pages opened from these (2026-11-26).
  */
 internal val Screen.hasTabBar: Boolean
     get() = this == Screen.Home ||
@@ -335,8 +332,12 @@ internal val Screen.hasTabBar: Boolean
         this is Screen.Movies ||
         this is Screen.Series ||
         this == Screen.Dvr ||
+        this is Screen.Search ||
         this is Screen.MovieDetails ||
-        this is Screen.SeriesDetails
+        this is Screen.SeriesDetails ||
+        this is Screen.Person ||
+        this is Screen.MoreLike ||
+        this is Screen.TmdbTitle
 
 /**
  * The room around the corner messages (SyncToast, NoticeToast): 24 dp, and clear of a phone's tab bar at the bottom or
