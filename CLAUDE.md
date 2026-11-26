@@ -579,6 +579,10 @@ See also:
   - **Compose rules:** use `createUiComposeRule()` / `createUiComposeRule<Activity>()` from `testutil/ComposeRules.kt`, not `createComposeRule()`.
     - The plain rule runs effects on an unconfined dispatcher. Room flows collected with `collectAsState` then resume on Room's `arch_disk_io` threads and race the main thread's recomposition, so updates get lost now and then.
     - That was the cause of long-running flakes (a tab or category not showing). The real app is unaffected.
+    - The emulator's `SmokeTest` uses it too (1.21.3): `ComposeRules.kt` is in `app/src/sharedTest`, which both test
+      source sets compile, and detekt scans. With the plain rule, a coroutine that returned from `Dispatchers.IO`
+      recomposed on that IO thread. Google TV 16 then sometimes failed ("The current thread must have a looper!", or a
+      broken slot table). An outer rule's `after()` stops the queue consumer once the activity is closed.
   - Clear each test's `Navigator` (its ViewModelStores) at teardown with the `Navigators` rule
     (`@get:Rule(order = Navigators.ORDER)`, in testutil/Navigators.kt): otherwise ViewModels and ExoPlayers from earlier
     tests keep running into later ones.
