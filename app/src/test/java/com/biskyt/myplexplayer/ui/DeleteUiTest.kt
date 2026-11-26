@@ -9,10 +9,12 @@ import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addHomePlex
+import com.biskyt.myplexplayer.testutil.backOnPanel
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.focusedText
 import com.biskyt.myplexplayer.testutil.idleFrames
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
+import com.biskyt.myplexplayer.testutil.waitForFocus
 import com.biskyt.myplexplayer.testutil.waitForText
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import kotlinx.coroutines.runBlocking
@@ -72,7 +74,15 @@ class DeleteUiTest {
         // The safe answer has the remote.
         compose.waitAdvancingClock { "Keep it" in compose.focusedText() }
         click("Keep it")
-        compose.waitForText("Delete…", stepMs = 50)
+        // Back to the options, on Delete… again.
+        compose.waitForFocus("Delete…")
+        assertTrue(plex.deleted.isEmpty())
+
+        // Back on the question also goes back to the options (the owner, 2026-11-26).
+        click("Delete…")
+        compose.waitForText("Keep it", stepMs = 50)
+        compose.backOnPanel()
+        compose.waitForFocus("Delete…")
         assertTrue(plex.deleted.isEmpty())
 
         click("Delete…")

@@ -2,8 +2,10 @@ package com.biskyt.myplexplayer.ui
 
 import androidx.compose.runtime.remember
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ApplicationProvider
@@ -13,10 +15,11 @@ import com.biskyt.myplexplayer.testutil.FakeTmdb
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
+import com.biskyt.myplexplayer.testutil.backOnPanel
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
+import com.biskyt.myplexplayer.testutil.waitForFocus
 import com.biskyt.myplexplayer.testutil.waitForText
-import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.formatDate
 import com.biskyt.myplexplayer.ui.player.PlaybackViewModel
 import com.biskyt.myplexplayer.ui.player.VodPlayerViewModel
@@ -102,6 +105,18 @@ class EpisodeCastUiTest {
     private fun clickFirst(text: String) =
         compose.onAllNodes(hasText(text) and hasClickAction())[0].performSemanticsAction(SemanticsActions.OnClick)
 
+    /** The options' Cast and crew, from the top down: the episode's, then the show's. */
+    private fun castAndCrew(): List<SemanticsNodeInteraction> {
+        val all = compose.onAllNodes(hasText("Cast and crew") and hasClickAction())
+        return all.fetchSemanticsNodes().indices.sortedBy { all[it].fetchSemanticsNode().boundsInRoot.top }.map { all[it] }
+    }
+
+    /** Which of the options' two Cast and crew has the focus (0: the episode's, 1: the show's), or -1. */
+    private fun focusedCastAndCrew(): Int {
+        val focused = compose.onAllNodes(hasText("Cast and crew") and isFocused()).fetchSemanticsNodes().firstOrNull() ?: return -1
+        return castAndCrew().indexOfFirst { it.fetchSemanticsNode().boundsInRoot.top == focused.boundsInRoot.top }
+    }
+
     /** Two Cast and crew: the episode's (first, under This episode) and the show's. */
     private fun waitForTwoCasts() = compose.waitAdvancingClock(stepMs = 50) {
         compose.onAllNodes(hasText("Cast and crew") and hasClickAction()).fetchSemanticsNodes().size == 2
@@ -116,6 +131,13 @@ class EpisodeCastUiTest {
         assertTrue(shown("Vicky McClure")) // the show's cast who are in it
         assertTrue(shown(FakeTmdb.EPISODE_DIRECTOR))
         assertFalse(shown("Ines Moreau")) // the show's cast who are not
+        // Back goes back to the options, on the Cast and crew used: the episode's, then the show's (by place, not name).
+        compose.backOnPanel()
+        compose.waitAdvancingClock(stepMs = 50) { focusedCastAndCrew() == 0 }
+        castAndCrew()[1].performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForText("Ines Moreau", stepMs = 50)
+        compose.backOnPanel()
+        compose.waitAdvancingClock(stepMs = 50) { focusedCastAndCrew() == 1 }
     }
 
     @Test
@@ -181,10 +203,21 @@ class EpisodeCastUiTest {
         compose.waitForText("PLAYBACK", stepMs = 50) // the player's own options, under their own heading
         clickFirst("Episode description")
         compose.waitForText("Directed by ${FakeTmdb.EPISODE_DIRECTOR} · Written by ${FakeTmdb.EPISODE_WRITER}", stepMs = 50)
-        compose.runOnIdle { vm.panel = null }
-        compose.runOnIdle { (vm.menuActions().first { it.label == "Cast and crew" } as ItemAction.Run).run() }
+        // Back goes back to More, on the option that opened the panel (the owner, 2026-11-26).
+        compose.backOnPanel()
+        compose.waitAdvancingClock { vm.sheet == PlaybackViewModel.Sheet.MORE && vm.panel == null }
+        compose.waitForFocus("Episode description")
+        clickFirst("Cast and crew")
         compose.waitForText(FakeTmdb.GUEST_STAR, stepMs = 50)
         assertTrue("still playing", vm.engine?.player?.playWhenReady == true)
+        compose.backOnPanel()
+        compose.waitAdvancingClock { vm.sheet == PlaybackViewModel.Sheet.MORE && vm.cast == null }
+        // On the Cast and crew used: the episode's, then the show's (by place, not name).
+        compose.waitAdvancingClock(stepMs = 50) { focusedCastAndCrew() == 0 }
+        castAndCrew()[1].performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForText("Ines Moreau", stepMs = 50)
+        compose.backOnPanel()
+        compose.waitAdvancingClock(stepMs = 50) { focusedCastAndCrew() == 1 }
     }
 
     /** The pilot's description lines, from the server (its date) and from TMDB (the rest). */

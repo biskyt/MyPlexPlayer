@@ -59,20 +59,19 @@ fun VodPlayerScreen(screen: Screen.VodPlayer) {
         // closes): while the pill counts down, it cancels the skip.
         BackHandler(enabled = vm.backCancelsSkip, onBack = vm::cancelAutoSkip)
     }
-    // Cast and crew, from More: over the picture, which plays on. OK on someone opens their page over the player.
+    // Cast and crew, from More: over the picture, which plays on. OK on someone opens their page over the player. Back
+    // goes back to More, on Cast and crew (the owner, 2026-11-26).
     val nav = LocalNavigator.current
     vm.cast?.let { shown ->
         CastPanel(shown.title, shown.people, stringResource(R.string.vod_cast_crew), vm.castFocus, { i ->
             vm.personPage(i)?.let(nav::push)
-        }) {
-            vm.cast = null
-        }
+        }, vm::panelBack)
     }
-    // About and the episode's description from More, as the title's pages open them.
+    // About and the episode's description from More, as the title's pages open them; Back goes back to More.
     when (val panel = vm.panel) {
-        TitlePanel.About -> AboutPanel(vm.details, onDismiss = { vm.panel = null })
+        TitlePanel.About -> AboutPanel(vm.details, onDismiss = vm::panelBack)
         // What is known now: the rest fills in as it is read, as on the series page.
-        is TitlePanel.Describe -> EpisodeDescriptionPanel(vm.described ?: panel.episode) { vm.panel = null }
+        is TitlePanel.Describe -> EpisodeDescriptionPanel(vm.described ?: panel.episode, vm::panelBack)
         else -> Unit
     }
 }

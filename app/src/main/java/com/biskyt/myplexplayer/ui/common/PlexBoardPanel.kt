@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -86,8 +87,8 @@ private fun LinkPills(links: List<TitleLink>, open: (TitleLink) -> Unit, modifie
 /**
  * An options panel (boards "PlexFilmMore" and "PlexSeriesMore"), the one every list of [ItemAction]s opens: [title]
  * ([smallTitle] for an episode's, which is longer), [subtitle] under it if given, then [actions] in order, the first
- * with focus, then any [more] options (such as a programme's recording options). A [ItemAction.Confirmed] asks its
- * question first, with "no" focused.
+ * with focus (or the one [used] last, see [focusedAt]), then any [more] options (such as a programme's recording
+ * options). A [ItemAction.Confirmed] asks its question first, with "no" focused.
  */
 @Composable
 fun BoardActionsPanel(
@@ -96,11 +97,17 @@ fun BoardActionsPanel(
     actions: List<ItemAction>,
     onDismiss: () -> Unit,
     smallTitle: Boolean = false,
+    used: MutableState<OptionPlace?>? = null,
+    /** What an option that opens something closes: [onDismiss] unless Back goes back to another panel. */
+    close: () -> Unit = onDismiss,
     more: (@Composable () -> Unit)? = null
 ) {
     val nav = LocalNavigator.current
     var asking by remember { mutableStateOf<ItemAction.Confirmed?>(null) }
-    BoardPanel(onDismiss) {
+    // The option used, also kept here when the caller does not keep it: back from a question, it has the focus again.
+    val place = used ?: remember { mutableStateOf<OptionPlace?>(null) }
+    // Back on a question goes back to the options (the owner, 2026-11-26: Back goes back to the previous panel).
+    BoardPanel(onDismiss = { if (asking != null) asking = null else onDismiss() }) {
         BoardPanelTitle(title, Modifier.padding(bottom = if (subtitle == null) 6.bd else 2.bd), small = smallTitle)
         subtitle?.let { BoardPanelSubtitle(it, Modifier.padding(bottom = 8.bd)) }
         val confirm = asking
@@ -108,18 +115,24 @@ fun BoardActionsPanel(
             ConfirmQuestion(
                 confirm,
                 onNo = { asking = null },
-                onDismiss = onDismiss,
+                onDismiss = close,
                 question = { BoardPanelText(it, Modifier.padding(bottom = 8.bd)) }
             ) { label, modifier, yes, click -> BoardOption(label, modifier = modifier, danger = yes, onClick = click) }
             return@BoardPanel
         }
-        val first = actions.indexOfFirst { it !is ItemAction.Heading }
+        val focused = focusedAt(actions.map { it.takeUnless { a -> a is ItemAction.Heading }?.label }, place.value)
         actions.forEachIndexed { i, a ->
-            val focus = if (i == first) rememberFirstFocus() else Modifier
+            val focus = if (i == focused) rememberFirstFocus() else Modifier
             if (a is ItemAction.Confirmed) {
-                BoardOption(a.label, a.help, focus, danger = true) { asking = a }
+                BoardOption(a.label, a.help, focus, danger = true) {
+                    place.value = OptionPlace(i, a.label)
+                    asking = a
+                }
             } else {
-                ItemActionRow(a, focus) { a.perform(nav, onDismiss) }
+                ItemActionRow(a, focus) {
+                    place.value = OptionPlace(i, a.label)
+                    a.perform(nav, close)
+                }
             }
         }
         more?.invoke()

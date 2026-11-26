@@ -19,6 +19,7 @@ import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.common.CastPanel
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.ItemActionsPanel
+import com.biskyt.myplexplayer.ui.common.OptionPlace
 import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.rememberTrailerOpener
 import com.biskyt.myplexplayer.ui.player.DescribedEpisode
@@ -119,7 +120,17 @@ fun titleExtraActions(
 /** The panel [open] (null: none) for [title], with the server's data in [extras]. OK on a person opens their page. */
 @Composable
 @Suppress("LongParameterList") // the title, as the page's own panels take it
-fun TitlePanels(open: TitlePanel?, playlistId: Long, id: Long, title: String, extras: TitleExtras?, film: Boolean, close: () -> Unit) {
+fun TitlePanels(
+    open: TitlePanel?,
+    playlistId: Long,
+    id: Long,
+    title: String,
+    extras: TitleExtras?,
+    film: Boolean,
+    /** Closes every panel as a trailer plays (see OtherTrailersPanel); [close] is Back. */
+    dismiss: () -> Unit,
+    close: () -> Unit
+) {
     val nav = LocalNavigator.current
     when (open) {
         null -> Unit
@@ -133,7 +144,7 @@ fun TitlePanels(open: TitlePanel?, playlistId: Long, id: Long, title: String, ex
         TitlePanel.About -> AboutPanel(extras?.details, close)
         TitlePanel.Tech -> TechnicalInfoPanel(extras?.details, close)
         TitlePanel.Trailers -> extras?.let {
-            OtherTrailersPanel(title, it.trailers, { t -> trailerScreen(playlistId, id, film, t) }, close)
+            OtherTrailersPanel(title, it.trailers, { t -> trailerScreen(playlistId, id, film, t) }, close, dismiss)
         }
         is TitlePanel.Describe -> EpisodeDescriptionPanel(open.episode, close)
         // As on the series page: OK on a person opens their page.
@@ -153,8 +164,8 @@ fun tabOf(film: Boolean) = if (film) Tab.MOVIES else Tab.SERIES
 /**
  * A title's options away from its page: [base] (what the card itself offers), then what its page's More… offers
  * ([more]: by default [titleExtraActions], which come in once the server answers; it gets what opens a panel). One of
- * the title's panels opens in place of the options; closing it closes both ([close]). Film or series [id] is on
- * [playlistId].
+ * the title's panels opens in place of the options. Back on it goes back to the options, on the option that opened it
+ * (the owner, 2026-11-26). Film or series [id] is on [playlistId].
  */
 @Composable
 @Suppress("LongParameterList") // the title, as titleExtraActions takes it
@@ -172,9 +183,10 @@ fun TitleOptions(
     },
 ) {
     var panel by remember { mutableStateOf<TitlePanel?>(null) }
+    val used = remember { mutableStateOf<OptionPlace?>(null) }
     val actions = base + more { panel = it }
-    if (panel == null) ItemActionsPanel(title, actions, close)
-    TitlePanels(panel, playlistId, id, title, extras, film, close)
+    if (panel == null) ItemActionsPanel(title, actions, close, used = used)
+    TitlePanels(panel, playlistId, id, title, extras, film, dismiss = close) { panel = null }
 }
 
 /**

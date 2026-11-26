@@ -1,6 +1,5 @@
 package com.biskyt.myplexplayer.ui
 
-import androidx.activity.ComponentDialog
 import androidx.compose.runtime.remember
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsActions
@@ -21,6 +20,7 @@ import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
+import com.biskyt.myplexplayer.testutil.backOnPanel
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.idleFrames
 import com.biskyt.myplexplayer.testutil.topRoot
@@ -37,7 +37,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import org.robolectric.shadows.ShadowDialog
 
 /** Remote buttons on the player and the live screen, through the app's own screens. */
 @OptIn(ExperimentalTestApi::class)
@@ -138,7 +137,7 @@ class PlayerKeysUiTest {
         press(Key.DirectionCenter)
         waitFor("Picture:")
         // The remote's Back, as the panel's window gets it.
-        compose.runOnUiThread { (ShadowDialog.getLatestDialog() as ComponentDialog).onBackPressedDispatcher.onBackPressed() }
+        compose.backOnPanel()
         waitGone("Picture:")
         compose.idleFrames()
         assertTrue("Focus is on: ${focused()}", focused().contains("More"))
@@ -259,6 +258,20 @@ class PlayerKeysUiTest {
         waitGone("Video:")
         waitForFocus("More")
         assertTrue(compose.onAllNodes(hasText("Playback info")).fetchSemanticsNodes().isEmpty()) // not back to the panel
+    }
+
+    @Test
+    fun `Back on playback info goes back to More, on playback info`() {
+        // The owner, 2026-11-26: Back on a panel goes back to the panel that opened it.
+        show(Screen.Player(source, one, ChannelFilter.All))
+        waitFor("Channel guide")
+        openMore()
+        compose.onNode(hasText("Playback info") and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("Video:")
+        compose.backOnPanel()
+        waitGone("Video:")
+        waitForFocus("Playback info")
+        waitFor("Add to favourites")
     }
 
     @Test

@@ -17,6 +17,7 @@ import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.OnAppBackground
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
+import com.biskyt.myplexplayer.testutil.backOnPanel
 import com.biskyt.myplexplayer.testutil.click
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.focusedText
@@ -24,6 +25,7 @@ import com.biskyt.myplexplayer.testutil.idleFrames
 import com.biskyt.myplexplayer.testutil.sendKey
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
 import com.biskyt.myplexplayer.testutil.waitForFilmPage
+import com.biskyt.myplexplayer.testutil.waitForFocus
 import com.biskyt.myplexplayer.testutil.waitForText
 import com.biskyt.myplexplayer.ui.common.formatDate
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
@@ -126,15 +128,16 @@ class DetailPanelsUiTest {
     }
 
     @Test
-    fun `after Delete then Keep it, the first option has the remote again`() {
-        // MyTVPlayer 1.13.2 gave first focus once a visit, so the list that came back had none (1.13.3 fixed it).
+    fun `after Delete then Keep it, Delete… has the remote again`() {
+        // MyTVPlayer 1.13.2 gave first focus once a visit, so the list that came back had none (1.13.3 fixed it). Since
+        // 1.21.2, the option used has it (the owner, 2026-11-26).
         filmPage()
         compose.click("More…")
         moreListed()
         compose.click("Delete…")
         compose.waitForText("Keep it", stepMs = 50)
         compose.click("Keep it")
-        compose.waitAdvancingClock(stepMs = 50) { "Mark as watched" in compose.focusedText() }
+        compose.waitAdvancingClock(stepMs = 50) { "Delete…" in compose.focusedText() }
     }
 
     @Test
@@ -215,6 +218,10 @@ class DetailPanelsUiTest {
         scrollPanelTo("Paul Okafor")
         compose.waitForText("Paul Okafor", stepMs = 50)
         assertTrue(shown("Writer"))
+        // Back goes back to More…, on Cast and crew (the owner, 2026-11-26).
+        compose.backOnPanel()
+        compose.waitForFocus("Cast and crew")
+        compose.waitForText("Technical info", stepMs = 50)
     }
 
     @Test
@@ -250,5 +257,9 @@ class DetailPanelsUiTest {
         }
         compose.click("About this show")
         compose.waitForText("Added", stepMs = 50)
+        // Back goes back to the episode's options, on About this show (the owner, 2026-11-26).
+        compose.backOnPanel()
+        compose.waitForFocus("About this show")
+        compose.waitForText("THIS EPISODE", stepMs = 50)
     }
 }

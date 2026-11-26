@@ -90,11 +90,18 @@ data class TitleTrailers(val own: List<PlexTrailer> = emptyList(), val tmdb: Lis
  * in the app (the screen [open] gives), then TMDB's, each opened as [TrailersPanel] opens one.
  */
 @Composable
-fun OtherTrailersPanel(title: String, trailers: TitleTrailers, open: (Long) -> Screen, onDismiss: () -> Unit) {
+fun OtherTrailersPanel(
+    title: String,
+    trailers: TitleTrailers,
+    open: (Long) -> Screen,
+    onDismiss: () -> Unit,
+    /** Closes every panel as a trailer plays: back from it, the page shows with none (Back goes to [onDismiss]). */
+    close: () -> Unit = onDismiss
+) {
     val trailer = stringResource(R.string.vod_trailer)
     val teaser = stringResource(R.string.vod_teaser)
     val own = trailers.own.map { ItemAction.Open(it.label(trailer, teaser), open(it.id)) }
-    BoardActionsPanel(title, stringResource(R.string.vod_other_trailers), own + trailerActions(trailers.tmdb), onDismiss)
+    BoardActionsPanel(title, stringResource(R.string.vod_other_trailers), own + trailerActions(trailers.tmdb), onDismiss, close = close)
 }
 
 /**

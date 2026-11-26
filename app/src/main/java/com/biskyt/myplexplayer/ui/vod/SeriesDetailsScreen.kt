@@ -78,6 +78,7 @@ import com.biskyt.myplexplayer.ui.common.ErrorRetry
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.LocalTopBarInset
 import com.biskyt.myplexplayer.ui.common.Muted
+import com.biskyt.myplexplayer.ui.common.OptionPlace
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.Poster
 import com.biskyt.myplexplayer.ui.common.ProgressLine
@@ -163,6 +164,17 @@ class SeriesDetailsViewModel(
 
     /** What is open over the page: an episode's options (its More… button, holding OK, or Menu), or a panel from them. */
     var open by mutableStateOf<SeriesPanel?>(null)
+
+    /** The episode options open now, or that the panel open now came from: Back from the panel goes back to them. */
+    private var options: SeriesPanel.Options? = null
+
+    /** The place of the option used last in the episode's options: back from the panel it opened, it has the focus again. */
+    val optionsUsed = mutableStateOf<OptionPlace?>(null)
+
+    /** Back on a panel: the options it came from (the owner, 2026-11-26); on the options, none. */
+    fun back() {
+        open = if (open is SeriesPanel.Options) null else options
+    }
 
     /** Who has the remote in Cast and crew: back from their page, the panel opens on them again. */
     var castFocus = 0
@@ -256,8 +268,11 @@ class SeriesDetailsViewModel(
     var autoDelete: AutoDeleteChoice? = null
         private set
 
+    /** Opens [e]'s options afresh, on their first option. */
     fun openOptions(e: EpisodeInfo) {
-        open = SeriesPanel.Options(e)
+        optionsUsed.value = null
+        options = SeriesPanel.Options(e)
+        open = options
         if (autoDelete == null) autoDelete = AutoDeleteChoice(viewModelScope, c.vod, playlistId, seriesId)
         loadDescribed(e)
     }
@@ -460,7 +475,7 @@ private fun SeriesPanels(
     openPerson: (Int, CastMember, Boolean) -> Unit
 ) {
     val d = vm.details
-    val close = { vm.open = null }
+    val back = vm::back
     // Out here, so that the trailer's panel (where nothing can open it) stays while the options change.
     val playTrailer = rememberTrailerOpener()
     when (val p = vm.open) {
@@ -472,12 +487,13 @@ private fun SeriesPanels(
         SeriesPanel.Cast -> {
             val crew = remember(d) { castAndCrew(d?.info) }
             val acting = d?.info?.cast.orEmpty().size
-            CastPanel(title, crew, stringResource(R.string.vod_cast_crew), vm.castFocus, { openPerson(it, crew[it], it < acting) }, close)
+            CastPanel(title, crew, stringResource(R.string.vod_cast_crew), vm.castFocus, { openPerson(it, crew[it], it < acting) }, back)
         }
-        SeriesPanel.About -> AboutPanel(d?.info, close)
-        SeriesPanel.Trailers -> OtherTrailersPanel(title, vm.trailers, vm::trailer, close)
-        is SeriesPanel.Describe -> EpisodeDescriptionPanel(vm.described(p.e), close)
-        is SeriesPanel.EpisodeCast -> EpisodeCastPanel(vm.described(p.e), vm.castFocus, openPerson, close)
+        // Back on each panel from the options goes back to them, on the option that opened it.
+        SeriesPanel.About -> AboutPanel(d?.info, back)
+        SeriesPanel.Trailers -> OtherTrailersPanel(title, vm.trailers, vm::trailer, back) { vm.open = null }
+        is SeriesPanel.Describe -> EpisodeDescriptionPanel(vm.described(p.e), back)
+        is SeriesPanel.EpisodeCast -> EpisodeCastPanel(vm.described(p.e), vm.castFocus, openPerson, back)
     }
 }
 
@@ -727,7 +743,7 @@ private fun EpisodeOptions(
             if (canDelete) deleteSeriesAction(title, d?.episodes?.size) { vm.deleteSeries() } else null
         )
     val name = episodeLabel(e)
-    BoardActionsPanel("$title · $name", null, episodeAndShowActions(episode, showActions), close, smallTitle = true)
+    BoardActionsPanel("$title · $name", null, episodeAndShowActions(episode, showActions), close, smallTitle = true, used = vm.optionsUsed)
 }
 
 /**
