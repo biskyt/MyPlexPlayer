@@ -27,12 +27,15 @@ private val DOT = 10.dp
 
 /**
  * Source [playlistId]'s recordings as last read, for marks: kept up to date while the app shows (see
- * `Recordings.startWatching`), so this doesn't ask the server again.
+ * `Recordings.startWatching`), so this doesn't ask the server again. With [refresh] (a guide), they are read again
+ * from the server as it opens.
  */
 @Composable
-fun rememberRecordings(playlistId: Long): State<RecordingState> {
+fun rememberRecordings(playlistId: Long, refresh: Boolean = false): State<RecordingState> {
     val recordings = LocalContext.current.container.recordings
-    return remember(playlistId) { recordings.watch(playlistId) }.collectAsState(recordings.current(playlistId))
+    return remember(playlistId, refresh) {
+        if (refresh) recordings.observe(playlistId) else recordings.watch(playlistId)
+    }.collectAsState(recordings.current(playlistId))
 }
 
 /** The red of a recording, as on a recorder's button. */

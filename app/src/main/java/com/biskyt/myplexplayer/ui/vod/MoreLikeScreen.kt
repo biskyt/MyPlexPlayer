@@ -26,7 +26,9 @@ import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
 import com.biskyt.myplexplayer.ui.common.ErrorRetry
 import com.biskyt.myplexplayer.ui.common.Muted
+import com.biskyt.myplexplayer.ui.phone.PhoneMoreLike
 import com.biskyt.myplexplayer.ui.theme.BoardStyle
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.SEMI_BOLD
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
@@ -67,6 +69,7 @@ class MoreLikeViewModel(private val c: AppContainer, private val screen: Screen.
 @Composable
 fun MoreLikeScreen(screen: Screen.MoreLike) {
     val vm = appViewModel { MoreLikeViewModel(it, screen) }
+    if (!LocalFormFactor.current.isTv) return PhoneMoreLike(screen, vm)
     val nav = LocalNavigator.current
     val page = vm.page
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
@@ -85,7 +88,7 @@ fun MoreLikeScreen(screen: Screen.MoreLike) {
             error != null -> item { Box(below) { ErrorRetry(error) { vm.load() } } }
             page == null -> item { Muted(stringResource(R.string.common_loading), below) }
             page.titles.isEmpty() -> item { Muted(stringResource(R.string.vod_similar_none), below) }
-            else -> item { Suggestions(page.titles) { nav.push(open(screen, it)) } }
+            else -> item { Suggestions(page.titles) { nav.push(similarScreen(screen, it)) } }
         }
     }
 }
@@ -96,14 +99,19 @@ private fun Suggestions(titles: List<SimilarTitle>, open: (SimilarTitle) -> Unit
     PosterRow(stringResource(R.string.vod_similar_suggested), titles, focus = true, top = FIRST_GAP) { t, modifier ->
         val s = t.suggestion
         val card = t.card
-        TitleCard(card?.title ?: s.title, card?.imageUrl ?: s.posterUrl, cardLine(card?.year ?: s.year, s.score, card != null), modifier) {
+        TitleCard(
+            card?.title ?: s.title,
+            card?.imageUrl ?: s.posterUrl,
+            similarLine(card?.year ?: s.year, s.score, card != null),
+            modifier
+        ) {
             open(t)
         }
     }
 }
 
 /** A suggestion's page: the server's, where it has the title; else TMDB's. */
-private fun open(screen: Screen.MoreLike, t: SimilarTitle): Screen {
+internal fun similarScreen(screen: Screen.MoreLike, t: SimilarTitle): Screen {
     val id = screen.playlistId
     val card = t.card ?: return Screen.TmdbTitle(id, t.suggestion.id, screen.series, t.suggestion.title, t.suggestion.posterUrl, screen.tab)
     return if (screen.series) Screen.SeriesDetails(id, card.id) else Screen.MovieDetails(id, card.id)
@@ -111,7 +119,7 @@ private fun open(screen: Screen.MoreLike, t: SimilarTitle): Screen {
 
 /** Under a card: "2019 · TMDB 78%", or "2019 · In your library" ([inLibrary]). A part not known is left out. */
 @Composable
-private fun cardLine(year: Int?, score: Double?, inLibrary: Boolean): String? = listOfNotNull(
+internal fun similarLine(year: Int?, score: Double?, inLibrary: Boolean): String? = listOfNotNull(
     year?.toString(),
     if (inLibrary) {
         stringResource(R.string.vod_similar_in_library)

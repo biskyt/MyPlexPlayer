@@ -255,4 +255,3 @@ private fun PhoneEpisodeRow(
 }
 
 private val STILL_WIDTH = 120.dp
-private const val PLOT_LINES = 4

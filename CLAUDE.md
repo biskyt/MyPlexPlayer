@@ -323,8 +323,7 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
       3 lines, the poster rows and All credits. Full biography shows only when the biography is cut. Its sheet gives no
       paragraph the focus on a touch layout.
     - `PhoneDvrAndPersonTest` is on FakePlex.
-    - On a touch layout, these screens still use the TV canvas: Search, the TV guide, More like this and a TMDB title's
-      page. Settings, its pages, sign-in and set-up have touch layouts since 1.19.0.
+    - Since 1.21.0, every screen has a touch layout (Settings, its pages, sign-in and set-up since 1.19.0).
     - Step 1's review fixes, for MyTVPlayer too: the sheet ignores a held OK (`ignoreHeldButtons`), the phone's live
       controls keep Back with no channel, the corner messages clear the tab bar and rail (`toastPadding`), a flash
       message sits under the top row, the time left uses `common_time_left`, and a TV (`findsTv`) is not offered the
@@ -376,6 +375,17 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     - Left out: Download (no downloads here), `downloadMovie`, `downloadEpisode`, `episodeOf` and `setEpisodeWatched`
       (`VodRepository.setWatched` does it here), `TitleInfo.settled` (no `TitleInfo` here), Google's sign-in code and
       the sync texts. The "this device" texts and the TMDB key panel's scroll were here already (1.19.0).
+  - In 1.21.0: 1.40.0 (`cfc6689`; merge `d575abb`), the touch layouts for every screen left (the owner, 2026-11-26).
+    - `hasPhoneLayout` is true for every screen. Search, a person's page, More like this and a TMDB title's page have
+      the tab bar (`hasTabBar`). The TV guide's phone layout (`PhoneGuide`) has none: it opens on top of the list.
+    - `PhoneSearch` has the TV's results in this app's order (series, films, channels, then TV programmes), with the
+      programmes' recording marks. A long press opens the TV's options (`ResultOptions`), with Record for a programme.
+    - `PhoneGuide` shares the TV grid's rows (`rememberGuideRows`, and `rememberRecordings(refresh = true)`). A tap plays the
+      channel. A long press opens the programme's options, with the recording ones. Each programme set to record has
+      its mark.
+    - `PhoneTmdb.kt` has `PhoneMoreLike` and `PhoneTmdbTitle`. A person's page stays this app's `PhonePerson.kt`,
+      now under its tab.
+    - Left out: catch-up (`PhoneCatchup`), the Google sign-in fixes (`GoogleAuth`, Copy the code) and its parental parts.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the
@@ -383,8 +393,8 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
 - **Where a change is made first** (the owner, 2026-10-25): a feature or fix both apps need (the player, remote keys,
   menus, the guide's screens) is made in MyTVPlayer first, then cherry-picked here, so the shared code stays the same
   and ports apply cleanly. Plex-only work (sign-in, servers, play state, Live TV, DVR) is made here only.
-  - New phone and tablet layouts are made in MyTVPlayer first, then ported here (the owner, 2026-11-25). This covers
-    Search, the TV guide and any screen still on the TV canvas.
+  - New phone and tablet layouts are made in MyTVPlayer first, then ported here (the owner, 2026-11-25). Since
+    1.21.0, every screen has one.
   - Home's rows, the menu's order and search results' order differ from MyTVPlayer on purpose (Live TV last, 0.5.0):
     a port touching HomeScreen, TopBar's `Tab` or SearchScreen's results expects conflicts there.
   - The TV guide goes 8 days ahead here (`GUIDE_DAYS` in `data/PlaylistRepository.kt`, 0.17.3: as far as Plex's own

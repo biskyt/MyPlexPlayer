@@ -67,21 +67,24 @@ fun PhonePersonPage(
     val error = vm.error
     // Unfolded, the photo is larger.
     val wide = LocalFormFactor.current == FormFactor.UNFOLDED
-    LazyColumn(
-        Modifier.fillMaxSize().background(Palette.background),
-        contentPadding = PaddingValues(bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        item { PersonHeader(screen, page, wide, showBiography) }
-        when {
-            error != null -> item {
-                Column(Modifier.padding(horizontal = PhoneGutter), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    PhoneSmallText(error, maxLines = 3)
-                    PhonePill(stringResource(R.string.common_retry)) { vm.load() }
+    // Under the tab it was opened from (the owner, 2026-11-26).
+    PhoneTabFrame(screen.tab) {
+        LazyColumn(
+            Modifier.fillMaxSize().background(Palette.background),
+            contentPadding = PaddingValues(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item { PersonHeader(screen, page, wide, showBiography) }
+            when {
+                error != null -> item {
+                    Column(Modifier.padding(horizontal = PhoneGutter), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        PhoneSmallText(error, maxLines = 3)
+                        PhonePill(stringResource(R.string.common_retry)) { vm.load() }
+                    }
                 }
+                page == null -> item { PhoneSmallText(stringResource(R.string.common_loading), Modifier.padding(horizontal = PhoneGutter)) }
+                else -> personSections(page, open, openTmdb)
             }
-            page == null -> item { PhoneSmallText(stringResource(R.string.common_loading), Modifier.padding(horizontal = PhoneGutter)) }
-            else -> personSections(page, open, openTmdb)
         }
     }
 }

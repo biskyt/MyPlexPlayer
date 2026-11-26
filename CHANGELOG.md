@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.21.0
+- On a phone, Search, the TV guide and More like this work by touch.
+- On a phone, a title's TMDB page and a person's page have the tab bar.
+
 ## 1.20.0
 - Continue watching cards now offer most options from the title's More menu.
 - On a phone, film and series pages have the tab bar.
