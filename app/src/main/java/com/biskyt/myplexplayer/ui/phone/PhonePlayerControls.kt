@@ -123,14 +123,10 @@ internal fun PhoneLiveControls(vm: PlayerViewModel) {
     ch?.let { LaunchedEffect(it.streamId) { vm.nowNext.request(it.streamId) } }
     val nn = ch?.let { vm.nowNext.entries[it.streamId] }
     val now by rememberMinuteClock()
-    val details = vm.nowDetails
     val seek = nn?.now?.let { p -> PhoneSeek(liveBar(nn.progress(now)), formatTime(p.startMs), formatTime(p.stopMs)) }
     val title = ch?.numberAndName().orEmpty()
     PhoneControls(vm, title, nn?.now?.let { programmeTitle(it.title) }, seek?.let { { SeekRow(it) } }, live = true) {
         if (ch != null) PhonePill(stringResource(R.string.player_channel_guide), onClick = vm::openGuide)
-        if (details?.description != null || details?.subtitle != null) {
-            PhonePill(stringResource(R.string.player_about_programme)) { vm.sheet = PlaybackViewModel.Sheet.ABOUT }
-        }
     }
 }
 

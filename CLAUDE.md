@@ -386,6 +386,16 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     - `PhoneTmdb.kt` has `PhoneMoreLike` and `PhoneTmdbTitle`. A person's page stays this app's `PhonePerson.kt`,
       now under its tab.
     - Left out: catch-up (`PhoneCatchup`), the Google sign-in fixes (`GoogleAuth`, Copy the code) and its parental parts.
+  - In 1.21.1: 1.40.1 (`eb2a225`; merge `899335a`), with this app's review fixes of 1.40.0.
+    - "About this programme" is the first entry of the live player's More menu (the owner, 2026-11-26), not a button
+      on the controls. Here the phone's live controls lose their About button too. Then come "Watch from start" or
+      "Watch live", then the favourite.
+    - `blocks()`, `GuideBlock` and `drawnCell` in GuideGrid.kt: the TV and phone guides draw an overlap without moving
+      the later programmes (`GuideBlocksTest`). Here each block keeps its recording mark. Also 1.40.2 (`2d5bdea`, from
+      this app's review): `cellAt` falls back to the programme that ends last (it is drawn), and a tap while a scroll
+      runs to the edge does not move the window.
+    - `NewListToTop` in PhoneLive.kt (a new list starts at the top, also after an empty one), and Earlier and Later
+      that go on from the running scroll's target.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

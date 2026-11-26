@@ -61,7 +61,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
         viewModelScope.launch {
             // Read again after a guide update too (a description may be new).
             combine(snapshotFlow { channel?.let { nowNext.entries[it.streamId]?.now } }, c.epg.changes) { p, _ -> p }.collectLatest { p ->
-                // In one step, so the About button doesn't go and come back meanwhile.
+                // In one step, so About in the More menu doesn't go and come back meanwhile.
                 nowDetails = p?.let { details(it) }
                 // Nothing on (a gap in the guide): nothing to tell of.
                 if (p == null && sheet == Sheet.ABOUT) sheet = null
@@ -85,6 +85,10 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
 
     override fun menuActions(): List<ItemAction> {
         val ch = channel ?: return emptyList()
+        // All about the programme that plays, first (the owner, 2026-11-26: not a button on the controls).
+        val about = about?.takeIf { it.description != null || it.subtitle != null }?.let {
+            ItemAction.Run(appString(R.string.player_about_programme)) { sheet = Sheet.ABOUT }
+        }
         // MyPlexPlayer's own: from the start of a recording, and back to live from there.
         val where = when {
             playingFromStart -> ItemAction.Run(appString(R.string.dvr_watch_live)) {
@@ -97,7 +101,7 @@ class PlayerViewModel(c: AppContainer, appContext: Context, private val screen: 
             }
             else -> null
         }
-        return listOfNotNull(where) + channelActions(ch.streamId in favouriteIds) { favourite ->
+        return listOfNotNull(about, where) + channelActions(ch.streamId in favouriteIds) { favourite ->
             viewModelScope.launch {
                 val saved = c.channels.setFavourite(ch.playlistId, ch.streamId, favourite)
                 flash(if (saved) favouriteFlash(favourite) else appString(R.string.common_favourites_not_saved))

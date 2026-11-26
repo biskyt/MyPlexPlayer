@@ -366,11 +366,12 @@ class AppUiTest {
             app,
             Screen.Player(playlistId, plexChannel("1"), ChannelFilter.All)
         )
-        compose.waitAdvancingClock { vm.menuActions().isNotEmpty() }
+        // About the programme comes first once its details are read (the owner, 2026-11-26).
+        compose.waitAdvancingClock { vm.menuActions().firstOrNull()?.label == "About this programme" }
         val labels = vm.menuActions().map { it.label }
-        assertEquals(listOf("Add to favourites"), labels)
-        (vm.menuActions().first() as com.biskyt.myplexplayer.ui.common.ItemAction.Run).run()
-        compose.waitAdvancingClock { vm.menuActions().first().label == "Remove from favourites" }
+        assertEquals(listOf("About this programme", "Add to favourites"), labels)
+        (vm.menuActions()[1] as com.biskyt.myplexplayer.ui.common.ItemAction.Run).run()
+        compose.waitAdvancingClock { vm.menuActions()[1].label == "Remove from favourites" }
         vm.engine?.release()
     }
 

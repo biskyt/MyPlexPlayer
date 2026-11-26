@@ -519,9 +519,6 @@ private fun LiveControls(vm: PlayerViewModel, buttons: FocusRequester, root: Foc
         }
         ControlsBar(vm, buttons, root) {
             PillButton(stringResource(R.string.player_channel_guide), vm::openGuide)
-            if (details?.description != null || details?.subtitle != null) {
-                PillButton(stringResource(R.string.player_about_programme), { vm.sheet = PlaybackViewModel.Sheet.ABOUT })
-            }
         }
     }
 }

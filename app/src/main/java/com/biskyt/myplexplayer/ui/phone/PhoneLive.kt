@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,11 +63,17 @@ import com.biskyt.myplexplayer.ui.common.rememberMinuteClock
 import com.biskyt.myplexplayer.ui.common.rememberRecordings
 import com.biskyt.myplexplayer.ui.live.ChannelOptionsSheet
 import com.biskyt.myplexplayer.ui.live.LiveViewModel
+import com.biskyt.myplexplayer.ui.live.NEW_LIST_MS
 import com.biskyt.myplexplayer.ui.live.liveEntries
 import com.biskyt.myplexplayer.ui.theme.FormFactor
 import com.biskyt.myplexplayer.ui.theme.LocalAccent
 import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.Palette
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 // Live TV on a phone or an unfolded foldable (the owner, 2026-11-25). The same ViewModel, lists and options as the TV
 // screen (LiveScreen), drawn for touch. The guide is a screen of its own on top (PhoneGuide).
@@ -96,13 +103,13 @@ fun PhoneLive(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
                 CategoryList(entries, filter, vm.filters::select, onHide, Modifier.width(240.dp).fillMaxHeight())
                 Column(Modifier.weight(1f).fillMaxHeight()) {
                     LiveFilter(vm, Modifier.padding(start = 8.dp, end = PhoneGutter, top = 6.dp, bottom = 10.dp))
-                    Channels(vm, filter, play, PaddingValues(start = 8.dp, end = PhoneGutter, bottom = 24.dp))
+                    Channels(vm, play, PaddingValues(start = 8.dp, end = PhoneGutter, bottom = 24.dp))
                 }
             }
         } else {
             LiveFilter(vm, Modifier.padding(horizontal = PhoneGutter, vertical = 6.dp))
             PhoneCategoryChips(entries, filter, vm.filters::select, onHide)
-            Channels(vm, filter, play, PaddingValues(start = PhoneGutter, end = PhoneGutter, top = 4.dp, bottom = 16.dp))
+            Channels(vm, play, PaddingValues(start = PhoneGutter, end = PhoneGutter, top = 4.dp, bottom = 16.dp))
         }
     }
     vm.optionsFor?.let { ch -> ChannelOptionsSheet(ch, vm, play) }
@@ -186,36 +193,24 @@ private fun CategoryList(
 
 /** The channels of the list picked, as on a TV. */
 @Composable
-private fun Channels(vm: LiveViewModel, filter: ChannelFilter, play: (ChannelEntity) -> Unit, padding: PaddingValues) {
+private fun Channels(vm: LiveViewModel, play: (ChannelEntity) -> Unit, padding: PaddingValues) {
     val items = vm.channels.collectAsLazyPagingItems()
     // A channel taken off the list (from its options): a TV moves focus on from it; a touch screen has no focus to move.
     vm.removedStreamId?.let { removed -> LaunchedEffect(removed) { vm.removedStreamId = null } }
-    if (vm.filters.settled) ChannelList(vm, items, filter, play, padding)
+    // Here, not in the list: the list after an empty one starts at the top too.
+    NewListToTop(vm, items)
+    if (vm.filters.settled) ChannelList(vm, items, play, padding)
 }
 
 @Composable
-private fun ChannelList(
-    vm: LiveViewModel,
-    items: LazyPagingItems<ChannelEntity>,
-    filter: ChannelFilter,
-    play: (ChannelEntity) -> Unit,
-    padding: PaddingValues
-) {
+private fun ChannelList(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>, play: (ChannelEntity) -> Unit, padding: PaddingValues) {
     val favs = vm.favouriteIds.collectIds()
     // What's recording now (Plex's DVR), for the channels' marks.
     val pid by vm.playlistId.collectAsState()
     val recordings by rememberRecordings(pid)
-    val query by vm.query.collectAsState()
     val now by rememberMinuteClock()
-    // The TV's list state, so the list is where it was back from the player; a new list starts at the top.
+    // The TV's list state, so the list is where it was back from the player (see NewListToTop).
     val state = vm.listState
-    var shown by remember { mutableStateOf(filter to query) }
-    LaunchedEffect(filter, query) {
-        if (shown != filter to query) {
-            shown = filter to query
-            state.scrollToItem(0)
-        }
-    }
     if (items.itemCount == 0) {
         Muted(stringResource(R.string.live_no_channels), Modifier.padding(horizontal = PhoneGutter, vertical = 24.dp))
         return
@@ -242,6 +237,24 @@ private fun ChannelList(
                     vm.focusMoved(ch.streamId, index)
                     play(ch)
                 }
+            }
+        }
+    }
+}
+
+/**
+ * A new list (a category, or a search) starts at its top, in the channel list and the guide, even after a list with no
+ * channels. When its rows arrive, it goes to the top again: a list keeps the channel on top in view, wherever it is in
+ * the new one (as the TV's guide does).
+ */
+@Composable
+internal fun NewListToTop(vm: LiveViewModel, items: LazyPagingItems<ChannelEntity>) {
+    LaunchedEffect(vm, items) {
+        combine(vm.filter, vm.query, ::Pair).drop(1).collectLatest {
+            vm.listState.scrollToItem(0)
+            withTimeoutOrNull(NEW_LIST_MS) {
+                snapshotFlow { items.itemSnapshotList }.drop(1).first()
+                vm.listState.requestScrollToItem(0)
             }
         }
     }
