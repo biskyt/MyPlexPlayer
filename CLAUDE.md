@@ -396,6 +396,28 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
       runs to the edge does not move the window.
     - `NewListToTop` in PhoneLive.kt (a new list starts at the top, also after an empty one), and Earlier and Later
       that go on from the running scroll's target.
+  - In 1.21.2: 1.41.1 (`b5918d7`; merge `0dd4820`). Back on a panel goes back to the panel that opened it, with the
+    option used focused again (the owner, 2026-11-26).
+    - Taken as MyTVPlayer has them: `OptionPlace` and `focusedAt` (ItemActions.kt), `FocusedAtTest`, and
+      `testutil/PanelBack.kt`. `BoardPanel` gives its content no `LocalReturnFocus`.
+    - The player: `Sheet(fromMore)`, `moreUsed`, `openMore()` and `sheetBack()`. More's list opens on the option to
+      focus (`moreRow`). Here About this programme and Playback info (`Sheet.INFO`) go back to More.
+    - `VodPlayerViewModel.panelBack()` also closes the player's Cast and crew (`cast`), which this app shows on its own.
+      A person's page from it still keeps the panel open on that person.
+    - `ItemActionsPanel` and this app's `BoardActionsPanel` take `used`. The film page (`moreUsed`), the series page
+      (`optionsUsed`, `back()`) and Home's `TitleOptions` use it. Technical info goes back to More… too.
+    - The series page already keeps each episode's description and credits (`described`). So its options draw
+      complete when they show again, with no `rememberEpisodeCredits` cache.
+    - This app's own, from its review: Back on a delete or recording question (`ItemAction.Confirmed`) goes back to
+      the options, on that option (`BoardActionsPanel` keeps the option used when its caller does not). A trailer
+      chosen in Other trailers closes every panel (`close` in `BoardActionsPanel` and `OtherTrailersPanel`, `dismiss`
+      in `TitlePanels`): back from it, the page has none open. About this programme goes back to More when the
+      programme ends (`sheetBack()`).
+    - Sent to MyTVPlayer, not changed here (shared code): `focusedAt`'s label fall-back takes the first of two
+      options with the same label, and the first focus can move to a row when an option comes in above it later.
+    - Left out: the parental parts (the PIN panels): no parental controls here. Channel info: none here.
+  - 1.41.0 (`7c1c214`; merge `9d45cfe`) does not apply. This app has no channel More info or Channel info, one Live TV
+    category for each server, and no `ChannelOptionsPanel`.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
     doesn't apply). 1.8.18, 1.8.20, 1.9.x (parental controls), 1.10.x and 1.12.0 (sync between TVs through Google
     Drive: Plex keeps play state itself) and 1.11.0's proxy per playlist don't apply. 1.11.0's external IP next to the

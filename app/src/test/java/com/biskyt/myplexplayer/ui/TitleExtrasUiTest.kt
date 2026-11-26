@@ -19,11 +19,13 @@ import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.OnAppBackground
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
+import com.biskyt.myplexplayer.testutil.backOnPanel
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.focusedText
 import com.biskyt.myplexplayer.testutil.pressAndRead
 import com.biskyt.myplexplayer.testutil.scrollToHomeRow
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
+import com.biskyt.myplexplayer.testutil.waitForFocus
 import com.biskyt.myplexplayer.testutil.waitForText
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import kotlinx.coroutines.flow.first
@@ -102,6 +104,12 @@ class TitleExtrasUiTest {
         waitFor("Cast and crew")
         waitFor("Technical info")
         assertFalse(compose.onAllNodes(hasText("About this film")).fetchSemanticsNodes().isNotEmpty())
+        choose("Cast and crew")
+        waitFor("Elias")
+        // Back goes back to the card's options, on Cast and crew (the owner, 2026-11-26).
+        compose.backOnPanel()
+        compose.waitForFocus("Cast and crew")
+        waitFor("Remove from Continue watching")
     }
 
     @Test
@@ -235,6 +243,10 @@ class TitleExtrasUiTest {
         waitFor("Remove from favourites")
         waitFor("Cast and crew")
         choose("Cast and crew")
-        waitFor("Cast and crew")
+        waitFor("Elias")
+        // Back goes back to the card's options, on Cast and crew.
+        compose.backOnPanel()
+        compose.waitForFocus("Cast and crew")
+        waitFor("Remove from favourites")
     }
 }

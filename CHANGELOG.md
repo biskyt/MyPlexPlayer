@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.21.2
+- Back in a panel opened from another panel goes back to that panel.
+- Back on a delete or recording question goes back to the options.
+
 ## 1.21.1
 - "About this programme" is now the first entry in the live player's More menu.
 - The TV guide shows programmes that overlap without moving the later ones.

@@ -1,6 +1,7 @@
 package com.biskyt.myplexplayer.ui.common
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -110,7 +111,8 @@ fun vodDetails(playlistId: Long, type: String, id: Long): Screen =
 
 /**
  * A side panel of what can be done with something, with [subtitle] under its [title] if given (as MyTVPlayer's): see
- * [BoardActionsPanel].
+ * [BoardActionsPanel]. [used] keeps the place of the option used last, for a panel that one opens in this one's place:
+ * back from it, this one shows again with that option focused (see [focusedAt]).
  */
 @Composable
 fun ItemActionsPanel(
@@ -118,8 +120,30 @@ fun ItemActionsPanel(
     actions: List<ItemAction>,
     onDismiss: () -> Unit,
     subtitle: String? = null,
+    used: MutableState<OptionPlace?>? = null,
     more: (@Composable () -> Unit)? = null
-) = BoardActionsPanel(title, subtitle, actions, onDismiss, more = more)
+) = BoardActionsPanel(title, subtitle, actions, onDismiss, used = used, more = more)
+
+/** An option of a panel, by its place in the panel and its label (see [focusedAt]). */
+data class OptionPlace(val index: Int, val label: String)
+
+/**
+ * Which of a panel's options ([labels]; null for a heading) takes the focus as it opens: the one [used] (the option that
+ * opened the panel that was in its place: Back from that panel returns to it, the owner, 2026-11-26), else the first.
+ * By place while the label there is the same (an episode's options have two Cast and crew), else by label (an option
+ * read later, such as TMDB's, can come in above it), else by place again (its label changed); -1 with no options.
+ */
+fun focusedAt(labels: List<String?>, used: OptionPlace?): Int {
+    val first = labels.indexOfFirst { it != null }
+    return when {
+        used == null -> first
+        labels.getOrNull(used.index) == used.label -> used.index
+        used.label in labels -> labels.indexOf(used.label)
+        // Its own label changed, the panel still open (Add to favourites became Remove from favourites): it stays.
+        labels.getOrNull(used.index) != null -> used.index
+        else -> first
+    }
+}
 
 /**
  * One row of an options panel, drawn the same in every one ([BoardActionsPanel], the player's More): a heading, a row of

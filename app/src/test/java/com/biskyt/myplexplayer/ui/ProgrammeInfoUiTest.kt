@@ -17,9 +17,11 @@ import com.biskyt.myplexplayer.testutil.FakePlex
 import com.biskyt.myplexplayer.testutil.Navigators
 import com.biskyt.myplexplayer.testutil.TestApp
 import com.biskyt.myplexplayer.testutil.addSyncedHomePlex
+import com.biskyt.myplexplayer.testutil.backOnPanel
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.focusedText
 import com.biskyt.myplexplayer.testutil.waitAdvancingClock
+import com.biskyt.myplexplayer.testutil.waitForFocus
 import com.biskyt.myplexplayer.testutil.waitForText
 import com.biskyt.myplexplayer.ui.theme.MyPlexTheme
 import kotlinx.coroutines.runBlocking
@@ -92,6 +94,10 @@ class ProgrammeInfoUiTest {
         tap("About this programme")
         // The panel too: the episode and description a second time.
         compose.waitAdvancingClock(stepMs = 50) { count("Two neighbours turn a bare yard") >= 2 && count("Spring Planting") >= 2 }
+        // Back goes back to More, on About this programme (the owner, 2026-11-26).
+        compose.backOnPanel()
+        compose.waitForFocus("About this programme")
+        waitFor("Add to favourites")
     }
 
     @Test

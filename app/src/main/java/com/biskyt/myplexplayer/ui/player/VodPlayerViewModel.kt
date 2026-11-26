@@ -209,9 +209,17 @@ class VodPlayerViewModel(c: AppContainer, appContext: Context, private val scree
 
     private val tab = tabOf(film = series == null)
 
+    /** Opens [p] in More's place: Back goes back to More ([panelBack]), with the option that opened it focused. */
     private fun openPanel(p: TitlePanel) {
         sheet = null
         panel = p
+    }
+
+    /** Back on a panel from More (About, the episode's description, Cast and crew): More again (the owner, 2026-11-26). */
+    fun panelBack() {
+        panel = null
+        cast = null
+        sheet = Sheet.MORE
     }
 
     /** Cast and crew over the player: [title]'s [people], of whom the first [acting] are the cast (then its crew). */

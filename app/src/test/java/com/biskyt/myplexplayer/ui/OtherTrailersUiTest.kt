@@ -4,6 +4,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import androidx.tv.material3.Text
@@ -137,6 +138,7 @@ class OtherTrailersUiTest {
         compose.click("Spot · Teaser")
         compose.waitAdvancingClock(stepMs = 50) { navigator.current.screen is Screen.VodPlayer }
         assertEquals(Screen.VodPlayer(source, BoardTitles.FILM.toLong(), trailer = TEASER.toLong()), navigator.current.screen)
+        noPanelAfterTrailer()
     }
 
     @Test
@@ -172,6 +174,15 @@ class OtherTrailersUiTest {
         compose.waitAdvancingClock(stepMs = 50) { navigator.current.screen is Screen.VodPlayer }
         val show = BoardTitles.SHOW.toLong()
         assertEquals(Screen.VodPlayer(source, show, show, trailer = TEASER.toLong()), navigator.current.screen)
+        noPanelAfterTrailer()
+    }
+
+    /** Back from the trailer: the page, with no panel over it (the trailer closed them all, not only Other trailers). */
+    private fun noPanelAfterTrailer() {
+        compose.runOnUiThread { navigator.back() }
+        compose.waitAdvancingClock(stepMs = 50) { navigator.current.screen !is Screen.VodPlayer }
+        compose.settle()
+        assertEquals(1, compose.onAllNodes(isRoot()).fetchSemanticsNodes().size)
     }
 
     private companion object {
