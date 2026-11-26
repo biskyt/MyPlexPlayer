@@ -98,10 +98,13 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
     // More's options, then its own (Picture, then Playback info), and the one to focus: the one used last (back from the
     // panel it opened), else the first.
     val actions = if (sheet == PlaybackViewModel.Sheet.MORE) vm.menuActions() else emptyList()
-    val labels = actions.map { it.takeUnless { a -> a is ItemAction.Heading }?.label } + listOf(pictureLabel, infoLabel)
+    val labels = actions.map { it.takeUnless { a -> a is ItemAction.Heading }?.label } +
+        listOf(null, pictureLabel, infoLabel) // the Playback heading (null), then its options
+    val pictureAt = labels.lastIndex - 1
+    val infoAt = labels.lastIndex
     val focused = focusedAt(labels, vm.moreUsed)
-    // The list opens on it, so that it is there to take the focus (the title, the options, then a heading before Picture).
-    val list = remember(sheet) { LazyListState(if (sheet == PlaybackViewModel.Sheet.MORE) moreRow(focused, actions.size) else 0) }
+    // The list opens on it, so that it is there to take the focus.
+    val list = remember(sheet) { LazyListState(if (sheet == PlaybackViewModel.Sheet.MORE) moreRow(focused) else 0) }
     // Back from a sheet that More opened goes back to More.
     BoardPanel(onDismiss = vm::sheetBack, dim = false, scroll = false) {
         // Again when More opens another sheet in its place (Playback info).
@@ -152,14 +155,14 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
                         // What it flashes once pressed: the next mode.
                         val next = vm.picture.next
                         val nextLabel = stringResource(R.string.player_picture, stringResource(next.label))
-                        Choice(pictureLabel, false, if (focused == actions.size) first else Modifier) {
+                        Choice(pictureLabel, false, if (focused == pictureAt) first else Modifier) {
                             vm.picture = next
                             vm.flash(nextLabel)
                         }
                     }
                     item {
-                        Choice(infoLabel, false, if (focused == actions.size + 1) first else Modifier) {
-                            vm.moreUsed = optionPlace(labels, actions.size + 1)
+                        Choice(infoLabel, false, if (focused == infoAt) first else Modifier) {
+                            vm.moreUsed = optionPlace(labels, infoAt)
                             vm.sheet = PlaybackViewModel.Sheet.INFO
                         }
                     }
@@ -190,8 +193,8 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
     }
 }
 
-/** The row of More's list that shows option [option] of [actions] options and More's own: the title, the options, then a heading. */
-private fun moreRow(option: Int, actions: Int): Int = if (option <= 0) 0 else 1 + option + if (option >= actions) 1 else 0
+/** The row of More's list that shows entry [option] of its labels: the title is the row above them. */
+private fun moreRow(option: Int): Int = if (option <= 0) 0 else 1 + option
 
 @Composable
 private fun Header(title: String, subtitle: String?) {

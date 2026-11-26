@@ -427,9 +427,27 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
       replaces 1.21.2's own `place`.
     - Every place that notes the option used makes it with `optionPlace` (also the player's `moreUsed`).
     - This app's own, from its review: the first focus on a stand-in row (while the option used is not read yet) does
-      not replace that option (`standIn`), so its row takes the focus when it comes in. Sent to MyTVPlayer.
+      not replace that option (`standIn`), so its row takes the focus when it comes in. Sent to MyTVPlayer. 1.21.4
+      replaced `standIn` and `on` with MyTVPlayer's `FollowedOption`.
     - `ItemActionsPanelUiTest` is MyTVPlayer's, with this app's own case for a question. `ProgrammeInfoUiTest` has its
       new case on FakePlex (`guideShiftMin`). Its `PlayerViewModel` change was here already (1.21.2).
+  - In 1.21.4: 1.41.3 (`d097954`; merge `65dcd0b`), MyTVPlayer's answer to this app's review of 1.41.2.
+    - Taken as MyTVPlayer has it: `FollowedOption` in ItemActions.kt (here `internal`, for PlexBoardPanel.kt),
+      `renamed()` and `FOCUS_TRIES`.
+    - Each row has its own `FocusRequester`. When the options change, `FollowedOption.focus` gives the focus to the
+      row of the option followed. Only the user's own focus moves change that option (`moving`).
+    - With no option used, the panel follows its first option. A rename is taken only for an option that was in the
+      panel (`seen`).
+    - Here this is in `BoardActionsPanel` (PlexBoardPanel.kt). `FollowedOption` and the requesters are kept outside
+      the panel's content, because the question takes the place of the options.
+    - A `Confirmed` option sets the option followed when it is chosen (also by a tap), and clears `at`. So back from
+      its question, its row takes the focus again.
+    - It replaces 1.21.3's `on` and this app's `standIn`: `moving` covers the stand-in row.
+    - PlayerSheets.kt: More's labels include the Playback heading (`pictureAt`, `infoAt`, `moreRow(option)`).
+    - `ItemActionsPanelUiTest` has MyTVPlayer's new cases, this app's own cases, and a question chosen with the remote.
+    - Sent to MyTVPlayer from this app's review, not changed here (shared code): `focus` can skip its request when the
+      focused row at `at` was replaced by a row of another kind; focus in the `more` slot or a later link pill does not
+      move `at`; the player's More does not follow a moved option yet.
   - 1.41.0 (`7c1c214`; merge `9d45cfe`) does not apply. This app has no channel More info or Channel info, one Live TV
     category for each server, and no `ChannelOptionsPanel`.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
