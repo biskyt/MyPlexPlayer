@@ -413,9 +413,23 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
       chosen in Other trailers closes every panel (`close` in `BoardActionsPanel` and `OtherTrailersPanel`, `dismiss`
       in `TitlePanels`): back from it, the page has none open. About this programme goes back to More when the
       programme ends (`sheetBack()`).
-    - Sent to MyTVPlayer, not changed here (shared code): `focusedAt`'s label fall-back takes the first of two
-      options with the same label, and the first focus can move to a row when an option comes in above it later.
+    - Sent to MyTVPlayer, then fixed in 1.21.3 (shared code): `focusedAt`'s label fall-back took the first of two
+      options with the same label, and the first focus moved to a row when an option came in above it later.
     - Left out: the parental parts (the PIN panels): no parental controls here. Channel info: none here.
+  - In 1.21.3: 1.41.2 (`dee86e7`; merge `8fa9bb1`), MyTVPlayer's answer to this app's review of 1.41.1.
+    - Taken as MyTVPlayer has them: `OptionPlace` with the labels next to the option (`before`, `after`),
+      `optionPlace(labels, i)`, `focusedAt`, `FocusedAtTest`, and `waitForFocus` in `testutil/PanelBack.kt`.
+    - `focusedAt` finds the option by its label and its neighbours, then by the entry between the same neighbours (a
+      rename), then by its place.
+    - The panel follows one option, `on`: the option used, then the option the user moves to. Here this is in
+      `BoardActionsPanel` (PlexBoardPanel.kt), which draws every `ItemActionsPanel`.
+    - A `Confirmed` option also sets `on` when it is chosen, so "Keep it" and Back on its question go back to it. `on`
+      replaces 1.21.2's own `place`.
+    - Every place that notes the option used makes it with `optionPlace` (also the player's `moreUsed`).
+    - This app's own, from its review: the first focus on a stand-in row (while the option used is not read yet) does
+      not replace that option (`standIn`), so its row takes the focus when it comes in. Sent to MyTVPlayer.
+    - `ItemActionsPanelUiTest` is MyTVPlayer's, with this app's own case for a question. `ProgrammeInfoUiTest` has its
+      new case on FakePlex (`guideShiftMin`). Its `PlayerViewModel` change was here already (1.21.2).
   - 1.41.0 (`7c1c214`; merge `9d45cfe`) does not apply. This app has no channel More info or Channel info, one Live TV
     category for each server, and no `ChannelOptionsPanel`.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix

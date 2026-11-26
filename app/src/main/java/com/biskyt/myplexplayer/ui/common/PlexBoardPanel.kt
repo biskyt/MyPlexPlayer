@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -16,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.core.plex.TitleLink
@@ -104,8 +106,10 @@ fun BoardActionsPanel(
 ) {
     val nav = LocalNavigator.current
     var asking by remember { mutableStateOf<ItemAction.Confirmed?>(null) }
-    // The option used, also kept here when the caller does not keep it: back from a question, it has the focus again.
-    val place = used ?: remember { mutableStateOf<OptionPlace?>(null) }
+    // The option to focus: the one used (back from the panel it opened, or from a question), then the one the user moves
+    // to. Options read later can come in above it: its new row then takes the focus, so the focus stays on it (its own
+    // row can come in late too). A row that only changes its label (Add to favourites) keeps the focus.
+    var on by remember { mutableStateOf(used?.value) }
     // Back on a question goes back to the options (the owner, 2026-11-26: Back goes back to the previous panel).
     BoardPanel(onDismiss = { if (asking != null) asking = null else onDismiss() }) {
         BoardPanelTitle(title, Modifier.padding(bottom = if (subtitle == null) 6.bd else 2.bd), small = smallTitle)
@@ -120,17 +124,33 @@ fun BoardActionsPanel(
             ) { label, modifier, yes, click -> BoardOption(label, modifier = modifier, danger = yes, onClick = click) }
             return@BoardPanel
         }
-        val focused = focusedAt(actions.map { it.takeUnless { a -> a is ItemAction.Heading }?.label }, place.value)
+        val labels = actions.map { it.takeUnless { a -> a is ItemAction.Heading }?.label }
+        val focused = focusedAt(labels, on)
+        // Renamed in its place (the same entries next to it): followed by its new label from now on.
+        val now = labels.getOrNull(focused)?.let { optionPlace(labels, focused) }
+        if (now != null && on.let { it != null && it.label != now.label && it.before == now.before && it.after == now.after }) {
+            SideEffect { on = now }
+        }
         actions.forEachIndexed { i, a ->
-            val focus = if (i == focused) rememberFirstFocus() else Modifier
+            val place = optionPlace(labels, i)
+            // The first focus on a stand-in row, while the option to focus is not read yet, does not replace that option:
+            // its row takes the focus when it comes in.
+            val standIn = i == focused && on.let { it != null && it.label !in labels }
+            val focus = Modifier.onFocusChanged { if (it.isFocused && !standIn) on = place }
+                .then(if (i == focused) rememberFirstFocus() else Modifier)
+            // The option used is noted here too, as a tap gives no focus: back from its question, it has the focus again.
+            val note = {
+                on = place
+                used?.value = place
+            }
             if (a is ItemAction.Confirmed) {
                 BoardOption(a.label, a.help, focus, danger = true) {
-                    place.value = OptionPlace(i, a.label)
+                    note()
                     asking = a
                 }
             } else {
                 ItemActionRow(a, focus) {
-                    place.value = OptionPlace(i, a.label)
+                    note()
                     a.perform(nav, close)
                 }
             }

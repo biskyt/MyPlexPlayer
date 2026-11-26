@@ -38,13 +38,13 @@ import com.biskyt.myplexplayer.ui.common.ChannelLogo
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.ItemActionRow
 import com.biskyt.myplexplayer.ui.common.LocalTouch
-import com.biskyt.myplexplayer.ui.common.OptionPlace
 import com.biskyt.myplexplayer.ui.common.ProgrammeAbout
 import com.biskyt.myplexplayer.ui.common.ScheduleList
 import com.biskyt.myplexplayer.ui.common.TouchStepButtons
 import com.biskyt.myplexplayer.ui.common.displayLanguage
 import com.biskyt.myplexplayer.ui.common.focusedAt
 import com.biskyt.myplexplayer.ui.common.formatRange
+import com.biskyt.myplexplayer.ui.common.optionPlace
 import com.biskyt.myplexplayer.ui.common.perform
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
 import com.biskyt.myplexplayer.ui.common.rememberSchedule
@@ -142,7 +142,7 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
                     itemsIndexed(actions) { i, a ->
                         // A screen pushed over the player stops it while it's covered.
                         ItemActionRow(a, if (i == focused) first else Modifier) {
-                            vm.moreUsed = OptionPlace(i, a.label)
+                            vm.moreUsed = optionPlace(labels, i)
                             a.perform(nav, close, vm::beforeLeaving)
                         }
                     }
@@ -159,7 +159,7 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
                     }
                     item {
                         Choice(infoLabel, false, if (focused == actions.size + 1) first else Modifier) {
-                            vm.moreUsed = OptionPlace(actions.size + 1, infoLabel)
+                            vm.moreUsed = optionPlace(labels, actions.size + 1)
                             vm.sheet = PlaybackViewModel.Sheet.INFO
                         }
                     }
