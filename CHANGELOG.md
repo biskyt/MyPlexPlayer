@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.21.4
+- Back from a panel focuses its option, also when it loads late.
+- A late option no longer takes the focus from the first option.
+
 ## 1.21.3
 - Back focuses the right option when two options have the same name.
 - Options that load late no longer take the focus.
