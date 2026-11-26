@@ -2,6 +2,12 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.21.1
+- "About this programme" is now the first entry in the live player's More menu.
+- The TV guide shows programmes that overlap without moving the later ones.
+- On a phone, a new list in the TV guide starts at the top.
+- On a phone, quick taps on Earlier or Later each scroll a full step.
+
 ## 1.21.0
 - On a phone, Search, the TV guide and More like this work by touch.
 - On a phone, a title's TMDB page and a person's page have the tab bar.

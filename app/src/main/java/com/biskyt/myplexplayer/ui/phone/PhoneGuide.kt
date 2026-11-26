@@ -25,10 +25,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,6 +73,7 @@ import com.biskyt.myplexplayer.ui.live.GuideRows
 import com.biskyt.myplexplayer.ui.live.GuideWindow
 import com.biskyt.myplexplayer.ui.live.HALF_HOUR
 import com.biskyt.myplexplayer.ui.live.LiveViewModel
+import com.biskyt.myplexplayer.ui.live.blocks
 import com.biskyt.myplexplayer.ui.live.cellTitle
 import com.biskyt.myplexplayer.ui.live.liveEntries
 import com.biskyt.myplexplayer.ui.live.midnightIn
@@ -84,6 +83,7 @@ import com.biskyt.myplexplayer.ui.theme.LocalAccent
 import com.biskyt.myplexplayer.ui.theme.Palette
 import kotlin.math.roundToInt
 import kotlin.math.sign
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 // The TV guide on a phone or an unfolded foldable (the owner, 2026-11-26: "All screens should have a phone layout"). The
@@ -110,7 +110,7 @@ fun PhoneGuide(vm: LiveViewModel, play: (ChannelEntity) -> Unit) {
         val onHide: (CategoryEntity) -> Unit = { vm.hideCategory(it) }
         PhoneCategoryChips(liveEntries(vm), filter, vm.filters::select, onHide)
         TimeButtons(window, scroll)
-        GuideBody(vm, filter, remember(window, rows, scroll) { GuideParts(window, rows, scroll) }, play)
+        GuideBody(vm, remember(window, rows, scroll) { GuideParts(window, rows, scroll) }, play)
     }
     vm.optionsFor?.let { ch -> ChannelOptionsSheet(ch, vm, play) }
 }
@@ -131,10 +131,19 @@ private class GuideParts(val window: GuideWindow, val rows: GuideRows, val scrol
 @Composable
 private fun TimeButtons(window: GuideWindow, scroll: ScrollState) {
     val scope = rememberCoroutineScope()
+    // Where the last tap scrolls to: a second tap during its scroll goes on from there, not from part-way.
+    // Only while that scroll runs: a drag, or the scroll after the window moves, starts again from where the view is.
+    val last = remember { arrayOfNulls<Job>(1) }
+    val target = remember { intArrayOf(0) }
     val step: (Int) -> Unit = { dir ->
-        scope.launch {
-            val more = if (dir > 0) scroll.canScrollForward else scroll.canScrollBackward
-            if (more) scroll.animateScrollBy(dir * scroll.viewportSize * PAGE_PART) else window.move(dir, null)
+        val from = if (last[0]?.isActive == true) target[0] else scroll.value
+        val to = (from + dir * scroll.viewportSize * PAGE_PART).roundToInt().coerceIn(0, scroll.maxValue)
+        if (to != from) {
+            target[0] = to
+            last[0] = scope.launch { scroll.animateScrollTo(to) }
+        } else {
+            last[0]?.cancel()
+            window.move(dir, null)
         }
     }
     Row(
@@ -151,8 +160,9 @@ private const val PAGE_PART = 0.75f
 
 /** The programmes of the list picked. */
 @Composable
-private fun GuideBody(vm: LiveViewModel, filter: ChannelFilter, parts: GuideParts, play: (ChannelEntity) -> Unit) {
+private fun GuideBody(vm: LiveViewModel, parts: GuideParts, play: (ChannelEntity) -> Unit) {
     val items = vm.channels.collectAsLazyPagingItems()
+    NewListToTop(vm, items)
     // A channel taken off the list (from its options): a TV moves focus on from it; a touch screen has no focus to move.
     vm.removedStreamId?.let { removed -> LaunchedEffect(removed) { vm.removedStreamId = null } }
     when {
@@ -166,7 +176,7 @@ private fun GuideBody(vm: LiveViewModel, filter: ChannelFilter, parts: GuidePart
             val minutes = parts.window.length / MINUTE
             val perMinute = maxOf(MIN_PER_MINUTE, (maxWidth - CHANNEL_COLUMN) / minutes.toFloat())
             KeepTimeInView(parts.window, parts.scroll, perMinute)
-            Grid(vm, items, filter, parts, perMinute, play)
+            Grid(vm, items, parts, perMinute, play)
         }
     }
 }
@@ -197,26 +207,17 @@ private fun KeepTimeInView(window: GuideWindow, scroll: ScrollState, perMinute: 
 private fun Grid(
     vm: LiveViewModel,
     items: LazyPagingItems<ChannelEntity>,
-    filter: ChannelFilter,
     parts: GuideParts,
     perMinute: Dp,
     play: (ChannelEntity) -> Unit
 ) {
     val now by rememberMinuteClock()
     val favourites = vm.favouriteIds.collectIds()
-    val query by vm.query.collectAsState()
     // What's set to record (MyPlexPlayer's own: Plex's DVR), for the programmes' marks.
     val playlistId by vm.playlistId.collectAsState()
     val recordings by rememberRecordings(playlistId, refresh = true)
-    // The TV's list state, so the guide is where it was back from the player; a new list starts at the top.
+    // The TV's list state, so the guide is where it was back from the player (see NewListToTop).
     val state = vm.listState
-    var shown by remember { mutableStateOf(filter to query) }
-    LaunchedEffect(filter, query) {
-        if (shown != filter to query) {
-            shown = filter to query
-            state.scrollToItem(0)
-        }
-    }
     val window = parts.window
     Column(Modifier.fillMaxSize()) {
         TimeRuler(window.start, window.end, now, perMinute, parts.scroll)
@@ -326,23 +327,19 @@ private fun GuideRow(
         // Every row (and the ruler) exactly as wide as the window, whatever its programmes: they share one sideways
         // position, which a row of another width would move whenever it is measured.
         Row(Modifier.weight(1f).fillMaxHeight().horizontalScroll(scroll).width(width(end - start))) {
-            val visible = remember(programmes, start, end) { visibleIn(programmes.orEmpty(), start, end) }
-            if (visible.isEmpty()) {
+            val drawn = remember(programmes, start, end) { blocks(visibleIn(programmes.orEmpty(), start, end), start, end) }
+            if (drawn.isEmpty()) {
                 // One block for the whole window, so the row can still be played. Blank while the programmes load.
                 val title = cellTitle(null, stringResource(R.string.common_no_guide).takeIf { programmes != null })
                 ProgrammeBlock(width(end - start), title, null, live = true, null, { onTap(null) }, { onLongTap(null) })
             } else {
                 var at = start
-                visible.forEach { p ->
-                    // A programme that starts before the one before it ends (guides can overlap) starts where that
-                    // one ends, so that every later one stays at its own time; one hidden by it is not drawn.
-                    val from = maxOf(p.startMs, start, at)
-                    val to = minOf(p.stopMs, end)
-                    if (to <= from) return@forEach
-                    if (from > at) Spacer(Modifier.width(width(from - at)))
+                drawn.forEach { b ->
+                    val p = b.programme
+                    if (b.from > at) Spacer(Modifier.width(width(b.from - at)))
                     val mark = recordings.mark(p.guid, p.showGuid, p.startMs)
-                    ProgrammeBlock(width(to - from), cellTitle(p, null), p, p.isLive(now), mark, { onTap(p) }, { onLongTap(p) })
-                    at = to
+                    ProgrammeBlock(width(b.to - b.from), cellTitle(p, null), p, p.isLive(now), mark, { onTap(p) }, { onLongTap(p) })
+                    at = b.to
                 }
             }
         }
