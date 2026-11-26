@@ -2,6 +2,10 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.21.3
+- Back focuses the right option when two options have the same name.
+- Options that load late no longer take the focus.
+
 ## 1.21.2
 - Back in a panel opened from another panel goes back to that panel.
 - Back on a delete or recording question goes back to the options.

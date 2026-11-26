@@ -9,12 +9,13 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.isRoot
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.printToString
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.biskyt.myplexplayer.data.db.MovieEntity
+import com.biskyt.myplexplayer.testutil.createUiComposeRule
+import com.biskyt.myplexplayer.testutil.stopMainThreadEffects
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
@@ -53,10 +54,16 @@ class SmokeTest {
         override fun before() {
             container.plex.plexTv = url
         }
+
+        // After the compose rule has closed the activity (this rule is outside it): stops the rule's queue consumer.
+        override fun after() = stopMainThreadEffects()
     }
 
+    // The composition on the main thread only, as in the app (see ComposeRules.kt). With the plain rule, a coroutine that
+    // returned from Dispatchers.IO recomposed the screen on that IO thread. Google TV 16 then failed with "The current
+    // thread must have a looper!", and one time with a broken slot table as the activity closed.
     @get:Rule(order = 1)
-    val compose = createAndroidComposeRule<MainActivity>()
+    val compose = createUiComposeRule<MainActivity>()
 
     @After
     fun tearDown() = server.shutdown()
