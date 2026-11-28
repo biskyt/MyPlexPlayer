@@ -4,12 +4,9 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -101,14 +98,13 @@ fun NoticeToast(nav: Navigator, modifier: Modifier = Modifier, notices: Notices 
     if (!nav.current.screen.isPlayback) CornerBox(notice.title, notice.detail, Palette.danger, modifier)
 }
 
-/** A [title] in [colour] and its [detail], in a box with a border of that colour, clear of a phone's navigation bar. */
+/** A [title] in [colour] and its [detail], in a box with a border of that colour. */
 @Composable
 private fun CornerBox(title: String, detail: String?, colour: Color, modifier: Modifier, extra: @Composable () -> Unit = {}) {
     val shape = RoundedCornerShape(14.dp)
     Column(
-        modifier.windowInsetsPadding(
-            WindowInsets.navigationBars
-        ).widthIn(max = 380.dp).fillMaxWidth().clip(shape).background(Palette.surfaceHigh).border(2.dp, colour, shape)
+        // Clear of a phone's navigation bar: the screen around it keeps clear of it (see AppRoot).
+        modifier.widthIn(max = 380.dp).fillMaxWidth().clip(shape).background(Palette.surfaceHigh).border(2.dp, colour, shape)
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Text(title, style = MaterialTheme.typography.titleSmall, color = colour, maxLines = 1, overflow = TextOverflow.Ellipsis)

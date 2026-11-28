@@ -7,10 +7,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
@@ -39,7 +42,7 @@ import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.container
 import com.biskyt.myplexplayer.data.db.ChannelProgramme
 import com.biskyt.myplexplayer.data.programmeTitle
-import com.biskyt.myplexplayer.hideSystemBars
+import com.biskyt.myplexplayer.setSystemBarsHidden
 import com.biskyt.myplexplayer.ui.phone.PhoneSheet
 import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import com.biskyt.myplexplayer.ui.theme.Palette
@@ -127,7 +130,8 @@ fun SidePanel(
 ) {
     // On a phone or an unfolded screen: a sheet from the bottom, as the other panels there (see BoardPanel).
     if (!LocalFormFactor.current.isTv) return PhoneSheet(onDismiss, dim, content)
-    PanelWindow(onDismiss, hideBars = LocalTouch.current) {
+    val barsHidden = LocalBarsHidden.current
+    PanelWindow(onDismiss) {
         Box(
             Modifier.fillMaxSize().ignoreHeldButtons()
                 // On a touch screen, tapping beside the panel closes it.
@@ -138,7 +142,10 @@ fun SidePanel(
             Box(
                 Modifier.fillMaxHeight().width(width)
                     .onPlainTap {} // taps on the panel itself don't close it
-                    .background(Palette.surface.copy(alpha = 0.97f)).padding(padding)
+                    .background(Palette.surface.copy(alpha = 0.97f))
+                    // Clear of the system bars, where a touch screen shows them.
+                    .then(if (barsHidden) Modifier else Modifier.windowInsetsPadding(WindowInsets.systemBars))
+                    .padding(padding)
             ) { content() }
         }
     }
@@ -146,10 +153,11 @@ fun SidePanel(
 
 /**
  * The window of a panel ([SidePanel], and a sheet on a phone): a dialog over the whole screen, so that focus stays
- * inside it and Back closes it ([onDismiss]). [hideBars] keeps the system bars hidden (a touch screen).
+ * inside it and Back closes it ([onDismiss]). On a touch screen, its system bars are hidden or shown as on the screen
+ * below (see LocalBarsHidden).
  */
 @Composable
-internal fun PanelWindow(onDismiss: () -> Unit, hideBars: Boolean, content: @Composable () -> Unit) {
+internal fun PanelWindow(onDismiss: () -> Unit, content: @Composable () -> Unit) {
     // A dialog is its own window, which resets the density to the system's and the context to the Activity's; keep
     // the app's scaling (see MyPlexTheme) and language (see InAppLanguage) so panels match everything else.
     val density = LocalDensity.current
@@ -164,9 +172,10 @@ internal fun PanelWindow(onDismiss: () -> Unit, hideBars: Boolean, content: @Com
             LocalReturnFocus provides null
         ) {
             // A dialog is its own window: on a phone its bars would come back over the app otherwise.
-            if (hideBars) {
+            if (LocalTouch.current) {
+                val hideBars = LocalBarsHidden.current
                 val dialogView = LocalView.current
-                SideEffect { (dialogView.parent as? DialogWindowProvider)?.window?.hideSystemBars() }
+                SideEffect { (dialogView.parent as? DialogWindowProvider)?.window?.setSystemBarsHidden(hideBars) }
             }
             content()
         }

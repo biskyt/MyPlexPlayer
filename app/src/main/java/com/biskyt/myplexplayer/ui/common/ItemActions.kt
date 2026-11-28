@@ -1,10 +1,19 @@
 package com.biskyt.myplexplayer.ui.common
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import com.biskyt.myplexplayer.R
@@ -13,6 +22,7 @@ import com.biskyt.myplexplayer.core.plex.TitleLink
 import com.biskyt.myplexplayer.data.db.CAT_MOVIE
 import com.biskyt.myplexplayer.ui.Navigator
 import com.biskyt.myplexplayer.ui.Screen
+import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 import kotlin.math.abs
 
 /** Something an options menu offers for an item: open a screen, or do something there and then. */
@@ -127,27 +137,113 @@ fun ItemActionsPanel(
     more: (@Composable () -> Unit)? = null
 ) = BoardActionsPanel(title, subtitle, actions, onDismiss, used = used, more = more)
 
+/** The labels of an options panel's [actions], for [focusedAt]: null for a heading. */
+fun optionLabels(actions: List<ItemAction>): List<String?> = actions.map { it.takeUnless { a -> a is ItemAction.Heading }?.label }
+
 /**
- * The option a panel follows, and whether the focus moves now are the panel's own, not the user's (see
- * [BoardActionsPanel]). So they are until its first move: the window's own first focus, as it opens, is not the user's.
+ * The focus of an options panel ([ItemActionsPanel], the player's More) with [labels] (see [optionLabels]): the option
+ * it follows, first the one [used] (back from the panel it opened), then the one the user moves to. Each time the
+ * options change (some are read later, such as TMDB's), that option's row takes the focus: the focus stays on it, and a
+ * late option does not take it. On a TV only. [reveal] brings a row on screen before it takes the focus (a lazy list's
+ * row has nothing to focus until then). Each row goes in [OptionFocus.ActionRow], or [OptionFocus.Row] for a row that
+ * is not an [ItemAction].
  */
-internal class FollowedOption(place: OptionPlace?) {
-    var place = place
+@Composable
+fun rememberOptionFocus(labels: List<String?>, used: OptionPlace?, reveal: suspend (Int) -> Unit = {}): OptionFocus {
+    // Not rememberFirstFocus: the panel must know which focus moves are its own.
+    val focus = remember { OptionFocus(used) }
+    val tv = LocalFormFactor.current.isTv
+    val show by rememberUpdatedState(reveal)
+    LaunchedEffect(labels, tv) { if (tv) focus.focus(labels) { show(it) } else focus.moving = false }
+    return focus
+}
+
+/**
+ * See [rememberOptionFocus]. Its moves of the focus are its own, not the user's, until its first move: the window's own
+ * first focus, as it opens, is not the user's. Not state: a move of the focus needs no new composition.
+ */
+class OptionFocus internal constructor(place: OptionPlace?) {
+    private var place = place
         set(value) {
             field = value
             seen = true // only the user's moves and renames set it, to an option that is there
         }
-    var moving = true
+    internal var moving = true
 
     /** Whether the option followed was in the panel: the option used can load late, after the panel opens. */
-    var seen = false
+    private var seen = false
 
-    /** The row with the focus, as far as the panel knows (-1: none yet). */
-    var at = -1
+    /** The row with the focus now (-1: none), as the rows themselves tell it, whatever their kind. */
+    private var focused = -1
 
-    /** Focuses the row of the option followed in [labels] ([rows]: each row's requester), once the options change. */
-    suspend fun focus(labels: List<String?>, rows: List<FocusRequester>) {
-        val i = focusedAt(labels, place)
+    /** The link the user moved to last, with the place of its row of links: only that row focuses it, not the first. */
+    private var link by mutableStateOf<Pair<OptionPlace, Int>?>(null)
+
+    private val rows = mutableListOf<FocusRequester>()
+
+    /** [followedRow]'s last answer, for the [labels][followedLabels] and [place][followedPlace] it was for. */
+    private var followedLabels: List<String?>? = null
+    private var followedPlace: OptionPlace? = null
+    private var followed = -1
+
+    /** The row of the option followed in [labels]: worked out once for each change, not once for each row. */
+    private fun followedRow(labels: List<String?>): Int {
+        if (labels !== followedLabels || place != followedPlace) {
+            followed = focusedAt(labels, place)
+            followedLabels = labels
+            followedPlace = place
+        }
+        return followed
+    }
+
+    private fun requester(i: Int): FocusRequester {
+        while (rows.size <= i) rows += FocusRequester()
+        return rows[i]
+    }
+
+    /**
+     * Row [i] of [labels]: [content] gets the modifier for what takes the focus in it, and for a row of links, which
+     * link it goes on (the one the user was on, in the row followed). The row stays the same as its option changes kind
+     * (an option becomes a row of links), so that it can tell that it lost the focus.
+     */
+    @Composable
+    fun Row(labels: List<String?>, i: Int, content: @Composable (requester: Modifier, link: Int) -> Unit) {
+        Box(
+            Modifier.onFocusChanged {
+                if (it.hasFocus) {
+                    focused = i
+                    if (!moving) place = optionPlace(labels, i)
+                } else if (focused == i) {
+                    focused = -1
+                }
+            }
+        ) {
+            val requester = Modifier.focusRequester(requester(i))
+            val shown = link?.takeIf { (row, _) -> row == place && i == followedRow(labels) }?.second ?: 0
+            content(requester, shown)
+        }
+    }
+
+    /** Row [i] of [labels], for the option [a] (see [Row] and [ItemActionRow]), which [perform] does. */
+    @Composable
+    fun ActionRow(labels: List<String?>, i: Int, a: ItemAction, perform: () -> Unit) = Row(labels, i) { requester, focusOn ->
+        ItemActionRow(a, requester, focusOn, { link = optionPlace(labels, i) to it }, perform)
+    }
+
+    /**
+     * MyPlexPlayer's: the [ItemAction.Confirmed] at row [i] of [labels] asks its question in the options' place (see
+     * BoardActionsPanel). It is followed also when a tap chose it (a tap gives no focus). Back from its question, its row
+     * takes the focus again, and no focus move until then is the user's.
+     */
+    internal fun asking(labels: List<String?>, i: Int) {
+        place = optionPlace(labels, i)
+        focused = -1
+        moving = true
+    }
+
+    /** Focuses the row of the option followed in [labels], once the options change; [reveal] brings it on screen. */
+    internal suspend fun focus(labels: List<String?>, reveal: suspend (Int) -> Unit) {
+        val i = followedRow(labels)
         try {
             if (i < 0) return
             val now = optionPlace(labels, i)
@@ -160,15 +256,13 @@ internal class FollowedOption(place: OptionPlace?) {
                 // Not before it was there: until the option used loads, the row it focuses only stands in for it.
                 seen && renamed(labels, followed, now) -> place = now
             }
-            // Still in its row: the focus stays where it is (on a row of links, perhaps not on the first).
-            if (i == at) return
+            // Its row still has the focus: the focus stays where it is (on a row of links, perhaps not on the first).
+            if (i == focused) return
             // The panel's own move. The window may not be ready for it yet as the panel opens.
             moving = true
+            reveal(i)
             repeat(FOCUS_TRIES) {
-                if (rows[i].tryFocus()) {
-                    at = i
-                    return
-                }
+                if (requester(i).tryFocus()) return
                 withFrameNanos { }
             }
         } finally {
@@ -226,16 +320,18 @@ fun focusedAt(labels: List<String?>, used: OptionPlace?): Int {
 
 /**
  * One row of an options panel, drawn the same in every one ([BoardActionsPanel], the player's More): a heading, a row of
- * links, a choice changed where it is, or an option with its help line and icon, which [perform] does. A
- * [ItemAction.Confirmed] is asked first by its panel, which draws it.
+ * links ([modifier] on its link [link]; [onLinkFocused] tells which link the user moves to), a choice changed where it
+ * is, or an option with its help line and icon, which [perform] does. A [ItemAction.Confirmed] is asked first by its
+ * panel, which draws it.
  */
 @Composable
-fun ItemActionRow(a: ItemAction, modifier: Modifier = Modifier, perform: () -> Unit) = when (a) {
-    is ItemAction.Heading -> BoardSection(a.label)
-    is ItemAction.Links -> BoardLinksRow(a.label, a.links, modifier)
-    is ItemAction.Cycle -> BoardCycle(a.label, a.value, a.step, modifier)
-    else -> BoardOption(a.label, a.help, modifier, icon = (a as? ItemAction.Run)?.icon, onClick = perform)
-}
+fun ItemActionRow(a: ItemAction, modifier: Modifier = Modifier, link: Int = 0, onLinkFocused: (Int) -> Unit = {}, perform: () -> Unit) =
+    when (a) {
+        is ItemAction.Heading -> BoardSection(a.label)
+        is ItemAction.Links -> BoardLinksRow(a.label, a.links, modifier, link, onLinkFocused)
+        is ItemAction.Cycle -> BoardCycle(a.label, a.value, a.step, modifier)
+        else -> BoardOption(a.label, a.help, modifier, icon = (a as? ItemAction.Run)?.icon, onClick = perform)
+    }
 
 /**
  * [confirm]'s [question], then its "no" (focused, [onNo]) and its yes ([onDismiss], then it is done), each drawn by

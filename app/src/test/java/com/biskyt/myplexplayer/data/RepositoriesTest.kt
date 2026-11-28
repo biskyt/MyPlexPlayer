@@ -244,7 +244,7 @@ class RepositoriesTest {
         db.categories().setIncluded(id, CAT_MOVIE, listOf("1"), false)
         vod.setFavourite(id, CAT_MOVIE, 11, true)
         vod.saveProgress(WatchProgressEntity(id, VOD_MOVIE, 11, 600_000, 3_600_000, 1, "Big Buck Bunny", null))
-        settings.update { it.copy(skipBackSec = 20, largeText = true, layout = LayoutMode.TV) }
+        settings.update { it.copy(skipBackSec = 20, largeText = true, layout = LayoutMode.TV, fullScreen = true) }
 
         val file = backup.export().decodeToString()
         // A bad file is turned down and changes nothing.
@@ -273,6 +273,8 @@ class RepositoriesTest {
         assertTrue(settings.current().largeText)
         // This device's layout stays: a backup made on a TV does not give a phone the TV's layout.
         assertEquals(LayoutMode.TOUCH, settings.current().layout)
+        // And whether it is full screen (a phone's own choice).
+        assertFalse(settings.current().fullScreen)
         assertEquals(FakePlex.SERVER_TOKEN, playlists.get(id)!!.password)
         assertTrue(playlists.get(id)!!.isStale())
         assertFalse(db.categories().all(id, CAT_MOVIE).single { it.categoryId == "1" }.included)

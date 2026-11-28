@@ -15,8 +15,8 @@ android {
         applicationId = "com.biskyt.myplexplayer"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = 36
-        versionCode = 113
-        versionName = "1.21.4"
+        versionCode = 114
+        versionName = "1.22.0"
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -68,6 +68,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // java.time (dates and times) on Android 7 (Fire OS 6), which has it only from Android 8.0.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     buildFeatures {
@@ -120,6 +122,7 @@ ksp {
 }
 
 dependencies {
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
     implementation(project(":core"))
 
     implementation(platform(libs.compose.bom))

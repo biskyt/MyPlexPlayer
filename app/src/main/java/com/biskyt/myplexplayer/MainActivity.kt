@@ -4,11 +4,13 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.Window
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.ui.input.key.Key
@@ -27,14 +29,21 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     private val touch by lazy { hasTouchScreen() }
 
+    /** Whether the system bars are hidden now, on a touch screen (see AppRoot's systemBarsHidden): kept for when they come back. */
+    var barsHidden = false
+        set(value) {
+            if (field == value) return
+            field = value
+            if (touch) window.setSystemBarsHidden(value)
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (touch) {
-            // A phone or tablet: the screens are laid out for a TV, so they're shown in landscape, full screen, the
-            // same way on every Android version.
+            // A phone or tablet: drawn behind the system bars (the screens keep clear of them), the same way on every
+            // Android version. The app hides the bars while watching, or always (see AppRoot); light icons on the dark app.
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-            enableEdgeToEdge()
-            window.hideSystemBars()
+            enableEdgeToEdge(SystemBarStyle.dark(Color.TRANSPARENT), SystemBarStyle.dark(Color.TRANSPARENT))
         }
         // Only when first opened with it: recreated, or reopened from Recents, it's the same file, already dealt with.
         if (savedInstanceState == null && intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) takeOpenedFile(intent)
@@ -131,17 +140,14 @@ class MainActivity : ComponentActivity() {
         super.onWindowFocusChanged(hasFocus)
         // Another window (a panel) has the keys now: a press begun here ends there, so it's no longer this window's.
         if (!hasFocus) pressedHere.clear()
-        if (hasFocus && touch) window.hideSystemBars()
+        if (hasFocus && touch) window.setSystemBarsHidden(barsHidden)
     }
 }
 
-/**
- * Full screen on a phone or tablet: otherwise the status bar lies over the top of the app and takes its taps. A swipe
- * from the edge brings the bars back for a moment.
- */
-fun Window.hideSystemBars() = WindowCompat.getInsetsController(this, decorView).run {
+/** The system bars (status and navigation) hidden ([hidden]: a swipe from the edge brings them back for a moment) or shown. */
+fun Window.setSystemBarsHidden(hidden: Boolean) = WindowCompat.getInsetsController(this, decorView).run {
     systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-    hide(WindowInsetsCompat.Type.systemBars())
+    if (hidden) hide(WindowInsetsCompat.Type.systemBars()) else show(WindowInsetsCompat.Type.systemBars())
 }
 
 /** The file in a file manager's "Open with" (VIEW) or "Share" (SEND). */

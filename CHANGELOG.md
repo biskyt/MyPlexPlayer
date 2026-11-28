@@ -2,6 +2,12 @@
 
 Each version's section becomes its GitHub release notes, so it is written for the people using the app.
 
+## 1.22.0
+- The app now runs on Fire TV with Fire OS 6 (Android 7.1).
+- Phones and tablets show the status and navigation bars, except during playback.
+- To hide the bars on every screen, turn on Settings › Appearance › Full screen.
+- Options panels and the player's More keep the focus on the right option.
+
 ## 1.21.4
 - Back from a panel focuses its option, also when it loads late.
 - A late option no longer takes the focus from the first option.

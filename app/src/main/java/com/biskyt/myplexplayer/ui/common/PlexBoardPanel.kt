@@ -17,8 +17,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.Text
@@ -50,17 +48,25 @@ fun BoardCycle(label: String, value: String, onStep: (Int) -> Unit, modifier: Mo
 
 /**
  * "Links", then a pill for each of [links] (its site's logo, or its name), as the boards draw them: each opens its page
- * here, or, where this device can't, shows it as a QR code. [modifier] (first focus) goes on the first.
+ * here, or, where this device can't, shows it as a QR code. [modifier] (first focus) goes on link [focusOn] (the first,
+ * if there are fewer), and [onLinkFocused] tells which link takes the focus.
  */
 @Composable
-fun BoardLinksRow(label: String, links: List<TitleLink>, modifier: Modifier = Modifier) {
+fun BoardLinksRow(
+    label: String,
+    links: List<TitleLink>,
+    modifier: Modifier = Modifier,
+    focusOn: Int = 0,
+    onLinkFocused: (Int) -> Unit = {}
+) {
     val open = rememberLinkOpener()
+    val focusAt = focusOn.takeIf { it in links.indices } ?: 0
     // On a phone's narrow sheet, the label goes over the links, which would otherwise squeeze it.
     if (!LocalFormFactor.current.isTv) {
         Column(Modifier.padding(horizontal = 14.bd, vertical = 4.bd), verticalArrangement = Arrangement.spacedBy(8.bd)) {
             Text(label, style = BoardOptionText.current)
             // The pills that do not fit go on the next line.
-            WrapRow(8.bd) { LinkPills(links, open, modifier) }
+            WrapRow(8.bd) { LinkPills(links, open, modifier, focusAt, onLinkFocused) }
         }
         return
     }
@@ -70,16 +76,17 @@ fun BoardLinksRow(label: String, links: List<TitleLink>, modifier: Modifier = Mo
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(label, style = BoardOptionText.current, modifier = Modifier.weight(1f))
-        LinkPills(links, open, modifier)
+        LinkPills(links, open, modifier, focusAt, onLinkFocused)
     }
 }
 
-/** Each of [links] as a pill with its logo (or its name), which [open] opens; the first gets [modifier]. */
+/** Each of [links] as a pill with its logo (or its name), which [open] opens; link [focusAt] gets [modifier]. */
 @Composable
-private fun LinkPills(links: List<TitleLink>, open: (TitleLink) -> Unit, modifier: Modifier) {
+private fun LinkPills(links: List<TitleLink>, open: (TitleLink) -> Unit, modifier: Modifier, focusAt: Int, onLinkFocused: (Int) -> Unit) {
     links.forEachIndexed { i, link ->
         Box(Modifier.clip(PillShape).background(Palette.surfaceHigh)) {
-            AccentFillSurface({ open(link) }, PillShape, if (i == 0) modifier else Modifier) {
+            val focus = Modifier.onFocusChanged { if (it.isFocused) onLinkFocused(i) }
+            AccentFillSurface({ open(link) }, PillShape, focus.then(if (i == focusAt) modifier else Modifier)) {
                 val padding = Modifier.padding(horizontal = 14.bd, vertical = 8.bd)
                 linkLogo(link.name)?.let { SourceLogo(it, link.name, padding, height = LINK_LOGO) }
                     ?: Text(link.name, style = BoardOptionText.current, color = LocalContentColor.current, modifier = padding)
@@ -108,14 +115,12 @@ fun BoardActionsPanel(
 ) {
     val nav = LocalNavigator.current
     var asking by remember { mutableStateOf<ItemAction.Confirmed?>(null) }
-    // The option to focus: the one used (back from the panel it opened, or from a question), then the one the user moves
-    // to. Each time the options change (some are read later, such as TMDB's), its row takes the focus: the focus stays on
-    // it, and a late option does not take it. Not state: a move of the focus needs no new composition. Kept out of the
-    // panel's content, as a question takes the place of the options.
-    // Not rememberFirstFocus: the panel must know which focus moves are its own.
-    val on = remember { FollowedOption(used?.value) }
-    val rows = remember { mutableListOf<FocusRequester>() }
+    // The option to focus (see OptionFocus): the one used (back from the panel it opened, or from a question), then the
+    // one the user moves to. Kept out of the panel's content, as a question takes the place of the options.
+    val focus = remember { OptionFocus(used?.value) }
     val tv = LocalFormFactor.current.isTv
+    // The focus is in the more options (not on a row of focus): new or renamed options do not take it back.
+    val inMore = remember { mutableStateOf(false) }
     // Back on a question goes back to the options (the owner, 2026-11-26: Back goes back to the previous panel).
     BoardPanel(onDismiss = { if (asking != null) asking = null else onDismiss() }) {
         BoardPanelTitle(title, Modifier.padding(bottom = if (subtitle == null) 6.bd else 2.bd), small = smallTitle)
@@ -130,36 +135,26 @@ fun BoardActionsPanel(
             ) { label, modifier, yes, click -> BoardOption(label, modifier = modifier, danger = yes, onClick = click) }
             return@BoardPanel
         }
-        val labels = actions.map { it.takeUnless { a -> a is ItemAction.Heading }?.label }
-        while (rows.size < actions.size) rows += FocusRequester()
-        // Also each time the options come back after a question.
-        LaunchedEffect(labels, tv) { if (tv) on.focus(labels, rows) else on.moving = false }
+        val labels = optionLabels(actions)
+        // As rememberOptionFocus does, also each time the options come back after a question.
+        LaunchedEffect(labels, tv) { if (tv && !inMore.value) focus.focus(labels) {} else focus.moving = false }
         actions.forEachIndexed { i, a ->
-            val place = optionPlace(labels, i)
-            val follow = Modifier.focusRequester(rows[i]).onFocusChanged {
-                if (it.isFocused && !on.moving) {
-                    on.place = place
-                    on.at = i
-                }
-            }
             if (a is ItemAction.Confirmed) {
-                BoardOption(a.label, a.help, follow, danger = true) {
-                    used?.value = place
-                    // Followed also when a tap chose it (a tap gives no focus). Back from its question, its row takes the
-                    // focus again, and no focus move until then is the user's.
-                    on.place = place
-                    on.at = -1
-                    on.moving = true
-                    asking = a
+                focus.Row(labels, i) { requester, _ ->
+                    BoardOption(a.label, a.help, requester, danger = true) {
+                        used?.value = optionPlace(labels, i)
+                        focus.asking(labels, i)
+                        asking = a
+                    }
                 }
             } else {
-                ItemActionRow(a, follow) {
-                    used?.value = place
+                focus.ActionRow(labels, i, a) {
+                    used?.value = optionPlace(labels, i)
                     a.perform(nav, close)
                 }
             }
         }
-        more?.invoke()
+        more?.let { Column(Modifier.onFocusChanged { inMore.value = it.hasFocus }, Arrangement.spacedBy(BoardPanelGap)) { it() } }
     }
 }
 

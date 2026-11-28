@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -23,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import com.biskyt.myplexplayer.ui.common.LocalBarsHidden
 import com.biskyt.myplexplayer.ui.common.PanelWindow
 import com.biskyt.myplexplayer.ui.common.ignoreHeldButtons
 import com.biskyt.myplexplayer.ui.common.onPlainTap
@@ -36,7 +38,8 @@ import com.biskyt.myplexplayer.ui.theme.Palette
  */
 @Composable
 fun PhoneSheet(onDismiss: () -> Unit, dim: Boolean = true, content: @Composable () -> Unit) {
-    PanelWindow(onDismiss, hideBars = true) {
+    val barsHidden = LocalBarsHidden.current
+    PanelWindow(onDismiss) {
         // The sheet rises from the bottom as it opens.
         val rise = remember { Animatable(1f) }
         LaunchedEffect(Unit) { rise.animateTo(0f, tween(RISE_MS)) }
@@ -55,6 +58,8 @@ fun PhoneSheet(onDismiss: () -> Unit, dim: Boolean = true, content: @Composable 
                     .clip(SheetShape)
                     .background(Palette.surface)
                     .onPlainTap {} // a tap on the sheet itself does not close it
+                    // Above the navigation bar, when it shows (see LocalBarsHidden).
+                    .then(if (barsHidden) Modifier else Modifier.navigationBarsPadding())
                     .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
