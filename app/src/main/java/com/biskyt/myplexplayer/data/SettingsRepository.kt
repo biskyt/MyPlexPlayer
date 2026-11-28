@@ -51,6 +51,11 @@ data class Settings(
     val accent: Int = AccentPalette.DEFAULT,
     val largeText: Boolean = false,
     val layout: LayoutMode = LayoutMode.AUTO,
+    /**
+     * On a touch screen, the system bars hidden on every screen, not only while watching (the owner, 2026-11-28: off by
+     * default).
+     */
+    val fullScreen: Boolean = false,
     /** How bright the browsing screens' background is (see BackdropLevel and AmbientBackground). */
     val backdropLevel: Int = BackdropLevel.DEFAULT,
     /** Seconds the Skip pill counts down before skipping an intro by itself; [AUTO_SKIP_OFF]: only when pressed. */
@@ -96,6 +101,7 @@ class SettingsRepository(private val context: Context) {
         val accent = intPreferencesKey("accent")
         val largeText = booleanPreferencesKey("large_text")
         val layout = stringPreferencesKey("layout")
+        val fullScreen = booleanPreferencesKey("full_screen")
         val backdrop = intPreferencesKey("backdrop_level")
         val autoSkipIntro = intPreferencesKey("auto_skip_intro")
         val autoSkipCredits = intPreferencesKey("auto_skip_credits_after")
@@ -149,6 +155,7 @@ class SettingsRepository(private val context: Context) {
             accent = valueOr(K.accent, d.accent),
             largeText = valueOr(K.largeText, d.largeText),
             layout = enumOr(this[K.layout], d.layout),
+            fullScreen = valueOr(K.fullScreen, d.fullScreen),
             backdropLevel = BackdropLevel.valid(valueOr(K.backdrop, d.backdropLevel)),
             autoSkipIntroSec = valueOr(K.autoSkipIntro, d.autoSkipIntroSec),
             autoSkipCreditsSec = valueOr(K.autoSkipCredits, d.autoSkipCreditsSec),
@@ -185,6 +192,7 @@ class SettingsRepository(private val context: Context) {
             prefs[K.accent] = s.accent
             prefs[K.largeText] = s.largeText
             prefs[K.layout] = s.layout.name
+            prefs[K.fullScreen] = s.fullScreen
             prefs[K.backdrop] = s.backdropLevel
             prefs[K.autoSkipIntro] = s.autoSkipIntroSec
             prefs[K.autoSkipCredits] = s.autoSkipCreditsSec

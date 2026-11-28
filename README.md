@@ -15,7 +15,7 @@ MyTVPlayer is currently in closed testing on Google Play. You need to join the g
 # MyPlexPlayer
 
 A fast, lightweight and free player for your own **Plex Media Server**, made for Android TV, Google TV and Fire TV
-(Android 9 and later). It also works by touch on phones and tablets.
+(Android 7.1 and later, so Fire OS 6 too). It also works by touch on phones and tablets.
 
 ![Home](store/screenshots/1-home.png)
 

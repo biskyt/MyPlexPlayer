@@ -112,6 +112,12 @@ fun ComposeTestRule.topRoot() = onAllNodes(isRoot()).let { it[it.fetchSemanticsN
 fun ComposeTestRule.sendKey(code: Int, action: Int, repeat: Int = 0): Boolean =
     topRoot().performKeyPress(KeyEvent(NativeKeyEvent(0, 0, action, code, repeat))).also { idleFrames() }
 
+/** A remote key pressed and let go, to the topmost window. */
+fun ComposeTestRule.press(code: Int) {
+    sendKey(code, NativeKeyEvent.ACTION_DOWN)
+    sendKey(code, NativeKeyEvent.ACTION_UP)
+}
+
 /** Lets a second of (simulated) time pass, idling as it goes: for checking that something did *not* happen. */
 fun ComposeTestRule.settle() = repeat(10) {
     ShadowLooper.idleMainLooper(100, TimeUnit.MILLISECONDS)

@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.biskyt.myplexplayer.AppContainer
+import com.biskyt.myplexplayer.MainActivity
 import com.biskyt.myplexplayer.container
 import com.biskyt.myplexplayer.data.ChannelFilter
 import com.biskyt.myplexplayer.data.LauncherTarget
@@ -42,15 +44,19 @@ import com.biskyt.myplexplayer.data.db.VOD_EPISODE
 import com.biskyt.myplexplayer.data.db.VOD_MOVIE
 import com.biskyt.myplexplayer.ui.common.Ambience
 import com.biskyt.myplexplayer.ui.common.AmbientBackground
+import com.biskyt.myplexplayer.ui.common.BarsAndCutout
 import com.biskyt.myplexplayer.ui.common.LeaveLiveTvWithoutIt
 import com.biskyt.myplexplayer.ui.common.LocalAmbience
+import com.biskyt.myplexplayer.ui.common.LocalBarsHidden
 import com.biskyt.myplexplayer.ui.common.LocalTopBarInset
+import com.biskyt.myplexplayer.ui.common.LocalTouch
 import com.biskyt.myplexplayer.ui.common.NoticeToast
 import com.biskyt.myplexplayer.ui.common.RecordingToasts
 import com.biskyt.myplexplayer.ui.common.SyncToast
 import com.biskyt.myplexplayer.ui.common.Tab
 import com.biskyt.myplexplayer.ui.common.TabScaffoldGap
 import com.biskyt.myplexplayer.ui.common.TopBar
+import com.biskyt.myplexplayer.ui.common.barsHiddenOn
 import com.biskyt.myplexplayer.ui.common.onGuideKey
 import com.biskyt.myplexplayer.ui.common.vodDetails
 import com.biskyt.myplexplayer.ui.dvr.DvrScreen
@@ -145,24 +151,31 @@ fun AppRoot() {
         val hasPlaylist = s.activePlaylistId != 0L
         // The browsing screens' background follows the card with focus (see AmbientBackground).
         val ambience = remember { Ambience() }
-        Box(
-            Modifier.fillMaxSize().background(Palette.background)
-                // Clear of a phone's camera cutout (TVs have none).
-                .windowInsetsPadding(WindowInsets.displayCutout)
-                .guideButton(nav, hasPlaylist, container.liveTvShown)
-        ) {
-            PhoneOrientation(nav.current.screen)
+        val barsHidden = systemBarsHidden(nav.current.screen, s.fullScreen)
+        // The background fills the screen, also behind the system bars where they show.
+        Box(Modifier.fillMaxSize().background(Palette.background)) {
             AmbientBackground(ambience, s.backdropLevel, shown = nav.current.screen.hasAmbience)
-            NavHost(nav) { screen ->
-                // Only the screens that show the background tell it which card has focus: Home's cards do not.
-                CompositionLocalProvider(LocalAmbience provides ambience.takeIf { screen.hasAmbience }) {
-                    ScreenContent(screen, hasPlaylist)
+            Box(
+                Modifier.fillMaxSize()
+                    // Clear of a phone's camera cutout (TVs have none), and of its system bars where they show: by the
+                    // app's own choice, not as they come and go, so that the player is not drawn inset as they hide.
+                    .windowInsetsPadding(if (barsHidden) WindowInsets.displayCutout else BarsAndCutout)
+                    .guideButton(nav, hasPlaylist, container.liveTvShown)
+            ) {
+                PhoneOrientation(nav.current.screen)
+                CompositionLocalProvider(LocalBarsHidden provides barsHidden) {
+                    NavHost(nav) { screen ->
+                        // Only the screens that show the background tell it which card has focus: Home's cards do not.
+                        CompositionLocalProvider(LocalAmbience provides ambience.takeIf { screen.hasAmbience }) {
+                            ScreenContent(screen, hasPlaylist)
+                        }
+                    }
                 }
+                val toasts = toastPadding(LocalFormFactor.current, nav.current.screen)
+                SyncToast(nav, Modifier.align(Alignment.BottomEnd).padding(toasts))
+                NoticeToast(nav, Modifier.align(Alignment.BottomStart).padding(toasts))
+                RecordingToasts()
             }
-            val toasts = toastPadding(LocalFormFactor.current, nav.current.screen)
-            SyncToast(nav, Modifier.align(Alignment.BottomEnd).padding(toasts))
-            NoticeToast(nav, Modifier.align(Alignment.BottomStart).padding(toasts))
-            RecordingToasts()
         }
         LeaveLiveTvWithoutIt(nav)
     }
@@ -354,6 +367,22 @@ internal fun toastPadding(form: FormFactor, screen: Screen): PaddingValues {
 }
 
 private val TOAST_GAP = 24.dp
+
+/**
+ * Hides a touch screen's system bars while watching, and shows them on the other screens unless the user chose full
+ * screen (see barsHiddenOn); returns whether they are hidden. A TV has none: true, as before.
+ */
+@Composable
+private fun systemBarsHidden(screen: Screen, fullScreen: Boolean): Boolean {
+    val activity = LocalActivity.current as? MainActivity
+    // A TV box that says it has a touch screen keeps its bars hidden, as before.
+    val tv = remember(activity) { activity?.looksLikeTv() == true }
+    // The TV's layout on a touch screen too: its canvas is as wide as the window, so no bars may take room from it.
+    val hidden = !LocalTouch.current || tv || LocalFormFactor.current.isTv || barsHiddenOn(screen.isPlayback, fullScreen)
+    // At once (not a frame later), as the screen changes.
+    SideEffect { activity?.barsHidden = hidden }
+    return hidden
+}
 
 /**
  * Which way up the screen is on a touch screen (the owner, 2026-11-25): on a phone, the phone layouts upright, and the

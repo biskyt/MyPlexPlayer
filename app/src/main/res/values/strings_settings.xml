@@ -66,6 +66,8 @@
     <string name="settings_accent_help">Used for highlights, progress bars and buttons everywhere. Lighter and darker shades are worked out for you.</string>
     <string name="settings_large_text">Large text</string>
     <string name="settings_large_text_help">Bigger text is easier to read from the sofa</string>
+    <string name="settings_full_screen">Full screen</string>
+    <string name="settings_full_screen_help">Hides the status and navigation bars on every screen, not only while watching</string>
     <string name="settings_backdrop">Background brightness</string>
     <string name="settings_backdrop_help">How bright the background is on Live TV, Movies, TV Shows, DVR and Search</string>
     <string name="settings_backdrop_off">Off</string>

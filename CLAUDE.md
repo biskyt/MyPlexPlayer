@@ -448,6 +448,35 @@ touch. It's written in Kotlin with Compose for TV, Media3/ExoPlayer and Room.
     - Sent to MyTVPlayer from this app's review, not changed here (shared code): `focus` can skip its request when the
       focused row at `at` was replaced by a row of another kind; focus in the `more` slot or a later link pill does not
       move `at`; the player's More does not follow a moved option yet.
+  - In 1.22.0: 1.42.0 (`cbdcf50`, `20c8a45`, `57f41c6`, `98c8430`; merge `5d0ecdb`) and 1.43.0 (`e372e17`,
+    `9946834`; merge `5dced61`).
+    - minSdk 25 (Android 7.1), for Fire TV with Fire OS 6: core library desugaring (`desugar_jdk_libs`), Animal
+      Sniffer's `coreLib2` signature, and the plain `mipmap/ic_launcher.xml` for Android before 8.0.
+    - `TvLauncher.HOME_ROWS`: before Android 8.0, `publish` and `clear` do nothing, and Settings and Misc hide "Show on
+      the TV's home screen" (`hasHomeRows`). `LauncherProviderTest` has its Android 7.1 case.
+    - The emulator runs add Android TV 7.1, and `start-emulator.sh` also takes `sys.boot_completed` as booted and
+      prints a clean log on a time-out. Here the script keeps its device profile argument and its download retries.
+    - On a touch screen, the system bars show on every screen except playback. "Full screen" in Appearance (key
+      `full_screen`, off by default, not restored from a backup) hides them everywhere. Taken as MyTVPlayer has it:
+      `setSystemBarsHidden`, `systemBarsHidden`, `LocalBarsHidden`, `barsHiddenOn`, `BarsAndCutout`, `PanelWindow`
+      and `SystemBarsTest`. Here `NoticeToast` shares `SyncToast`'s corner box, so it loses its own navigation bar
+      padding too, and both crash screens (TV and touch) keep clear of the bars.
+    - `OptionFocus` and `rememberOptionFocus` (ItemActions.kt) replace `FollowedOption`, with `optionLabels`,
+      `OptionFocusUiTest` (rows of links and a list off screen) and `press` in UiWait.kt. A row of links keeps the
+      link the user was on (`BoardLinksRow`'s `focusOn` and `onLinkFocused`, here in PlexBoardPanel.kt, also on the
+      phone's wrapped links). The player's More uses it with this app's Playback heading, Picture and Playback info
+      rows (`pictureAt`, `infoAt`), and `reveal` brings the option on screen first.
+    - `BoardActionsPanel` keeps its `OptionFocus` outside the panel's content, as the question takes the options'
+      place. A `Confirmed` option chosen calls `OptionFocus.asking` (this app's own), so Back or "Keep it" on its
+      question focuses it again, also after a tap.
+    - This app's own, from its review: the `more` slot is in a Column that notes its focus. A new or renamed option
+      then does not take the focus back from it (Search's recording options). The system bars stay hidden with the
+      TV's layout on a touch screen (its canvas is as wide as the window), and "Full screen" shows only where it
+      works. Both sent to MyTVPlayer, with LiveScreen's `restoreFocusPending` cleared on any key (not changed here).
+    - LiveScreen: a key in the categories clears `restoreFocusPending`, as MyTVPlayer has it.
+    - Left out: core's `Base64s.kt` (core here does not use `java.util.Base64`), the Google Drive and Xtream catch-up
+      parts, and `HideCategoryUiTest`'s new case (this app has no Hide category: one Live TV category for each
+      server). 1.42.0's SmokeTest fix (`521ede6`) was here already (1.21.3).
   - 1.41.0 (`7c1c214`; merge `9d45cfe`) does not apply. This app has no channel More info or Channel info, one Live TV
     category for each server, and no `ChannelOptionsPanel`.
   - Since 1.8.17: 1.8.19's check of core against the app's minSdk (`ed35402`, Animal Sniffer; its Xtream date fix
@@ -591,8 +620,12 @@ See also:
 - **`core` is checked against the app's minSdk by Animal Sniffer, not by lint.** Lint does not check API levels in a
   plain JVM module. So a Java API newer than minSdk compiles and passes the JVM tests, then crashes older devices
   (`LocalDate.EPOCH` needs Android 14; issue 94). `:core:animalsnifferMain` checks core's classes against the
-  `gummy-bears-api-<minSdk>` signature, and `:core:test` runs it. `minSdk` is in `gradle/libs.versions.toml`, for the
-  app and the check. The check does not cover core's libraries (OkHttp, coroutines, serialization).
+  `gummy-bears-api-<minSdk>` signature (its `coreLib2` form, which adds what desugaring gives), and `:core:test` runs
+  it. `minSdk` is in `gradle/libs.versions.toml`, for the app and the check. The check does not cover core's libraries
+  (OkHttp, coroutines, serialization).
+- **minSdk is 25 (Android 7.1), for Fire TV with Fire OS 6** (1.22.0, from MyTVPlayer 1.42.0). `java.time` comes from
+  core library desugaring (`desugar_jdk_libs`), as Android has it only from 8.0. `java.util.Base64` is not desugared:
+  use Kotlin's `kotlin.io.encoding.Base64`. Lint and Animal Sniffer report other APIs that are too new.
 - **Robolectric UI tests:**
   - **Compose rules:** use `createUiComposeRule()` / `createUiComposeRule<Activity>()` from `testutil/ComposeRules.kt`, not `createComposeRule()`.
     - The plain rule runs effects on an unconfined dispatcher. Room flows collected with `collectAsState` then resume on Room's `arch_disk_io` threads and race the main thread's recomposition, so updates get lost now and then.
@@ -840,7 +873,7 @@ These are built in already (or planned, for the Plex ones). Keep them when chang
   testing tracks" for this app. Each release uploads to Play's closed testing; 1.3.1 was the first, with
   `play-upload.yml`. Production is promoted by hand in Play Console. Amazon updates go with the Amazon upload workflow (`amazon-upload.yml`, see RELEASING.md), not yet run by the release. User-facing text never says "provider":
   a Plex server is the user's own (the owner, 2026-11-01).
-- **Emulator smoke tests** on CI for pull requests (`.github/workflows/emulator.yml`: Android TV 9 and Google TV 16).
+- **Emulator smoke tests** on CI for pull requests (`.github/workflows/emulator.yml`: Android TV 7.1, Android TV 9 and Google TV 16).
   Tests live in `app/src/androidTest`; the debug build adds an x86/x86_64 ABI only with `-PemulatorAbi=<arch>`.
   `.github/scripts/start-emulator.sh` boots the emulator itself: Google TV 16 drops off adb for a second or two after
   boot, which the usual runner action doesn't wait out.

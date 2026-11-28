@@ -151,8 +151,11 @@ class BackupRepository(
         }
         val active = backup.settings.activePlaylistId.takeIf { it in ids } ?: playlists.firstOrNull()?.id ?: 0
         // Whether this TV shows its cards on its home screen stays (a phone has none, and it is off unless turned on here),
-        // and so does this device's layout (a backup from a TV must not give a phone the TV's layout).
-        settings.update { backup.settings.copy(activePlaylistId = active, launcherRows = it.launcherRows, layout = it.layout) }
+        // and so do this device's layout (a backup from a TV must not give a phone the TV's layout) and whether it is
+        // full screen.
+        settings.update {
+            backup.settings.copy(activePlaylistId = active, launcherRows = it.launcherRows, layout = it.layout, fullScreen = it.fullScreen)
+        }
         // The guide went with the rest: open guides read it again.
         epg.reload()
         return ids.isNotEmpty()

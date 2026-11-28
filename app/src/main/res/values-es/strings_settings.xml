@@ -54,6 +54,8 @@
     <string name="settings_accent_help">Se usa en resaltados, barras de progreso y botones en toda la app. Los tonos más claros y oscuros se calculan automáticamente.</string>
     <string name="settings_large_text">Texto grande</string>
     <string name="settings_large_text_help">El texto más grande se lee mejor desde el sofá</string>
+    <string name="settings_full_screen">Pantalla completa</string>
+    <string name="settings_full_screen_help">Oculta las barras de estado y de navegación en todas las pantallas, no solo al ver algo</string>
     <string name="settings_backdrop">Brillo del fondo</string>
     <string name="settings_backdrop_help">El brillo del fondo en TV en vivo, Películas, Series, DVR y Buscar</string>
     <string name="settings_backdrop_off">Desactivado</string>

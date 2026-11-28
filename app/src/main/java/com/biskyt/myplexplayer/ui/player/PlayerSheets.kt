@@ -44,10 +44,13 @@ import com.biskyt.myplexplayer.ui.common.TouchStepButtons
 import com.biskyt.myplexplayer.ui.common.displayLanguage
 import com.biskyt.myplexplayer.ui.common.focusedAt
 import com.biskyt.myplexplayer.ui.common.formatRange
+import com.biskyt.myplexplayer.ui.common.optionLabels
 import com.biskyt.myplexplayer.ui.common.optionPlace
 import com.biskyt.myplexplayer.ui.common.perform
 import com.biskyt.myplexplayer.ui.common.rememberFirstFocus
+import com.biskyt.myplexplayer.ui.common.rememberOptionFocus
 import com.biskyt.myplexplayer.ui.common.rememberSchedule
+import com.biskyt.myplexplayer.ui.common.reveal
 import com.biskyt.myplexplayer.ui.theme.bd
 import kotlinx.coroutines.delay
 
@@ -95,20 +98,26 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
     // More's own options: Picture (what it says now) and Playback info.
     val pictureLabel = stringResource(R.string.player_picture, stringResource(vm.picture.label))
     val infoLabel = stringResource(R.string.player_info)
-    // More's options, then its own (Picture, then Playback info), and the one to focus: the one used last (back from the
-    // panel it opened), else the first.
-    val actions = if (sheet == PlaybackViewModel.Sheet.MORE) vm.menuActions() else emptyList()
-    val labels = actions.map { it.takeUnless { a -> a is ItemAction.Heading }?.label } +
-        listOf(null, pictureLabel, infoLabel) // the Playback heading (null), then its options
+    // More's options, then its own (Picture, then Playback info).
+    val more = sheet == PlaybackViewModel.Sheet.MORE
+    val actions = if (more) vm.menuActions() else emptyList()
+    val labels = optionLabels(actions) + listOf(null, pictureLabel, infoLabel) // the Playback heading (null), then its options
     val pictureAt = labels.lastIndex - 1
     val infoAt = labels.lastIndex
-    val focused = focusedAt(labels, vm.moreUsed)
-    // The list opens on it, so that it is there to take the focus.
-    val list = remember(sheet) { LazyListState(if (sheet == PlaybackViewModel.Sheet.MORE) moreRow(focused) else 0) }
+    // The list opens on the option to focus (the one used last, back from the panel it opened, else the first), so that
+    // it is there to take the focus.
+    val list = remember(sheet) { LazyListState(if (more) moreRow(focusedAt(labels, vm.moreUsed)) else 0) }
+    // As every options panel: the focus follows the option, as options load above it (see rememberOptionFocus).
+    val focus = if (more) {
+        rememberOptionFocus(labels, vm.moreUsed) { list.reveal(moreRow(it)) }
+    } else {
+        null
+    }
     // Back from a sheet that More opened goes back to More.
     BoardPanel(onDismiss = vm::sheetBack, dim = false, scroll = false) {
         // Again when More opens another sheet in its place (Playback info).
-        val first = rememberFirstFocus(sheet)
+        // More's rows take the focus by its option (see focus above).
+        val first = if (more) Modifier else rememberFirstFocus(sheet)
         LazyColumn(Modifier.panelKeys(vm), list, verticalArrangement = Arrangement.spacedBy(BoardPanelGap)) {
             when (sheet) {
                 PlaybackViewModel.Sheet.AUDIO -> {
@@ -140,12 +149,13 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
                     }
                 }
                 PlaybackViewModel.Sheet.MORE -> {
+                    val focus = checkNotNull(focus)
                     item { Header(vm.menuTitle() ?: stringResource(R.string.player_more), null) }
                     // Drawn as every options panel draws them (the series page's): headings, help lines, icons, links.
                     itemsIndexed(actions) { i, a ->
-                        // A screen pushed over the player stops it while it's covered.
-                        ItemActionRow(a, if (i == focused) first else Modifier) {
+                        focus.ActionRow(labels, i, a) {
                             vm.moreUsed = optionPlace(labels, i)
+                            // A screen pushed over the player stops it while it's covered.
                             a.perform(nav, close, vm::beforeLeaving)
                         }
                     }
@@ -155,15 +165,19 @@ fun PlayerSheet(sheet: PlaybackViewModel.Sheet, vm: PlaybackViewModel) {
                         // What it flashes once pressed: the next mode.
                         val next = vm.picture.next
                         val nextLabel = stringResource(R.string.player_picture, stringResource(next.label))
-                        Choice(pictureLabel, false, if (focused == pictureAt) first else Modifier) {
-                            vm.picture = next
-                            vm.flash(nextLabel)
+                        focus.Row(labels, pictureAt) { requester, _ ->
+                            Choice(pictureLabel, false, requester) {
+                                vm.picture = next
+                                vm.flash(nextLabel)
+                            }
                         }
                     }
                     item {
-                        Choice(infoLabel, false, if (focused == infoAt) first else Modifier) {
-                            vm.moreUsed = optionPlace(labels, infoAt)
-                            vm.sheet = PlaybackViewModel.Sheet.INFO
+                        focus.Row(labels, infoAt) { requester, _ ->
+                            Choice(infoLabel, false, requester) {
+                                vm.moreUsed = optionPlace(labels, infoAt)
+                                vm.sheet = PlaybackViewModel.Sheet.INFO
+                            }
                         }
                     }
                 }

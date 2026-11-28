@@ -54,6 +54,7 @@ import com.biskyt.myplexplayer.ui.LocalNavigator
 import com.biskyt.myplexplayer.ui.Screen
 import com.biskyt.myplexplayer.ui.appViewModel
 import com.biskyt.myplexplayer.ui.common.CycleSettingRow
+import com.biskyt.myplexplayer.ui.common.LocalTouch
 import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.SettingRow
 import com.biskyt.myplexplayer.ui.common.Toggle
@@ -135,11 +136,13 @@ fun SettingsScreen() {
     }
 }
 
-/** Whether the app runs on a TV: only there can its rows show on the home screen. */
+/** Whether the TV's home screen can show the app's rows: on a TV with Android 8.0 or later (not Fire OS 6). */
 @Composable
-private fun onTv(): Boolean {
+private fun hasHomeRows(): Boolean {
     val context = LocalContext.current
-    return remember { context.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) }
+    return remember {
+        TvLauncher.HOME_ROWS && context.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+    }
 }
 
 /**
@@ -148,7 +151,7 @@ private fun onTv(): Boolean {
  */
 @Composable
 private fun AskToShowLauncherRows() {
-    if (!onTv()) return
+    if (!hasHomeRows()) return
     val context = LocalContext.current
     val activity = LocalActivity.current
     LaunchedEffect(activity) {
@@ -162,10 +165,10 @@ private fun AskToShowLauncherRows() {
     }
 }
 
-/** "Show on the TV's home screen" (see LauncherSync), off by default: only on a TV. */
+/** "Show on the TV's home screen" (see LauncherSync), off by default: only where it can show them (see hasHomeRows). */
 @Composable
 private fun LauncherRow(modifier: Modifier = Modifier) {
-    if (!onTv()) return
+    if (!hasHomeRows()) return
     val vm = appViewModel { SettingsViewModel(it) }
     val s = vm.settings.collectAsState().value ?: return
     SettingRow(stringResource(R.string.settings_launcher), stringResource(R.string.settings_launcher_help), {
@@ -305,11 +308,11 @@ fun MiscSettingsScreen() {
     // The settings first: the rows read them too, and the first one must be there when it asks for the focus.
     appViewModel { SettingsViewModel(it) }.settings.collectAsState().value ?: return
     AskToShowLauncherRows()
-    val tv = onTv()
+    val homeRows = hasHomeRows()
     SettingsPage(stringResource(R.string.settings_misc_title)) {
         // The first row takes the focus: on a phone, the home screen row is not there.
-        if (tv) item { LauncherRow(rememberFirstFocus(once = true)) }
-        item { VpnWarningRows(if (tv) Modifier else rememberFirstFocus(once = true)) }
+        if (homeRows) item { LauncherRow(rememberFirstFocus(once = true)) }
+        item { VpnWarningRows(if (homeRows) Modifier else rememberFirstFocus(once = true)) }
         item { LayoutRow() }
     }
 }
@@ -379,6 +382,12 @@ fun AppearanceScreen() {
         SettingRow(stringResource(R.string.settings_large_text), stringResource(R.string.settings_large_text_help), {
             vm.update { it.copy(largeText = !it.largeText) }
         }) { Toggle(s.largeText) }
+        // A phone or tablet in its own layout only: a TV, and the TV's layout, have no system bars to hide.
+        if (LocalTouch.current && !LocalFormFactor.current.isTv) {
+            SettingRow(stringResource(R.string.settings_full_screen), stringResource(R.string.settings_full_screen_help), {
+                vm.update { it.copy(fullScreen = !it.fullScreen) }
+            }) { Toggle(s.fullScreen) }
+        }
         // How bright the browsing screens' background is (see AmbientBackground), as MyTVLauncher's setting.
         val level = s.backdropLevel
         CycleSettingRow(

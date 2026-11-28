@@ -143,4 +143,5 @@ language, and in English (US) for Amazon.
 - **Touch (Amazon asks):** yes, the app supports touch. Every screen works by touch on phones and tablets, and with the
   remote's D-pad on TV. A touchscreen is not required.
 - **Fire TV (Amazon):** under *Device support*, choose the Fire TV devices, and phones and tablets if you want them.
-  The app has no Google Play services, so it runs on Fire TV as it is.
+  The app has no Google Play services, so it runs on Fire TV as it is. Fire OS 6, 7 and 8 devices can run the app
+  (Android 7.1 and later).

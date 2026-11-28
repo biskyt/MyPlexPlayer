@@ -1,7 +1,5 @@
 package com.biskyt.myplexplayer.ui
 
-import android.view.KeyEvent.ACTION_DOWN
-import android.view.KeyEvent.ACTION_UP
 import android.view.KeyEvent.KEYCODE_DPAD_CENTER
 import android.view.KeyEvent.KEYCODE_DPAD_DOWN
 import android.view.KeyEvent.KEYCODE_DPAD_UP
@@ -17,9 +15,10 @@ import com.biskyt.myplexplayer.testutil.click
 import com.biskyt.myplexplayer.testutil.createUiComposeRule
 import com.biskyt.myplexplayer.testutil.focusedText
 import com.biskyt.myplexplayer.testutil.idleFrames
-import com.biskyt.myplexplayer.testutil.sendKey
+import com.biskyt.myplexplayer.testutil.press
 import com.biskyt.myplexplayer.testutil.waitForFocus
 import com.biskyt.myplexplayer.testutil.waitForText
+import com.biskyt.myplexplayer.ui.common.BoardOption
 import com.biskyt.myplexplayer.ui.common.ItemAction
 import com.biskyt.myplexplayer.ui.common.ItemActionsPanel
 import com.biskyt.myplexplayer.ui.common.OptionPlace
@@ -55,10 +54,7 @@ class ItemActionsPanelUiTest {
             }
         }
         compose.waitForFocus("Bravo")
-        repeat(2) {
-            compose.sendKey(KEYCODE_DPAD_DOWN, ACTION_DOWN)
-            compose.sendKey(KEYCODE_DPAD_DOWN, ACTION_UP)
-        }
+        repeat(2) { compose.press(KEYCODE_DPAD_DOWN) }
         compose.waitForFocus("Delta")
         // As TMDB's options come in above: Bravo, the option used, moves down a row, but must not take the focus again.
         labels.value = listOf("Extra") + labels.value
@@ -84,8 +80,8 @@ class ItemActionsPanelUiTest {
         val labels = mutableStateOf(listOf("Alpha", "Bravo"))
         show(labels, optionPlace(listOf("Alpha", "Bravo", "Charlie"), 2))
         compose.waitForFocus("Alpha")
-        press(KEYCODE_DPAD_DOWN)
-        press(KEYCODE_DPAD_UP)
+        compose.press(KEYCODE_DPAD_DOWN)
+        compose.press(KEYCODE_DPAD_UP)
         compose.waitForFocus("Alpha")
         labels.value = listOf("Alpha", "Bravo", "Charlie")
         compose.idleFrames()
@@ -97,7 +93,7 @@ class ItemActionsPanelUiTest {
         val labels = mutableStateOf(listOf("Alpha", "Bravo", "Charlie"))
         show(labels, optionPlace(listOf("Alpha", "Bravo", "Charlie"), 1))
         compose.waitForFocus("Bravo")
-        press(KEYCODE_DPAD_UP)
+        compose.press(KEYCODE_DPAD_UP)
         compose.waitForFocus("Alpha")
         // Alpha moves to row 1, where the focus was first put.
         labels.value = listOf("Extra") + labels.value
@@ -171,8 +167,7 @@ class ItemActionsPanelUiTest {
             }
         }
         compose.waitForFocus("Open")
-        compose.sendKey(KEYCODE_DPAD_DOWN, ACTION_DOWN)
-        compose.sendKey(KEYCODE_DPAD_DOWN, ACTION_UP)
+        compose.press(KEYCODE_DPAD_DOWN)
         compose.waitForFocus("Add to favourites")
         labels.value = listOf("Open", "Remove from favourites")
         compose.idleFrames()
@@ -220,9 +215,9 @@ class ItemActionsPanelUiTest {
             }
         }
         compose.waitForFocus("Alpha")
-        press(KEYCODE_DPAD_DOWN)
+        compose.press(KEYCODE_DPAD_DOWN)
         compose.waitForFocus("Delete it")
-        press(KEYCODE_DPAD_CENTER)
+        compose.press(KEYCODE_DPAD_CENTER)
         compose.waitForText("Sure?")
         compose.backOnPanel()
         compose.waitForFocus("Delete it")
@@ -240,8 +235,26 @@ class ItemActionsPanelUiTest {
         }
     }
 
-    private fun press(code: Int) {
-        compose.sendKey(code, ACTION_DOWN)
-        compose.sendKey(code, ACTION_UP)
+    @Test
+    fun `a new or renamed option does not take the focus from the more options under the panel's own`() {
+        val labels = mutableStateOf(listOf("Open", "Add to favourites"))
+        val navigator = navigators.new(Screen.Home)
+        compose.setContent {
+            MyPlexTheme {
+                CompositionLocalProvider(LocalNavigator provides navigator) {
+                    // As Search's recording options for a programme.
+                    ItemActionsPanel("Title", labels.value.map { ItemAction.Run(it) {} }, {}) { BoardOption("Record") {} }
+                }
+            }
+        }
+        compose.waitForFocus("Open")
+        repeat(2) { compose.press(KEYCODE_DPAD_DOWN) }
+        compose.waitForFocus("Record")
+        labels.value = listOf("Open", "Remove from favourites")
+        compose.idleFrames()
+        assertEquals("Record", compose.focusedText())
+        labels.value = listOf("Open", "Trailer", "Remove from favourites")
+        compose.idleFrames()
+        assertEquals("Record", compose.focusedText())
     }
 }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
@@ -23,6 +24,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.biskyt.myplexplayer.R
 import com.biskyt.myplexplayer.data.CrashLog
+import com.biskyt.myplexplayer.ui.common.BarsAndCutout
 import com.biskyt.myplexplayer.ui.common.Muted
 import com.biskyt.myplexplayer.ui.common.PillButton
 import com.biskyt.myplexplayer.ui.common.QrCode
@@ -51,7 +53,10 @@ fun CrashScreen(report: String, onContinue: (updating: Boolean) -> Unit) {
 @Composable
 private fun TvCrashScreen(issue: String, blocks: List<String>, onContinue: (updating: Boolean) -> Unit) {
     Row(
-        Modifier.fillMaxSize().background(Palette.background).padding(horizontal = 72.dp, vertical = 36.dp),
+        Modifier.fillMaxSize().background(Palette.background)
+            // Clear of a phone's system bars and camera cutout (they show here, before the app decides).
+            .windowInsetsPadding(BarsAndCutout)
+            .padding(horizontal = 72.dp, vertical = 36.dp),
         horizontalArrangement = Arrangement.spacedBy(40.dp)
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -79,7 +84,10 @@ private fun TouchCrashScreen(issue: String, blocks: List<String>, onContinue: (u
     val context = LocalContext.current
     var problem by remember { mutableStateOf<String?>(null) }
     Column(
-        Modifier.fillMaxSize().background(Palette.background).padding(horizontal = 16.dp, vertical = 24.dp),
+        Modifier.fillMaxSize().background(Palette.background)
+            // Clear of a phone's system bars and camera cutout (they show here, before the app decides).
+            .windowInsetsPadding(BarsAndCutout)
+            .padding(horizontal = 16.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(stringResource(R.string.app_crash_title), style = MaterialTheme.typography.headlineMedium)

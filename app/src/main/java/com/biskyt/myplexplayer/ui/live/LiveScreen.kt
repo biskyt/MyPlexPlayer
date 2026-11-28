@@ -143,7 +143,17 @@ fun LiveScreen(initialFilter: ChannelFilter?, initialGuide: Boolean) {
         Row(Modifier.fillMaxSize().padding(horizontal = 56.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             // Only while the guide is there to take it (a requester with nothing attached fails the key).
             val guideShown = vm.guideMode && vm.filters.settled
-            LiveCategories(vm, filter, if (guideShown) guideEntry else FocusRequester.Default)
+            Box(
+                // A key in the categories: the user is there, and the list's first focus (once per visit) must not take
+                // the focus from them when the list loads late (a slow box, or the category shown in place of one
+                // hidden). Not a focus the app moves there itself: the channel played last still takes it back.
+                Modifier.onPreviewKeyEvent {
+                    vm.restoreFocusPending = false
+                    false
+                }
+            ) {
+                LiveCategories(vm, filter, if (guideShown) guideEntry else FocusRequester.Default)
+            }
             Column(Modifier.weight(1f)) {
                 val filterBox = remember { FocusRequester() }
                 ListHeader(vm, filter, Modifier.focusRequester(filterBox))

@@ -5,8 +5,13 @@ import android.content.pm.PackageManager
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -26,6 +31,22 @@ import com.biskyt.myplexplayer.ui.theme.LocalFormFactor
 val LocalTouch = staticCompositionLocalOf { false }
 
 fun Context.hasTouchScreen(): Boolean = packageManager.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)
+
+/**
+ * Whether the system bars (the status and navigation bars) are hidden now, on a touch screen: set at the root (see
+ * AppRoot), so that a panel's window does the same (see PanelWindow). A TV has none to show.
+ */
+val LocalBarsHidden = compositionLocalOf { true }
+
+/**
+ * Whether a touch screen hides its system bars on [playback] or another screen: always while watching, and on the other
+ * screens only when the user chose [fullScreen] (the owner, 2026-11-28).
+ */
+fun barsHiddenOn(playback: Boolean, fullScreen: Boolean): Boolean = playback || fullScreen
+
+/** A phone's system bars and camera cutout, for a screen to keep clear of. */
+val BarsAndCutout: WindowInsets
+    @Composable get() = WindowInsets.systemBars.union(WindowInsets.displayCutout)
 
 /**
  * Taps and long presses on a touch screen (a phone or tablet): the TV surfaces the app is built from only answer the
